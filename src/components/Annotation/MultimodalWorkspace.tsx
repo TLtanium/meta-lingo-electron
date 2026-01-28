@@ -32,6 +32,7 @@ import {
   useTheme,
   LinearProgress
 } from '@mui/material'
+import { useTranslation } from 'react-i18next'
 import PlayArrowIcon from '@mui/icons-material/PlayArrow'
 import PauseIcon from '@mui/icons-material/Pause'
 import SkipPreviousIcon from '@mui/icons-material/SkipPrevious'
@@ -239,6 +240,7 @@ export default function MultimodalWorkspace({
   // showSpacyAnnotations is no longer used (removed from UI)
   void showSpacyAnnotations
   
+  const { t } = useTranslation()
   const theme = useTheme()
   const isDarkMode = theme.palette.mode === 'dark'
   

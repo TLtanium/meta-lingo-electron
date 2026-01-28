@@ -702,6 +702,7 @@ async def reannotate_alignment(
     """
     Re-run Wav2Vec2 alignment and TorchCrepe pitch extraction on an English audio file.
     This is useful for audio files uploaded before the alignment feature was added.
+    Note: Only available for audio files (not video) with English language.
     """
     from models.database import TextDB, CorpusDB, TaskDB
     
@@ -716,30 +717,21 @@ async def reannotate_alignment(
         raise HTTPException(status_code=404, detail="Corpus not found")
     
     media_type = text.get('media_type', 'text')
-    if media_type not in ['audio', 'video']:
-        raise HTTPException(status_code=400, detail="Alignment only available for audio/video files")
+    if media_type != 'audio':
+        raise HTTPException(status_code=400, detail="Alignment and pitch extraction only available for audio files (not video)")
     
     language = corpus.get('language', 'english')
     if language.lower() not in ['en', 'english']:
-        raise HTTPException(status_code=400, detail="Alignment only available for English audio")
+        raise HTTPException(status_code=400, detail="Alignment and pitch extraction only available for English audio")
     
     transcript_json_path = text.get('transcript_json_path')
     if not transcript_json_path or not os.path.exists(transcript_json_path):
         raise HTTPException(status_code=400, detail="Transcript JSON not found")
     
     # Get audio path
-    media_path = text.get('media_path') or text.get('audio_path') or text.get('video_path')
+    media_path = text.get('media_path') or text.get('audio_path')
     if not media_path or not os.path.exists(media_path):
         raise HTTPException(status_code=400, detail="Audio file not found")
-    
-    # For video files, need to extract audio first
-    if media_type == 'video':
-        # Check if extracted audio exists
-        video_path = Path(media_path)
-        audio_path = video_path.parent / f"{video_path.stem}.wav"
-        if not audio_path.exists():
-            raise HTTPException(status_code=400, detail="Extracted audio not found. Please re-upload the video with transcription enabled.")
-        media_path = str(audio_path)
     
     # Create task for tracking
     task_id = str(uuid.uuid4())
@@ -3096,7 +3088,8 @@ def process_media_file_sync(
                             extracted,
                             output_dir=str(output_dir),
                             language=language,
-                            progress_callback=video_transcribe_callback
+                            progress_callback=video_transcribe_callback,
+                            skip_alignment_pitch=True  # Video files skip Wav2Vec2 alignment and pitch extraction
                         )
                         results["transcript"] = transcript_result
                         

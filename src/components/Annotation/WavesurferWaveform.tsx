@@ -609,8 +609,13 @@ const WavesurferWaveform = forwardRef<WavesurferWaveformRef, WavesurferWaveformP
     // Clear canvas
     ctx.clearRect(0, 0, containerWidth, height)
 
+    // Validate all required pitch data fields
     const { f0, periodicity, times, fmin, fmax } = pitchData
-    if (!f0 || f0.length === 0) return
+    if (!f0 || f0.length === 0 || !periodicity || !times || 
+        typeof fmin !== 'number' || typeof fmax !== 'number' || fmin >= fmax) {
+      console.warn('[WavesurferWaveform] Invalid pitch data, skipping render')
+      return
+    }
 
     const pixelsPerSecond = containerWidth / duration
     const freqRange = fmax - fmin

@@ -554,12 +554,6 @@ export default function MultimodalAnnotation() {
           // Load pitch data (for English audio with TorchCrepe F0 extraction)
           if (response.transcript?.pitch) {
             setPitchData(response.transcript.pitch)
-            console.log('[MultimodalAnnotation] Pitch data loaded:', {
-              enabled: response.transcript.pitch.enabled,
-              f0Count: response.transcript.pitch.f0?.length || 0
-            })
-          } else {
-            console.log('[MultimodalAnnotation] No pitch data in transcript')
           }
           
           // Load SpaCy annotations (pass segments to avoid stale state)

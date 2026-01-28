@@ -103,6 +103,18 @@ hiddenimports = [
     'librosa.util',
     'soundfile',
     
+    # Audio Resampling (for TorchCrepe pitch extraction)
+    'resampy',
+    'resampy.core',
+    'resampy.filters',
+    'resampy.interpn',
+    
+    # Numba (required by resampy for JIT compilation)
+    'numba',
+    'numba.core',
+    'numba.np',
+    'llvmlite',
+    
     # 主题建模
     'bertopic',
     'sentence_transformers',
@@ -312,6 +324,28 @@ try:
 except Exception as e:
     # librosa 可能不在标准位置，但已在 hiddenimports 中，运行时应该可用
     print(f"Warning: Could not collect librosa data (may still work at runtime): {e}")
+
+# 收集 resampy 数据文件 (filter coefficients for audio resampling)
+try:
+    resampy_datas, resampy_binaries, resampy_hiddenimports = collect_all('resampy')
+    # 过滤掉 macOS 资源叉文件
+    resampy_datas = [d for d in resampy_datas if not os.path.basename(d[0]).startswith('._')]
+    datas += resampy_datas
+    hiddenimports += resampy_hiddenimports
+    print(f"Info: Collected resampy data files (excluding macOS resource forks)")
+except Exception as e:
+    print(f"Warning: Could not collect resampy data: {e}")
+
+# 收集 numba 数据文件 (required by resampy for JIT compilation)
+try:
+    numba_datas, numba_binaries, numba_hiddenimports = collect_all('numba')
+    # 过滤掉 macOS 资源叉文件
+    numba_datas = [d for d in numba_datas if not os.path.basename(d[0]).startswith('._')]
+    datas += numba_datas
+    hiddenimports += numba_hiddenimports
+    print(f"Info: Collected numba data files (excluding macOS resource forks)")
+except Exception as e:
+    print(f"Warning: Could not collect numba data: {e}")
 
 # 收集 soundfile 数据和二进制文件
 # 注意: soundfile 在 conda 环境中可能不是标准包格式，使用 try-except 处理

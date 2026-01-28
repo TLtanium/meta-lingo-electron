@@ -211,7 +211,8 @@ class WhisperService:
         language: str = None,
         return_timestamps: bool = True,
         use_word_timestamps: bool = True,
-        progress_callback: callable = None
+        progress_callback: callable = None,
+        skip_alignment_pitch: bool = False
     ) -> Dict[str, Any]:
         """
         Transcribe audio file
@@ -222,6 +223,7 @@ class WhisperService:
             return_timestamps: Whether to return timestamps
             use_word_timestamps: Whether to use word-level timestamps
             progress_callback: Progress callback function
+            skip_alignment_pitch: Whether to skip Wav2Vec2 alignment and pitch extraction (for video files)
             
         Returns:
             Transcription result dictionary
@@ -387,7 +389,8 @@ class WhisperService:
             
             logger.info(f"Transcription complete: {len(segments)} segments, {total_words} words")
             
-            # For English audio, perform forced alignment and pitch extraction
+            # For English audio (not video), perform forced alignment and pitch extraction
+            # Skip alignment/pitch for video files or non-English audio
             detected_language = language or "auto"
             # Check if language is English (either explicitly set or detected)
             is_english = detected_language.lower() in ['en', 'english', 'auto']
@@ -406,7 +409,8 @@ class WhisperService:
                 else:
                     is_english = False
             
-            if is_english:
+            # Only perform alignment and pitch extraction for English audio files (not video)
+            if is_english and not skip_alignment_pitch:
                 logger.info("English audio detected, performing forced alignment and pitch extraction...")
                 
                 # Forced alignment with Wav2Vec2
@@ -470,9 +474,14 @@ class WhisperService:
                     logger.error(f"Pitch extraction error: {e}")
                     transcript_data["pitch"] = {"enabled": False, "error": str(e)}
             else:
-                logger.info("Non-English audio detected, skipping alignment and pitch extraction")
-                transcript_data["alignment"] = {"enabled": False, "reason": "Non-English audio"}
-                transcript_data["pitch"] = {"enabled": False, "reason": "Non-English audio"}
+                if skip_alignment_pitch:
+                    reason = "Video file - alignment/pitch only for audio"
+                    logger.info("Video file detected, skipping alignment and pitch extraction")
+                else:
+                    reason = "Non-English audio"
+                    logger.info("Non-English audio detected, skipping alignment and pitch extraction")
+                transcript_data["alignment"] = {"enabled": False, "reason": reason}
+                transcript_data["pitch"] = {"enabled": False, "reason": reason}
             
             if progress_callback:
                 progress_callback(100, 100, "Processing complete")
