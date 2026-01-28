@@ -252,6 +252,65 @@ Meta-Lingo integrates several pre-trained models:
 
 This project is currently maintained for academic research purposes. For bug reports or feature requests, please open an issue.
 
+## Changelog
+
+### v3.8.95 (2026-01-28)
+- Syntax visualization support for audio/video transcripts
+- Disable auto-annotation for audio/video transcripts (segment-based data complexity)
+- Fix MIPVU data loading from segment-based format
+
+### v3.8.94 (2026-01-28)
+- Full annotation pipeline for audio/video transcripts (SpaCy + USAS + MIPVU)
+- Progress display for upload and re-annotation stages
+
+### v3.8.93 (2026-01-28)
+- **Keyword Extraction**: Stopword filtering, corpus resource support (BNC/Brown/NOW/OANC), statistical thresholds
+- New corpus resource service with pre-built frequency data
+
+### v3.8.92 (2026-01-28)
+- **Auto-annotation button**: MIPVU metaphor and Theme/Rheme auto-annotation
+- Theme/Rheme analysis service based on SFL theory
+
+### v3.8.91 (2026-01-28)
+- Documentation: Metaphor analysis guide with MIPVU methodology
+- Documentation: Collocation and semantic domain metaphor highlighting
+
+### v3.8.89 (2026-01-25)
+- **Custom wallpaper**: Upload, preview, transparency adjustment
+- **Word frequency**: Stopword removal with NLTK support (20+ languages)
+
+### v3.8.88 (2026-01-24)
+- **USAS annotation modes**: Rule-based / Neural / Hybrid
+- PyMUSAS-Neural-Multilingual-Base-BEM model integration
+
+### v3.8.87 (2026-01-21)
+- LDA/LSA/NMF CSV export with topic name column
+
+### v3.8.86 (2026-01-18)
+- **Topic naming**: Ollama LLM naming for LDA/LSA/NMF topics
+- Custom label editing for all topic modeling methods
+
+### v3.8.78
+- Fix license display in packaged app
+- Fix pyLDAvis slow loading (70s → few seconds)
+
+### v3.8.77 (2026-01-11)
+- Fix framework management: delete button, category colors, reset function
+
+### v3.8.76
+- Improve PNG export clarity (2x → 3x scale) for all D3 visualizations
+
+### v3.8.74 (2026-01-10)
+- Fix BERTopic hierarchy visualization (only showing one level)
+
+### v3.8.73 (2026-01-10)
+- Real-time regex validation in text editor
+
+### v3.8.72 (2026-01-10)
+- Fix large text upload progress and annotation issues
+
+For detailed changelog, see [PROJECT.md](PROJECT.md).
+
 ## License
 
 **Meta-Lingo Software License (Non-Commercial)**
