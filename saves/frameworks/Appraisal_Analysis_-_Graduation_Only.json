@@ -1,0 +1,258 @@
+{
+  "id": "Appraisal_Analysis_-_Graduation_Only",
+  "name": "Appraisal Analysis - Graduation Only",
+  "category": "UAM - Appraisal Analysis",
+  "description": "级差系统 (graduation)：级差系统处理语言中表达程度、强度和范围的资源。",
+  "root": {
+    "id": "e569eefd-f598-4238-8b66-0d9a1f6fa5c7",
+    "name": "graduation",
+    "type": "label",
+    "definition": "级差系统 (graduation)：级差系统处理语言中表达程度、强度和范围的资源。",
+    "children": [
+      {
+        "id": "869c866a-5627-4f2b-8392-622c22c92e58",
+        "name": "GRADUATION-TYPE",
+        "type": "tier",
+        "definition": null,
+        "children": [
+          {
+            "id": "a8c6c1d1-1836-440f-97fe-8b5df1744484",
+            "name": "focus",
+            "type": "label",
+            "definition": "焦点 (focus)：调整分类边界的清晰度。",
+            "children": [
+              {
+                "id": "65d32ba6-d041-4798-b7f6-775b10d90b95",
+                "name": "FOCUS-TYPE",
+                "type": "tier",
+                "definition": null,
+                "children": [
+                  {
+                    "id": "8a4c7433-6ed1-40ee-a1b5-15a83026aac9",
+                    "name": "sharpen",
+                    "type": "label",
+                    "definition": "锐化 (sharpen): 使分类边界更加清晰、明确。",
+                    "color": "#c079bc"
+                  },
+                  {
+                    "id": "de679b6e-fe9e-4c42-898c-c8e3cf7902d8",
+                    "name": "soften",
+                    "type": "label",
+                    "definition": "软化 (soften): 使分类边界变得模糊、不确定。",
+                    "color": "#d78b82"
+                  }
+                ]
+              }
+            ],
+            "color": "#c98179"
+          },
+          {
+            "id": "04d5a1c3-e37a-43e8-a9fb-22e705a6941a",
+            "name": "force",
+            "type": "label",
+            "definition": "力度 (force)：调整强度或数量的程度。",
+            "children": [
+              {
+                "id": "5259fad4-183c-46c9-a060-a49b98f5ba31",
+                "name": "FORCE-TYPE",
+                "type": "tier",
+                "definition": null,
+                "children": [
+                  {
+                    "id": "febf16f5-7aae-4cd5-bd3f-44fb8fc01ca8",
+                    "name": "intensification",
+                    "type": "label",
+                    "definition": "强化 (intensification): 增强或减弱质量的程度。",
+                    "children": [
+                      {
+                        "id": "7edbc4a4-32f4-4c42-9249-eb4d08ccb8fc",
+                        "name": "INTENSIFICATION-TYPE",
+                        "type": "tier",
+                        "definition": null,
+                        "children": [
+                          {
+                            "id": "37a4391e-65e4-43bb-8377-74b6905b664c",
+                            "name": "degree",
+                            "type": "label",
+                            "definition": "程度 (degree): 调整质量的强度程度。",
+                            "color": "#9185b5"
+                          },
+                          {
+                            "id": "b58bee1a-6d01-4a26-af74-0a8c46a248ad",
+                            "name": "vigour",
+                            "type": "label",
+                            "definition": "活力 (vigour): 调整过程的强度或活跃程度。",
+                            "color": "#947fc0"
+                          }
+                        ]
+                      }
+                    ],
+                    "color": "#80d17d"
+                  },
+                  {
+                    "id": "930a00a0-7169-43f9-89cb-bf7d7c8d0245",
+                    "name": "quantification",
+                    "type": "label",
+                    "definition": "量化 (quantification): 调整数量或范围。",
+                    "children": [
+                      {
+                        "id": "3bd0e670-ed86-44f2-a179-3c9234f9cc7c",
+                        "name": "QUANTIFICATION-TYPE",
+                        "type": "tier",
+                        "definition": null,
+                        "children": [
+                          {
+                            "id": "c3d842d0-eb38-4b53-a566-8cd046f2d5be",
+                            "name": "extent",
+                            "type": "label",
+                            "definition": "范围 (extent): 涉及时间或空间范围的量化。",
+                            "children": [
+                              {
+                                "id": "8111bb4c-a080-4990-b3ba-c6495c87e9e7",
+                                "name": "EXTENT-GATE",
+                                "type": "tier",
+                                "definition": null,
+                                "children": [
+                                  {
+                                    "id": "0b7cfb7c-6f74-4523-89b1-6b6b4d37d196",
+                                    "name": "distribution",
+                                    "type": "label",
+                                    "definition": "分布 (distribution): 表达分布范围。",
+                                    "children": [
+                                      {
+                                        "id": "f242d00e-8221-4c63-bc88-cc72ae8c65eb",
+                                        "name": "DISTRIBUTION-TYPE",
+                                        "type": "tier",
+                                        "definition": null,
+                                        "children": [
+                                          {
+                                            "id": "db35c4dd-b79a-4366-a623-b438bc673f96",
+                                            "name": "distrib-space",
+                                            "type": "label",
+                                            "definition": "空间分布 (distrib-space): 空间范围内的分布。",
+                                            "color": "#aa9fab"
+                                          },
+                                          {
+                                            "id": "2b6a49b5-9e30-42a7-9a03-417d50277e6d",
+                                            "name": "distrib-time",
+                                            "type": "label",
+                                            "definition": "时间分布 (distrib-time): 时间范围内的分布。",
+                                            "color": "#cdc2c7"
+                                          }
+                                        ]
+                                      }
+                                    ],
+                                    "color": "#94d88c"
+                                  },
+                                  {
+                                    "id": "895325d1-ea2c-4ad0-a3c4-30ae18a25caf",
+                                    "name": "proximity",
+                                    "type": "label",
+                                    "definition": "邻近性 (proximity): 表达接近程度。",
+                                    "children": [
+                                      {
+                                        "id": "4bf2a76c-ad62-4761-bac1-ae02a39fc337",
+                                        "name": "PROXIMITY-TYPE",
+                                        "type": "tier",
+                                        "definition": null,
+                                        "children": [
+                                          {
+                                            "id": "6224b03c-0d23-40c7-bebe-80f1b0076712",
+                                            "name": "space",
+                                            "type": "label",
+                                            "definition": "空间 (space): 空间上的接近程度。",
+                                            "color": "#bbb7c4"
+                                          },
+                                          {
+                                            "id": "6fc57424-bf86-4a9f-93f6-2d96cc44ddcb",
+                                            "name": "time",
+                                            "type": "label",
+                                            "definition": "时间 (time): 时间上的接近程度。",
+                                            "color": "#79c37e"
+                                          }
+                                        ]
+                                      }
+                                    ],
+                                    "color": "#9e80b7"
+                                  }
+                                ]
+                              }
+                            ],
+                            "color": "#a1c8ba"
+                          },
+                          {
+                            "id": "aac2e0e0-6f22-4735-af0e-0ff09ccab770",
+                            "name": "mass",
+                            "type": "label",
+                            "definition": "质量 (mass): 涉及不可数量的量化。",
+                            "color": "#d2dbb2"
+                          },
+                          {
+                            "id": "b637bed4-cb63-436a-9321-17a9a9a42229",
+                            "name": "number",
+                            "type": "label",
+                            "definition": "数量 (number): 涉及可数量的量化。",
+                            "color": "#9280c1"
+                          }
+                        ]
+                      }
+                    ],
+                    "color": "#ac93b2"
+                  }
+                ]
+              },
+              {
+                "id": "bd2275bb-f988-488a-8e21-71c6c79d17fe",
+                "name": "LEXICAL-FUSION",
+                "type": "tier",
+                "definition": null,
+                "children": [
+                  {
+                    "id": "3b113a52-646e-416c-ad66-d944619cb6f5",
+                    "name": "infusing",
+                    "type": "label",
+                    "definition": "融入 (infusing): 级差意义融入词汇本身。",
+                    "color": "#c7a9b2"
+                  },
+                  {
+                    "id": "724556dd-f6c7-4a65-8aa8-117f73767223",
+                    "name": "isolating",
+                    "type": "label",
+                    "definition": "独立 (isolating): 级差意义通过独立词汇表达。",
+                    "color": "#8db9d5"
+                  }
+                ]
+              },
+              {
+                "id": "457e6100-8fa7-4785-972c-1cfb6633abd3",
+                "name": "SCALE",
+                "type": "tier",
+                "definition": null,
+                "children": [
+                  {
+                    "id": "ce5c4bfd-3582-42b3-b787-88c449f6dbe0",
+                    "name": "downscale",
+                    "type": "label",
+                    "definition": "降级 (downscale): 降低强度或程度。",
+                    "color": "#d6a58a"
+                  },
+                  {
+                    "id": "070a7916-ccb8-417f-96fb-b2f359c7d8e8",
+                    "name": "upscale",
+                    "type": "label",
+                    "definition": "升级 (upscale): 提高强度或程度。",
+                    "color": "#9685a9"
+                  }
+                ]
+              }
+            ],
+            "color": "#c18f91"
+          }
+        ]
+      }
+    ],
+    "color": "#bcafc0"
+  },
+  "createdAt": "2025-12-12T13:52:44.820198",
+  "updatedAt": "2025-12-12T13:52:44.820198"
+}

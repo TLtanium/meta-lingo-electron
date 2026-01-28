@@ -1,0 +1,287 @@
+{
+  "id": "SFL-Transitivity",
+  "name": "SFL-Transitivity",
+  "category": "UAM - Grammar",
+  "description": "概念单位（ideational-unit）：系统功能语言学中概念元功能的基本分析单位，用于表达人类对现实世界的经验和认知。",
+  "root": {
+    "id": "bdc6d760-dc50-47bb-8ce6-b88554634e61",
+    "name": "ideational-unit",
+    "type": "label",
+    "definition": "概念单位（ideational-unit）：系统功能语言学中概念元功能的基本分析单位，用于表达人类对现实世界的经验和认知。",
+    "children": [
+      {
+        "id": "4224f2c0-b1c0-4040-8741-3e63622c1fb9",
+        "name": "GRAMMATICAL-RANK",
+        "type": "tier",
+        "definition": null,
+        "children": [
+          {
+            "id": "a958c3e5-eafa-4476-864f-387d92d21c9a",
+            "name": "circumstance",
+            "type": "label",
+            "definition": "环境成分（circumstance）：环境成分是小句中的外围要素，通常由副词性短语实现，提供关于过程发生的时间、地点、方式、原因等背景信息。包括九大类型：程度、位置、方式、原因、偶然性、伴随、角色、事项和角度。",
+            "color": "#78988e"
+          },
+          {
+            "id": "88ab6d21-7dd9-4648-be5b-d19a6b23aaba",
+            "name": "configuration",
+            "type": "label",
+            "definition": "结构（configuration）：结构指小句中各功能成分的组织配置模式，体现不同过程类型的典型结构特征。",
+            "children": [
+              {
+                "id": "b500a221-75b4-49ce-aa87-325bc1700622",
+                "name": "CLAUSE-TYPE",
+                "type": "tier",
+                "definition": null,
+                "children": [
+                  {
+                    "id": "d3f94199-87fb-4d18-8945-b4ca373de617",
+                    "name": "existential",
+                    "type": "label",
+                    "definition": "存在过程（existential）：存在过程表达某物的存在或出现，典型结构为\"there + be动词 + 存在者\"，如\"There is a book on the table\"。",
+                    "color": "#beb78a"
+                  },
+                  {
+                    "id": "4eb359b0-484d-4410-967a-da292e7ca886",
+                    "name": "material",
+                    "type": "label",
+                    "definition": "物质过程（material）：物质过程表达物理世界中的行为、事件和变化，涉及\"做\"和\"发生\"。",
+                    "children": [
+                      {
+                        "id": "708c195d-4fc8-4ca6-a29f-00008392afd9",
+                        "name": "MATERIAL-TYPE",
+                        "type": "tier",
+                        "definition": null,
+                        "children": [
+                          {
+                            "id": "b606f9b6-3e6e-4d27-8b57-7b821f948a67",
+                            "name": "ditransitive",
+                            "type": "label",
+                            "definition": "双及物（ditransitive）：有两个宾语的物质过程，如\"给某人某物\"。",
+                            "color": "#cfd0d1"
+                          },
+                          {
+                            "id": "e8ed40ce-422b-4486-9079-5c8bcbf961d1",
+                            "name": "ergative",
+                            "type": "label",
+                            "definition": "作格（ergative）：既可以是及物也可以是不及物的过程，强调过程本身而非施事者。",
+                            "color": "#907fa9"
+                          },
+                          {
+                            "id": "76414ab7-1dad-4ba0-846e-337fd66c885e",
+                            "name": "intransitive",
+                            "type": "label",
+                            "definition": "不及物（intransitive）：只有动作者，没有目标的物质过程。",
+                            "color": "#a3d488"
+                          },
+                          {
+                            "id": "c3369fb0-2088-48cc-ac87-e1d95aadf797",
+                            "name": "monotransitive",
+                            "type": "label",
+                            "definition": "单及物（monotransitive）：有一个直接宾语的物质过程。",
+                            "color": "#8ac3bb"
+                          }
+                        ]
+                      }
+                    ],
+                    "color": "#d98878"
+                  },
+                  {
+                    "id": "27845a8a-e92c-4d4e-a200-e5aadeb1b45a",
+                    "name": "mental",
+                    "type": "label",
+                    "definition": "心理过程（mental）：心理过程表达人类的内在体验，包括感知、认知和情感。",
+                    "children": [
+                      {
+                        "id": "5efa83b1-8c9c-4166-9099-22581ec59dfc",
+                        "name": "MENTAL-TYPE",
+                        "type": "tier",
+                        "definition": null,
+                        "children": [
+                          {
+                            "id": "40039410-3967-405f-97ca-c01c3367fd76",
+                            "name": "cognition",
+                            "type": "label",
+                            "definition": "认知（cognition）：思考、知道、理解等认知活动。",
+                            "color": "#967890"
+                          },
+                          {
+                            "id": "8449cb3a-af6a-4002-9110-35b96f332e1d",
+                            "name": "perception",
+                            "type": "label",
+                            "definition": "感知（perception）：看、听、感觉等感官体验。",
+                            "color": "#83dad0"
+                          },
+                          {
+                            "id": "5269dce5-a7c4-45f0-9ee2-7096b7c2cdc1",
+                            "name": "reaction",
+                            "type": "label",
+                            "definition": "反应（reaction）：喜欢、害怕、担心等情感反应。",
+                            "color": "#d88ea9"
+                          }
+                        ]
+                      },
+                      {
+                        "id": "e4dbceb3-c829-471d-8d0c-13e89ce8726c",
+                        "name": "MENTAL-TYPE2",
+                        "type": "tier",
+                        "definition": null,
+                        "children": [
+                          {
+                            "id": "a9bf2d77-ad2a-44d8-80e2-613f3d064465",
+                            "name": "mental-active",
+                            "type": "label",
+                            "definition": "主动心理过程（mental-active）：感知者主动进行的心理活动。",
+                            "color": "#88847f"
+                          },
+                          {
+                            "id": "fdbfe258-cd1a-41f5-b1c2-b490c9bdb4fa",
+                            "name": "mental-passive",
+                            "type": "label",
+                            "definition": "被动心理过程（mental-passive）：感知者被动经历的心理状态。",
+                            "color": "#9db579"
+                          }
+                        ]
+                      }
+                    ],
+                    "color": "#dac286"
+                  },
+                  {
+                    "id": "dc8ee0fb-4a20-4b61-8305-166523ba52c9",
+                    "name": "modal",
+                    "type": "label",
+                    "definition": "情态过程（modal）：情态过程涉及情态意义的表达，与说话者对命题的态度和判断相关。",
+                    "color": "#94ced4"
+                  },
+                  {
+                    "id": "c48cfc15-8aee-4bdf-a6f0-ee3fb2c75225",
+                    "name": "relational",
+                    "type": "label",
+                    "definition": "关系过程（relational）：关系过程表达\"是\"的关系，建立实体之间的等同、属性或环境关系。",
+                    "children": [
+                      {
+                        "id": "b3d11b06-877c-4297-aa7e-f2dc161335a3",
+                        "name": "RELATIONAL-TYPE",
+                        "type": "tier",
+                        "definition": null,
+                        "children": [
+                          {
+                            "id": "8656f091-cfd8-4ea7-912d-687fd95bab82",
+                            "name": "attributive",
+                            "type": "label",
+                            "definition": "属性（attributive）：为实体分配属性，如\"他很聪明\"。",
+                            "color": "#938ad1"
+                          },
+                          {
+                            "id": "7bbb01b9-d256-4141-9374-b8bb19d7b463",
+                            "name": "circumstantial",
+                            "type": "label",
+                            "definition": "环境（circumstantial）：根据位置、时间、方式等定义实体。",
+                            "color": "#7b988f"
+                          },
+                          {
+                            "id": "c47a03e0-a1d1-4fd9-846b-c0dafacb42aa",
+                            "name": "identifying",
+                            "type": "label",
+                            "definition": "识别（identifying）：建立两个实体之间的等同关系。",
+                            "color": "#c0c2cd"
+                          },
+                          {
+                            "id": "4a799cf5-e8d6-41fb-844e-04ee402224f8",
+                            "name": "possessive",
+                            "type": "label",
+                            "definition": "所有（possessive）：表达拥有关系。",
+                            "color": "#b07dd8"
+                          }
+                        ]
+                      }
+                    ],
+                    "color": "#b58fbc"
+                  },
+                  {
+                    "id": "ce473461-360f-4e3e-bafd-6ef4f2ebcafb",
+                    "name": "verbal",
+                    "type": "label",
+                    "definition": "言语过程（verbal）：言语过程涉及任何形式的符号意义交换，包括说话、交流和表达。",
+                    "children": [
+                      {
+                        "id": "3ec40177-8257-4d48-9ba4-6f884d2ea46d",
+                        "name": "VERBAL-TYPE",
+                        "type": "tier",
+                        "definition": null,
+                        "children": [
+                          {
+                            "id": "cd324841-dacf-476b-82ae-eb697726ff8b",
+                            "name": "addresee-oriented",
+                            "type": "label",
+                            "definition": "面向受话者（addresee-oriented）：直接指向特定受话者的言语行为。",
+                            "color": "#cb9bcc"
+                          },
+                          {
+                            "id": "149fcb8a-ead3-410e-8e64-1a602fb51755",
+                            "name": "not-addresee-oriented",
+                            "type": "label",
+                            "definition": "非面向受话者（not-addresee-oriented）：不特定指向受话者的言语行为。",
+                            "color": "#ccc995"
+                          }
+                        ]
+                      },
+                      {
+                        "id": "5bbd3655-81d9-4af8-8dd4-f8c1d5df03b6",
+                        "name": "VERBAL-TYPE2",
+                        "type": "tier",
+                        "definition": null,
+                        "children": [
+                          {
+                            "id": "3f2d1844-7731-4a3f-9756-e1e25c4a1b10",
+                            "name": "verbal-active",
+                            "type": "label",
+                            "definition": "主动言语过程（verbal-active）：说话者主动发起的言语行为。",
+                            "color": "#949cd1"
+                          },
+                          {
+                            "id": "649cebb3-3e3c-4c31-9549-d356ef0db4e8",
+                            "name": "verbal-passive",
+                            "type": "label",
+                            "definition": "被动言语过程（verbal-passive）：说话者被动参与的言语行为。",
+                            "color": "#c7dc9b"
+                          }
+                        ]
+                      }
+                    ],
+                    "color": "#bccfb5"
+                  }
+                ]
+              }
+            ],
+            "color": "#c9af81"
+          },
+          {
+            "id": "bfe3f51e-3b46-4878-93b0-f06777f4f8ff",
+            "name": "configuration-complex",
+            "type": "label",
+            "definition": "复合结构（configuration-complex）：复合结构指包含多个过程或复杂句法结构的小句配置。",
+            "color": "#89bf96"
+          },
+          {
+            "id": "cf69dde5-24cf-4ca3-93ac-5149a46e8ad9",
+            "name": "participant",
+            "type": "label",
+            "definition": "参与者（participant）：参与者是过程中核心涉及的实体，通常由名词短语实现，在不同过程类型中承担不同的参与者角色。",
+            "color": "#b681d5"
+          },
+          {
+            "id": "387ac54f-1479-406e-9275-0db2463d784c",
+            "name": "process",
+            "type": "label",
+            "definition": "过程（process）：过程是小句的核心，通常由动词实现，表达\"发生、进行、感知、意指、存在和变成\"等经验内容。",
+            "color": "#78958c"
+          }
+        ]
+      }
+    ],
+    "color": "#88d8b9"
+  },
+  "createdAt": "2025-12-12T13:52:45.015684",
+  "updatedAt": "2025-12-12T13:52:45.015684"
+}

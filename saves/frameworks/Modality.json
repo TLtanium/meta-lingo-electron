@@ -1,0 +1,244 @@
+{
+  "id": "Modality",
+  "name": "Modality",
+  "category": "UAM - Others",
+  "description": "情态标记 (modal-marker)：表达说话者对命题真实性、义务性或能力等态度的语言标记。",
+  "root": {
+    "id": "0c12364e-4ccd-4aa5-a9a1-7a07a103e096",
+    "name": "modal-marker",
+    "type": "label",
+    "definition": "情态标记 (modal-marker)：表达说话者对命题真实性、义务性或能力等态度的语言标记。",
+    "children": [
+      {
+        "id": "038a77e8-4385-49fc-b395-af312b74baff",
+        "name": "MODAL-SEMANTICS",
+        "type": "tier",
+        "definition": null,
+        "children": [
+          {
+            "id": "31c7b973-475e-41bd-a266-ee6afe60934d",
+            "name": "likelihood",
+            "type": "label",
+            "definition": "可能性 (likelihood)：表达对事件发生可能性的判断。",
+            "children": [
+              {
+                "id": "6a257416-3696-4324-a291-4bcb70fdb743",
+                "name": "LIKELIHOOD-TYPE",
+                "type": "tier",
+                "definition": null,
+                "children": [
+                  {
+                    "id": "b866710d-0612-48ef-ae24-829bde01e6a9",
+                    "name": "certainty",
+                    "type": "label",
+                    "definition": "确定性 (certainty)：表示高度确定，如\"肯定\"、\"certainly\"。",
+                    "color": "#aed2a0"
+                  },
+                  {
+                    "id": "b679d82c-773c-424c-9e3f-1d6b6c623656",
+                    "name": "impossibility",
+                    "type": "label",
+                    "definition": "不可能性 (impossibility)：表示不可能发生，如\"不可能\"、\"impossible\"。",
+                    "color": "#c7ba7a"
+                  },
+                  {
+                    "id": "770090a9-64a8-4c2a-af4e-3267cfa1091f",
+                    "name": "improbability",
+                    "type": "label",
+                    "definition": "不大可能 (improbability)：表示不太可能发生，如\"不太可能\"、\"unlikely\"。",
+                    "color": "#7fb2c0"
+                  },
+                  {
+                    "id": "dd25151b-88a6-46e3-8f3d-b72488fce072",
+                    "name": "possibility",
+                    "type": "label",
+                    "definition": "可能性 (possibility)：表示有可能发生，如\"可能\"、\"possible\"。",
+                    "color": "#b1dac9"
+                  },
+                  {
+                    "id": "389e818f-7d71-4ca9-bd5a-2f98485842dc",
+                    "name": "probability",
+                    "type": "label",
+                    "definition": "概率 (probability)：表示很可能发生，如\"很可能\"、\"probably\"。",
+                    "color": "#b88fd7"
+                  },
+                  {
+                    "id": "6fe59901-1caa-4ad8-b08c-24316160d013",
+                    "name": "uncertainty",
+                    "type": "label",
+                    "definition": "不确定性 (uncertainty)：表示不确定，如\"也许\"、\"maybe\"。",
+                    "color": "#c8abdb"
+                  }
+                ]
+              }
+            ],
+            "color": "#aaa2b6"
+          },
+          {
+            "id": "1088655f-0e5f-45ba-ba9b-7504382f8f6b",
+            "name": "requirement",
+            "type": "label",
+            "definition": "要求性 (requirement)：表达义务、需要或许可等道德情态。",
+            "children": [
+              {
+                "id": "317ff4f0-d41c-4f5c-bba5-feefcd06cfd1",
+                "name": "DEONTIC-TYPE",
+                "type": "tier",
+                "definition": null,
+                "children": [
+                  {
+                    "id": "1cbfd5b2-d823-4df2-82ee-ee8ecdf0e930",
+                    "name": "advisability",
+                    "type": "label",
+                    "definition": "建议性 (advisability)：表示建议或劝告，如\"应该\"、\"should\"。",
+                    "color": "#86c18d"
+                  },
+                  {
+                    "id": "ce98c219-5ce9-44f0-ac28-9455ae7feb94",
+                    "name": "not-necessary",
+                    "type": "label",
+                    "definition": "非必要 (not-necessary)：表示不需要或不必要，如\"不必\"、\"need not\"。",
+                    "color": "#78a3a3"
+                  },
+                  {
+                    "id": "ee8b0bb3-0197-47e1-b653-7f43ccd401fc",
+                    "name": "obligation",
+                    "type": "label",
+                    "definition": "义务性 (obligation)：表示义务或必须，如\"必须\"、\"must\"。",
+                    "color": "#bcd4bb"
+                  },
+                  {
+                    "id": "5aba915e-f836-49b4-b6a1-226a67405cfb",
+                    "name": "permission",
+                    "type": "label",
+                    "definition": "许可性 (permission)：表示允许或许可，如\"可以\"、\"may\"。",
+                    "color": "#b57bd3"
+                  }
+                ]
+              }
+            ],
+            "color": "#d4a581"
+          },
+          {
+            "id": "fc951548-b670-4bc8-ae10-694d8f03d7df",
+            "name": "volition",
+            "type": "label",
+            "definition": "意愿性 (volition)：表达意愿、能力或意图等动力情态。",
+            "children": [
+              {
+                "id": "a5d59f2e-4144-4e27-8e10-bfb11f89d892",
+                "name": "DYNAMIC-TYPE",
+                "type": "tier",
+                "definition": null,
+                "children": [
+                  {
+                    "id": "a9adcb4b-865a-4c65-8453-4571efcb63bf",
+                    "name": "ability",
+                    "type": "label",
+                    "definition": "能力 (ability)：表示能力或技能，如\"能够\"、\"can\"。",
+                    "color": "#80bebe"
+                  },
+                  {
+                    "id": "4984790e-8931-4a37-995c-97260f736107",
+                    "name": "intention",
+                    "type": "label",
+                    "definition": "意图 (intention)：表示意图或计划，如\"打算\"、\"intend to\"。",
+                    "color": "#d4b5b0"
+                  },
+                  {
+                    "id": "33e8f55a-5828-4bc1-844e-5bad66d0b506",
+                    "name": "willingness",
+                    "type": "label",
+                    "definition": "意愿 (willingness)：表示愿意或乐意，如\"愿意\"、\"willing to\"。",
+                    "color": "#888dc6"
+                  }
+                ]
+              }
+            ],
+            "color": "#7ad09f"
+          }
+        ]
+      },
+      {
+        "id": "6a614fe8-58ff-4470-880f-c5822bf6ec1e",
+        "name": "MODALITY-TYPE",
+        "type": "tier",
+        "definition": null,
+        "children": [
+          {
+            "id": "9871f8f9-a9f4-44b4-9b59-d78036b1eb0c",
+            "name": "nonverbal-modality",
+            "type": "label",
+            "definition": "非动词情态 (nonverbal-modality)：通过非动词形式表达的情态。",
+            "children": [
+              {
+                "id": "6dcf5867-24b9-48df-94c8-b2b90a4e05ac",
+                "name": "NONVERBAL-MODALITY-TYPE",
+                "type": "tier",
+                "definition": null,
+                "children": [
+                  {
+                    "id": "5b733df4-076a-49b1-b24a-c7f89f3cc0a4",
+                    "name": "adjectival-modality",
+                    "type": "label",
+                    "definition": "形容词情态 (adjectival-modality)：通过形容词表达的情态，如\"可能的\"、\"necessary\"。",
+                    "color": "#aac0ca"
+                  },
+                  {
+                    "id": "6cd14a8c-4312-41c0-9fc8-3778bbc90135",
+                    "name": "adverbial-modality",
+                    "type": "label",
+                    "definition": "副词情态 (adverbial-modality)：通过副词表达的情态，如\"可能地\"、\"probably\"。",
+                    "color": "#a2c5d2"
+                  }
+                ]
+              }
+            ],
+            "color": "#b0bb7c"
+          },
+          {
+            "id": "8ee791fd-2f9a-406a-bbac-92d2672e79f1",
+            "name": "verbal-modality",
+            "type": "label",
+            "definition": "动词情态 (verbal-modality)：通过动词形式表达的情态。",
+            "children": [
+              {
+                "id": "6f35d64e-fd44-4d00-85c0-0219bff729b5",
+                "name": "VERBAL-MODALITY-TYPE",
+                "type": "tier",
+                "definition": null,
+                "children": [
+                  {
+                    "id": "c171a261-8a0f-42b2-b69f-86978d52ac0b",
+                    "name": "lexical-verb",
+                    "type": "label",
+                    "definition": "实义动词 (lexical-verb)：具有情态意义的实义动词，如\"希望\"、\"want\"。",
+                    "color": "#ced8b7"
+                  },
+                  {
+                    "id": "85c7ffa3-8f51-474d-a7bc-b09e14e01865",
+                    "name": "modal-auxilliary",
+                    "type": "label",
+                    "definition": "情态助动词 (modal-auxilliary)：专门的情态助动词，如\"will\"、\"can\"、\"must\"。",
+                    "color": "#a0d2a2"
+                  },
+                  {
+                    "id": "7814553d-294e-4f14-b83c-2185e563dc11",
+                    "name": "semi-modal",
+                    "type": "label",
+                    "definition": "半情态动词 (semi-modal)：介于实义动词和情态助动词之间的动词，如\"need to\"、\"have to\"。",
+                    "color": "#83d9a1"
+                  }
+                ]
+              }
+            ],
+            "color": "#88d790"
+          }
+        ]
+      }
+    ],
+    "color": "#a7cddc"
+  },
+  "createdAt": "2025-12-12T13:52:45.034328",
+  "updatedAt": "2025-12-12T13:52:45.034328"
+}

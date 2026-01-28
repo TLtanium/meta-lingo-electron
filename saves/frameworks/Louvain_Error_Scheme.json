@@ -1,0 +1,577 @@
+{
+  "id": "Louvain_Error_Scheme",
+  "name": "Louvain Error Scheme",
+  "category": "UAM - Error Analysis",
+  "description": "鲁汶错误方案（Louvain Error Scheme）是由比利时鲁汶大学英语语料库语言学中心（CECL）在1990年代开发的一套用于英语学习者语料库错误标注的标准化体系。该框架采用三层分类系统：错误域（error domain）、错误类别（error category）和误用词汇的词类（word category）。",
+  "root": {
+    "id": "5aaf9d40-0372-4a69-b390-c94449ff271b",
+    "name": "error-g",
+    "type": "label",
+    "definition": "鲁汶错误方案（Louvain Error Scheme）是由比利时鲁汶大学英语语料库语言学中心（CECL）在1990年代开发的一套用于英语学习者语料库错误标注的标准化体系。该框架采用三层分类系统：错误域（error domain）、错误类别（error category）和误用词汇的词类（word category）。",
+    "children": [
+      {
+        "id": "7775d453-4c2c-4da6-8ec6-f556379e4410",
+        "name": "ERRORGRANGER-TYPE",
+        "type": "tier",
+        "definition": null,
+        "children": [
+          {
+            "id": "653a3e7c-c9ab-473e-a4e1-3bb2212eb29c",
+            "name": "form",
+            "type": "label",
+            "definition": "形式（form）：涉及词汇外在形式的错误，不涉及语法或语义层面。",
+            "children": [
+              {
+                "id": "44a9ab00-000f-4d29-bb9e-30cceccb4834",
+                "name": "FORM-TYPE",
+                "type": "tier",
+                "definition": null,
+                "children": [
+                  {
+                    "id": "e07863b1-026a-4460-931d-2de1dae5a8dc",
+                    "name": "morphology",
+                    "type": "label",
+                    "definition": "morphology（词法）：词汇内部结构错误，如词缀使用不当、词干变化错误等。",
+                    "color": "#d3b496"
+                  },
+                  {
+                    "id": "551e2a50-fe07-46ac-b193-25b9145fb7e8",
+                    "name": "spelling",
+                    "type": "label",
+                    "definition": "spelling（拼写）：单词拼写错误，包括字母缺失、多余、替换或顺序错误。",
+                    "color": "#8cacc6"
+                  }
+                ]
+              }
+            ],
+            "color": "#828884"
+          },
+          {
+            "id": "38ab313d-17fa-4820-a679-2c5b14626476",
+            "name": "grammar",
+            "type": "label",
+            "definition": "语法（grammar）：涉及语法规则违反的错误。",
+            "children": [
+              {
+                "id": "fe15e2c4-2afc-4d66-86c8-862f73281201",
+                "name": "GRAMMAR-TYPE",
+                "type": "tier",
+                "definition": null,
+                "children": [
+                  {
+                    "id": "55a39b54-38f8-4c89-83e1-eb6d52f6571c",
+                    "name": "adjectives",
+                    "type": "label",
+                    "definition": "形容词（adjectives）：形容词使用相关的语法错误。",
+                    "children": [
+                      {
+                        "id": "d50cfdaa-4392-4155-82e3-dca06d293a8b",
+                        "name": "ADJECTIVES-TYPE",
+                        "type": "tier",
+                        "definition": null,
+                        "children": [
+                          {
+                            "id": "ae320ffb-2040-48f5-b4cb-018977c6e5c7",
+                            "name": "adj-number",
+                            "type": "label",
+                            "definition": "adj-number（形容词数）：形容词的单复数使用错误。",
+                            "color": "#84a4db"
+                          },
+                          {
+                            "id": "d67b9bf6-9a2e-43d0-8272-e561e929ee56",
+                            "name": "adj-order",
+                            "type": "label",
+                            "definition": "adj-order（形容词语序）：形容词在句中位置不当。",
+                            "color": "#b4a4b2"
+                          },
+                          {
+                            "id": "8103ba4e-af61-4cf2-8f54-4bdf250598a3",
+                            "name": "comparative-superlative",
+                            "type": "label",
+                            "definition": "comparative-superlative（比较级和最高级）：形容词比较级和最高级使用错误。",
+                            "color": "#84b1d4"
+                          }
+                        ]
+                      }
+                    ],
+                    "color": "#8186b9"
+                  },
+                  {
+                    "id": "69ffbcf0-0a69-4108-8606-44af560e7fd1",
+                    "name": "adverbs",
+                    "type": "label",
+                    "definition": "副词（adverbs）：副词使用相关的语法错误。",
+                    "children": [
+                      {
+                        "id": "98ae6001-b877-4a13-8034-7a010472021c",
+                        "name": "ADVERBS-TYPE",
+                        "type": "tier",
+                        "definition": null,
+                        "children": [
+                          {
+                            "id": "fb7a4a27-615d-4998-81ac-7d7251eab698",
+                            "name": "adv-order",
+                            "type": "label",
+                            "definition": "adv-order（副词语序）：副词在句中位置不当。",
+                            "color": "#d0c29b"
+                          }
+                        ]
+                      }
+                    ],
+                    "color": "#a1ccb3"
+                  },
+                  {
+                    "id": "026df6bf-1118-4d44-91c1-2dc45416817f",
+                    "name": "articles",
+                    "type": "label",
+                    "definition": "冠词（articles）：定冠词、不定冠词的使用错误，包括冠词的误用、缺失或多余。",
+                    "color": "#d47884"
+                  },
+                  {
+                    "id": "21d32bc6-7e8f-42b5-94eb-cae4cc486ec8",
+                    "name": "nouns",
+                    "type": "label",
+                    "definition": "名词（nouns）：名词使用相关的语法错误。",
+                    "children": [
+                      {
+                        "id": "8b8cff97-573d-4aa7-bf2c-17876ffe3a01",
+                        "name": "NOUNS-TYPE",
+                        "type": "tier",
+                        "definition": null,
+                        "children": [
+                          {
+                            "id": "a36c0984-cec5-40eb-9f6e-dd107066f35d",
+                            "name": "nouns-case",
+                            "type": "label",
+                            "definition": "nouns-case（名词格）：名词格变错误（主要针对有格变化的语言）。",
+                            "color": "#84ca7b"
+                          },
+                          {
+                            "id": "ca99ea55-62b8-4f79-a9b8-96487bb81c66",
+                            "name": "nouns-number",
+                            "type": "label",
+                            "definition": "nouns-number（名词数）：名词单复数使用错误。",
+                            "color": "#c1c9c9"
+                          }
+                        ]
+                      }
+                    ],
+                    "color": "#cf8881"
+                  },
+                  {
+                    "id": "92edf746-2f20-4130-a24f-1f6496920afe",
+                    "name": "pronouns",
+                    "type": "label",
+                    "definition": "代词（pronouns）：人称代词、物主代词、反身代词等的使用错误。",
+                    "color": "#c8c77c"
+                  },
+                  {
+                    "id": "c61a907e-ef15-406d-8294-51cdab8c70ee",
+                    "name": "verbs",
+                    "type": "label",
+                    "definition": "动词（verbs）：动词使用相关的语法错误。",
+                    "children": [
+                      {
+                        "id": "d8a0ab92-43a3-4a1c-904d-4f7a98a160fa",
+                        "name": "VERBS-TYPE",
+                        "type": "tier",
+                        "definition": null,
+                        "children": [
+                          {
+                            "id": "aca2fcc1-8138-4478-a0a1-c220c51b5c7a",
+                            "name": "auxiliaries",
+                            "type": "label",
+                            "definition": "auxiliaries（助动词）：助动词使用错误，包括be、do、have等。",
+                            "color": "#a9948e"
+                          },
+                          {
+                            "id": "f6ab6629-c3e0-4769-8324-6b5dc1f6be79",
+                            "name": "nonfinite-finite",
+                            "type": "label",
+                            "definition": "nonfinite-finite（非限定动词-限定动词）：限定动词与非限定动词的混用错误。",
+                            "color": "#9c9bdb"
+                          },
+                          {
+                            "id": "7057fcd9-50da-4128-9e05-b3336692827b",
+                            "name": "tense",
+                            "type": "label",
+                            "definition": "tense（时态）：动词时态使用错误。",
+                            "color": "#7ca4d2"
+                          },
+                          {
+                            "id": "e38bef2a-556a-4ef5-9f06-cb9eaa3274b7",
+                            "name": "verb-morphology",
+                            "type": "label",
+                            "definition": "verb-morphology（动词词法）：动词形态变化错误。",
+                            "color": "#849a98"
+                          },
+                          {
+                            "id": "0d15c8f9-a75d-4a7f-8466-2401dfeb3e97",
+                            "name": "verb-number",
+                            "type": "label",
+                            "definition": "verb-number（动词数）：动词与主语的数的一致性错误。",
+                            "color": "#c27fbe"
+                          },
+                          {
+                            "id": "393df1d3-7a1e-4373-8201-bd868cf9ee80",
+                            "name": "voice",
+                            "type": "label",
+                            "definition": "voice（语态）：主动语态与被动语态使用错误。",
+                            "color": "#a1cb94"
+                          }
+                        ]
+                      }
+                    ],
+                    "color": "#928782"
+                  },
+                  {
+                    "id": "cc9c4d8b-22e4-4aac-bc88-f3e6807eb64c",
+                    "name": "wordclass",
+                    "type": "label",
+                    "definition": "词类（wordclass）：词性使用错误，如将名词用作动词等。",
+                    "color": "#cf8abf"
+                  }
+                ]
+              }
+            ],
+            "color": "#d6afa6"
+          },
+          {
+            "id": "28a27255-423c-47cf-bb53-a9bf2d42fc0c",
+            "name": "lexicogrammar",
+            "type": "label",
+            "definition": "词汇语法（lexicogrammar）：词汇与语法交界处的错误，涉及特定词汇的语法搭配。",
+            "children": [
+              {
+                "id": "3db9b519-01bf-474d-9166-7fa39ebae8cd",
+                "name": "LEXICOGRAMMAR-TYPE",
+                "type": "tier",
+                "definition": null,
+                "children": [
+                  {
+                    "id": "cb3e1b39-12a4-4802-ac95-88b6ae4624d2",
+                    "name": "lxg-adjectives",
+                    "type": "label",
+                    "definition": "词汇语法-形容词（lxg-adjectives）：形容词的词汇语法错误。",
+                    "children": [
+                      {
+                        "id": "eb40e16d-d3e8-4658-bc4d-cef2cb3f3d98",
+                        "name": "LXG-ADJECTIVES-TYPE",
+                        "type": "tier",
+                        "definition": null,
+                        "children": [
+                          {
+                            "id": "f9701955-f85b-4d5a-a651-f7a9fb4ba2ed",
+                            "name": "lxg-adj-complementation",
+                            "type": "label",
+                            "definition": "lxg-adj-complementation（词汇语法-形容词补足）：形容词补语结构错误。",
+                            "color": "#d39296"
+                          },
+                          {
+                            "id": "33b263e3-1cfe-4cf5-92a6-0e539f2d9ff3",
+                            "name": "lxg-adj-dependent-preposition",
+                            "type": "label",
+                            "definition": "lxg-adj-dependent-preposition（词汇语法-形容词依赖介词）：形容词后的介词搭配错误。",
+                            "color": "#d2adac"
+                          }
+                        ]
+                      }
+                    ],
+                    "color": "#aaafb0"
+                  },
+                  {
+                    "id": "d0991b83-6a8e-4cf9-95a2-3b1480e6940c",
+                    "name": "lxg-conjunctions-complementation",
+                    "type": "label",
+                    "definition": "词汇语法-连词补足（lxg-conjunctions-complementation）：连词后的补语结构错误。",
+                    "color": "#b7a77b"
+                  },
+                  {
+                    "id": "c359f060-c7d4-4721-9f49-05887fb76c6c",
+                    "name": "lxg-nouns",
+                    "type": "label",
+                    "definition": "词汇语法-名词（lxg-nouns）：名词的词汇语法错误。",
+                    "children": [
+                      {
+                        "id": "d98ffff8-b4a2-4e70-adfe-bb3dd0bd7a87",
+                        "name": "LXG-NOUNS-TYPE",
+                        "type": "tier",
+                        "definition": null,
+                        "children": [
+                          {
+                            "id": "7ad415ae-a38a-447b-8869-6dcbe0ee6b22",
+                            "name": "lxg-nouns-complementation",
+                            "type": "label",
+                            "definition": "lxg-nouns-complementation（词汇语法-名词补足）：名词补语结构错误。",
+                            "color": "#ccd592"
+                          },
+                          {
+                            "id": "8872161d-4adc-4c27-b8ca-6de047ddeda2",
+                            "name": "lxg-nouns-dependent-preposition",
+                            "type": "label",
+                            "definition": "lxg-nouns-dependent-preposition（词汇语法-名词依赖介词）：名词后的介词搭配错误。",
+                            "color": "#b4dbb3"
+                          },
+                          {
+                            "id": "3bb63bbb-3cab-4cb2-851f-278fc6212197",
+                            "name": "lxg-nouns-uncountable-countable",
+                            "type": "label",
+                            "definition": "lxg-nouns-uncountable-countable（词汇语法-名词不可数可数）：可数与不可数名词的使用错误。",
+                            "color": "#a0d49e"
+                          }
+                        ]
+                      }
+                    ],
+                    "color": "#b58e88"
+                  },
+                  {
+                    "id": "4785e74e-9152-4abc-b059-55e45b752bf5",
+                    "name": "lxg-prepositions-complementation",
+                    "type": "label",
+                    "definition": "词汇语法-介词补足（lxg-prepositions-complementation）：介词后的补语结构错误。",
+                    "color": "#bda478"
+                  },
+                  {
+                    "id": "8817e374-7237-453f-a2c6-d8beaed8c867",
+                    "name": "lxg-verbs",
+                    "type": "label",
+                    "definition": "词汇语法-动词（lxg-verbs）：动词的词汇语法错误。",
+                    "children": [
+                      {
+                        "id": "4f682890-66e1-4dc8-97c9-c41f65a0b5d1",
+                        "name": "LXG-VERBS-TYPE",
+                        "type": "tier",
+                        "definition": null,
+                        "children": [
+                          {
+                            "id": "14505f26-7f4a-4aaa-9b57-93fdb76a764e",
+                            "name": "lxg-verbs-compelmentation",
+                            "type": "label",
+                            "definition": "lxg-verbs-compelmentation（词汇语法-动词补足）：动词补语结构错误。",
+                            "color": "#9d7da7"
+                          },
+                          {
+                            "id": "a5d6cf58-4ca1-4108-80a0-f45e5e167f84",
+                            "name": "lxg-verbs-dependent-preposition",
+                            "type": "label",
+                            "definition": "lxg-verbs-dependent-preposition（词汇语法-动词依赖介词）：动词后的介词搭配错误。",
+                            "color": "#bd88b4"
+                          }
+                        ]
+                      }
+                    ],
+                    "color": "#c479aa"
+                  }
+                ]
+              }
+            ],
+            "color": "#8cc191"
+          },
+          {
+            "id": "de39e659-de27-4463-b7ff-04a65cdb5860",
+            "name": "lexis",
+            "type": "label",
+            "definition": "词汇（lexis）：纯粹的词汇选择错误。",
+            "children": [
+              {
+                "id": "1b04b2a2-ab42-4047-9cb0-bd02860f5bd7",
+                "name": "LEXIS-TYPE",
+                "type": "tier",
+                "definition": null,
+                "children": [
+                  {
+                    "id": "8871a249-a640-4bd0-b00c-81104b17c710",
+                    "name": "conjunctions",
+                    "type": "label",
+                    "definition": "连词（conjunctions）：连词的词汇选择错误。",
+                    "children": [
+                      {
+                        "id": "57f0655c-e7a2-4b47-9b21-1e400b9a21b5",
+                        "name": "CONJUNCTIONS-TYPE",
+                        "type": "tier",
+                        "definition": null,
+                        "children": [
+                          {
+                            "id": "623d24e7-785c-4920-8efe-8e4c74bd23bb",
+                            "name": "coordinating",
+                            "type": "label",
+                            "definition": "coordinating（并列连词）：并列连词使用错误。",
+                            "color": "#9f86a0"
+                          },
+                          {
+                            "id": "32f40394-2382-4e1e-8e96-ae97f57fc0bc",
+                            "name": "subordinating",
+                            "type": "label",
+                            "definition": "subordinating（从属连词）：从属连词使用错误。",
+                            "color": "#8c95d9"
+                          }
+                        ]
+                      }
+                    ],
+                    "color": "#a28ace"
+                  },
+                  {
+                    "id": "987958fe-b6df-464d-9aee-a2ed68143341",
+                    "name": "connectors",
+                    "type": "label",
+                    "definition": "连接词（connectors）：句子间连接词的使用错误。",
+                    "children": [
+                      {
+                        "id": "300be5f8-9cd2-433e-b7f9-a4b446a9c87b",
+                        "name": "CONNECTORS-TYPE",
+                        "type": "tier",
+                        "definition": null,
+                        "children": [
+                          {
+                            "id": "eca16858-681c-4c97-ac4c-15b4d2d8b18c",
+                            "name": "logical",
+                            "type": "label",
+                            "definition": "logical（逻辑连接词）：逻辑连接词使用错误。",
+                            "children": [
+                              {
+                                "id": "ea58b198-6ef2-4019-adef-7dfa5d9e5a75",
+                                "name": "LOGICAL-TYPE",
+                                "type": "tier",
+                                "definition": null,
+                                "children": [
+                                  {
+                                    "id": "859314bf-5b49-4ac3-afb3-a65959151b3a",
+                                    "name": "complex-connector",
+                                    "type": "label",
+                                    "definition": "complex-connector（复合连接词）：复合连接词使用错误。",
+                                    "color": "#8cb09d"
+                                  },
+                                  {
+                                    "id": "22d7312d-45a0-4d23-971f-10e680be2864",
+                                    "name": "single-connector",
+                                    "type": "label",
+                                    "definition": "single-connector（单一连接词）：单一连接词使用错误。",
+                                    "color": "#8a93be"
+                                  }
+                                ]
+                              }
+                            ],
+                            "color": "#9edab8"
+                          }
+                        ]
+                      }
+                    ],
+                    "color": "#8bc0bb"
+                  },
+                  {
+                    "id": "583295b7-ff52-4572-a8f0-040187aa3c8b",
+                    "name": "lexical-phrase",
+                    "type": "label",
+                    "definition": "词汇短语（lexical-phrase）：多词单位的词汇错误。",
+                    "color": "#bda3b2"
+                  },
+                  {
+                    "id": "1c523b05-cfb8-4580-9490-1a9ae25cda67",
+                    "name": "lexical-single",
+                    "type": "label",
+                    "definition": "单一词汇（lexical-single）：单个词汇的选择错误。",
+                    "color": "#d8beae"
+                  },
+                  {
+                    "id": "a2000318-ec89-4418-a6df-5db21ab67081",
+                    "name": "lexical-single-false-friend",
+                    "type": "label",
+                    "definition": "单一词汇假朋友（lexical-single-false-friend）：由母语负迁移导致的词汇选择错误。",
+                    "color": "#a1a3c8"
+                  }
+                ]
+              }
+            ],
+            "color": "#9d849d"
+          },
+          {
+            "id": "45675459-31c4-4ebc-889a-c7f0a4a91a43",
+            "name": "register",
+            "type": "label",
+            "definition": "语域（register）：语言使用的正式程度不当，如在正式场合使用非正式语言。",
+            "color": "#b39a80"
+          },
+          {
+            "id": "67ea2f6a-d480-4b4f-b192-d5d7c7ade712",
+            "name": "style",
+            "type": "label",
+            "definition": "风格（style）：文体和表达风格相关的错误。",
+            "children": [
+              {
+                "id": "fbcb76ac-a38b-497f-a03e-75aaec4b351e",
+                "name": "STYLE-TYPE",
+                "type": "tier",
+                "definition": null,
+                "children": [
+                  {
+                    "id": "56d0bffe-43f1-4a47-b84c-fd71ba49dfe3",
+                    "name": "style-incomplete",
+                    "type": "label",
+                    "definition": "style-incomplete（风格不完整）：表达不完整或信息缺失。",
+                    "color": "#b2cdcc"
+                  },
+                  {
+                    "id": "6cfe9c92-3f16-4c53-aa71-475c72984950",
+                    "name": "style-other",
+                    "type": "label",
+                    "definition": "style-other（风格其他）：其他风格问题。",
+                    "color": "#ccc47f"
+                  },
+                  {
+                    "id": "d64c849e-0ea0-45b2-b1e9-fa7638dc1669",
+                    "name": "style-unclear",
+                    "type": "label",
+                    "definition": "style-unclear（风格不清晰）：表达不清晰或模糊。",
+                    "color": "#c384bf"
+                  }
+                ]
+              }
+            ],
+            "color": "#7fbdbe"
+          },
+          {
+            "id": "9ce3c473-0ba8-4a23-9fd0-dc33f5ffb1c3",
+            "name": "word",
+            "type": "label",
+            "definition": "词语（word）：词语层面的整体性错误。",
+            "children": [
+              {
+                "id": "2021b5a5-23e7-4ef0-8092-c0cd4bc7034c",
+                "name": "WORD-TYPE",
+                "type": "tier",
+                "definition": null,
+                "children": [
+                  {
+                    "id": "6a635719-d9f4-4b33-801e-201db347d1b3",
+                    "name": "word-missing",
+                    "type": "label",
+                    "definition": "word-missing（词语缺失）：应有词语的缺失。",
+                    "color": "#80d786"
+                  },
+                  {
+                    "id": "145671dd-c5a1-486d-8f69-66761e1fd9e3",
+                    "name": "word-order",
+                    "type": "label",
+                    "definition": "word-order（词语语序）：词语在句中的位置错误。",
+                    "color": "#9e82b1"
+                  },
+                  {
+                    "id": "3e3073c7-21e1-439a-b1f5-674b571e3693",
+                    "name": "word-redundant",
+                    "type": "label",
+                    "definition": "word-redundant（词语冗余）：不必要的词语添加。",
+                    "color": "#bd93c9"
+                  }
+                ]
+              }
+            ],
+            "color": "#8c94a9"
+          }
+        ]
+      }
+    ],
+    "color": "#8695ce"
+  },
+  "createdAt": "2025-12-12T13:52:44.843901",
+  "updatedAt": "2025-12-12T13:52:44.843901"
+}

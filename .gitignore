@@ -1,0 +1,145 @@
+# ===================================
+# Meta-Lingo-Electron .gitignore
+# ===================================
+
+# ===================================
+# macOS System Files
+# ===================================
+.DS_Store
+._*
+.AppleDouble
+.LSOverride
+.Spotlight-V100
+.Trashes
+
+# ===================================
+# Build & Distribution
+# ===================================
+backend-dist/
+backend/build/
+backend/dist/
+dist/
+dist-electron/
+release/
+*.dmg
+*.exe
+
+# ===================================
+# Dependencies
+# ===================================
+node_modules/
+.vite/
+
+# ===================================
+# ML Models (keep folder structure only)
+# ===================================
+models/**/*
+!models/
+!models/models.txt
+!models/**/
+!models/**/.gitkeep
+
+# ===================================
+# Python Wheels
+# ===================================
+*.whl
+
+# ===================================
+# Development & Test Files
+# ===================================
+pymusas_bem_analysis.md
+pymusas_bem_test_results.txt
+pymusas_output_example.md
+pymusas_topn_analysis.md
+pymusas_topn_comparison.txt
+rules.md
+spacy_tags_test_report.md
+spacy_tags.tsv
+usas_semantic_domains.txt
+test_*.py
+export_spacy_tags.py
+
+# ===================================
+# PDF Documents
+# ===================================
+*.pdf
+
+# ===================================
+# Config & Build Scripts (optional, for dev only)
+# ===================================
+build.sh
+build.bat
+dev.sh
+dev-backend.sh
+dev-frontend.sh
+start.sh
+index.html
+vite.config.ts
+electron-builder.json
+package-lock.json
+tsconfig.json
+tsconfig.node.json
+.npmrc
+
+# ===================================
+# Data Files (keep structure only)
+# ===================================
+data/corpora/
+data/annotations/
+data/topic_modeling/
+data/word2vec_models/
+data/*.sqlite
+data/*.db
+
+# ===================================
+# Dictionary Files (too large for GitHub)
+# ===================================
+saves/dict/*.json
+
+# ===================================
+# JSON Data Files (specific)
+# ===================================
+master_metaphor_lexicon.json
+metaphor_filter.json
+mipvu_demonstratives.json
+mipvu_prepositions.json
+
+# ===================================
+# Python Cache
+# ===================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.eggs/
+
+# ===================================
+# IDE & Editor
+# ===================================
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# ===================================
+# Logs
+# ===================================
+*.log
+npm-debug.log*
+
+# ===================================
+# Environment
+# ===================================
+.env
+.env.local
+.env.*.local
+
+# ===================================
+# Temporary Files
+# ===================================
+tmp/
+temp/
+*.tmp

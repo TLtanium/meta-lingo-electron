@@ -1,0 +1,360 @@
+{
+  "id": "Appraisal_Analysis_-_Attitude_Only",
+  "name": "Appraisal Analysis - Attitude Only",
+  "category": "UAM - Appraisal Analysis",
+  "description": "态度系统 (attitude)：态度系统关注语言中表达情感、判断和欣赏的资源。",
+  "root": {
+    "id": "916b233d-38bf-4b01-bdc4-54a52a1a2388",
+    "name": "attitude",
+    "type": "label",
+    "definition": "态度系统 (attitude)：态度系统关注语言中表达情感、判断和欣赏的资源。",
+    "children": [
+      {
+        "id": "b13518ef-d6fe-4e4f-845a-3bd8f0f18ea0",
+        "name": "ATTITUDE-POLARITY",
+        "type": "tier",
+        "definition": null,
+        "children": [
+          {
+            "id": "6287e0a8-557b-4b71-ad9e-761baec392fb",
+            "name": "ambiguous",
+            "type": "label",
+            "definition": "模糊性 (ambiguous): 态度倾向不明确或存在歧义的表达。",
+            "color": "#cc79c8"
+          },
+          {
+            "id": "71d66eec-66b8-4471-ae16-a6bed89639ea",
+            "name": "negative-attitude",
+            "type": "label",
+            "definition": "消极态度 (negative-attitude): 表达负面评价或情感的语言资源。",
+            "color": "#938c99"
+          },
+          {
+            "id": "b74295c6-1657-4737-a316-6b7fa1480f6f",
+            "name": "positive-attitude",
+            "type": "label",
+            "definition": "积极态度 (positive-attitude): 表达正面评价或情感的语言资源。",
+            "color": "#b2bb9c"
+          }
+        ]
+      },
+      {
+        "id": "30639235-b0be-4590-a7e9-82a33c0f563b",
+        "name": "ATTITUDE-TYPE",
+        "type": "tier",
+        "definition": null,
+        "children": [
+          {
+            "id": "43ebed67-3138-4f47-b6a1-ae92cba45429",
+            "name": "affect",
+            "type": "label",
+            "definition": "情感 (affect)：表达情感状态和情感反应的语言资源。",
+            "children": [
+              {
+                "id": "c048df47-5f38-4f91-b63a-fd1044bc1c39",
+                "name": "AFFECT-TYPE",
+                "type": "tier",
+                "definition": null,
+                "children": [
+                  {
+                    "id": "d5969962-debb-4983-9c97-14fe791d2e63",
+                    "name": "authorial-evaluation",
+                    "type": "label",
+                    "definition": "作者评价 (authorial-evaluation): 文本作者直接表达的情感评价。",
+                    "color": "#d1917b"
+                  },
+                  {
+                    "id": "45f9ca03-043e-44fc-80c1-231d4a577361",
+                    "name": "non-authorial-evaluation",
+                    "type": "label",
+                    "definition": "非作者评价 (non-authorial-evaluation): 非作者（如文中人物）表达的情感评价。",
+                    "color": "#bc8ca7"
+                  }
+                ]
+              },
+              {
+                "id": "cc72b500-e794-460e-8727-269d30d1da1a",
+                "name": "AFFECT-TYPE2",
+                "type": "tier",
+                "definition": null,
+                "children": [
+                  {
+                    "id": "7e32c847-6956-4b57-8129-d283de92cd89",
+                    "name": "dis-inclination",
+                    "type": "label",
+                    "definition": "不倾向 (dis-inclination): 表达不愿意、不想要的情感。",
+                    "color": "#c39c85"
+                  },
+                  {
+                    "id": "db8ec367-164f-4fb0-a72c-c82bdf27c755",
+                    "name": "dis-satisfaction",
+                    "type": "label",
+                    "definition": "不满足 (dis-satisfaction): 表达不满意的情感状态。",
+                    "children": [
+                      {
+                        "id": "45176195-da40-4dc0-b3b1-3e7a0f9c93bd",
+                        "name": "DIS-SATISFACTION-TYPE",
+                        "type": "tier",
+                        "definition": null,
+                        "children": [
+                          {
+                            "id": "9da3616d-5ada-4512-9d78-aa6f6d7981c9",
+                            "name": "dis-pleasure",
+                            "type": "label",
+                            "definition": "不愉快 (dis-pleasure): 表达不高兴、痛苦的情感。",
+                            "color": "#db8e90"
+                          },
+                          {
+                            "id": "cf0773b6-1c0d-4109-b9da-c23d86761ae5",
+                            "name": "ennui-interest",
+                            "type": "label",
+                            "definition": "厌倦-兴趣 (ennui-interest): 表达厌倦与兴趣对立的情感。",
+                            "color": "#8079c9"
+                          }
+                        ]
+                      }
+                    ],
+                    "color": "#c67adb"
+                  },
+                  {
+                    "id": "439870f1-1af5-4a16-ae5b-512fb9f6ad82",
+                    "name": "in-security",
+                    "type": "label",
+                    "definition": "不安全 (in-security): 表达缺乏安全感的情感。",
+                    "children": [
+                      {
+                        "id": "88219e28-ece9-4b82-868d-c5a9ea2a33db",
+                        "name": "IN-SECURITY-TYPE",
+                        "type": "tier",
+                        "definition": null,
+                        "children": [
+                          {
+                            "id": "71d9a046-84c5-4c28-9d27-bd94e4c80715",
+                            "name": "dis-quiet",
+                            "type": "label",
+                            "definition": "不安 (dis-quiet): 表达焦虑、不安的情感。",
+                            "color": "#96ae8d"
+                          },
+                          {
+                            "id": "7d9d5e82-df49-4a1b-8961-94410d1f4842",
+                            "name": "dis-trust",
+                            "type": "label",
+                            "definition": "不信任 (dis-trust): 表达怀疑、不信任的情感。",
+                            "color": "#ba947a"
+                          }
+                        ]
+                      }
+                    ],
+                    "color": "#dbc0a4"
+                  },
+                  {
+                    "id": "627462b4-5980-4a7d-9532-a82f96f0e30a",
+                    "name": "un-happiness",
+                    "type": "label",
+                    "definition": "不快乐 (un-happiness): 表达不开心的情感状态。",
+                    "children": [
+                      {
+                        "id": "485e835b-c0d3-4f0c-87d8-4e5e10c91605",
+                        "name": "UN-HAPPINESS-TYPE",
+                        "type": "tier",
+                        "definition": null,
+                        "children": [
+                          {
+                            "id": "f3e852cd-ef11-4783-a8d6-cfe247d55e9c",
+                            "name": "antipathy-affection",
+                            "type": "label",
+                            "definition": "反感-喜爱 (antipathy-affection): 表达厌恶与喜爱对立的情感。",
+                            "color": "#8dcbbb"
+                          },
+                          {
+                            "id": "90566138-9619-4f80-9d3f-31bb6833a86d",
+                            "name": "misery-cheer",
+                            "type": "label",
+                            "definition": "痛苦-愉快 (misery-cheer): 表达痛苦与愉快对立的情感。",
+                            "color": "#88b0c8"
+                          }
+                        ]
+                      }
+                    ],
+                    "color": "#8abf98"
+                  }
+                ]
+              }
+            ],
+            "color": "#a7b289"
+          },
+          {
+            "id": "f5a15ca7-67fd-48ae-919b-e41fc5becb7a",
+            "name": "appreciation",
+            "type": "label",
+            "definition": "欣赏 (appreciation)：对事物、现象、过程等进行美学或价值评价的语言资源。",
+            "children": [
+              {
+                "id": "f73ed54d-ebfa-4bf4-afa6-ca1856d68d9e",
+                "name": "APPRECIATION-TYPE",
+                "type": "tier",
+                "definition": null,
+                "children": [
+                  {
+                    "id": "ab620141-fce2-416c-95e6-6dff2b956ddc",
+                    "name": "composition",
+                    "type": "label",
+                    "definition": "构成 (composition): 对事物结构、形式的评价。",
+                    "children": [
+                      {
+                        "id": "9de2c631-3ba7-4f7c-8161-339b02e403c8",
+                        "name": "COMPOSITION-TYPE",
+                        "type": "tier",
+                        "definition": null,
+                        "children": [
+                          {
+                            "id": "a9ad72bc-91cd-4431-a759-c5ec35008a6b",
+                            "name": "balance",
+                            "type": "label",
+                            "definition": "平衡 (balance): 评价事物的协调性、比例关系。",
+                            "color": "#969aba"
+                          },
+                          {
+                            "id": "2018caf9-f6d5-4e25-87d7-022d99b1110e",
+                            "name": "complexity",
+                            "type": "label",
+                            "definition": "复杂性 (complexity): 评价事物的复杂程度或简单性。",
+                            "color": "#7daed2"
+                          }
+                        ]
+                      }
+                    ],
+                    "color": "#c4808f"
+                  },
+                  {
+                    "id": "37e9e896-4139-45b8-b603-cb0b1ef74870",
+                    "name": "reaction",
+                    "type": "label",
+                    "definition": "反应 (reaction): 对事物产生的直接反应或感受。",
+                    "children": [
+                      {
+                        "id": "77307ff3-590c-49ad-8968-5fa0388f97ed",
+                        "name": "REACTION-TYPE",
+                        "type": "tier",
+                        "definition": null,
+                        "children": [
+                          {
+                            "id": "b8bfda02-bd24-409c-867e-82b5adcf5288",
+                            "name": "impact",
+                            "type": "label",
+                            "definition": "影响 (impact): 评价事物的冲击力、感染力。",
+                            "color": "#b79ed6"
+                          },
+                          {
+                            "id": "50168426-8811-4d82-aba2-6b090bc7d40a",
+                            "name": "quality",
+                            "type": "label",
+                            "definition": "质量 (quality): 评价事物的品质、水准。",
+                            "color": "#8ac7a0"
+                          }
+                        ]
+                      }
+                    ],
+                    "color": "#c6cf8c"
+                  },
+                  {
+                    "id": "02ab53bd-92fc-487b-aaf7-0b1d946cb631",
+                    "name": "social-valuation",
+                    "type": "label",
+                    "definition": "社会评价 (social-valuation): 基于社会价值观的评价。",
+                    "color": "#d7a7a3"
+                  }
+                ]
+              }
+            ],
+            "color": "#9c96be"
+          },
+          {
+            "id": "b12f974a-2b02-42ec-9c7a-e80b687f01a1",
+            "name": "judgement",
+            "type": "label",
+            "definition": "判断 (judgement)：对人的行为、品格、能力等进行道德或社会评价的语言资源。",
+            "children": [
+              {
+                "id": "e3b28808-9f0a-4e85-8e2e-47b89fa7e7f1",
+                "name": "JUDGEMENT-TYPE",
+                "type": "tier",
+                "definition": null,
+                "children": [
+                  {
+                    "id": "d44ae65b-89cb-4516-bbc6-2ee7225a72fb",
+                    "name": "capacity",
+                    "type": "label",
+                    "definition": "能力 (capacity): 评价某人的能力、技能水平。",
+                    "color": "#d2999c"
+                  },
+                  {
+                    "id": "7c775964-eabb-41cb-97e3-67f8fd47edce",
+                    "name": "normality",
+                    "type": "label",
+                    "definition": "正常性 (normality): 评价行为是否符合常规、正常。",
+                    "color": "#a787dc"
+                  },
+                  {
+                    "id": "5981d97b-bb10-4bb7-aa1c-6350fabbfa88",
+                    "name": "propriety",
+                    "type": "label",
+                    "definition": "合宜性 (propriety): 评价行为的道德性、合理性。",
+                    "color": "#b08e99"
+                  },
+                  {
+                    "id": "75c508b4-b1fc-48ba-89da-d6f77f5626f0",
+                    "name": "tenacity",
+                    "type": "label",
+                    "definition": "坚持性 (tenacity): 评价某人的坚持力、毅力。",
+                    "color": "#8badbb"
+                  },
+                  {
+                    "id": "3b031b7b-caad-4e29-9fde-b1373cf74202",
+                    "name": "unclear",
+                    "type": "label",
+                    "definition": "不明确 (unclear): 判断类型不明确的情况。",
+                    "color": "#bc9dc2"
+                  },
+                  {
+                    "id": "a5a0f423-574e-4667-acc3-546c1eb0572b",
+                    "name": "veracity",
+                    "type": "label",
+                    "definition": "真实性 (veracity): 评价某人的诚实度、可信度。",
+                    "color": "#bbdb87"
+                  }
+                ]
+              }
+            ],
+            "color": "#ccb092"
+          }
+        ]
+      },
+      {
+        "id": "7c76e6bd-f04e-447e-8575-3b89d94900d8",
+        "name": "EXPLICITNESS",
+        "type": "tier",
+        "definition": null,
+        "children": [
+          {
+            "id": "824669f1-1735-4f89-a0b7-ab397d6916aa",
+            "name": "inscribed",
+            "type": "label",
+            "definition": "铭刻 (inscribed): 态度通过明确的词汇直接表达。",
+            "color": "#8dc9aa"
+          },
+          {
+            "id": "f3102e42-a05d-4000-b9d0-85ef668e9f12",
+            "name": "invoked",
+            "type": "label",
+            "definition": "唤起 (invoked): 态度通过暗示、隐喻等间接方式表达。",
+            "color": "#c4aa85"
+          }
+        ]
+      }
+    ],
+    "color": "#be8f8d"
+  },
+  "createdAt": "2025-12-12T13:52:44.808488",
+  "updatedAt": "2025-12-12T13:52:44.808488"
+}

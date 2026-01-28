@@ -1,0 +1,300 @@
+{
+  "id": "Bednarek_Affect_Scheme",
+  "name": "Bednarek Affect Scheme",
+  "category": "UAM - Appraisal Analysis",
+  "description": "Bednarek Affect Scheme（贝德纳雷克情感框架）是由语言学家 Monika Bednarek 提出的一套用于分析文本中情感（affect）表达的分类体系，尤其适用于话语分析、语料库语言学等领域，旨在系统识别和标注文本中各类情感的类型与特征。其核心逻辑是通过层级化、对立性分类，将抽象的 “情感” 拆解为可操作、可标注的具体类型，以下从框架结构、核心逻辑、情感类型解析及应用价值四个维度进行深度解析。",
+  "root": {
+    "id": "5bc805ee-1d2c-4b5e-be48-498cf762833e",
+    "name": "affect",
+    "type": "label",
+    "definition": "Bednarek Affect Scheme（贝德纳雷克情感框架）是由语言学家 Monika Bednarek 提出的一套用于分析文本中情感（affect）表达的分类体系，尤其适用于话语分析、语料库语言学等领域，旨在系统识别和标注文本中各类情感的类型与特征。其核心逻辑是通过层级化、对立性分类，将抽象的 “情感” 拆解为可操作、可标注的具体类型，以下从框架结构、核心逻辑、情感类型解析及应用价值四个维度进行深度解析。",
+    "children": [
+      {
+        "id": "ba717ce2-9e04-46de-95bf-6d820c53fcd9",
+        "name": "AFFECT-TYPE",
+        "type": "tier",
+        "definition": null,
+        "children": [
+          {
+            "id": "ea7ab947-6e14-4026-b01d-1575d6a24e78",
+            "name": "dis-inclination",
+            "type": "label",
+            "definition": "dis-inclination（反倾向）：表示不愿意、不想要或避免某事的情感状态。",
+            "children": [
+              {
+                "id": "166720c2-f288-4d7f-9470-22695bb1855e",
+                "name": "DIS-INCLINATION-TYPE",
+                "type": "tier",
+                "definition": null,
+                "children": [
+                  {
+                    "id": "48db4245-532d-476a-b726-fbb3e3a0ccb0",
+                    "name": "disinclination-non-desire",
+                    "type": "label",
+                    "definition": "disinclination-non-desire（反倾向-非渴望）：明确表示不想要或不愿意的情感。",
+                    "color": "#ac9994"
+                  },
+                  {
+                    "id": "3eb6f678-6c21-40b9-857b-0b2a2e4462c6",
+                    "name": "inclination-desire",
+                    "type": "label",
+                    "definition": "inclination-desire（倾向-渴望）：表示想要或渴望的情感。",
+                    "color": "#9592b6"
+                  }
+                ]
+              }
+            ],
+            "color": "#897cb8"
+          },
+          {
+            "id": "3cb708d1-7db2-4805-afb7-4e35b91a586f",
+            "name": "dis-satisfaction",
+            "type": "label",
+            "definition": "dis-satisfaction（不满足）：与满足感相关的情感维度，包括满足和不满足两个对立面。",
+            "children": [
+              {
+                "id": "7e04a654-a8b5-4f46-b051-3560e366f797",
+                "name": "AFFECT-2-TYPE",
+                "type": "tier",
+                "definition": null,
+                "children": [
+                  {
+                    "id": "f63ba6ac-49bf-4903-823c-0d423dcc1078",
+                    "name": "dissatisfaction",
+                    "type": "label",
+                    "definition": "dissatisfaction（不满足）：表示不满意或失望的情感状态。",
+                    "children": [
+                      {
+                        "id": "091ac155-4491-4ba3-8b83-3a6813fc3063",
+                        "name": "DISSATISFACTION-TYPE",
+                        "type": "tier",
+                        "definition": null,
+                        "children": [
+                          {
+                            "id": "d7e1c55b-c256-47e8-833b-1d184eb821c2",
+                            "name": "displeasure",
+                            "type": "label",
+                            "definition": "displeasure（不悦）：表示不高兴、不愉快的具体情感。",
+                            "color": "#c08fcb"
+                          },
+                          {
+                            "id": "5df5b61d-b531-470e-8eaf-eb61b59119bc",
+                            "name": "ennui",
+                            "type": "label",
+                            "definition": "ennui（厌倦）：表示无聊、厌倦、缺乏兴趣的情感状态。",
+                            "color": "#a19fd1"
+                          }
+                        ]
+                      }
+                    ],
+                    "color": "#c6b4b5"
+                  },
+                  {
+                    "id": "4e34eb8e-3e61-4c02-b15a-159ceb3d6fd3",
+                    "name": "satisfaction",
+                    "type": "label",
+                    "definition": "satisfaction（满足）：表示满意或满足的情感状态。",
+                    "children": [
+                      {
+                        "id": "c773725c-b3f2-4f09-867f-22ef6ed9b5db",
+                        "name": "SATISFACTION-TYPE",
+                        "type": "tier",
+                        "definition": null,
+                        "children": [
+                          {
+                            "id": "0d6c7a9f-3f71-4810-9cc0-f0a94223f40a",
+                            "name": "interest",
+                            "type": "label",
+                            "definition": "interest（兴趣）：表示感兴趣、好奇或关注的情感。",
+                            "color": "#a588db"
+                          },
+                          {
+                            "id": "99e8b38f-9796-483e-9ded-9935d6af9d89",
+                            "name": "pleasure",
+                            "type": "label",
+                            "definition": "pleasure（愉悦）：表示高兴、愉快、享受的情感。",
+                            "color": "#7ea1db"
+                          }
+                        ]
+                      }
+                    ],
+                    "color": "#8e97c2"
+                  }
+                ]
+              }
+            ],
+            "color": "#8f9f95"
+          },
+          {
+            "id": "e314aa9e-5b69-4e7d-9a08-e77aaefee547",
+            "name": "in-security",
+            "type": "label",
+            "definition": "in-security（不安全感）：与安全感相关的情感维度，涉及信任和焦虑。",
+            "children": [
+              {
+                "id": "2183c1b9-8930-4d4b-87c3-3348f9994b27",
+                "name": "IN-SECURITY-TYPE",
+                "type": "tier",
+                "definition": null,
+                "children": [
+                  {
+                    "id": "a809ec27-4592-482b-bcc9-9ab854c14371",
+                    "name": "insecurity",
+                    "type": "label",
+                    "definition": "insecurity（不安全感）：表示缺乏安全感、担忧或不确定的情感。",
+                    "children": [
+                      {
+                        "id": "5ca590e0-b24a-49a3-b756-c3bbd5ad4489",
+                        "name": "INSECURITY-TYPE",
+                        "type": "tier",
+                        "definition": null,
+                        "children": [
+                          {
+                            "id": "6394dc9c-ae67-410d-bc51-5eee9bbc6709",
+                            "name": "disquiet",
+                            "type": "label",
+                            "definition": "disquiet（不安）：表示焦虑、担心、不安宁的情感状态。",
+                            "color": "#d5a8d4"
+                          },
+                          {
+                            "id": "f696cf47-5f38-4aa8-98e8-c6b4cbcbc937",
+                            "name": "distrust",
+                            "type": "label",
+                            "definition": "distrust（不信任）：表示怀疑、不信任他人的情感。",
+                            "color": "#87aa95"
+                          }
+                        ]
+                      }
+                    ],
+                    "color": "#c3a5ae"
+                  },
+                  {
+                    "id": "aba5d489-6083-45c8-8b80-3283cd89450b",
+                    "name": "security",
+                    "type": "label",
+                    "definition": "security（安全感）：表示有安全感、放心或确定的情感。",
+                    "children": [
+                      {
+                        "id": "0e4ef42f-45e0-4bcc-bbde-63c734b4401a",
+                        "name": "SECURITY-TYPE",
+                        "type": "tier",
+                        "definition": null,
+                        "children": [
+                          {
+                            "id": "9d85afef-d268-4b96-8acd-70882dfcceb0",
+                            "name": "quiet",
+                            "type": "label",
+                            "definition": "quiet（安静）：表示平静、安宁、无忧虑的情感状态。",
+                            "color": "#b9a9be"
+                          },
+                          {
+                            "id": "907dd1fd-f34c-4cd4-9f8a-fa43e81ef6b1",
+                            "name": "trust",
+                            "type": "label",
+                            "definition": "trust（信任）：表示信任、信赖他人的情感。",
+                            "color": "#c4d3ae"
+                          }
+                        ]
+                      }
+                    ],
+                    "color": "#c8caa7"
+                  }
+                ]
+              }
+            ],
+            "color": "#d2dbc5"
+          },
+          {
+            "id": "74d51d26-a30d-47dc-8384-2a6cbfba2f54",
+            "name": "surprise",
+            "type": "label",
+            "definition": "surprise（惊讶）：表示意外、惊讶或震惊的情感反应，通常是对unexpected事件的即时情感反应。",
+            "color": "#abc482"
+          },
+          {
+            "id": "c61d95b5-7732-4bb3-9494-e49635779f05",
+            "name": "un-happiness",
+            "type": "label",
+            "definition": "un-happiness（不幸福）：与幸福感相关的最重要情感维度。",
+            "children": [
+              {
+                "id": "66837ad4-67c1-4641-8e5b-261057839182",
+                "name": "AFFECT-1-TYPE",
+                "type": "tier",
+                "definition": null,
+                "children": [
+                  {
+                    "id": "d60fd3dc-a166-4cdb-b882-206eb82ea292",
+                    "name": "happiness",
+                    "type": "label",
+                    "definition": "happiness（幸福）：表示积极、正面的情感状态。",
+                    "children": [
+                      {
+                        "id": "f88b4d04-baa9-411b-aebf-b55b83a22431",
+                        "name": "HAPPINESS-TYPE",
+                        "type": "tier",
+                        "definition": null,
+                        "children": [
+                          {
+                            "id": "48ad59d1-f7d9-4c1d-9249-c555ef7840e9",
+                            "name": "affection",
+                            "type": "label",
+                            "definition": "affection（喜爱）：表示喜欢、爱护、亲密的情感。",
+                            "color": "#8ca494"
+                          },
+                          {
+                            "id": "cbc5790d-6b05-447c-83a4-9ff2326d4f4c",
+                            "name": "cheer",
+                            "type": "label",
+                            "definition": "cheer（愉快）：表示高兴、欢快、兴高采烈的情感。",
+                            "color": "#d1ae8f"
+                          }
+                        ]
+                      }
+                    ],
+                    "color": "#b684ce"
+                  },
+                  {
+                    "id": "b098bdd8-5288-4b03-a044-baf281648d52",
+                    "name": "unhappiness",
+                    "type": "label",
+                    "definition": "unhappiness（不幸福）：表示消极、负面的情感状态。",
+                    "children": [
+                      {
+                        "id": "333118eb-b651-4a8b-b9bb-49ca1e3f1b7f",
+                        "name": "UNHAPPINESS-TYPE",
+                        "type": "tier",
+                        "definition": null,
+                        "children": [
+                          {
+                            "id": "eee4fd23-67c7-4001-9a24-b81dcfb46d96",
+                            "name": "antipathy",
+                            "type": "label",
+                            "definition": "antipathy（反感）：表示厌恶、反感、敌意的情感。",
+                            "color": "#8b9878"
+                          },
+                          {
+                            "id": "6319ae1e-e37e-4c7a-9a33-8284cf716245",
+                            "name": "misery",
+                            "type": "label",
+                            "definition": "misery（痛苦）：表示悲伤、痛苦、不幸的情感。",
+                            "color": "#b4c4a5"
+                          }
+                        ]
+                      }
+                    ],
+                    "color": "#c6a4d6"
+                  }
+                ]
+              }
+            ],
+            "color": "#7fcd8b"
+          }
+        ]
+      }
+    ],
+    "color": "#88b178"
+  },
+  "createdAt": "2025-12-12T13:52:44.827818",
+  "updatedAt": "2025-12-12T13:52:44.827818"
+}

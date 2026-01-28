@@ -1,0 +1,67 @@
+{
+  "id": "AuthResponsMarkers",
+  "name": "AuthResponsMarkers",
+  "category": "UAM - Others",
+  "description": "权威责任标记 (authresponsmarkers)：用于标记说话者对所表达信息的权威性和责任性态度的语言标记。",
+  "root": {
+    "id": "33b9b697-d4e1-42d1-9e29-0edea2fb02a2",
+    "name": "authresponsmarkers",
+    "type": "label",
+    "definition": "权威责任标记 (authresponsmarkers)：用于标记说话者对所表达信息的权威性和责任性态度的语言标记。",
+    "children": [
+      {
+        "id": "6c69261d-58fc-43ab-b2e3-8d22ca993e85",
+        "name": "AUTHRESPONSMARKERS-TYPE",
+        "type": "tier",
+        "definition": null,
+        "children": [
+          {
+            "id": "2381cfbc-3e57-46fc-9230-0747cade8f6c",
+            "name": "belief",
+            "type": "label",
+            "definition": "信念标记 (belief)：表示说话者基于个人信念或观点表达信息的标记，如\"我认为\"、\"我相信\"等。",
+            "color": "#9fd681"
+          },
+          {
+            "id": "0b59732e-1edb-4a04-9d6f-bf9e6e59c712",
+            "name": "defining",
+            "type": "label",
+            "definition": "界定标记 (defining)：用于界定或限定概念、范围或条件的标记，如\"具体而言\"、\"就...而言\"等。",
+            "color": "#a6c791"
+          },
+          {
+            "id": "ee4e475f-cd12-4dfc-b20a-3ea8e97e77c7",
+            "name": "distancing",
+            "type": "label",
+            "definition": "疏远标记 (distancing)：表示说话者与所述信息保持距离或不完全承担责任的标记，如\"据说\"、\"似乎\"等。",
+            "color": "#c496c9"
+          },
+          {
+            "id": "7a7a13f3-a481-4880-8c39-c1c821a52085",
+            "name": "other",
+            "type": "label",
+            "definition": "其他标记 (other)：不属于上述具体类别的其他权威责任标记。",
+            "color": "#7bc8d7"
+          },
+          {
+            "id": "28ea0d4a-2df2-4fb3-8659-bafd1802b321",
+            "name": "perception",
+            "type": "label",
+            "definition": "感知标记 (perception)：基于感知经验表达信息的标记，如\"我看到\"、\"听起来\"等。",
+            "color": "#a8b3c4"
+          },
+          {
+            "id": "db42b643-b1cf-4272-a6d5-922fa8217bf1",
+            "name": "verbal",
+            "type": "label",
+            "definition": "言语标记 (verbal)：引用他人言语或报告他人观点的标记，如\"他说\"、\"根据报告\"等。",
+            "color": "#a6cf8a"
+          }
+        ]
+      }
+    ],
+    "color": "#90aeb5"
+  },
+  "createdAt": "2025-12-12T13:52:45.018134",
+  "updatedAt": "2025-12-12T13:52:45.018134"
+}

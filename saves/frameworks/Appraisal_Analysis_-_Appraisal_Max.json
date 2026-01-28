@@ -1,0 +1,840 @@
+{
+  "id": "Appraisal_Analysis_-_Appraisal_Max",
+  "name": "Appraisal Analysis - Appraisal Max",
+  "category": "UAM - Appraisal Analysis",
+  "description": "评价理论 (Appraisal Theory) ：是系统功能语言学中的一个重要理论框架，用于分析语言中表达态度、立场和情感的资源。",
+  "root": {
+    "id": "afe22019-4950-4344-b491-0f0eed4c1208",
+    "name": "appraisal",
+    "type": "label",
+    "definition": "评价理论 (Appraisal Theory) ：是系统功能语言学中的一个重要理论框架，用于分析语言中表达态度、立场和情感的资源。",
+    "children": [
+      {
+        "id": "4dcbd6c0-280e-408c-8773-816a91608cd9",
+        "name": "APPRAISAL-TYPE",
+        "type": "tier",
+        "definition": null,
+        "children": [
+          {
+            "id": "227cb574-d724-4594-9e22-e7642f9e8a60",
+            "name": "attitude",
+            "type": "label",
+            "definition": "态度系统 (attitude)：态度系统关注语言中表达情感、判断和欣赏的资源。",
+            "children": [
+              {
+                "id": "8a7ef088-6ec2-4a43-a5eb-d1a33e24131c",
+                "name": "ATTITUDE-POLARITY",
+                "type": "tier",
+                "definition": null,
+                "children": [
+                  {
+                    "id": "eee1f416-06f8-48bd-a0ee-e132e7f50ed0",
+                    "name": "ambiguous",
+                    "type": "label",
+                    "definition": "模糊性 (ambiguous): 态度倾向不明确或存在歧义的表达。",
+                    "color": "#be82bc"
+                  },
+                  {
+                    "id": "7bd3c66e-e080-4348-81c0-4ddcff3c9bf4",
+                    "name": "negative-attitude",
+                    "type": "label",
+                    "definition": "消极态度 (negative-attitude): 表达负面评价或情感的语言资源。",
+                    "color": "#be88be"
+                  },
+                  {
+                    "id": "ce38bbc4-0b02-4ce3-b601-d74d7a308474",
+                    "name": "positive-attitude",
+                    "type": "label",
+                    "definition": "积极态度 (positive-attitude): 表达正面评价或情感的语言资源。",
+                    "color": "#7b9cd6"
+                  }
+                ]
+              },
+              {
+                "id": "24ab2cd2-ead7-4cad-9371-2a5d36f86445",
+                "name": "ATTITUDE-TYPE",
+                "type": "tier",
+                "definition": null,
+                "children": [
+                  {
+                    "id": "a12553ec-1836-487d-87ff-d02facb880ba",
+                    "name": "affect",
+                    "type": "label",
+                    "definition": "情感 (affect)：表达情感状态和情感反应的语言资源。",
+                    "children": [
+                      {
+                        "id": "0fd12773-6144-4017-841a-bfb2be626046",
+                        "name": "AFFECT-TYPE",
+                        "type": "tier",
+                        "definition": null,
+                        "children": [
+                          {
+                            "id": "9d5681a3-0e43-435b-a0bc-1c0ef86d0442",
+                            "name": "authorial-evaluation",
+                            "type": "label",
+                            "definition": "作者评价 (authorial-evaluation): 文本作者直接表达的情感评价。",
+                            "color": "#9abbd7"
+                          },
+                          {
+                            "id": "bb8d92f8-a03a-4d76-8ffa-5e992d66f68f",
+                            "name": "non-authorial-evaluation",
+                            "type": "label",
+                            "definition": "非作者评价 (non-authorial-evaluation): 非作者（如文中人物）表达的情感评价。",
+                            "color": "#c8b380"
+                          }
+                        ]
+                      },
+                      {
+                        "id": "8b7f4048-58fc-4008-b8fc-23e6664b4abb",
+                        "name": "AFFECT-TYPE2",
+                        "type": "tier",
+                        "definition": null,
+                        "children": [
+                          {
+                            "id": "962beae4-8aa5-4e6c-a409-5574748d19ce",
+                            "name": "dis-inclination",
+                            "type": "label",
+                            "definition": "不倾向 (dis-inclination): 表达不愿意、不想要的情感。",
+                            "color": "#967997"
+                          },
+                          {
+                            "id": "5927535c-9245-4a5c-a561-feed69ce3b8f",
+                            "name": "dis-satisfaction",
+                            "type": "label",
+                            "definition": "不满足 (dis-satisfaction): 表达不满意的情感状态。",
+                            "children": [
+                              {
+                                "id": "1500ef39-650a-469d-842c-611564ae32c8",
+                                "name": "DIS-SATISFACTION-TYPE",
+                                "type": "tier",
+                                "definition": null,
+                                "children": [
+                                  {
+                                    "id": "5eb96cae-b8ae-4c6b-a94f-867959df8827",
+                                    "name": "dis-pleasure",
+                                    "type": "label",
+                                    "definition": "不愉快 (dis-pleasure): 表达不高兴、痛苦的情感。",
+                                    "color": "#9dcbb9"
+                                  },
+                                  {
+                                    "id": "83cb2e07-4c19-43c6-882a-6537e7a2ce23",
+                                    "name": "ennui-interest",
+                                    "type": "label",
+                                    "definition": "厌倦-兴趣 (ennui-interest): 表达厌倦与兴趣对立的情感。",
+                                    "color": "#97bb88"
+                                  }
+                                ]
+                              }
+                            ],
+                            "color": "#82a1aa"
+                          },
+                          {
+                            "id": "ee167df2-f8a2-43c7-ba39-f1d1559a41bc",
+                            "name": "in-security",
+                            "type": "label",
+                            "definition": "不安全 (in-security): 表达缺乏安全感的情感。",
+                            "children": [
+                              {
+                                "id": "230e7ea9-2329-4476-b0e1-63d9f201acfb",
+                                "name": "IN-SECURITY-TYPE",
+                                "type": "tier",
+                                "definition": null,
+                                "children": [
+                                  {
+                                    "id": "d2cce669-3060-4322-891c-d9b7f4bb9ae8",
+                                    "name": "dis-quiet",
+                                    "type": "label",
+                                    "definition": "不安 (dis-quiet): 表达焦虑、不安的情感。",
+                                    "color": "#be91b9"
+                                  },
+                                  {
+                                    "id": "ca9cbad2-0bbf-4a2c-8a36-4ae95ae0d323",
+                                    "name": "dis-trust",
+                                    "type": "label",
+                                    "definition": "不信任 (dis-trust): 表达怀疑、不信任的情感。",
+                                    "color": "#99adb9"
+                                  }
+                                ]
+                              }
+                            ],
+                            "color": "#87bdac"
+                          },
+                          {
+                            "id": "aff0c182-3dff-483d-ac3c-62b1f90112b6",
+                            "name": "un-happiness",
+                            "type": "label",
+                            "definition": "不快乐 (un-happiness): 表达不开心的情感状态。",
+                            "children": [
+                              {
+                                "id": "06eb320e-3add-4f68-b8aa-c517ae6db9a8",
+                                "name": "UN-HAPPINESS-TYPE",
+                                "type": "tier",
+                                "definition": null,
+                                "children": [
+                                  {
+                                    "id": "546f101d-ce4b-4934-a079-93cfb7fb8a08",
+                                    "name": "antipathy-affection",
+                                    "type": "label",
+                                    "definition": "反感-喜爱 (antipathy-affection): 表达厌恶与喜爱对立的情感。",
+                                    "color": "#82c09a"
+                                  },
+                                  {
+                                    "id": "2225d6c0-f444-4aee-ab3b-db788d8a4131",
+                                    "name": "misery-cheer",
+                                    "type": "label",
+                                    "definition": "痛苦-愉快 (misery-cheer): 表达痛苦与愉快对立的情感。",
+                                    "color": "#cd8ea2"
+                                  }
+                                ]
+                              }
+                            ],
+                            "color": "#c284cf"
+                          }
+                        ]
+                      }
+                    ],
+                    "color": "#a28ad5"
+                  },
+                  {
+                    "id": "1a07c9ba-b40b-40e0-87d4-c678130b38f4",
+                    "name": "appreciation",
+                    "type": "label",
+                    "definition": "欣赏 (appreciation)：对事物、现象、过程等进行美学或价值评价的语言资源。",
+                    "children": [
+                      {
+                        "id": "12fb009f-9b16-418d-b72b-28ae5076d46c",
+                        "name": "APPRECIATION-TYPE",
+                        "type": "tier",
+                        "definition": null,
+                        "children": [
+                          {
+                            "id": "235b5556-eb10-4cba-9d4d-b57d016d3cce",
+                            "name": "composition",
+                            "type": "label",
+                            "definition": "构成 (composition): 对事物结构、形式的评价。",
+                            "children": [
+                              {
+                                "id": "cabaf9dc-b20f-4b38-9e9d-573cf3a2d712",
+                                "name": "COMPOSITION-TYPE",
+                                "type": "tier",
+                                "definition": null,
+                                "children": [
+                                  {
+                                    "id": "2a422ff5-8be9-476d-a3fb-6514244c43d2",
+                                    "name": "balance",
+                                    "type": "label",
+                                    "definition": "平衡 (balance): 评价事物的协调性、比例关系。",
+                                    "color": "#7ac9a5"
+                                  },
+                                  {
+                                    "id": "7f7f21f8-4894-41b7-908c-f95cf3a592ce",
+                                    "name": "complexity",
+                                    "type": "label",
+                                    "definition": "复杂性 (complexity): 评价事物的复杂程度或简单性。",
+                                    "color": "#a7c0bd"
+                                  }
+                                ]
+                              }
+                            ],
+                            "color": "#887887"
+                          },
+                          {
+                            "id": "95898207-9e71-46e2-9ba7-b607ede3633a",
+                            "name": "reaction",
+                            "type": "label",
+                            "definition": "反应 (reaction): 对事物产生的直接反应或感受。",
+                            "children": [
+                              {
+                                "id": "bc98a165-a33a-45fe-a5c2-758419755595",
+                                "name": "REACTION-TYPE",
+                                "type": "tier",
+                                "definition": null,
+                                "children": [
+                                  {
+                                    "id": "cef6a64f-494f-4773-a3ff-69d11799791e",
+                                    "name": "impact",
+                                    "type": "label",
+                                    "definition": "影响 (impact): 评价事物的冲击力、感染力。",
+                                    "color": "#95a3d8"
+                                  },
+                                  {
+                                    "id": "95e0be99-8276-460e-9451-0e5c5589c08a",
+                                    "name": "quality",
+                                    "type": "label",
+                                    "definition": "质量 (quality): 评价事物的品质、水准。",
+                                    "color": "#ce7a83"
+                                  }
+                                ]
+                              }
+                            ],
+                            "color": "#7c7bcb"
+                          },
+                          {
+                            "id": "0e9e4056-8d0b-47d8-8b6a-8f15ce94c5be",
+                            "name": "social-valuation",
+                            "type": "label",
+                            "definition": "社会评价 (social-valuation): 基于社会价值观的评价。",
+                            "color": "#bb9a9c"
+                          }
+                        ]
+                      }
+                    ],
+                    "color": "#acbcd5"
+                  },
+                  {
+                    "id": "7208480f-7017-476f-9cc4-0251d4061df7",
+                    "name": "judgement",
+                    "type": "label",
+                    "definition": "判断 (judgement)：对人的行为、品格、能力等进行道德或社会评价的语言资源。",
+                    "children": [
+                      {
+                        "id": "f2f66433-63ff-4093-91e4-03e43c23faf9",
+                        "name": "JUDGEMENT-TYPE",
+                        "type": "tier",
+                        "definition": null,
+                        "children": [
+                          {
+                            "id": "879a432e-6ba6-40ef-aa4b-4bf05109eb0c",
+                            "name": "capacity",
+                            "type": "label",
+                            "definition": "能力 (capacity): 评价某人的能力、技能水平。",
+                            "color": "#bf947d"
+                          },
+                          {
+                            "id": "de015f5f-3368-4ac9-a27a-6f4f4b6d8e5a",
+                            "name": "normality",
+                            "type": "label",
+                            "definition": "正常性 (normality): 评价行为是否符合常规、正常。",
+                            "color": "#d8a8ae"
+                          },
+                          {
+                            "id": "a073f81d-2d08-467e-8d35-aa66db64172f",
+                            "name": "propriety",
+                            "type": "label",
+                            "definition": "合宜性 (propriety): 评价行为的道德性、合理性。",
+                            "color": "#da7c94"
+                          },
+                          {
+                            "id": "756ca860-11d9-4c72-8154-792e5e1400fc",
+                            "name": "tenacity",
+                            "type": "label",
+                            "definition": "坚持性 (tenacity): 评价某人的坚持力、毅力。",
+                            "color": "#aec88f"
+                          },
+                          {
+                            "id": "d4053061-6c7e-42f7-8af0-9b1f97659cba",
+                            "name": "unclear",
+                            "type": "label",
+                            "definition": "不明确 (unclear): 判断类型不明确的情况。",
+                            "color": "#898fac"
+                          },
+                          {
+                            "id": "6a7ef443-6d9a-4557-aebd-2c9ea5047870",
+                            "name": "veracity",
+                            "type": "label",
+                            "definition": "真实性 (veracity): 评价某人的诚实度、可信度。",
+                            "color": "#86ca81"
+                          }
+                        ]
+                      }
+                    ],
+                    "color": "#c48399"
+                  }
+                ]
+              },
+              {
+                "id": "f4b05300-77b7-4888-9761-4af1e3b4ca57",
+                "name": "EXPLICITNESS",
+                "type": "tier",
+                "definition": null,
+                "children": [
+                  {
+                    "id": "eec57b71-4f90-4a32-b470-de8837f9ef5e",
+                    "name": "inscribed",
+                    "type": "label",
+                    "definition": "铭刻 (inscribed): 态度通过明确的词汇直接表达。",
+                    "color": "#c8b77a"
+                  },
+                  {
+                    "id": "7eccf887-6b88-4cc0-a034-9b9d1f1bb80b",
+                    "name": "invoked",
+                    "type": "label",
+                    "definition": "唤起 (invoked): 态度通过暗示、隐喻等间接方式表达。",
+                    "color": "#b884a0"
+                  }
+                ]
+              }
+            ],
+            "color": "#95b6a8"
+          },
+          {
+            "id": "66e10906-4c3f-4112-9066-f0964c7645c0",
+            "name": "engagement",
+            "type": "label",
+            "definition": "介入系统 (engagement)：介入系统处理语言中表达不同声音和立场的资源。",
+            "children": [
+              {
+                "id": "9fb7a6ba-e803-4518-add0-fc13887b992d",
+                "name": "ENGAGEMENT-TYPE",
+                "type": "tier",
+                "definition": null,
+                "children": [
+                  {
+                    "id": "2d402b7b-589a-471a-bd1d-c032d52ff33a",
+                    "name": "hetero-glossic",
+                    "type": "label",
+                    "definition": "异声性 (hetero-glossic)：承认或引入其他声音和观点的语言资源。",
+                    "children": [
+                      {
+                        "id": "2d74ad48-4b08-4b4b-91d1-651530e191e3",
+                        "name": "HETERO-GLOSSIC-TYPE",
+                        "type": "tier",
+                        "definition": null,
+                        "children": [
+                          {
+                            "id": "34dced12-7469-4404-b695-285353678ce5",
+                            "name": "contract",
+                            "type": "label",
+                            "definition": "收缩 (contract)：限制或排除其他可能观点的语言资源。",
+                            "children": [
+                              {
+                                "id": "0588c021-9472-4984-9b9a-844c542590ae",
+                                "name": "CONTRACT-TYPE",
+                                "type": "tier",
+                                "definition": null,
+                                "children": [
+                                  {
+                                    "id": "ba5cc40a-75cd-41f1-864f-4d448bbb2b80",
+                                    "name": "disclaim",
+                                    "type": "label",
+                                    "definition": "否认 (disclaim): 否定或反驳其他观点。",
+                                    "children": [
+                                      {
+                                        "id": "c149638d-b74d-48a9-92a3-5864ca68691f",
+                                        "name": "DISCLAIM-TYPE",
+                                        "type": "tier",
+                                        "definition": null,
+                                        "children": [
+                                          {
+                                            "id": "632324d4-7b44-400b-ba86-0e4f10b06a04",
+                                            "name": "counter",
+                                            "type": "label",
+                                            "definition": "反驳 (counter): 直接反驳对立观点。",
+                                            "color": "#b4b6d6"
+                                          },
+                                          {
+                                            "id": "4c3265ec-1214-4d35-9c3f-e48e09651817",
+                                            "name": "deny",
+                                            "type": "label",
+                                            "definition": "否定 (deny): 否定某种可能性或观点。",
+                                            "color": "#9a7b79"
+                                          }
+                                        ]
+                                      }
+                                    ],
+                                    "color": "#b2c2c1"
+                                  },
+                                  {
+                                    "id": "1405b852-ce73-412b-be97-81f8eaeca4ee",
+                                    "name": "proclaim",
+                                    "type": "label",
+                                    "definition": "宣告 (proclaim): 强化或支持特定观点。",
+                                    "children": [
+                                      {
+                                        "id": "ee9ce2cd-50be-4372-b9da-ff98c3a4bf63",
+                                        "name": "PROCLAIM-TYPE",
+                                        "type": "tier",
+                                        "definition": null,
+                                        "children": [
+                                          {
+                                            "id": "bfbef728-1b1c-441a-b17f-eebfca37f65d",
+                                            "name": "concur",
+                                            "type": "label",
+                                            "definition": "同意 (concur): 表达同意或一致。",
+                                            "children": [
+                                              {
+                                                "id": "38c2908d-6442-420f-96ee-1be6352a9de5",
+                                                "name": "CONCUR-TYPE",
+                                                "type": "tier",
+                                                "definition": null,
+                                                "children": [
+                                                  {
+                                                    "id": "9b7326b3-f9f8-4665-9142-cf122fd93cbb",
+                                                    "name": "affirm",
+                                                    "type": "label",
+                                                    "definition": "确认 (affirm): 肯定、确认某种观点。",
+                                                    "color": "#a99da1"
+                                                  },
+                                                  {
+                                                    "id": "fda939c5-98fa-4d0f-9c1f-2b39fd761908",
+                                                    "name": "concede",
+                                                    "type": "label",
+                                                    "definition": "让步 (concede): 承认或让步于某种观点。",
+                                                    "color": "#c0a58b"
+                                                  }
+                                                ]
+                                              }
+                                            ],
+                                            "color": "#b5bdc9"
+                                          },
+                                          {
+                                            "id": "f3bc71c0-9055-4921-8b82-723659e103ab",
+                                            "name": "endorse",
+                                            "type": "label",
+                                            "definition": "认可 (endorse): 支持或认可外部观点。",
+                                            "color": "#868ac9"
+                                          },
+                                          {
+                                            "id": "9ce15918-b1cc-4bb5-9834-30fa9d6219dc",
+                                            "name": "justify",
+                                            "type": "label",
+                                            "definition": "证明 (justify): 为观点提供理由或证据。",
+                                            "color": "#d195db"
+                                          },
+                                          {
+                                            "id": "a327ee5e-12fb-4a96-b41f-e31d5cb5304a",
+                                            "name": "pronounce",
+                                            "type": "label",
+                                            "definition": "宣称 (pronounce): 明确宣布或声明立场。",
+                                            "color": "#c8a9d4"
+                                          }
+                                        ]
+                                      }
+                                    ],
+                                    "color": "#abb6d8"
+                                  }
+                                ]
+                              }
+                            ],
+                            "color": "#bdbb80"
+                          },
+                          {
+                            "id": "786dd632-ea01-46ae-bd4d-985795f17d93",
+                            "name": "expand",
+                            "type": "label",
+                            "definition": "扩展 (expand)：为其他观点留出空间的语言资源。",
+                            "children": [
+                              {
+                                "id": "ed89f386-6e54-4232-bf8c-40fe61efcbc4",
+                                "name": "EXPAND-TYPE",
+                                "type": "tier",
+                                "definition": null,
+                                "children": [
+                                  {
+                                    "id": "8ec3236c-f21f-4f61-a342-aca109aa7990",
+                                    "name": "attribute",
+                                    "type": "label",
+                                    "definition": "归因 (attribute): 将观点归属于外部来源。",
+                                    "children": [
+                                      {
+                                        "id": "ef702c33-0828-4338-b114-ecf1f60a9c1c",
+                                        "name": "ATTRIBUTE-GATE",
+                                        "type": "tier",
+                                        "definition": null,
+                                        "children": [
+                                          {
+                                            "id": "75f6f673-1c1c-4806-9cd3-2b1da703b940",
+                                            "name": "acknowledge",
+                                            "type": "label",
+                                            "definition": "承认 (acknowledge): 承认外部观点的存在。",
+                                            "color": "#86928c"
+                                          },
+                                          {
+                                            "id": "e424b6ae-5532-4a5a-a40f-5bf704ba5263",
+                                            "name": "distance",
+                                            "type": "label",
+                                            "definition": "距离 (distance): 与外部观点保持距离。",
+                                            "color": "#a5cdc3"
+                                          }
+                                        ]
+                                      }
+                                    ],
+                                    "color": "#a0abd3"
+                                  },
+                                  {
+                                    "id": "9c8c72ee-c6a4-4233-a19c-0811aafd2a52",
+                                    "name": "entertain",
+                                    "type": "label",
+                                    "definition": "娱乐 (entertain): 将观点作为可能性之一提出。",
+                                    "color": "#a0847d"
+                                  }
+                                ]
+                              }
+                            ],
+                            "color": "#b9b6d6"
+                          }
+                        ]
+                      }
+                    ],
+                    "color": "#d1c6b9"
+                  },
+                  {
+                    "id": "b13d2925-f5f9-413e-bf96-4a0f298ce29b",
+                    "name": "mono-glossic",
+                    "type": "label",
+                    "definition": "单声性 (mono-glossic)：不引入其他声音，呈现为唯一或客观事实的语言资源。",
+                    "color": "#c6d4a8"
+                  }
+                ]
+              }
+            ],
+            "color": "#b4b7b6"
+          },
+          {
+            "id": "360253ee-0b59-466c-ac04-d8af122b2b45",
+            "name": "graduation",
+            "type": "label",
+            "definition": "级差系统 (graduation)：级差系统处理语言中表达程度、强度和范围的资源。",
+            "children": [
+              {
+                "id": "f6b904b0-5ebc-415c-9ef4-5f54d5934727",
+                "name": "GRADUATION-TYPE",
+                "type": "tier",
+                "definition": null,
+                "children": [
+                  {
+                    "id": "0804c2bc-a017-4542-b0bd-c835296b7f48",
+                    "name": "focus",
+                    "type": "label",
+                    "definition": "焦点 (focus)：调整分类边界的清晰度。",
+                    "children": [
+                      {
+                        "id": "abb13a6b-61d2-4c83-ba4b-988202dca68c",
+                        "name": "FOCUS-TYPE",
+                        "type": "tier",
+                        "definition": null,
+                        "children": [
+                          {
+                            "id": "109c96cf-61ad-4f96-b7aa-8a5d19f90417",
+                            "name": "sharpen",
+                            "type": "label",
+                            "definition": "锐化 (sharpen): 使分类边界更加清晰、明确。",
+                            "color": "#d97ab4"
+                          },
+                          {
+                            "id": "b5854d9c-25bc-4731-872b-59b6751990cc",
+                            "name": "soften",
+                            "type": "label",
+                            "definition": "软化 (soften): 使分类边界变得模糊、不确定。",
+                            "color": "#b0bfc0"
+                          }
+                        ]
+                      }
+                    ],
+                    "color": "#a2c997"
+                  },
+                  {
+                    "id": "5e6b1c14-9e86-49c0-ba89-cc8fe24e41bc",
+                    "name": "force",
+                    "type": "label",
+                    "definition": "力度 (force)：调整强度或数量的程度。",
+                    "children": [
+                      {
+                        "id": "f0b56350-0b8f-4c03-ae46-75675368eb9d",
+                        "name": "FORCE-TYPE",
+                        "type": "tier",
+                        "definition": null,
+                        "children": [
+                          {
+                            "id": "4b7b3aab-8c4f-481f-b52b-faaf3b63cd33",
+                            "name": "intensification",
+                            "type": "label",
+                            "definition": "强化 (intensification): 增强或减弱质量的程度。",
+                            "children": [
+                              {
+                                "id": "0ee7185e-a641-4045-9b31-5d02a41d2576",
+                                "name": "INTENSIFICATION-TYPE",
+                                "type": "tier",
+                                "definition": null,
+                                "children": [
+                                  {
+                                    "id": "f294daae-af14-442a-9ed8-73fe6ab81f37",
+                                    "name": "degree",
+                                    "type": "label",
+                                    "definition": "程度 (degree): 调整质量的强度程度。",
+                                    "color": "#9ecfa9"
+                                  },
+                                  {
+                                    "id": "f861a07b-d935-4c12-8a28-dd9fb8c3b5a9",
+                                    "name": "vigour",
+                                    "type": "label",
+                                    "definition": "活力 (vigour): 调整过程的强度或活跃程度。",
+                                    "color": "#b0c7a3"
+                                  }
+                                ]
+                              }
+                            ],
+                            "color": "#a986ac"
+                          },
+                          {
+                            "id": "fbb39d28-d699-4552-98d5-0aee84199889",
+                            "name": "quantification",
+                            "type": "label",
+                            "definition": "量化 (quantification): 调整数量或范围。",
+                            "children": [
+                              {
+                                "id": "18873a9b-d621-42f6-93c9-e357a3eccf46",
+                                "name": "QUANTIFICATION-TYPE",
+                                "type": "tier",
+                                "definition": null,
+                                "children": [
+                                  {
+                                    "id": "1d00974e-eced-4fd4-8d53-8efd4567fad8",
+                                    "name": "extent",
+                                    "type": "label",
+                                    "definition": "范围 (extent): 涉及时间或空间范围的量化。",
+                                    "children": [
+                                      {
+                                        "id": "8620dbe8-79d4-4923-a839-16cc2bc60d05",
+                                        "name": "EXTENT-GATE",
+                                        "type": "tier",
+                                        "definition": null,
+                                        "children": [
+                                          {
+                                            "id": "77e8ad71-3e2d-4c5e-a3b0-13d6fd3270a8",
+                                            "name": "distribution",
+                                            "type": "label",
+                                            "definition": "分布 (distribution): 表达分布范围。",
+                                            "children": [
+                                              {
+                                                "id": "fb4e9f8e-3399-45db-88f6-4f2263d577e9",
+                                                "name": "DISTRIBUTION-TYPE",
+                                                "type": "tier",
+                                                "definition": null,
+                                                "children": [
+                                                  {
+                                                    "id": "3b9a679f-09b7-4d25-8db5-da67306b696c",
+                                                    "name": "distrib-space",
+                                                    "type": "label",
+                                                    "definition": "空间分布 (distrib-space): 空间范围内的分布。",
+                                                    "color": "#9f98cb"
+                                                  },
+                                                  {
+                                                    "id": "6115a493-4d08-430f-adbf-2d32eac2a3d9",
+                                                    "name": "distrib-time",
+                                                    "type": "label",
+                                                    "definition": "时间分布 (distrib-time): 时间范围内的分布。",
+                                                    "color": "#b9b57b"
+                                                  }
+                                                ]
+                                              }
+                                            ],
+                                            "color": "#a9819a"
+                                          },
+                                          {
+                                            "id": "06364fdf-07b5-4505-8f2d-d2359b45a7bf",
+                                            "name": "proximity",
+                                            "type": "label",
+                                            "definition": "邻近性 (proximity): 表达接近程度。",
+                                            "children": [
+                                              {
+                                                "id": "2ccaaaf3-401e-48ca-b38d-17baf254a0e7",
+                                                "name": "PROXIMITY-TYPE",
+                                                "type": "tier",
+                                                "definition": null,
+                                                "children": [
+                                                  {
+                                                    "id": "e955d34d-f38a-450f-9987-c785debb43aa",
+                                                    "name": "space",
+                                                    "type": "label",
+                                                    "definition": "空间 (space): 空间上的接近程度。",
+                                                    "color": "#b4899c"
+                                                  },
+                                                  {
+                                                    "id": "d68fa027-41e3-4b7d-b82d-48503e9e31cc",
+                                                    "name": "time",
+                                                    "type": "label",
+                                                    "definition": "时间 (time): 时间上的接近程度。",
+                                                    "color": "#d6c496"
+                                                  }
+                                                ]
+                                              }
+                                            ],
+                                            "color": "#8ad4d7"
+                                          }
+                                        ]
+                                      }
+                                    ],
+                                    "color": "#82c48a"
+                                  },
+                                  {
+                                    "id": "0ff74c66-c788-4d9d-853f-cdca66402bdc",
+                                    "name": "mass",
+                                    "type": "label",
+                                    "definition": "质量 (mass): 涉及不可数量的量化。",
+                                    "color": "#9f80d2"
+                                  },
+                                  {
+                                    "id": "c93549f1-7321-4977-a217-dcc0b763ac1c",
+                                    "name": "number",
+                                    "type": "label",
+                                    "definition": "数量 (number): 涉及可数量的量化。",
+                                    "color": "#8da394"
+                                  }
+                                ]
+                              }
+                            ],
+                            "color": "#82a8ae"
+                          }
+                        ]
+                      },
+                      {
+                        "id": "2b993bfa-8548-4475-b872-c7d1aefaf104",
+                        "name": "LEXICAL-FUSION",
+                        "type": "tier",
+                        "definition": null,
+                        "children": [
+                          {
+                            "id": "b5f123ac-bc11-4a4b-a507-ffe4c6a80a43",
+                            "name": "infusing",
+                            "type": "label",
+                            "definition": "融入 (infusing): 级差意义融入词汇本身。",
+                            "color": "#b7c6ad"
+                          },
+                          {
+                            "id": "d3a2aa02-db19-4091-92c6-2fa740cdc877",
+                            "name": "isolating",
+                            "type": "label",
+                            "definition": "独立 (isolating): 级差意义通过独立词汇表达。",
+                            "color": "#b67c84"
+                          }
+                        ]
+                      },
+                      {
+                        "id": "fde8c461-e9e9-48af-b812-fdac06e9d7ff",
+                        "name": "SCALE",
+                        "type": "tier",
+                        "definition": null,
+                        "children": [
+                          {
+                            "id": "d3f7c1c5-cc07-4c26-8193-56d19c2126f3",
+                            "name": "downscale",
+                            "type": "label",
+                            "definition": "降级 (downscale): 降低强度或程度。",
+                            "color": "#7cce9f"
+                          },
+                          {
+                            "id": "2b12394b-2157-4be6-81f9-fba54331b227",
+                            "name": "upscale",
+                            "type": "label",
+                            "definition": "升级 (upscale): 提高强度或程度。",
+                            "color": "#7ba1bd"
+                          }
+                        ]
+                      }
+                    ],
+                    "color": "#d8be84"
+                  }
+                ]
+              }
+            ],
+            "color": "#7cd882"
+          }
+        ]
+      }
+    ],
+    "color": "#a5b1b9"
+  },
+  "createdAt": "2025-12-12T13:52:44.799706",
+  "updatedAt": "2025-12-12T13:52:44.799706"
+}

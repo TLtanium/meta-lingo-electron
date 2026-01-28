@@ -1,0 +1,268 @@
+{
+  "id": "Event_Semantics",
+  "name": "Event Semantics",
+  "category": "UAM - Others",
+  "description": "过程 (process)：语言中表达事件、状态或过程的核心语言单位。",
+  "root": {
+    "id": "ad34200e-ba58-4f6e-9161-97bf65d60d22",
+    "name": "process",
+    "type": "label",
+    "definition": "过程 (process)：语言中表达事件、状态或过程的核心语言单位。",
+    "children": [
+      {
+        "id": "4d9284d3-8c50-476a-a2a9-94e36b3823be",
+        "name": "EVENT-TYPE",
+        "type": "tier",
+        "definition": null,
+        "children": [
+          {
+            "id": "5aa3f9f6-c1d6-4455-8d8a-452c47d947d8",
+            "name": "event",
+            "type": "label",
+            "definition": "事件 (event)：表示有时间界限的动态过程。",
+            "children": [
+              {
+                "id": "a8d60aa4-7ca7-4078-9ae9-a3cdb9a35ea6",
+                "name": "EVENT-TYPE2",
+                "type": "tier",
+                "definition": null,
+                "children": [
+                  {
+                    "id": "f7f38467-528f-4904-a726-dcd26ef65472",
+                    "name": "action",
+                    "type": "label",
+                    "definition": "行动 (action)：有意图的、由施事者主动发起的事件，如\"他跑步\"、\"她写字\"。",
+                    "color": "#829da2"
+                  },
+                  {
+                    "id": "b29141cc-4d89-4a11-8a73-b089c66d529b",
+                    "name": "happening",
+                    "type": "label",
+                    "definition": "发生 (happening)：自然发生的、无明确施事者控制的事件，如\"下雨了\"、\"花开了\"。",
+                    "color": "#be96bf"
+                  }
+                ]
+              }
+            ],
+            "color": "#84b697"
+          },
+          {
+            "id": "0887b298-3af1-44e2-91df-d6d3c761126d",
+            "name": "state",
+            "type": "label",
+            "definition": "状态 (state)：表示相对稳定的、无明显时间界限的情况，如\"他很高\"、\"水是透明的\"。",
+            "color": "#a3847c"
+          }
+        ]
+      },
+      {
+        "id": "320d25d5-1f33-4912-b64b-6e3bdb2ea303",
+        "name": "REALIS",
+        "type": "tier",
+        "definition": null,
+        "children": [
+          {
+            "id": "abcb1904-2315-4bb5-93c3-ff134b414b30",
+            "name": "irrealis",
+            "type": "label",
+            "definition": "非现实 (irrealis)：表示非真实、假设性或潜在的过程或状态。",
+            "children": [
+              {
+                "id": "d6c5eebb-ba83-4373-9647-9801a63285e5",
+                "name": "IRREALIS-TYPE",
+                "type": "tier",
+                "definition": null,
+                "children": [
+                  {
+                    "id": "6f3433af-d46c-488b-9be1-d29e00c70937",
+                    "name": "desired-process",
+                    "type": "label",
+                    "definition": "期望过程 (desired-process)：表示期望或希望发生的过程，如\"希望他来\"。",
+                    "color": "#9ec2a1"
+                  },
+                  {
+                    "id": "c4025252-0b9c-4a93-b26f-f14202359db2",
+                    "name": "generic-process",
+                    "type": "label",
+                    "definition": "一般过程 (generic-process)：表示一般性的、非特定的过程，如\"鸟会飞\"。",
+                    "color": "#8fcb7f"
+                  },
+                  {
+                    "id": "0505e84f-e8a8-4194-9825-902aac4d21fe",
+                    "name": "negated-process",
+                    "type": "label",
+                    "definition": "否定过程 (negated-process)：被否定的过程，如\"他没有来\"。",
+                    "color": "#8dc79e"
+                  },
+                  {
+                    "id": "b26d2ff0-63a3-4af8-89cf-592974db5ce6",
+                    "name": "potential-process",
+                    "type": "label",
+                    "definition": "潜在过程 (potential-process)：可能发生但尚未实现的过程，如\"他可能来\"。",
+                    "color": "#cdd898"
+                  },
+                  {
+                    "id": "8166fdd6-29fd-482a-a004-2151efcaf5a2",
+                    "name": "predicted-process",
+                    "type": "label",
+                    "definition": "预测过程 (predicted-process)：预测将要发生的过程，如\"明天会下雨\"。",
+                    "color": "#9291d2"
+                  },
+                  {
+                    "id": "d8afdb79-4367-4783-8fba-01689664af82",
+                    "name": "queried-process",
+                    "type": "label",
+                    "definition": "疑问过程 (queried-process)：以疑问形式出现的过程，如\"他来了吗？\"。",
+                    "color": "#dbc484"
+                  },
+                  {
+                    "id": "d29ece7f-352e-4ed4-8f77-5a724e7653d9",
+                    "name": "unknown-realis-type",
+                    "type": "label",
+                    "definition": "未知现实类型 (unknown-realis-type)：无法确定现实性类型的过程。",
+                    "color": "#c4a687"
+                  }
+                ]
+              }
+            ],
+            "color": "#bed6bf"
+          },
+          {
+            "id": "40830c73-a134-4889-993e-c1fa4132e67b",
+            "name": "realis",
+            "type": "label",
+            "definition": "现实 (realis)：表示真实的、已发生的或正在发生的过程或状态。",
+            "children": [
+              {
+                "id": "4a74d0fc-3ae5-4e62-9741-6a3ad56d18f1",
+                "name": "REALIS-TYPE",
+                "type": "tier",
+                "definition": null,
+                "children": [
+                  {
+                    "id": "b7989970-6c7b-4ac3-9445-30abe8bffb84",
+                    "name": "completed-process",
+                    "type": "label",
+                    "definition": "完成过程 (completed-process)：已经完成的过程，如\"他已经到了\"。",
+                    "color": "#be9b7d"
+                  },
+                  {
+                    "id": "caaf493f-056e-4ab2-8666-f0fba6997efc",
+                    "name": "ongoing-process",
+                    "type": "label",
+                    "definition": "进行过程 (ongoing-process)：正在进行的过程，如\"他正在走\"。",
+                    "color": "#aed0bf"
+                  }
+                ]
+              },
+              {
+                "id": "1e55bed0-a123-44fa-af8a-69a3bde18533",
+                "name": "REALIS-TYPE2",
+                "type": "tier",
+                "definition": null,
+                "children": [
+                  {
+                    "id": "7bc60795-e220-445d-8d65-8061eb5518b8",
+                    "name": "actual-process",
+                    "type": "label",
+                    "definition": "实际过程 (actual-process)：实际发生的具体过程，如\"昨天他来了\"。",
+                    "color": "#a784ae"
+                  },
+                  {
+                    "id": "ea702dd8-09eb-4bb9-bc9a-3bf66b5d39a8",
+                    "name": "generalization",
+                    "type": "label",
+                    "definition": "概括 (generalization)：概括性的陈述，如\"学生都很努力\"。",
+                    "color": "#db86a7"
+                  },
+                  {
+                    "id": "88f62fe4-9fd1-490c-9491-e5ea31a24006",
+                    "name": "habitual-action",
+                    "type": "label",
+                    "definition": "习惯行为 (habitual-action)：习惯性的或反复发生的行为，如\"他每天跑步\"。",
+                    "color": "#9a9f93"
+                  }
+                ]
+              }
+            ],
+            "color": "#98c184"
+          }
+        ]
+      },
+      {
+        "id": "d7a47c3d-bed6-442e-9988-6d2acf40e3f7",
+        "name": "TENSE-ASPECT",
+        "type": "tier",
+        "definition": null,
+        "children": [
+          {
+            "id": "7e31b74b-9e3b-429d-9d1f-9366aba4094e",
+            "name": "modal",
+            "type": "label",
+            "definition": "情态 (modal)：表示可能性、必要性等情态意义的时态形式。",
+            "color": "#dc7bd7"
+          },
+          {
+            "id": "383149ff-5ca8-4bbf-92d1-9d8907660546",
+            "name": "past-perfect",
+            "type": "label",
+            "definition": "过去完成时 (past-perfect)：表示过去某时间前已完成的动作，如\"had done\"。",
+            "color": "#c288cc"
+          },
+          {
+            "id": "791528d4-8427-4929-9097-d44d20058dea",
+            "name": "past-perfect-progressive",
+            "type": "label",
+            "definition": "过去完成进行时 (past-perfect-progressive)：表示过去某时间前一直在进行的动作，如\"had been doing\"。",
+            "color": "#d58c81"
+          },
+          {
+            "id": "ecebb29f-aed6-4539-91c8-6138de83a92f",
+            "name": "past-progressive",
+            "type": "label",
+            "definition": "过去进行时 (past-progressive)：表示过去某时正在进行的动作，如\"was doing\"。",
+            "color": "#ba8bc0"
+          },
+          {
+            "id": "cde109ae-9f44-417e-ab06-2c6e7875cb43",
+            "name": "present-perfect",
+            "type": "label",
+            "definition": "现在完成时 (present-perfect)：表示到现在为止已完成的动作，如\"have done\"。",
+            "color": "#c7cbc9"
+          },
+          {
+            "id": "5ba523c5-565e-4e48-b15e-c281ed77f0b1",
+            "name": "present-perfect-progressive",
+            "type": "label",
+            "definition": "现在完成进行时 (present-perfect-progressive)：表示从过去开始一直持续到现在的动作，如\"have been doing\"。",
+            "color": "#7d79cd"
+          },
+          {
+            "id": "94a59a75-c3d4-4673-af53-f456920d7822",
+            "name": "present-progressive",
+            "type": "label",
+            "definition": "现在进行时 (present-progressive)：表示现在正在进行的动作，如\"is doing\"。",
+            "color": "#ad9a80"
+          },
+          {
+            "id": "b11ddae0-9e04-4873-806a-72b81601c98f",
+            "name": "simple-past",
+            "type": "label",
+            "definition": "一般过去时 (simple-past)：表示过去发生的动作，如\"did\"。",
+            "color": "#b2c095"
+          },
+          {
+            "id": "e13c60bb-ee81-4fc6-974b-8670e3c922cf",
+            "name": "simple-present",
+            "type": "label",
+            "definition": "一般现在时 (simple-present)：表示现在的状态或经常性动作，如\"do/does\"。",
+            "color": "#be7a91"
+          }
+        ]
+      }
+    ],
+    "color": "#97a57f"
+  },
+  "createdAt": "2025-12-12T13:52:45.025759",
+  "updatedAt": "2025-12-12T13:52:45.025759"
+}

@@ -1,0 +1,146 @@
+{
+  "id": "Intensifiers",
+  "name": "Intensifiers",
+  "category": "UAM - Others",
+  "description": "强化词 (intensifiers)：用于加强或减弱语义强度的词语。",
+  "root": {
+    "id": "b07cf8aa-6e6f-45ad-b6b2-61c1b61375d3",
+    "name": "intensifiers",
+    "type": "label",
+    "definition": "强化词 (intensifiers)：用于加强或减弱语义强度的词语。",
+    "children": [
+      {
+        "id": "13a0d239-7045-4d94-b4ad-3128066bf39f",
+        "name": "INTENSIFIERS-TYPE",
+        "type": "tier",
+        "definition": null,
+        "children": [
+          {
+            "id": "98af3adb-a659-4284-9b29-19519ede1355",
+            "name": "comparative",
+            "type": "label",
+            "definition": "比较型 (comparative)：通过比较来表达强度的强化词。",
+            "children": [
+              {
+                "id": "5aac8335-b540-4642-9a11-819dcfbccc4f",
+                "name": "COMPARATIVE-TYPE",
+                "type": "tier",
+                "definition": null,
+                "children": [
+                  {
+                    "id": "f460125e-e5dc-4f80-9adf-f8c97e505e86",
+                    "name": "equal",
+                    "type": "label",
+                    "definition": "相等 (equal)：表示相等程度的比较，如\"一样好\"、\"as good as\"。",
+                    "color": "#bdd09e"
+                  },
+                  {
+                    "id": "a2decf0b-93e3-4ad3-92b4-c3141fa20757",
+                    "name": "less",
+                    "type": "label",
+                    "definition": "较少 (less)：表示程度较低的比较，如\"不如\"、\"less than\"。",
+                    "color": "#9a8295"
+                  },
+                  {
+                    "id": "50d95e3d-cea4-4b86-94af-a9d6038c4c4e",
+                    "name": "more",
+                    "type": "label",
+                    "definition": "更多 (more)：表示程度较高的比较，如\"更好\"、\"more than\"。",
+                    "color": "#d28ec2"
+                  }
+                ]
+              }
+            ],
+            "color": "#a2d0c6"
+          },
+          {
+            "id": "0736f83f-abc2-4114-bf9b-d50edf695573",
+            "name": "relative",
+            "type": "label",
+            "definition": "相对型 (relative)：相对于某个标准或期望来表达强度。",
+            "children": [
+              {
+                "id": "96324620-4fdf-45e7-b57d-41f886264531",
+                "name": "RELATIVE-TYPE",
+                "type": "tier",
+                "definition": null,
+                "children": [
+                  {
+                    "id": "9e0db4a1-0472-4d5d-ba58-1e833b2cda2f",
+                    "name": "above-expectation",
+                    "type": "label",
+                    "definition": "超出期望 (above-expectation)：超出正常期望的程度，如\"出奇地好\"。",
+                    "color": "#98bbb9"
+                  },
+                  {
+                    "id": "80623a96-4f28-471b-876f-8eb50fb2093e",
+                    "name": "at-expectation",
+                    "type": "label",
+                    "definition": "符合期望 (at-expectation)：符合正常期望的程度，如\"正常地\"。",
+                    "color": "#9abec0"
+                  },
+                  {
+                    "id": "43b1dc6f-7d9d-439e-ad9e-6872eeb7439a",
+                    "name": "below-expectation",
+                    "type": "label",
+                    "definition": "低于期望 (below-expectation)：低于正常期望的程度，如\"令人失望地\"。",
+                    "color": "#cab89a"
+                  }
+                ]
+              }
+            ],
+            "color": "#9e8891"
+          },
+          {
+            "id": "dac981fe-ac9d-423e-8fb1-d7a23e56cbb0",
+            "name": "scaled",
+            "type": "label",
+            "definition": "等级型 (scaled)：按照固定等级来表达强度。",
+            "children": [
+              {
+                "id": "ea3bb488-5259-42ea-a7c9-edf5490170b5",
+                "name": "SCALED-TYPE",
+                "type": "tier",
+                "definition": null,
+                "children": [
+                  {
+                    "id": "7dc1a1e7-113d-4de0-9ea2-3c70e69ea3e1",
+                    "name": "complete",
+                    "type": "label",
+                    "definition": "完全 (complete)：表示完全或绝对的程度，如\"完全\"、\"absolutely\"。",
+                    "color": "#8d7fd2"
+                  },
+                  {
+                    "id": "defcadec-d1a6-42f5-9183-1db9bf88d6a4",
+                    "name": "high",
+                    "type": "label",
+                    "definition": "高度 (high)：表示高强度，如\"非常\"、\"very\"。",
+                    "color": "#7ad4a0"
+                  },
+                  {
+                    "id": "3f876f8d-f70a-4ada-836b-d2f905ee9b63",
+                    "name": "medium",
+                    "type": "label",
+                    "definition": "中等 (medium)：表示中等强度，如\"相当\"、\"quite\"。",
+                    "color": "#ce97c7"
+                  },
+                  {
+                    "id": "d6de73b6-c25e-45d4-ad92-8c7ad34734e6",
+                    "name": "partial",
+                    "type": "label",
+                    "definition": "部分 (partial)：表示部分或有限的程度，如\"有点\"、\"somewhat\"。",
+                    "color": "#da787a"
+                  }
+                ]
+              }
+            ],
+            "color": "#81b9c4"
+          }
+        ]
+      }
+    ],
+    "color": "#aed186"
+  },
+  "createdAt": "2025-12-12T13:52:45.029808",
+  "updatedAt": "2025-12-12T13:52:45.029808"
+}

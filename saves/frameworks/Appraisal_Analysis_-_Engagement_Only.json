@@ -1,0 +1,221 @@
+{
+  "id": "Appraisal_Analysis_-_Engagement_Only",
+  "name": "Appraisal Analysis - Engagement Only",
+  "category": "UAM - Appraisal Analysis",
+  "description": "介入系统 (engagement)：介入系统处理语言中表达不同声音和立场的资源。",
+  "root": {
+    "id": "5422a504-d9ee-4bd5-add8-d6d99bc270e6",
+    "name": "engagement",
+    "type": "label",
+    "definition": "介入系统 (engagement)：介入系统处理语言中表达不同声音和立场的资源。",
+    "children": [
+      {
+        "id": "999ae697-5b70-46b4-8898-b7c195b1b489",
+        "name": "ENGAGEMENT-TYPE",
+        "type": "tier",
+        "definition": null,
+        "children": [
+          {
+            "id": "f87fd079-ef6f-4902-b6a0-79a685689a91",
+            "name": "hetero-glossic",
+            "type": "label",
+            "definition": "异声性 (hetero-glossic)：承认或引入其他声音和观点的语言资源。",
+            "children": [
+              {
+                "id": "1f53210c-ed52-4949-a4cb-708d721d26ca",
+                "name": "HETERO-GLOSSIC-TYPE",
+                "type": "tier",
+                "definition": null,
+                "children": [
+                  {
+                    "id": "6df8160b-05e1-4d40-83fb-ac76714787ff",
+                    "name": "contract",
+                    "type": "label",
+                    "definition": "收缩 (contract)：限制或排除其他可能观点的语言资源。",
+                    "children": [
+                      {
+                        "id": "ca0744bf-2873-4788-b8dc-52b650154c36",
+                        "name": "CONTRACT-TYPE",
+                        "type": "tier",
+                        "definition": null,
+                        "children": [
+                          {
+                            "id": "747d8806-6407-4e0b-bb48-b2fe43d95765",
+                            "name": "disclaim",
+                            "type": "label",
+                            "definition": "否认 (disclaim): 否定或反驳其他观点。",
+                            "children": [
+                              {
+                                "id": "34ad52ad-6ccc-4552-8f61-204f0b09b57f",
+                                "name": "DISCLAIM-TYPE",
+                                "type": "tier",
+                                "definition": null,
+                                "children": [
+                                  {
+                                    "id": "8492a15e-d7dc-461b-863a-aac5d2fb1c3d",
+                                    "name": "counter",
+                                    "type": "label",
+                                    "definition": "反驳 (counter): 直接反驳对立观点。",
+                                    "color": "#7d86ce"
+                                  },
+                                  {
+                                    "id": "a13456ca-c7c2-489c-ab63-efacb59680a6",
+                                    "name": "deny",
+                                    "type": "label",
+                                    "definition": "否定 (deny): 否定某种可能性或观点。",
+                                    "color": "#a6d0d5"
+                                  }
+                                ]
+                              }
+                            ],
+                            "color": "#ad8886"
+                          },
+                          {
+                            "id": "52d602fe-1963-4435-89cc-6a88b2479bff",
+                            "name": "proclaim",
+                            "type": "label",
+                            "definition": "宣告 (proclaim): 强化或支持特定观点。",
+                            "children": [
+                              {
+                                "id": "ca53f9ab-795b-4e61-a698-dc8eaf88de35",
+                                "name": "PROCLAIM-TYPE",
+                                "type": "tier",
+                                "definition": null,
+                                "children": [
+                                  {
+                                    "id": "b6a6ef4c-e759-49fb-9ead-afce31dd1b88",
+                                    "name": "concur",
+                                    "type": "label",
+                                    "definition": "同意 (concur): 表达同意或一致。",
+                                    "children": [
+                                      {
+                                        "id": "c121ae15-3517-4236-a106-102e01a78bd1",
+                                        "name": "CONCUR-TYPE",
+                                        "type": "tier",
+                                        "definition": null,
+                                        "children": [
+                                          {
+                                            "id": "a6859b96-c8d6-4b4d-abc4-c6497adf25bc",
+                                            "name": "affirm",
+                                            "type": "label",
+                                            "definition": "确认 (affirm): 肯定、确认某种观点。",
+                                            "color": "#cfd0c0"
+                                          },
+                                          {
+                                            "id": "fbd23acd-79a9-4f48-aaab-8b4ceb32ce8e",
+                                            "name": "concede",
+                                            "type": "label",
+                                            "definition": "让步 (concede): 承认或让步于某种观点。",
+                                            "color": "#9b7896"
+                                          }
+                                        ]
+                                      }
+                                    ],
+                                    "color": "#7a8a8d"
+                                  },
+                                  {
+                                    "id": "c3693f08-2f36-432f-be4d-5307c7077daa",
+                                    "name": "endorse",
+                                    "type": "label",
+                                    "definition": "认可 (endorse): 支持或认可外部观点。",
+                                    "color": "#a1ae85"
+                                  },
+                                  {
+                                    "id": "866010c3-a0eb-416d-8d75-3ad3ab323250",
+                                    "name": "justify",
+                                    "type": "label",
+                                    "definition": "证明 (justify): 为观点提供理由或证据。",
+                                    "color": "#aa7dce"
+                                  },
+                                  {
+                                    "id": "2fd23697-fa23-48d0-b1b4-1a3bfc56ddcc",
+                                    "name": "pronounce",
+                                    "type": "label",
+                                    "definition": "宣称 (pronounce): 明确宣布或声明立场。",
+                                    "color": "#9cc2ac"
+                                  }
+                                ]
+                              }
+                            ],
+                            "color": "#aca780"
+                          }
+                        ]
+                      }
+                    ],
+                    "color": "#cdc494"
+                  },
+                  {
+                    "id": "c22ad5bd-eeeb-4937-b58f-d9eac21c9cb0",
+                    "name": "expand",
+                    "type": "label",
+                    "definition": "扩展 (expand)：为其他观点留出空间的语言资源。",
+                    "children": [
+                      {
+                        "id": "dd73d79a-2b4b-4169-88eb-525eb5c9ee2b",
+                        "name": "EXPAND-TYPE",
+                        "type": "tier",
+                        "definition": null,
+                        "children": [
+                          {
+                            "id": "8ae90597-67fe-483d-ae56-e4994f7b8968",
+                            "name": "attribute",
+                            "type": "label",
+                            "definition": "归因 (attribute): 将观点归属于外部来源。",
+                            "children": [
+                              {
+                                "id": "191726e4-7412-4cd4-a78f-75e4598da5b8",
+                                "name": "ATTRIBUTE-GATE",
+                                "type": "tier",
+                                "definition": null,
+                                "children": [
+                                  {
+                                    "id": "50d26c78-80cb-4083-90db-dcdcb89d2fa3",
+                                    "name": "acknowledge",
+                                    "type": "label",
+                                    "definition": "承认 (acknowledge): 承认外部观点的存在。",
+                                    "color": "#aac5a4"
+                                  },
+                                  {
+                                    "id": "7a58af77-7958-456f-b485-7d67d7554dee",
+                                    "name": "distance",
+                                    "type": "label",
+                                    "definition": "距离 (distance): 与外部观点保持距离。",
+                                    "color": "#817878"
+                                  }
+                                ]
+                              }
+                            ],
+                            "color": "#b7d47d"
+                          },
+                          {
+                            "id": "1cf81506-53d2-4e61-93d9-e8c02a31fac0",
+                            "name": "entertain",
+                            "type": "label",
+                            "definition": "娱乐 (entertain): 将观点作为可能性之一提出。",
+                            "color": "#c2888c"
+                          }
+                        ]
+                      }
+                    ],
+                    "color": "#c8ba92"
+                  }
+                ]
+              }
+            ],
+            "color": "#9c96c6"
+          },
+          {
+            "id": "97276e41-862c-4bb8-b664-1833b5fc60c8",
+            "name": "mono-glossic",
+            "type": "label",
+            "definition": "单声性 (mono-glossic)：不引入其他声音，呈现为唯一或客观事实的语言资源。",
+            "color": "#819384"
+          }
+        ]
+      }
+    ],
+    "color": "#a079cd"
+  },
+  "createdAt": "2025-12-12T13:52:44.813378",
+  "updatedAt": "2025-12-12T13:52:44.813378"
+}

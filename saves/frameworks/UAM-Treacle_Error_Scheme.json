@@ -1,0 +1,1548 @@
+{
+  "id": "UAM-Treacle_Error_Scheme",
+  "name": "UAM-Treacle Error Scheme",
+  "category": "UAM - Error Analysis",
+  "description": "错误分析系统（Error Analysis System）：用于系统性标注和分类语言学习者在英语写作中出现的各类错误，通过层次化的树状结构对错误类型进行精细化分类和标记。",
+  "root": {
+    "id": "012a0920-00e5-49f9-96d1-18b30a6f8624",
+    "name": "error",
+    "type": "label",
+    "definition": "错误分析系统（Error Analysis System）：用于系统性标注和分类语言学习者在英语写作中出现的各类错误，通过层次化的树状结构对错误类型进行精细化分类和标记。",
+    "children": [
+      {
+        "id": "eb6c4e7e-f5c1-4fab-bb6f-3a3d11dcf16c",
+        "name": "MAIN-ERROR-TYPE",
+        "type": "tier",
+        "definition": null,
+        "children": [
+          {
+            "id": "46b816cc-6027-4849-a9c5-08700ea5d452",
+            "name": "grammar-error",
+            "type": "label",
+            "definition": "语法错误（grammar-error）：语法错误是指违反英语语法规则的错误，按语法单位进行细分。",
+            "children": [
+              {
+                "id": "bbcb679d-6953-4763-88b6-895514ddb8ec",
+                "name": "GRAMMATICAL-UNIT",
+                "type": "tier",
+                "definition": null,
+                "children": [
+                  {
+                    "id": "49bdaa9c-8212-4f61-9a8c-e8bc011168e0",
+                    "name": "adjectival-phrase-error",
+                    "type": "label",
+                    "definition": "形容词短语错误（adjectival-phrase-error）",
+                    "children": [
+                      {
+                        "id": "9f7369b6-8267-4962-bd05-7c2eef891dad",
+                        "name": "ADJECTIVAL-PHRASE-ERROR-TYPE",
+                        "type": "tier",
+                        "definition": null,
+                        "children": [
+                          {
+                            "id": "c022a33e-9b94-46eb-ad71-040f27dcc7dc",
+                            "name": "inappropriate-adj-premodifier",
+                            "type": "label",
+                            "definition": "不当形容词前置修饰语（inappropriate-adj-premodifier）：形容词前的修饰语使用不当。",
+                            "color": "#8f8482"
+                          },
+                          {
+                            "id": "27992657-d1c6-49c9-bf28-d342934ed7ed",
+                            "name": "incorrect-adjp-complex-connector",
+                            "type": "label",
+                            "definition": "错误的形容词短语复合连接词（incorrect-adjp-complex-connector）：连接形容词短语的连接词错误。",
+                            "color": "#85c4bc"
+                          },
+                          {
+                            "id": "23d2d405-80e0-41c3-ba86-901aab2bab5b",
+                            "name": "incorrect-comparative-formation",
+                            "type": "label",
+                            "definition": "错误的比较级构成（incorrect-comparative-formation）：比较级形式构成错误。",
+                            "color": "#d2c2be"
+                          },
+                          {
+                            "id": "d529288c-51b1-483b-85f2-3c01af6309c9",
+                            "name": "incorrect-superlative-formation",
+                            "type": "label",
+                            "definition": "错误的最高级构成（incorrect-superlative-formation）：最高级形式构成错误。",
+                            "color": "#7ebbb0"
+                          },
+                          {
+                            "id": "cb4fc2ab-ce0d-4080-850c-aed431dce862",
+                            "name": "intensified-comparative-superlative-adjective",
+                            "type": "label",
+                            "definition": "强化比较级最高级形容词（intensified-comparative-superlative-adjective）：对已是比较级或最高级的形容词进行不当强化。",
+                            "color": "#a389be"
+                          },
+                          {
+                            "id": "e4321648-6a49-4e86-8a75-51dfbc7ce141",
+                            "name": "pluralised-adjective-head",
+                            "type": "label",
+                            "definition": "形容词中心词复数化（pluralised-adjective-head）：错误地给形容词中心词加复数形式。",
+                            "color": "#a181ae"
+                          },
+                          {
+                            "id": "dfaa1174-d9a3-4df9-9cb1-c135dc07f0bc",
+                            "name": "wrong-category-for-adjp-head",
+                            "type": "label",
+                            "definition": "形容词短语中心词词类错误（wrong-category-for-adjp-head）：用错误词类充当形容词短语中心词。",
+                            "color": "#b7a07f"
+                          }
+                        ]
+                      }
+                    ],
+                    "color": "#c8cd8f"
+                  },
+                  {
+                    "id": "dbdfb556-9285-42dd-b6d2-6f92312b013b",
+                    "name": "adverb-phrase-error",
+                    "type": "label",
+                    "definition": "副词短语错误（adverb-phrase-error）",
+                    "children": [
+                      {
+                        "id": "1b147557-e395-4138-b569-ef806f39a9f3",
+                        "name": "ADVERB-PHRASE-ERROR-TYPE",
+                        "type": "tier",
+                        "definition": null,
+                        "children": [
+                          {
+                            "id": "9eccab14-cf5d-451a-a473-ea265ce48ad4",
+                            "name": "adverb-form-error",
+                            "type": "label",
+                            "definition": "副词形式错误（adverb-form-error）：副词的构成形式错误。",
+                            "color": "#a97f9d"
+                          },
+                          {
+                            "id": "7a1223b3-159f-41e5-a535-d5d17782c16b",
+                            "name": "unnecessary-adverb",
+                            "type": "label",
+                            "definition": "不必要的副词（unnecessary-adverb）：添加了不需要的副词。",
+                            "color": "#b4cac9"
+                          }
+                        ]
+                      }
+                    ],
+                    "color": "#8ad1bd"
+                  },
+                  {
+                    "id": "4c419628-7786-4976-96df-8cd427c40055",
+                    "name": "clause-complex-error",
+                    "type": "label",
+                    "definition": "复句错误（clause-complex-error）",
+                    "children": [
+                      {
+                        "id": "cdc907c5-0af9-45ee-bc7b-efb3526c480d",
+                        "name": "CLAUSE-COMPLEX-ERROR-TYPE",
+                        "type": "tier",
+                        "definition": null,
+                        "children": [
+                          {
+                            "id": "dc1d2f9a-fb22-434c-adc3-cdcdf9504682",
+                            "name": "incorrect-clause-conjunction",
+                            "type": "label",
+                            "definition": "错误的分句连接词（incorrect-clause-conjunction）：连接分句的连接词选择错误。",
+                            "color": "#88d1c0"
+                          },
+                          {
+                            "id": "40a46455-5221-4e2b-a8d1-79b07c7156ce",
+                            "name": "incorrect-clause-type-for-subordinate",
+                            "type": "label",
+                            "definition": "从属分句类型错误（incorrect-clause-type-for-subordinate）：从属分句类型使用不当。",
+                            "color": "#cfccbf"
+                          },
+                          {
+                            "id": "8b94f6ad-7026-48a5-834b-ac807bd1d7da",
+                            "name": "incorrect-tense-in-clause-complex",
+                            "type": "label",
+                            "definition": "复句中的错误时态（incorrect-tense-in-clause-complex）：复句结构中时态搭配错误。",
+                            "children": [
+                              {
+                                "id": "e5929940-4347-4e70-b195-09a1285ab4ce",
+                                "name": "TENSE-ERROR-TYPE",
+                                "type": "tier",
+                                "definition": null,
+                                "children": [
+                                  {
+                                    "id": "3738cad8-f6e3-4905-8794-249c75dcb3ca",
+                                    "name": "incorrect-tense-for-conditional-clause",
+                                    "type": "label",
+                                    "definition": "条件分句时态错误（incorrect-tense-for-conditional-clause）：条件分句时态选择错误。",
+                                    "color": "#afacd7"
+                                  },
+                                  {
+                                    "id": "3be8de11-a76c-41b8-8a49-70bc44f23d73",
+                                    "name": "incorrect-tense-for-conditioned-clause",
+                                    "type": "label",
+                                    "definition": "被条件分句时态错误（incorrect-tense-for-conditioned-clause）：主句时态与条件分句不匹配。",
+                                    "color": "#db8d81"
+                                  },
+                                  {
+                                    "id": "b9399c6a-36e8-4258-875e-6214e5e8c3a6",
+                                    "name": "incorrect-tense-for-temporal-clause",
+                                    "type": "label",
+                                    "definition": "时间分句时态错误（incorrect-tense-for-temporal-clause）：时间状语分句时态错误。",
+                                    "color": "#da9fb4"
+                                  }
+                                ]
+                              }
+                            ],
+                            "color": "#899dd5"
+                          },
+                          {
+                            "id": "0388d4a1-8df6-4d21-b33c-48cdaeae3543",
+                            "name": "missing-clause-conjunction",
+                            "type": "label",
+                            "definition": "缺少分句连接词（missing-clause-conjunction）：分句之间缺少必要的连接词。",
+                            "color": "#787fb2"
+                          }
+                        ]
+                      }
+                    ],
+                    "color": "#aec4bb"
+                  },
+                  {
+                    "id": "86d73fd5-91e5-4777-ac8d-21dc16027d9a",
+                    "name": "clause-error",
+                    "type": "label",
+                    "definition": "分句错误（clause-error）",
+                    "children": [
+                      {
+                        "id": "ae080fa4-2f08-47a7-b784-8d54775b34dc",
+                        "name": "CLAUSE-ERROR-TYPE2",
+                        "type": "tier",
+                        "definition": null,
+                        "children": [
+                          {
+                            "id": "795e969c-dc66-4d70-9abc-fded019cf107",
+                            "name": "adjunct-error",
+                            "type": "label",
+                            "definition": "状语错误（adjunct-error）",
+                            "children": [
+                              {
+                                "id": "ad5e3398-7c25-403c-8b4f-1b43fd546a2d",
+                                "name": "ADJUNCT-ERROR-TYPE",
+                                "type": "tier",
+                                "definition": null,
+                                "children": [
+                                  {
+                                    "id": "a23212c7-d723-4109-83ec-b54a13d8ed04",
+                                    "name": "adjunct-filler-error",
+                                    "type": "label",
+                                    "definition": "状语填充错误（adjunct-filler-error）：状语成分选择错误。",
+                                    "color": "#d0da9c"
+                                  },
+                                  {
+                                    "id": "ba6a2f1b-bd1c-4df8-8e63-29ad50669567",
+                                    "name": "adjunct-order-error",
+                                    "type": "label",
+                                    "definition": "状语顺序错误（adjunct-order-error）：状语在分句中的位置错误。",
+                                    "color": "#789aa9"
+                                  },
+                                  {
+                                    "id": "1efdf11f-fb64-48ca-a1dd-633c39eb3744",
+                                    "name": "other-adjunct-error",
+                                    "type": "label",
+                                    "definition": "其他状语错误（other-adjunct-error）：其他类型的状语使用错误。",
+                                    "color": "#89869c"
+                                  }
+                                ]
+                              }
+                            ],
+                            "color": "#b2add2"
+                          },
+                          {
+                            "id": "991b40df-9cb1-450e-b5c6-60e60ab124c5",
+                            "name": "connector-error",
+                            "type": "label",
+                            "definition": "连接词错误（connector-error）：分句连接词使用错误。",
+                            "color": "#cf8ac2"
+                          },
+                          {
+                            "id": "7dfec494-82f1-46bd-9984-5a361c8af719",
+                            "name": "infinitive-clause-formation-error",
+                            "type": "label",
+                            "definition": "不定式分句构成错误（infinitive-clause-formation-error）：不定式分句结构错误。",
+                            "color": "#c79eb2"
+                          },
+                          {
+                            "id": "0020b817-c4e4-433d-a0ff-bfaf06b716be",
+                            "name": "past-participle-clause-formation-error",
+                            "type": "label",
+                            "definition": "过去分词分句构成错误（past-participle-clause-formation-error）：过去分词分句结构错误。",
+                            "color": "#a0cfd8"
+                          },
+                          {
+                            "id": "f665b5ee-ba42-45e8-a504-6878e65e5552",
+                            "name": "present-participle-clause-formation-error",
+                            "type": "label",
+                            "definition": "现在分词分句构成错误（present-participle-clause-formation-error）：现在分词分句结构错误。",
+                            "color": "#d2b47b"
+                          },
+                          {
+                            "id": "7956fb71-8f42-4683-b159-da17ab14bf89",
+                            "name": "relative-clause-error",
+                            "type": "label",
+                            "definition": "关系分句错误（relative-clause-error）",
+                            "children": [
+                              {
+                                "id": "ff31cf97-9944-4448-9eb7-4f50c82f53a1",
+                                "name": "RELATIVE-CLAUSE-ERROR-TYPE",
+                                "type": "tier",
+                                "definition": null,
+                                "children": [
+                                  {
+                                    "id": "b59198a5-fe54-4c29-9f0c-72e782d80638",
+                                    "name": "missing-relative-pronoun",
+                                    "type": "label",
+                                    "definition": "缺少关系代词（missing-relative-pronoun）：关系分句缺少必要的关系代词。",
+                                    "color": "#95aa98"
+                                  },
+                                  {
+                                    "id": "3bab94ce-c09f-4a32-815a-6aebd241d625",
+                                    "name": "relative-pronoun-error",
+                                    "type": "label",
+                                    "definition": "关系代词错误（relative-pronoun-error）：关系代词选择或使用错误。",
+                                    "color": "#8b8a8a"
+                                  },
+                                  {
+                                    "id": "44121d96-260c-4581-aed8-472edd0c69ae",
+                                    "name": "wrong-relative-clause-type",
+                                    "type": "label",
+                                    "definition": "错误的关系分句类型（wrong-relative-clause-type）：关系分句类型选择不当。",
+                                    "color": "#8499b3"
+                                  }
+                                ]
+                              }
+                            ],
+                            "color": "#b7a8b5"
+                          },
+                          {
+                            "id": "0280a71c-1534-405f-88a6-c0297aad5a17",
+                            "name": "transitivity-error",
+                            "type": "label",
+                            "definition": "及物性错误（transitivity-error）",
+                            "children": [
+                              {
+                                "id": "31cc9a70-fe24-4f39-b4c5-072159966be7",
+                                "name": "CLAUSE-ERROR-TYPE",
+                                "type": "tier",
+                                "definition": null,
+                                "children": [
+                                  {
+                                    "id": "2bf42efa-675c-44c8-ae62-de2259a73ae7",
+                                    "name": "complementation-error",
+                                    "type": "label",
+                                    "definition": "补语错误（complementation-error）：动词补语使用错误。",
+                                    "color": "#ac98d3"
+                                  },
+                                  {
+                                    "id": "3734f519-632c-4f6d-9801-f904639ff2ed",
+                                    "name": "ditransitive-clause-construction-error",
+                                    "type": "label",
+                                    "definition": "双宾语分句构造错误（ditransitive-clause-construction-error）：双宾语结构错误。",
+                                    "color": "#788d9a"
+                                  },
+                                  {
+                                    "id": "6ab7584a-38a6-4608-9749-0e04c221d231",
+                                    "name": "object-order-error",
+                                    "type": "label",
+                                    "definition": "宾语顺序错误（object-order-error）：宾语排列顺序错误。",
+                                    "color": "#7aceaf"
+                                  },
+                                  {
+                                    "id": "15db0954-4dee-4d0a-bf28-6fca70560de1",
+                                    "name": "obligatory-object-absent",
+                                    "type": "label",
+                                    "definition": "必需宾语缺失（obligatory-object-absent）：缺少必需的宾语。",
+                                    "color": "#8fd6b4"
+                                  },
+                                  {
+                                    "id": "c4669ecb-f050-459e-a433-6d527cc1307a",
+                                    "name": "obligatory-subject-absent",
+                                    "type": "label",
+                                    "definition": "必需主语缺失（obligatory-subject-absent）：缺少必需的主语。",
+                                    "color": "#d6c5d7"
+                                  },
+                                  {
+                                    "id": "ba68fe13-b858-45a9-81d7-a642986b6715",
+                                    "name": "subject-doubling",
+                                    "type": "label",
+                                    "definition": "主语重复（subject-doubling）：主语重复出现。",
+                                    "color": "#82837f"
+                                  },
+                                  {
+                                    "id": "eb7c1a74-a47e-4197-a785-8b68a90e6cd6",
+                                    "name": "subject-in-nonfinite",
+                                    "type": "label",
+                                    "definition": "非限定分句中的主语（subject-in-nonfinite）：非限定分句错误地使用主语。",
+                                    "color": "#a0bea6"
+                                  },
+                                  {
+                                    "id": "0038510b-d91d-415c-a34b-103afb30c7b6",
+                                    "name": "subject-verb-order-error",
+                                    "type": "label",
+                                    "definition": "主谓顺序错误（subject-verb-order-error）：主语和谓语顺序颠倒。",
+                                    "color": "#819b93"
+                                  }
+                                ]
+                              }
+                            ],
+                            "color": "#ba8d9e"
+                          },
+                          {
+                            "id": "669a446a-1ba0-494a-9f78-1b1afe50bd38",
+                            "name": "wh-nominal-clause-error",
+                            "type": "label",
+                            "definition": "wh-名词性分句错误（wh-nominal-clause-error）",
+                            "children": [
+                              {
+                                "id": "4fdb7d72-d3a6-4e2b-ba64-f98344b5280a",
+                                "name": "WH-NOMINAL-CLAUSE-ERROR-TYPE",
+                                "type": "tier",
+                                "definition": null,
+                                "children": [
+                                  {
+                                    "id": "41cb07f3-acd0-42be-bc05-f4fd70495d5a",
+                                    "name": "other-wh-nominal-clause-error",
+                                    "type": "label",
+                                    "definition": "其他wh-名词性分句错误（other-wh-nominal-clause-error）：其他类型的wh-名词性分句错误。",
+                                    "color": "#b4cfae"
+                                  },
+                                  {
+                                    "id": "9835775b-1684-4990-b100-daf341e3e0e9",
+                                    "name": "wnc-subj-fin-inversion-error",
+                                    "type": "label",
+                                    "definition": "wh-名词性分句主语-限定动词倒装错误（wnc-subj-fin-inversion-error）：wh-名词性分句中主语与限定动词倒装错误。",
+                                    "color": "#9091be"
+                                  }
+                                ]
+                              }
+                            ],
+                            "color": "#ac9695"
+                          }
+                        ]
+                      }
+                    ],
+                    "color": "#9c9fbd"
+                  },
+                  {
+                    "id": "56f90f10-19be-44ce-bf44-2ed4dd056c2d",
+                    "name": "morphological-error",
+                    "type": "label",
+                    "definition": "词法错误（morphological-error）：涉及词汇内部结构的错误，如词缀、词根等的错误使用。",
+                    "color": "#8fd2bf"
+                  },
+                  {
+                    "id": "e5bd2b43-9f4a-4aaf-805e-4632aee3ca39",
+                    "name": "np-error",
+                    "type": "label",
+                    "definition": "名词短语错误（np-error）",
+                    "children": [
+                      {
+                        "id": "9151f1bd-e6f0-4114-98e8-2d05ac5b5a9a",
+                        "name": "NOM-GROUP-ERRORS-TYPE",
+                        "type": "tier",
+                        "definition": null,
+                        "children": [
+                          {
+                            "id": "1861a499-6223-4d0c-92bb-1ef82907205b",
+                            "name": "determiner-error",
+                            "type": "label",
+                            "definition": "限定词错误（determiner-error）",
+                            "children": [
+                              {
+                                "id": "725c01bb-8ab5-4aa8-bcc3-3dc8da46301e",
+                                "name": "DETERMINER-ERROR-TYPE",
+                                "type": "tier",
+                                "definition": null,
+                                "children": [
+                                  {
+                                    "id": "01a9ff51-0a73-48fe-8004-efbc345c9bab",
+                                    "name": "determiner-absent-required",
+                                    "type": "label",
+                                    "definition": "需要限定词但缺失（determiner-absent-required）：需要限定词的地方没有使用。",
+                                    "color": "#d6b5a0"
+                                  },
+                                  {
+                                    "id": "9934cedb-eb92-4809-9bcc-1103e4188655",
+                                    "name": "determiner-agreement",
+                                    "type": "label",
+                                    "definition": "限定词一致性错误（determiner-agreement）：限定词与名词在数、性等方面不一致。",
+                                    "color": "#dba696"
+                                  },
+                                  {
+                                    "id": "246d47b4-cf24-4e18-b98b-05ac53ac1a11",
+                                    "name": "determiner-choice-error",
+                                    "type": "label",
+                                    "definition": "限定词选择错误（determiner-choice-error）：限定词选择不当。",
+                                    "color": "#9acb7a"
+                                  },
+                                  {
+                                    "id": "5e10c630-0784-4875-843d-e2680ab28a08",
+                                    "name": "determiner-order",
+                                    "type": "label",
+                                    "definition": "限定词顺序错误（determiner-order）：多个限定词顺序错误。",
+                                    "color": "#d5d88f"
+                                  },
+                                  {
+                                    "id": "e5843832-c29b-485e-9a5c-4ffa668419d7",
+                                    "name": "determiner-present-not-required",
+                                    "type": "label",
+                                    "definition": "不需要限定词但使用了（determiner-present-not-required）：不需要限定词的地方错误使用。",
+                                    "color": "#b7cd7f"
+                                  },
+                                  {
+                                    "id": "72277925-90c1-4dd4-9c0e-1aaa30a7fd1f",
+                                    "name": "genitive-formation-error",
+                                    "type": "label",
+                                    "definition": "属格构成错误（genitive-formation-error）：属格形式构成错误。",
+                                    "children": [
+                                      {
+                                        "id": "8b7fb882-c5cb-4e3c-9848-3bcfd2f1c359",
+                                        "name": "GENITIVE-FORMATION-ERROR-TYPE",
+                                        "type": "tier",
+                                        "definition": null,
+                                        "children": [
+                                          {
+                                            "id": "3571ed50-bfb5-4849-8702-433fbb47d852",
+                                            "name": "absence-of-apostrohe-in-saxon-genitive",
+                                            "type": "label",
+                                            "definition": "撒克逊属格缺少撇号（absence-of-apostrohe-in-saxon-genitive）：撒克逊属格形式中缺少撇号。",
+                                            "color": "#a4d0bb"
+                                          },
+                                          {
+                                            "id": "736c96b0-24ac-4356-863e-fb7924a59d70",
+                                            "name": "missing-saxon-genitive",
+                                            "type": "label",
+                                            "definition": "缺少撒克逊属格（missing-saxon-genitive）：应使用撒克逊属格但未使用。",
+                                            "color": "#d97f9b"
+                                          },
+                                          {
+                                            "id": "f367afb8-d863-4e90-aa94-c60aeb45f0ff",
+                                            "name": "unnecessary-apostrohe-in-saxon-genitive",
+                                            "type": "label",
+                                            "definition": "撒克逊属格中不必要的撇号（unnecessary-apostrohe-in-saxon-genitive）：撒克逊属格中错误添加撇号。",
+                                            "color": "#d88ecc"
+                                          },
+                                          {
+                                            "id": "3e0f090c-ec64-4e01-a4d7-88a8018adb6b",
+                                            "name": "unnecessary-saxon-genitive",
+                                            "type": "label",
+                                            "definition": "不必要的撒克逊属格（unnecessary-saxon-genitive）：不应使用撒克逊属格但使用了。",
+                                            "color": "#a7a194"
+                                          }
+                                        ]
+                                      }
+                                    ],
+                                    "color": "#87db8d"
+                                  },
+                                  {
+                                    "id": "999065ab-20fb-4173-ace6-087791712587",
+                                    "name": "inappropriate-pluralization-of-determiner",
+                                    "type": "label",
+                                    "definition": "限定词不当复数化（inappropriate-pluralization-of-determiner）：限定词错误地使用复数形式。",
+                                    "color": "#cfa5ca"
+                                  },
+                                  {
+                                    "id": "a968f9bd-3899-459b-ad22-0c6336a58c4a",
+                                    "name": "partitive-expression-error",
+                                    "type": "label",
+                                    "definition": "部分表达错误（partitive-expression-error）：部分量词表达错误。",
+                                    "color": "#aad2c2"
+                                  },
+                                  {
+                                    "id": "920db5b1-bdfc-4d56-aa77-2b29dffdbb36",
+                                    "name": "special-determiner-order-error",
+                                    "type": "label",
+                                    "definition": "特殊限定词顺序错误（special-determiner-order-error）：特殊限定词排列顺序错误。",
+                                    "color": "#cd8a86"
+                                  }
+                                ]
+                              }
+                            ],
+                            "color": "#b6aec0"
+                          },
+                          {
+                            "id": "07cb4e97-20b7-4358-a6db-4e450c75cece",
+                            "name": "head-error",
+                            "type": "label",
+                            "definition": "中心词错误（head-error）",
+                            "children": [
+                              {
+                                "id": "e8f80c8d-9296-4c24-9f56-f8625f05d2b4",
+                                "name": "HEAD-ERROR-TYPE",
+                                "type": "tier",
+                                "definition": null,
+                                "children": [
+                                  {
+                                    "id": "eb3f537a-ba08-443a-8417-dc8c06a70d43",
+                                    "name": "missing-np-head",
+                                    "type": "label",
+                                    "definition": "缺少名词短语中心词（missing-np-head）：名词短语缺少中心词。",
+                                    "color": "#927db2"
+                                  },
+                                  {
+                                    "id": "43864280-dcca-4986-9c3d-d58f5f42ee5d",
+                                    "name": "wrong-category-for-np-head",
+                                    "type": "label",
+                                    "definition": "名词短语中心词词类错误（wrong-category-for-np-head）：用错误词类充当名词短语中心词。",
+                                    "color": "#8a7b8a"
+                                  },
+                                  {
+                                    "id": "678a3af0-7fb3-468a-8ea5-1651964a53c1",
+                                    "name": "wrong-number",
+                                    "type": "label",
+                                    "definition": "数的错误（wrong-number）：单复数使用错误。",
+                                    "color": "#bfa6d4"
+                                  }
+                                ]
+                              }
+                            ],
+                            "color": "#81d8d5"
+                          },
+                          {
+                            "id": "67f15863-0e9f-4850-9c91-f9577fd320ce",
+                            "name": "np-complex-error",
+                            "type": "label",
+                            "definition": "名词短语复合错误（np-complex-error）",
+                            "children": [
+                              {
+                                "id": "1d7e0881-3556-46a4-89bc-3c76ece4f2a6",
+                                "name": "NP-COMPLEX-ERROR-TYPE",
+                                "type": "tier",
+                                "definition": null,
+                                "children": [
+                                  {
+                                    "id": "6f7d71c6-3123-4ef3-a9aa-b6826f1cf1c4",
+                                    "name": "noun-complex-number-agreement",
+                                    "type": "label",
+                                    "definition": "名词复合数的一致性（noun-complex-number-agreement）：复合名词中数的一致性错误。",
+                                    "color": "#8bdab0"
+                                  },
+                                  {
+                                    "id": "c13e1c87-9034-46df-a78c-dea9db7e0c6e",
+                                    "name": "other-np-complex-error",
+                                    "type": "label",
+                                    "definition": "其他名词短语复合错误（other-np-complex-error）：其他类型的名词短语复合错误。",
+                                    "color": "#aad4c4"
+                                  }
+                                ]
+                              }
+                            ],
+                            "color": "#81c6bd"
+                          },
+                          {
+                            "id": "4d7b5b26-746a-4a77-8d9c-e4b038627033",
+                            "name": "postmodifier-error",
+                            "type": "label",
+                            "definition": "后置修饰语错误（postmodifier-error）",
+                            "children": [
+                              {
+                                "id": "d99dd0b7-196f-4b14-8ed9-4641f1d08e8d",
+                                "name": "POSTMODIFIER-ERROR-TYPE",
+                                "type": "tier",
+                                "definition": null,
+                                "children": [
+                                  {
+                                    "id": "fbf3f2a1-1fb6-4055-b111-bdb90ded052c",
+                                    "name": "adjective-after-head",
+                                    "type": "label",
+                                    "definition": "形容词置于中心词后（adjective-after-head）：形容词错误地置于名词中心词之后。",
+                                    "color": "#aab5a7"
+                                  },
+                                  {
+                                    "id": "425e7bd9-170d-40eb-9b4b-5b6265f574d8",
+                                    "name": "other-postmodifier-error",
+                                    "type": "label",
+                                    "definition": "其他后置修饰语错误（other-postmodifier-error）：其他类型的后置修饰语错误。",
+                                    "color": "#987fa1"
+                                  },
+                                  {
+                                    "id": "e26db7a7-8359-4b22-900e-1e829ad5d72e",
+                                    "name": "postmodifier-order-problem",
+                                    "type": "label",
+                                    "definition": "后置修饰语顺序问题（postmodifier-order-problem）：后置修饰语排列顺序错误。",
+                                    "color": "#cdbfda"
+                                  },
+                                  {
+                                    "id": "dcf91f7a-23c9-41a7-a9d4-4f2cccf1c3e3",
+                                    "name": "pp-instead-of-saxon-genitive",
+                                    "type": "label",
+                                    "definition": "介词短语代替撒克逊属格（pp-instead-of-saxon-genitive）：应使用撒克逊属格但使用了介词短语。",
+                                    "color": "#cf8898"
+                                  }
+                                ]
+                              }
+                            ],
+                            "color": "#88809f"
+                          },
+                          {
+                            "id": "8ff78a02-6400-4903-976f-d4406f7e9625",
+                            "name": "premodifier-error",
+                            "type": "label",
+                            "definition": "前置修饰语错误（premodifier-error）",
+                            "children": [
+                              {
+                                "id": "abb4b3f9-1014-44e1-97d1-a4e8560b6ab2",
+                                "name": "PREMODIFIER-ERROR-TYPE",
+                                "type": "tier",
+                                "definition": null,
+                                "children": [
+                                  {
+                                    "id": "53ea7e0e-281e-4058-95a2-937cd6007773",
+                                    "name": "incorrect-premodifier-category",
+                                    "type": "label",
+                                    "definition": "错误的前置修饰语类别（incorrect-premodifier-category）：前置修饰语词类选择错误。",
+                                    "color": "#a0c593"
+                                  },
+                                  {
+                                    "id": "9761a09f-79f2-4fbd-a4f7-cffb1d828bbd",
+                                    "name": "plural-noun-premodifier",
+                                    "type": "label",
+                                    "definition": "复数名词前置修饰语（plural-noun-premodifier）：错误地使用复数名词作前置修饰语。",
+                                    "color": "#879bcc"
+                                  },
+                                  {
+                                    "id": "e47875ce-2efd-4c76-bb3c-bd596f0e5959",
+                                    "name": "premodifier-order-problem",
+                                    "type": "label",
+                                    "definition": "前置修饰语顺序问题（premodifier-order-problem）：前置修饰语排列顺序错误。",
+                                    "color": "#a9917a"
+                                  },
+                                  {
+                                    "id": "5a4c93c3-4915-40c6-9e21-84b115921f2e",
+                                    "name": "unnecessary-premodifier",
+                                    "type": "label",
+                                    "definition": "不必要的前置修饰语（unnecessary-premodifier）：添加了不需要的前置修饰语。",
+                                    "color": "#98bdbd"
+                                  }
+                                ]
+                              }
+                            ],
+                            "color": "#bed2aa"
+                          },
+                          {
+                            "id": "166fdd5e-20a4-4144-9706-4f3c2b900d7f",
+                            "name": "pronoun-error",
+                            "type": "label",
+                            "definition": "代词错误（pronoun-error）",
+                            "children": [
+                              {
+                                "id": "2eb502a1-d64b-44b3-bfe6-7a79b05e8349",
+                                "name": "PRONOUN-ERROR-TYPE",
+                                "type": "tier",
+                                "definition": null,
+                                "children": [
+                                  {
+                                    "id": "60b0d5b8-86d7-4101-b3cb-66d0e16ef018",
+                                    "name": "pronoun-case-error",
+                                    "type": "label",
+                                    "definition": "代词格的错误（pronoun-case-error）：代词格（主格、宾格、属格）使用错误。",
+                                    "color": "#a87da1"
+                                  },
+                                  {
+                                    "id": "b60ba608-cb77-4228-9e87-7e41cae8b9d9",
+                                    "name": "pronoun-choice-error",
+                                    "type": "label",
+                                    "definition": "代词选择错误（pronoun-choice-error）：代词选择不当。",
+                                    "color": "#b9ca7f"
+                                  },
+                                  {
+                                    "id": "90cadbb2-19b1-4635-bd05-8f2713b5e38b",
+                                    "name": "pronoun-number-error",
+                                    "type": "label",
+                                    "definition": "代词数的错误（pronoun-number-error）：代词单复数使用错误。",
+                                    "color": "#be8dae"
+                                  }
+                                ]
+                              }
+                            ],
+                            "color": "#86bac2"
+                          },
+                          {
+                            "id": "4fe950a8-9c6e-401c-9485-c414bb310d1b",
+                            "name": "proper-name-error",
+                            "type": "label",
+                            "definition": "专有名词错误（proper-name-error）",
+                            "children": [
+                              {
+                                "id": "f90084cc-d87a-41c0-b0fb-dd658e7a1c00",
+                                "name": "PROPER-NAME-ERROR-TYPE",
+                                "type": "tier",
+                                "definition": null,
+                                "children": [
+                                  {
+                                    "id": "a35f0a9a-6511-4bb4-9c5c-6c591d6868d9",
+                                    "name": "misformed-proper-name",
+                                    "type": "label",
+                                    "definition": "专有名词构成错误（misformed-proper-name）：专有名词形式构成错误。",
+                                    "color": "#869ad0"
+                                  },
+                                  {
+                                    "id": "59eeb7d2-eaba-4a19-91ad-26059ce114af",
+                                    "name": "other-proper-name-error",
+                                    "type": "label",
+                                    "definition": "其他专有名词错误（other-proper-name-error）：其他类型的专有名词错误。",
+                                    "color": "#ab8fb1"
+                                  }
+                                ]
+                              }
+                            ],
+                            "color": "#95da86"
+                          },
+                          {
+                            "id": "87ec4209-0cff-430f-9e84-41e8a7e2364c",
+                            "name": "unhandled-np-error",
+                            "type": "label",
+                            "definition": "未处理的名词短语错误（unhandled-np-error）：无法归类到上述具体类型的名词短语错误。",
+                            "color": "#c18cd4"
+                          }
+                        ]
+                      }
+                    ],
+                    "color": "#7fb2a9"
+                  },
+                  {
+                    "id": "79771fc6-68a8-48d3-bcc9-f4e3e9975d37",
+                    "name": "other-grammatical-error",
+                    "type": "label",
+                    "definition": "其他语法错误（other-grammatical-error）：无法归类到上述具体语法单位的其他语法错误。",
+                    "color": "#cdcdc6"
+                  },
+                  {
+                    "id": "6eacc950-46cc-4fd1-8cea-24e049a102c5",
+                    "name": "prep-phrase-error",
+                    "type": "label",
+                    "definition": "介词短语错误（prep-phrase-error）",
+                    "children": [
+                      {
+                        "id": "b2c2ec21-6969-4beb-8fe1-ecaf5e5d92fa",
+                        "name": "PREP-PHRASE-ERROR-TYPE",
+                        "type": "tier",
+                        "definition": null,
+                        "children": [
+                          {
+                            "id": "72f58235-7adc-434d-9f83-7a23135fac51",
+                            "name": "multiword-preposition-error",
+                            "type": "label",
+                            "definition": "多词介词错误（multiword-preposition-error）：复合介词使用错误。",
+                            "color": "#cca78c"
+                          },
+                          {
+                            "id": "bc1fb6c2-8b99-4367-b91a-a77a222b7eae",
+                            "name": "prep-choice-error",
+                            "type": "label",
+                            "definition": "介词选择错误（prep-choice-error）：介词选择不当。",
+                            "color": "#91d0c5"
+                          },
+                          {
+                            "id": "ec0c3a0e-e9bf-4403-90c3-8fe4e30c90eb",
+                            "name": "prep-complement-missing",
+                            "type": "label",
+                            "definition": "介词补语缺失（prep-complement-missing）：缺少介词的补语。",
+                            "color": "#ac95ca"
+                          },
+                          {
+                            "id": "aa29269a-14c9-4e7e-b500-3de05f404c79",
+                            "name": "prep-complement-type-error",
+                            "type": "label",
+                            "definition": "介词补语类型错误（prep-complement-type-error）：介词补语类型不当。",
+                            "color": "#b5d8a6"
+                          },
+                          {
+                            "id": "df4ea487-418a-484c-a088-042c085e2cb1",
+                            "name": "unnecessary-preposition",
+                            "type": "label",
+                            "definition": "不必要的介词（unnecessary-preposition）：添加了不需要的介词。",
+                            "color": "#79c987"
+                          }
+                        ]
+                      }
+                    ],
+                    "color": "#998687"
+                  },
+                  {
+                    "id": "0e3c1751-34d3-4a5a-8859-06a2cdc50ca4",
+                    "name": "special-structure-error",
+                    "type": "label",
+                    "definition": "特殊结构错误（special-structure-error）",
+                    "children": [
+                      {
+                        "id": "dd30d554-3142-47f9-b551-c5e8b3bcb020",
+                        "name": "SPECIAL-STRUCTURE-ERROR-TYPE",
+                        "type": "tier",
+                        "definition": null,
+                        "children": [
+                          {
+                            "id": "8572829f-ed79-4650-b180-11a0a9f2e542",
+                            "name": "causative-structure-error",
+                            "type": "label",
+                            "definition": "使役结构错误（causative-structure-error）：使役句结构错误。",
+                            "color": "#93d5d2"
+                          },
+                          {
+                            "id": "a070e948-e2c9-47ec-92a1-ca7c8bf1002c",
+                            "name": "extraposition-construction-error",
+                            "type": "label",
+                            "definition": "外置结构错误（extraposition-construction-error）：外置句法结构错误。",
+                            "color": "#d0a6a8"
+                          },
+                          {
+                            "id": "44069b54-95a2-4d7e-859f-ef4b36e0817c",
+                            "name": "incorrect-form-for-comparative",
+                            "type": "label",
+                            "definition": "比较结构形式错误（incorrect-form-for-comparative）：比较结构形式不当。",
+                            "color": "#91b699"
+                          },
+                          {
+                            "id": "3e45a37f-d229-469b-9926-c12d6ef10879",
+                            "name": "other-special-structure-error",
+                            "type": "label",
+                            "definition": "其他特殊结构错误（other-special-structure-error）：其他类型的特殊语法结构错误。",
+                            "color": "#d9da7c"
+                          }
+                        ]
+                      }
+                    ],
+                    "color": "#9f86ae"
+                  },
+                  {
+                    "id": "8da978ea-2c85-414b-9326-305ad5eca7de",
+                    "name": "vp-error",
+                    "type": "label",
+                    "definition": "动词短语错误（vp-error）",
+                    "children": [
+                      {
+                        "id": "317f1bbf-de13-4232-9b6b-2b0aaeb9c771",
+                        "name": "VERBS-AND-VERB-PHRASES-TYPE",
+                        "type": "tier",
+                        "definition": null,
+                        "children": [
+                          {
+                            "id": "d57db6e2-e97e-4ceb-af7a-7d96570877a0",
+                            "name": "do-aux-construction-error",
+                            "type": "label",
+                            "definition": "do助动词结构错误（do-aux-construction-error）：do助动词构造错误。",
+                            "color": "#caa0a1"
+                          },
+                          {
+                            "id": "9a99a97b-8c46-419e-973e-32aa8dbebdd3",
+                            "name": "have-to-construction-error",
+                            "type": "label",
+                            "definition": "have to结构错误（have-to-construction-error）：have to句型结构错误。",
+                            "color": "#81afaa"
+                          },
+                          {
+                            "id": "fabb7071-1eee-4f73-ada0-a0da70c59ebc",
+                            "name": "interrogative-formation-error",
+                            "type": "label",
+                            "definition": "疑问句构成错误（interrogative-formation-error）：疑问句形式构成错误。",
+                            "children": [
+                              {
+                                "id": "73078200-0046-4811-abcf-7cca2556e17c",
+                                "name": "INTERROGATIVE-FORMATION-ERROR-TYPE",
+                                "type": "tier",
+                                "definition": null,
+                                "children": [
+                                  {
+                                    "id": "9ea800ab-fcc8-481c-b02a-b935b6404601",
+                                    "name": "no-do-insert-but-required",
+                                    "type": "label",
+                                    "definition": "需要do插入但未插入（no-do-insert-but-required）：疑问句需要do助动词但未使用。",
+                                    "color": "#81a0c7"
+                                  },
+                                  {
+                                    "id": "389ac08e-6710-42f7-8a20-769d2810dc90",
+                                    "name": "other-interrogative-formation-error",
+                                    "type": "label",
+                                    "definition": "其他疑问句构成错误（other-interrogative-formation-error）：其他类型的疑问句构成错误。",
+                                    "color": "#d5da86"
+                                  }
+                                ]
+                              }
+                            ],
+                            "color": "#828ab5"
+                          },
+                          {
+                            "id": "7cfcc149-ae50-4e55-b3ee-e7c0efdf602e",
+                            "name": "modal-formation-error",
+                            "type": "label",
+                            "definition": "情态动词构成错误（modal-formation-error）：情态动词形式构成错误。",
+                            "color": "#d8ca98"
+                          },
+                          {
+                            "id": "98b36ab4-7f91-4dd1-b22e-b0d84e70123e",
+                            "name": "modal-tense-aspect-choice-error",
+                            "type": "label",
+                            "definition": "情态时态体貌选择错误（modal-tense-aspect-choice-error）：情态动词与时态体貌搭配错误。",
+                            "color": "#b7bfc2"
+                          },
+                          {
+                            "id": "9626f997-b917-48b7-a891-c5c1e327fc3c",
+                            "name": "multiword-verb-formation-error",
+                            "type": "label",
+                            "definition": "多词动词构成错误（multiword-verb-formation-error）：短语动词构成错误。",
+                            "color": "#947bb5"
+                          },
+                          {
+                            "id": "b6178e18-4b54-434a-ae93-8e679ae2ab1c",
+                            "name": "negation-construction-error",
+                            "type": "label",
+                            "definition": "否定句构造错误（negation-construction-error）：否定句结构错误。",
+                            "children": [
+                              {
+                                "id": "52b0c557-5ef9-4a92-88cf-d4538bfabf32",
+                                "name": "NEGATION-CONSTRUCTION-ERROR-TYPE",
+                                "type": "tier",
+                                "definition": null,
+                                "children": [
+                                  {
+                                    "id": "b4ad7402-98f6-44e6-bfc9-9240218a8f71",
+                                    "name": "lacking-obligatory-do-before-not",
+                                    "type": "label",
+                                    "definition": "缺少not前的必要do（lacking-obligatory-do-before-not）：否定句缺少必要的do助动词。",
+                                    "color": "#aacd9b"
+                                  },
+                                  {
+                                    "id": "06d9d3a7-5e44-48a0-b082-75668cd2fa02",
+                                    "name": "polarity-marker-form",
+                                    "type": "label",
+                                    "definition": "极性标记形式错误（polarity-marker-form）：否定标记形式错误。",
+                                    "color": "#96cdc8"
+                                  },
+                                  {
+                                    "id": "e74d0568-2827-4d03-80c6-db8f2516b21d",
+                                    "name": "polarity-marker-order-error",
+                                    "type": "label",
+                                    "definition": "极性标记顺序错误（polarity-marker-order-error）：否定标记位置错误。",
+                                    "color": "#da78a5"
+                                  },
+                                  {
+                                    "id": "a48c4e42-ef6a-4e4b-8bf8-74d1a625f256",
+                                    "name": "polarity-marker-separated",
+                                    "type": "label",
+                                    "definition": "极性标记分离（polarity-marker-separated）：否定标记与动词分离。",
+                                    "color": "#afbdaf"
+                                  }
+                                ]
+                              }
+                            ],
+                            "color": "#a6d88a"
+                          },
+                          {
+                            "id": "3559ccdd-b7b7-4125-bf2d-5c80b4ebddc4",
+                            "name": "passive-formation-error",
+                            "type": "label",
+                            "definition": "被动语态构成错误（passive-formation-error）：被动语态结构错误。",
+                            "color": "#bc9898"
+                          },
+                          {
+                            "id": "7b1c0cd6-1e25-4278-b024-313d5a89204e",
+                            "name": "perfect-formation-error",
+                            "type": "label",
+                            "definition": "完成时构成错误（perfect-formation-error）：完成时态结构错误。",
+                            "color": "#9ea1da"
+                          },
+                          {
+                            "id": "233eaa8f-9edc-4cdb-8343-7e08f79d3cfc",
+                            "name": "progressive-formation-error",
+                            "type": "label",
+                            "definition": "进行时构成错误（progressive-formation-error）：进行时态结构错误。",
+                            "color": "#7db0a1"
+                          },
+                          {
+                            "id": "28e064ff-fac0-467d-b130-7f59ddf35e7f",
+                            "name": "subject-finite-agreement",
+                            "type": "label",
+                            "definition": "主语-限定动词一致性（subject-finite-agreement）：主语与限定动词一致性错误。",
+                            "color": "#bab5aa"
+                          },
+                          {
+                            "id": "12d0fee9-cb3a-470f-916b-bb7737c3140b",
+                            "name": "vp-missing-error",
+                            "type": "label",
+                            "definition": "动词短语缺失错误（vp-missing-error）：缺少动词短语。",
+                            "color": "#858abe"
+                          }
+                        ]
+                      }
+                    ],
+                    "color": "#b783bf"
+                  }
+                ]
+              }
+            ],
+            "color": "#d886d2"
+          },
+          {
+            "id": "b0719e81-d30b-490c-9069-5a9b5ff51ce9",
+            "name": "lexical-error",
+            "type": "label",
+            "definition": "词汇错误（lexical-error）",
+            "children": [
+              {
+                "id": "e8a6a66c-4410-46dd-90f9-0fab49f85d9e",
+                "name": "LEXICAL-ERROR-TYPE2",
+                "type": "tier",
+                "definition": null,
+                "children": [
+                  {
+                    "id": "3bf66bb2-ff8e-4800-9a98-d1462e73d40b",
+                    "name": "lexical-intralanguage-error",
+                    "type": "label",
+                    "definition": "词汇语内错误（lexical-intralanguage-error）",
+                    "children": [
+                      {
+                        "id": "a450c462-845e-4938-ab82-0a0be64e098f",
+                        "name": "LEXICAL-ERROR-TYPE",
+                        "type": "tier",
+                        "definition": null,
+                        "children": [
+                          {
+                            "id": "17cbbe0d-839c-45c3-9a4c-bf1b43411a90",
+                            "name": "spelling-error",
+                            "type": "label",
+                            "definition": "拼写错误（spelling-error）：单词拼写错误。",
+                            "color": "#a4bfcb"
+                          },
+                          {
+                            "id": "46dd31f7-2379-4bb5-8fe6-e26d4e0032bf",
+                            "name": "wordchoice-error",
+                            "type": "label",
+                            "definition": "选词错误（wordchoice-error）：词汇选择不当。",
+                            "children": [
+                              {
+                                "id": "5640d2ab-9462-42c6-bf02-2c9f3a4bdfb7",
+                                "name": "WORDCHOICE-ERROR-TYPE",
+                                "type": "tier",
+                                "definition": null,
+                                "children": [
+                                  {
+                                    "id": "0f225119-fa3f-40fb-9c5d-5d965c38f16f",
+                                    "name": "adjective-vocab-error",
+                                    "type": "label",
+                                    "definition": "形容词词汇错误（adjective-vocab-error）：形容词选择错误。",
+                                    "color": "#967cda"
+                                  },
+                                  {
+                                    "id": "2614e091-458e-46c7-8e40-1f2b4af0f15b",
+                                    "name": "adverb-vocab-error",
+                                    "type": "label",
+                                    "definition": "副词词汇错误（adverb-vocab-error）：副词选择错误。",
+                                    "color": "#b5a2d1"
+                                  },
+                                  {
+                                    "id": "985a8944-da1e-42ae-af79-d3451a72eeae",
+                                    "name": "noun-vocab-error",
+                                    "type": "label",
+                                    "definition": "名词词汇错误（noun-vocab-error）：名词选择错误。",
+                                    "color": "#7f7fc2"
+                                  },
+                                  {
+                                    "id": "b1324f0c-9f16-47b2-b4cf-23c9a93f335d",
+                                    "name": "verb-vocab-error",
+                                    "type": "label",
+                                    "definition": "动词词汇错误（verb-vocab-error）：动词选择错误。",
+                                    "color": "#a9d2c6"
+                                  }
+                                ]
+                              }
+                            ],
+                            "color": "#c88eaa"
+                          }
+                        ]
+                      }
+                    ],
+                    "color": "#888bd4"
+                  },
+                  {
+                    "id": "5717e5b0-f30e-411e-800b-02ffbeeaf807",
+                    "name": "lexical-transfer-error",
+                    "type": "label",
+                    "definition": "词汇迁移错误（lexical-transfer-error）",
+                    "children": [
+                      {
+                        "id": "49c08725-d557-403c-b314-190fd9de1d11",
+                        "name": "LEXICAL-TRANSFER-ERROR-TYPE",
+                        "type": "tier",
+                        "definition": null,
+                        "children": [
+                          {
+                            "id": "547ba224-71c6-442f-9d15-429163d672a1",
+                            "name": "dictionary-error",
+                            "type": "label",
+                            "definition": "字典错误（dictionary-error）：字典使用导致的错误。",
+                            "color": "#87d280"
+                          },
+                          {
+                            "id": "426deddc-6983-4eb3-82a3-8663e2184962",
+                            "name": "transfer-where-similar-exists",
+                            "type": "label",
+                            "definition": "相似词存在时的迁移（transfer-where-similar-exists）：目标语中存在相似词时的迁移错误。",
+                            "children": [
+                              {
+                                "id": "e5fc8fe7-1f04-4b70-9464-90fe7cc0ad38",
+                                "name": "TRANSFER-WHERE-SIMILAR-EXISTS-TYPE",
+                                "type": "tier",
+                                "definition": null,
+                                "children": [
+                                  {
+                                    "id": "515a7748-619b-427f-8d6d-18a066eddf2e",
+                                    "name": "false-friend",
+                                    "type": "label",
+                                    "definition": "假朋友（false-friend）：假同源词错误。",
+                                    "color": "#7a80da"
+                                  },
+                                  {
+                                    "id": "ea785255-aec4-4e74-b986-c83411d7c62e",
+                                    "name": "malformation",
+                                    "type": "label",
+                                    "definition": "词形错误（malformation）：词汇形态构造错误。",
+                                    "color": "#7ec482"
+                                  },
+                                  {
+                                    "id": "024bbee2-8aaf-4350-a107-1f3875f0cd5c",
+                                    "name": "transfer-spelling",
+                                    "type": "label",
+                                    "definition": "迁移拼写（transfer-spelling）：拼写迁移错误。",
+                                    "color": "#87c0ad"
+                                  }
+                                ]
+                              }
+                            ],
+                            "color": "#797cbb"
+                          },
+                          {
+                            "id": "3ab5bf15-6be9-492f-b039-251ed359df68",
+                            "name": "word-creation",
+                            "type": "label",
+                            "definition": "造词（word-creation）：学习者自创词汇。",
+                            "children": [
+                              {
+                                "id": "2a2bb832-19fd-4c05-92a1-67c65dcb14de",
+                                "name": "WORD-CREATION-TYPE",
+                                "type": "tier",
+                                "definition": null,
+                                "children": [
+                                  {
+                                    "id": "a08defad-e3b1-4cc1-aa76-09d5a63931d5",
+                                    "name": "borrowing",
+                                    "type": "label",
+                                    "definition": "借用（borrowing）：从母语或其他语言借用词汇。",
+                                    "color": "#84c2cd"
+                                  },
+                                  {
+                                    "id": "fe3affb8-17fc-4227-a4a6-210f6f3c73bd",
+                                    "name": "coinage",
+                                    "type": "label",
+                                    "definition": "创新（coinage）：完全自创的词汇。",
+                                    "color": "#827988"
+                                  }
+                                ]
+                              }
+                            ],
+                            "color": "#d379b7"
+                          }
+                        ]
+                      }
+                    ],
+                    "color": "#8ed8a3"
+                  }
+                ]
+              },
+              {
+                "id": "c94955b7-bb04-4c3c-b233-c312be19a82f",
+                "name": "LEXICAL-ERROR-TYPE3",
+                "type": "tier",
+                "definition": null,
+                "children": [
+                  {
+                    "id": "e619e2a5-098d-4b44-b5fe-be4ae4b8efd8",
+                    "name": "adjective-based-lex-error",
+                    "type": "label",
+                    "definition": "基于形容词的词汇错误（adjective-based-lex-error）：以形容词为基础的词汇错误。",
+                    "color": "#cfc9d2"
+                  },
+                  {
+                    "id": "167532d7-67f9-4356-bac3-36de57e691c4",
+                    "name": "adverb-based-lex-error",
+                    "type": "label",
+                    "definition": "基于副词的词汇错误（adverb-based-lex-error）：以副词为基础的词汇错误。",
+                    "color": "#cec2cb"
+                  },
+                  {
+                    "id": "6d2fd846-bf4d-4100-801a-5dc7c7e87dd6",
+                    "name": "noun-based-lex-error",
+                    "type": "label",
+                    "definition": "基于名词的词汇错误（noun-based-lex-error）：以名词为基础的词汇错误。",
+                    "color": "#ca91c8"
+                  },
+                  {
+                    "id": "7eb693b4-3c5c-40bb-8440-9eb8c6f98313",
+                    "name": "other-wc-lex-error",
+                    "type": "label",
+                    "definition": "其他词类词汇错误（other-wc-lex-error）：其他词类的词汇错误。",
+                    "color": "#92aadc"
+                  },
+                  {
+                    "id": "8aa75efa-aefc-431d-a167-840700807ba5",
+                    "name": "verb-based-lex-error",
+                    "type": "label",
+                    "definition": "基于动词的词汇错误（verb-based-lex-error）：以动词为基础的词汇错误。",
+                    "color": "#798bc1"
+                  }
+                ]
+              }
+            ],
+            "color": "#d9b69c"
+          },
+          {
+            "id": "e1f572f1-5cfc-4871-b23d-980b24a68c21",
+            "name": "phrasing-error",
+            "type": "label",
+            "definition": "措辞错误（phrasing-error）",
+            "children": [
+              {
+                "id": "7b0b0743-83c8-4d7d-9ba1-83ca30c017fc",
+                "name": "PHRASING-ERROR-TYPE",
+                "type": "tier",
+                "definition": null,
+                "children": [
+                  {
+                    "id": "5e990785-59cd-40f8-a882-c4254db98bc9",
+                    "name": "other-phrasing-error",
+                    "type": "label",
+                    "definition": "其他措辞错误（other-phrasing-error）：其他类型的措辞错误。",
+                    "color": "#d6d795"
+                  },
+                  {
+                    "id": "5825e1b6-9a71-4bb1-bf77-98c582a8ce69",
+                    "name": "transferred-phrasing",
+                    "type": "label",
+                    "definition": "迁移措辞（transferred-phrasing）：受母语影响的措辞错误。",
+                    "color": "#78ba99"
+                  }
+                ]
+              }
+            ],
+            "color": "#ccacb1"
+          },
+          {
+            "id": "80ad132f-1638-4df8-a022-63386c9c1535",
+            "name": "pragmatic-error",
+            "type": "label",
+            "definition": "语用错误（pragmatic-error）",
+            "children": [
+              {
+                "id": "d1c17853-6a62-42de-9daa-8eb7c66233aa",
+                "name": "PRAGMATIC-ERROR-TYPE",
+                "type": "tier",
+                "definition": null,
+                "children": [
+                  {
+                    "id": "1de9b12c-ba50-43bb-84b8-123306545622",
+                    "name": "coherence-error",
+                    "type": "label",
+                    "definition": "连贯性错误（coherence-error）",
+                    "children": [
+                      {
+                        "id": "4f5f1d4d-49e6-44cf-a814-c77ebc95ee13",
+                        "name": "COHERENCE-ERROR-TYPE",
+                        "type": "tier",
+                        "definition": null,
+                        "children": [
+                          {
+                            "id": "ea897f8a-660c-48ca-a927-c7f4a9de76d1",
+                            "name": "incomplete-sentence",
+                            "type": "label",
+                            "definition": "不完整句子（incomplete-sentence）：句子结构不完整。",
+                            "color": "#b078a3"
+                          },
+                          {
+                            "id": "bb69ba95-0dbd-49f6-80bc-1e7cda514015",
+                            "name": "incorrect-connector-for-context",
+                            "type": "label",
+                            "definition": "语境连接词错误（incorrect-connector-for-context）：连接词与语境不符。",
+                            "color": "#a89388"
+                          },
+                          {
+                            "id": "b657a1c3-1655-4d2b-91eb-22e03920f8cf",
+                            "name": "incorrect-modal-for-context",
+                            "type": "label",
+                            "definition": "语境情态错误（incorrect-modal-for-context）：情态动词与语境不符。",
+                            "color": "#79a0aa"
+                          },
+                          {
+                            "id": "f85e5c28-d19e-437e-9f9c-4e65a966157c",
+                            "name": "incorrect-tense-for-context",
+                            "type": "label",
+                            "definition": "语境时态错误（incorrect-tense-for-context）：时态与语境不符。",
+                            "color": "#bdcec0"
+                          },
+                          {
+                            "id": "db5c8d00-96cc-495e-a575-0220e934efc5",
+                            "name": "other-coherence-error",
+                            "type": "label",
+                            "definition": "其他连贯性错误（other-coherence-error）：其他类型的连贯性错误。",
+                            "color": "#8cc6c2"
+                          }
+                        ]
+                      }
+                    ],
+                    "color": "#d9c793"
+                  },
+                  {
+                    "id": "1b7c0218-7e80-4331-b7c5-6c42a39352f0",
+                    "name": "cohesion-error",
+                    "type": "label",
+                    "definition": "衔接错误（cohesion-error）",
+                    "children": [
+                      {
+                        "id": "79e79e13-2a40-4ff9-90d8-1063a82351ac",
+                        "name": "COHESION-ERROR-TYPE",
+                        "type": "tier",
+                        "definition": null,
+                        "children": [
+                          {
+                            "id": "c36a9944-c16f-4c41-9480-884a3acb3e67",
+                            "name": "ellipsis-error",
+                            "type": "label",
+                            "definition": "省略错误（ellipsis-error）：省略使用错误。",
+                            "color": "#d29ac3"
+                          },
+                          {
+                            "id": "c2b2b20e-38be-4f8b-955c-9a5a63c32c8b",
+                            "name": "reference-error",
+                            "type": "label",
+                            "definition": "指称错误（reference-error）：指称关系错误。",
+                            "color": "#a28a8c"
+                          },
+                          {
+                            "id": "67fbd716-e425-4512-8127-95e3cc87a1ab",
+                            "name": "substitution-error",
+                            "type": "label",
+                            "definition": "替代错误（substitution-error）：替代使用错误。",
+                            "color": "#9ab18c"
+                          }
+                        ]
+                      }
+                    ],
+                    "color": "#9997c5"
+                  },
+                  {
+                    "id": "6908c85f-be62-4e3e-9230-bd03f2121665",
+                    "name": "other-pragmatic-error",
+                    "type": "label",
+                    "definition": "其他语用错误（other-pragmatic-error）：其他类型的语用错误。",
+                    "color": "#8dadb6"
+                  },
+                  {
+                    "id": "86af0ea9-c0e1-4e1b-9862-eea21dc9add4",
+                    "name": "register-error",
+                    "type": "label",
+                    "definition": "语域错误（register-error）",
+                    "children": [
+                      {
+                        "id": "800801cf-9bab-45bd-abaf-814b6992d9a4",
+                        "name": "REGISTER-ERROR-TYPE",
+                        "type": "tier",
+                        "definition": null,
+                        "children": [
+                          {
+                            "id": "cf7d2cf9-6cdd-46ed-b779-b154b0e697e7",
+                            "name": "contraction-in-academic-writing",
+                            "type": "label",
+                            "definition": "学术写作中的缩写（contraction-in-academic-writing）：学术写作中不当使用缩写形式。",
+                            "color": "#96b1b9"
+                          },
+                          {
+                            "id": "db4d683c-1751-4394-bf13-05c1692f7c09",
+                            "name": "other-register-error",
+                            "type": "label",
+                            "definition": "其他语域错误（other-register-error）：其他类型的语域错误。",
+                            "color": "#c2d3d0"
+                          }
+                        ]
+                      }
+                    ],
+                    "color": "#bba5d3"
+                  }
+                ]
+              }
+            ],
+            "color": "#8cc48f"
+          },
+          {
+            "id": "8ba03ac2-6b1e-41d3-be97-e924f9da29cd",
+            "name": "punctuation-error",
+            "type": "label",
+            "definition": "标点错误（punctuation-error）",
+            "children": [
+              {
+                "id": "3cb88614-c99f-46fb-99a6-b82653172a38",
+                "name": "PUNCTUATION-ERROR-TYPE",
+                "type": "tier",
+                "definition": null,
+                "children": [
+                  {
+                    "id": "008a7fe1-54c4-440a-ac66-6704197ca060",
+                    "name": "capitalisation-required",
+                    "type": "label",
+                    "definition": "需要大写（capitalisation-required）：需要大写但未大写。",
+                    "color": "#9ad391"
+                  },
+                  {
+                    "id": "e0bfd4cb-3e33-4624-b8b7-d5beab53c731",
+                    "name": "punctuation-inserted-not-required",
+                    "type": "label",
+                    "definition": "插入不需要的标点（punctuation-inserted-not-required）：添加了不需要的标点符号。",
+                    "color": "#bca67e"
+                  },
+                  {
+                    "id": "87cae370-0cb3-41aa-b414-b7d12948df48",
+                    "name": "punctuation-required-not-present",
+                    "type": "label",
+                    "definition": "需要标点但未标注（punctuation-required-not-present）：需要标点符号但缺失。",
+                    "color": "#7b89d4"
+                  },
+                  {
+                    "id": "85bea665-a82e-4b43-8461-5828652b60f6",
+                    "name": "space-separator-error",
+                    "type": "label",
+                    "definition": "空格分隔错误（space-separator-error）：空格使用错误。",
+                    "color": "#cac68f"
+                  },
+                  {
+                    "id": "413266ff-1e7d-45d1-b566-0433730902c9",
+                    "name": "unnecessary-capitalisation",
+                    "type": "label",
+                    "definition": "不必要的大写（unnecessary-capitalisation）：不需要大写但大写了。",
+                    "color": "#c2897c"
+                  },
+                  {
+                    "id": "bc81c522-4a52-4cb1-9558-bdc0d7789d6b",
+                    "name": "wrong-punctuation",
+                    "type": "label",
+                    "definition": "错误标点（wrong-punctuation）：标点符号选择错误。",
+                    "color": "#cbda93"
+                  }
+                ]
+              }
+            ],
+            "color": "#aec895"
+          },
+          {
+            "id": "a82b3dde-d8e3-4745-9a62-876a08d997f3",
+            "name": "uncodable-error",
+            "type": "label",
+            "definition": "无法编码错误（uncodable-error）：无法归类到上述任何具体错误类型的错误。",
+            "color": "#d67f93"
+          }
+        ]
+      }
+    ],
+    "color": "#c79c7e"
+  },
+  "createdAt": "2025-12-12T13:52:44.883578",
+  "updatedAt": "2025-12-12T13:52:44.883578"
+}

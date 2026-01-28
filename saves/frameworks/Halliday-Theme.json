@@ -1,0 +1,567 @@
+{
+  "id": "Halliday-Theme",
+  "name": "Halliday-Theme",
+  "category": "UAM - Grammar",
+  "description": "主题系统 (Theme System)：主题系统是韩礼德功能语法中用于分析句子信息结构的重要组成部分，主要关注句子中的主题（Theme）和述题（Rheme）的划分。",
+  "root": {
+    "id": "5e0b8bdd-d0d3-43d6-8352-91fb8c0ab6d2",
+    "name": "element",
+    "type": "label",
+    "definition": "主题系统 (Theme System)：主题系统是韩礼德功能语法中用于分析句子信息结构的重要组成部分，主要关注句子中的主题（Theme）和述题（Rheme）的划分。",
+    "children": [
+      {
+        "id": "52fd7a2c-c86b-478e-9616-2b6053f1ab81",
+        "name": "THEME-TYPE",
+        "type": "tier",
+        "definition": null,
+        "children": [
+          {
+            "id": "89ab545d-db8b-4a3a-bcf0-bdd6ce304be8",
+            "name": "rheme",
+            "type": "label",
+            "definition": "述题（rheme）：句子中除主题之外的部分，通常包含句子的主要信息内容。",
+            "color": "#db7fd2"
+          },
+          {
+            "id": "31f73168-f381-4623-bab8-e0242d0b1b6d",
+            "name": "sentence",
+            "type": "label",
+            "definition": "句子（sentence）：完整的语法单位，包含主题和述题两个基本组成部分。",
+            "color": "#c5bc7f"
+          },
+          {
+            "id": "641ca3de-75d0-4e7e-ac4f-00aaeedbb2e2",
+            "name": "theme",
+            "type": "label",
+            "definition": "主题（theme）：句子的起始部分，为整个语句提供语境定位，是说话者选择作为信息出发点的部分。",
+            "children": [
+              {
+                "id": "2fa85290-d2be-469d-9caf-666dfae86725",
+                "name": "THEME1-TYPE",
+                "type": "tier",
+                "definition": null,
+                "children": [
+                  {
+                    "id": "94a3e9fc-f971-45fb-8ec3-19005ab31cf3",
+                    "name": "theme-component",
+                    "type": "label",
+                    "definition": "主题成分（theme-component）：构成主题的具体语言成分，可以是单一成分或复合成分。",
+                    "children": [
+                      {
+                        "id": "eefaac26-f107-4f9e-b993-742f2a7f4c45",
+                        "name": "THEME-COMPONENT-TYPE",
+                        "type": "tier",
+                        "definition": null,
+                        "children": [
+                          {
+                            "id": "13d99880-4e9c-4e67-a53a-48b1d6551bae",
+                            "name": "interpersonal-theme",
+                            "type": "label",
+                            "definition": "人际主题（interpersonal-theme）：表达说话者态度、情感或与听话者关系的主题成分。",
+                            "children": [
+                              {
+                                "id": "28ca36cb-2f38-4545-be26-2b7d9c39f626",
+                                "name": "INTERPERSONAL-THEME-TYPE2",
+                                "type": "tier",
+                                "definition": null,
+                                "children": [
+                                  {
+                                    "id": "d318147f-f555-42e7-abfb-4ee71f68e9ac",
+                                    "name": "fronted-adjunct",
+                                    "type": "label",
+                                    "definition": "前置附加语（fronted-adjunct）：位于句首，表达说话者主观态度或判断的附加成分。",
+                                    "children": [
+                                      {
+                                        "id": "74b1c6ee-86dd-4b62-a02e-32722207077a",
+                                        "name": "FRONTED-ADJUNCT-TYPE",
+                                        "type": "tier",
+                                        "definition": null,
+                                        "children": [
+                                          {
+                                            "id": "7c99aadd-c366-4795-8506-e9bca7471c20",
+                                            "name": "evaluation",
+                                            "type": "label",
+                                            "definition": "评价类型 (Evaluation)",
+                                            "children": [
+                                              {
+                                                "id": "5f3a9b5f-f73c-4ffb-8433-fe1494010d31",
+                                                "name": "DESIRABILITY1-TYPE",
+                                                "type": "tier",
+                                                "definition": null,
+                                                "children": [
+                                                  {
+                                                    "id": "bb8a51de-652d-48be-8759-7dc9d0317a50",
+                                                    "name": "desirability",
+                                                    "type": "label",
+                                                    "definition": "合意性（desirability）：表达说话者对事物是否令人满意或期望的态度判断。",
+                                                    "color": "#967986"
+                                                  },
+                                                  {
+                                                    "id": "c2644653-a5df-4e0d-8431-8fd077a04574",
+                                                    "name": "reaction",
+                                                    "type": "label",
+                                                    "definition": "反应（reaction）：表达说话者对某一事件或情况的情感反应。",
+                                                    "color": "#a0acbb"
+                                                  },
+                                                  {
+                                                    "id": "87d9babc-0ed8-4a70-8cae-ecca6465f116",
+                                                    "name": "sensibleness",
+                                                    "type": "label",
+                                                    "definition": "合理性（sensibleness）：表达说话者对事物是否合乎情理或明智的判断。",
+                                                    "color": "#8d7fc0"
+                                                  },
+                                                  {
+                                                    "id": "f3ebd23e-36ac-4f59-8a2f-231cb484f95a",
+                                                    "name": "validity",
+                                                    "type": "label",
+                                                    "definition": "有效性（validity）：表达说话者对陈述或论证是否成立、有根据的判断。",
+                                                    "color": "#bbbecc"
+                                                  }
+                                                ]
+                                              }
+                                            ],
+                                            "color": "#8aa179"
+                                          },
+                                          {
+                                            "id": "a281a807-ad6a-4a4d-bd13-5f010881e967",
+                                            "name": "evidentiality",
+                                            "type": "label",
+                                            "definition": "证据性类型 (Evidentiality)",
+                                            "children": [
+                                              {
+                                                "id": "820ead8d-c9bd-4aaf-bcde-2c53433ea1e6",
+                                                "name": "EVIDENTIALITY-TYPE",
+                                                "type": "tier",
+                                                "definition": null,
+                                                "children": [
+                                                  {
+                                                    "id": "1a41fa23-32c5-45e7-8885-9d6740086cac",
+                                                    "name": "belief",
+                                                    "type": "label",
+                                                    "definition": "信念（belief）：表达说话者的个人信念或信仰立场。",
+                                                    "color": "#c7d98d"
+                                                  },
+                                                  {
+                                                    "id": "c12af367-876b-43e5-9394-50833615df51",
+                                                    "name": "claim",
+                                                    "type": "label",
+                                                    "definition": "声称（claim）：表达说话者提出的主张或断言。",
+                                                    "color": "#aba78c"
+                                                  },
+                                                  {
+                                                    "id": "991e8d55-3ba4-4409-99db-65aabd97c021",
+                                                    "name": "evidence",
+                                                    "type": "label",
+                                                    "definition": "证据（evidence）：表达基于具体证据或事实的判断。",
+                                                    "color": "#d783ad"
+                                                  },
+                                                  {
+                                                    "id": "d8e5f61d-46cb-4caa-af4b-a570742a4729",
+                                                    "name": "expectation",
+                                                    "type": "label",
+                                                    "definition": "期望（expectation）：表达说话者的预期或期待。",
+                                                    "color": "#957978"
+                                                  },
+                                                  {
+                                                    "id": "e5eec1e0-185b-4ccc-af62-06991f9772f4",
+                                                    "name": "factuality",
+                                                    "type": "label",
+                                                    "definition": "事实性（factuality）：表达对事实真实性的确认或质疑。",
+                                                    "color": "#ae9aae"
+                                                  },
+                                                  {
+                                                    "id": "eb68e2cf-70cb-4e54-92d8-477288162887",
+                                                    "name": "obviousness",
+                                                    "type": "label",
+                                                    "definition": "明显性（obviousness）：表达事物的显而易见程度。",
+                                                    "color": "#bdc68e"
+                                                  },
+                                                  {
+                                                    "id": "942ff65e-68f5-45a5-9750-3a56525b5d3d",
+                                                    "name": "opinion",
+                                                    "type": "label",
+                                                    "definition": "观点（opinion）：表达说话者的个人看法或观点。",
+                                                    "color": "#b59fa7"
+                                                  },
+                                                  {
+                                                    "id": "2770a85f-01ed-4eee-a30f-73e23cbe0266",
+                                                    "name": "probability",
+                                                    "type": "label",
+                                                    "definition": "概率（probability）：表达事件发生的可能性程度。",
+                                                    "color": "#ae8b93"
+                                                  },
+                                                  {
+                                                    "id": "bb3d80b0-bdeb-4e48-88ff-ada64c14fafb",
+                                                    "name": "typicality",
+                                                    "type": "label",
+                                                    "definition": "典型性（typicality）：表达事物是否符合常规或典型情况。",
+                                                    "color": "#c0c9a0"
+                                                  },
+                                                  {
+                                                    "id": "9eaf99e2-9e89-41c2-a3bc-ff3c4410ff59",
+                                                    "name": "usuality",
+                                                    "type": "label",
+                                                    "definition": "惯常性（usuality）：表达行为或事件的习惯性或常规性。",
+                                                    "color": "#9bcd82"
+                                                  }
+                                                ]
+                                              }
+                                            ],
+                                            "color": "#aab98a"
+                                          },
+                                          {
+                                            "id": "8e48e759-950c-493b-8341-8055b073269a",
+                                            "name": "subjectivity",
+                                            "type": "label",
+                                            "definition": "主观性类型 (Subjectivity)",
+                                            "children": [
+                                              {
+                                                "id": "536416d4-3ea8-4292-b3dc-24aba08d58a1",
+                                                "name": "SUBJECTIVITY-TYPE",
+                                                "type": "tier",
+                                                "definition": null,
+                                                "children": [
+                                                  {
+                                                    "id": "dc9f3977-8492-4775-a254-6e9729fe1a13",
+                                                    "name": "admission",
+                                                    "type": "label",
+                                                    "definition": "承认（admission）：表达说话者的承认或认可态度。",
+                                                    "color": "#d2d6c9"
+                                                  },
+                                                  {
+                                                    "id": "018dfdd9-edd9-4f0d-b027-ca263374f4f0",
+                                                    "name": "approximation",
+                                                    "type": "label",
+                                                    "definition": "近似（approximation）：表达大致或大约的程度判断。",
+                                                    "color": "#cb8383"
+                                                  },
+                                                  {
+                                                    "id": "3e90f3ac-ded9-4894-9c73-8b56c9c1857b",
+                                                    "name": "tentativeness",
+                                                    "type": "label",
+                                                    "definition": "试探性（tentativeness）：表达不确定、谨慎或试探性的态度。",
+                                                    "color": "#7b8195"
+                                                  }
+                                                ]
+                                              }
+                                            ],
+                                            "color": "#b4ced7"
+                                          }
+                                        ]
+                                      }
+                                    ],
+                                    "color": "#7eb6c7"
+                                  },
+                                  {
+                                    "id": "bbdb8187-cfb8-4425-b3f2-365d986c4d72",
+                                    "name": "fronted-verb",
+                                    "type": "label",
+                                    "definition": "前置动词（fronted-verb）：位于句首的动词成分，通常用于强调或特殊语法结构。",
+                                    "color": "#78b8cd"
+                                  }
+                                ]
+                              }
+                            ],
+                            "color": "#89aed6"
+                          },
+                          {
+                            "id": "65812334-891b-4e4f-a6ce-84ef6a94ad63",
+                            "name": "textual-theme",
+                            "type": "label",
+                            "definition": "语篇主题（textual-theme）：用于组织和连接语篇，建立语言单位间逻辑关系的主题成分。",
+                            "children": [
+                              {
+                                "id": "3f7f709b-a29d-432c-949e-1fc9e885a061",
+                                "name": "TEXTUAL-THEME-TYPE",
+                                "type": "tier",
+                                "definition": null,
+                                "children": [
+                                  {
+                                    "id": "436ac3f2-4680-4cff-b6e6-cf636f3cb909",
+                                    "name": "arguing",
+                                    "type": "label",
+                                    "definition": "论证类型 (Arguing)",
+                                    "children": [
+                                      {
+                                        "id": "8bd4e379-89ea-4ce4-a7d5-9d362235922a",
+                                        "name": "ARGUING-TYPE",
+                                        "type": "tier",
+                                        "definition": null,
+                                        "children": [
+                                          {
+                                            "id": "908a58bb-ccc4-454e-be59-18c155463cd9",
+                                            "name": "adversative",
+                                            "type": "label",
+                                            "definition": "对立（adversative）：表达对比、转折或相反的逻辑关系。",
+                                            "color": "#adc9bd"
+                                          },
+                                          {
+                                            "id": "ef1d618d-1810-4afb-b211-4dd458b04fac",
+                                            "name": "alternatively",
+                                            "type": "label",
+                                            "definition": "择一（alternatively）：表达选择或替代的逻辑关系。",
+                                            "color": "#ccd9da"
+                                          },
+                                          {
+                                            "id": "9a65f43f-c7ac-424c-8c5a-e202f9b511aa",
+                                            "name": "concessive",
+                                            "type": "label",
+                                            "definition": "让步（concessive）：表达让步或承认的逻辑关系。",
+                                            "color": "#b09e93"
+                                          },
+                                          {
+                                            "id": "37bf8243-2def-45b5-952b-e75df4009183",
+                                            "name": "consequence",
+                                            "type": "label",
+                                            "definition": "结果（consequence）：表达因果或结果的逻辑关系。",
+                                            "color": "#a7abd1"
+                                          },
+                                          {
+                                            "id": "53fdcccb-561c-4ca3-bf0b-ee70c27442c3",
+                                            "name": "corrective",
+                                            "type": "label",
+                                            "definition": "纠正（corrective）：表达修正或纠正先前信息的关系。",
+                                            "color": "#9da9b9"
+                                          }
+                                        ]
+                                      }
+                                    ],
+                                    "color": "#8a78c5"
+                                  },
+                                  {
+                                    "id": "e1213bcf-3def-4cf4-91a7-e5536e2a6034",
+                                    "name": "extending",
+                                    "type": "label",
+                                    "definition": "扩展类型 (Extending)",
+                                    "children": [
+                                      {
+                                        "id": "742962bd-9d97-468d-8c23-580fcd39cf15",
+                                        "name": "EXTENDING-TYPE",
+                                        "type": "tier",
+                                        "definition": null,
+                                        "children": [
+                                          {
+                                            "id": "2c806fed-f993-4dab-98ca-48dde369ab50",
+                                            "name": "actuality",
+                                            "type": "label",
+                                            "definition": "现实性（actuality）：表达事实或现实情况。",
+                                            "color": "#9b9e9d"
+                                          },
+                                          {
+                                            "id": "0e7c9f86-a157-4f51-b212-42e0901234ae",
+                                            "name": "addition",
+                                            "type": "label",
+                                            "definition": "添加（addition）：表达信息的补充或增加。",
+                                            "color": "#ad8584"
+                                          },
+                                          {
+                                            "id": "83a3a990-3c3e-41a9-ab84-5ceafe0c7f8e",
+                                            "name": "appositive",
+                                            "type": "label",
+                                            "definition": "同位（appositive）：表达解释、说明或重新表述的关系。",
+                                            "color": "#d8b5bb"
+                                          },
+                                          {
+                                            "id": "cbdd4390-5825-4b98-95e5-dcf0ef177ebb",
+                                            "name": "contextualizing",
+                                            "type": "label",
+                                            "definition": "语境化（contextualizing）：提供语境背景或框架信息。",
+                                            "color": "#d29a8f"
+                                          },
+                                          {
+                                            "id": "78ddbb55-ba5e-42e4-9b93-04655e433d50",
+                                            "name": "likewise",
+                                            "type": "label",
+                                            "definition": "同样（likewise）：表达相似或相同的关系。",
+                                            "color": "#8ac8af"
+                                          },
+                                          {
+                                            "id": "ede1acc9-9ea5-4ab7-ae3a-5115ac787daa",
+                                            "name": "summative",
+                                            "type": "label",
+                                            "definition": "总结（summative）：表达概括或总结的关系。",
+                                            "color": "#8589d7"
+                                          }
+                                        ]
+                                      }
+                                    ],
+                                    "color": "#84c07f"
+                                  },
+                                  {
+                                    "id": "065f479c-5aae-4947-aa13-a401c37e9649",
+                                    "name": "other-textual-type",
+                                    "type": "label",
+                                    "definition": "其他语篇类型（other-textual-type）：不属于上述具体类别的其他语篇连接成分。",
+                                    "color": "#91c7b7"
+                                  },
+                                  {
+                                    "id": "235c76fa-3803-4f68-831a-b888b23ccaeb",
+                                    "name": "structuring",
+                                    "type": "label",
+                                    "definition": "结构化（structuring）：用于组织语篇结构的连接成分。",
+                                    "children": [
+                                      {
+                                        "id": "ccf3debb-4c3d-40cc-a4b9-130420f44404",
+                                        "name": "STRUCTURING1-TYPE",
+                                        "type": "tier",
+                                        "definition": null,
+                                        "children": [
+                                          {
+                                            "id": "a63f6d50-ba20-41b9-bc4e-e734a84ba8a6",
+                                            "name": "comparing",
+                                            "type": "label",
+                                            "definition": "比较（comparing）：表达比较或对照的关系。",
+                                            "color": "#c2c28f"
+                                          },
+                                          {
+                                            "id": "1cfdff1a-0fdd-4bab-a449-628bf174b1c5",
+                                            "name": "concluding",
+                                            "type": "label",
+                                            "definition": "结论（concluding）：表达结束或总结的关系。",
+                                            "color": "#be8a99"
+                                          },
+                                          {
+                                            "id": "52555401-a503-4e79-a6a6-367a58bf620e",
+                                            "name": "dismissive",
+                                            "type": "label",
+                                            "definition": "摒弃（dismissive）：表达否定或摒弃的态度。",
+                                            "color": "#9e8198"
+                                          },
+                                          {
+                                            "id": "2281b385-4d97-44ba-86a8-e95b1f3dd25b",
+                                            "name": "sequencing",
+                                            "type": "label",
+                                            "definition": "序列（sequencing）：表达时间或逻辑顺序的关系。",
+                                            "color": "#dbc985"
+                                          }
+                                        ]
+                                      }
+                                    ],
+                                    "color": "#c4d6c3"
+                                  }
+                                ]
+                              }
+                            ],
+                            "color": "#acb5a6"
+                          },
+                          {
+                            "id": "57585bdc-77c2-4265-830f-ad8a33bfc93b",
+                            "name": "topical-theme",
+                            "type": "label",
+                            "definition": "概念主题（topical-theme）：承载主要概念内容的主题成分，通常是句子的语法主语或其他核心成分。",
+                            "color": "#829ea6"
+                          }
+                        ]
+                      }
+                    ],
+                    "color": "#a1cdbf"
+                  },
+                  {
+                    "id": "7d03e52e-a2b6-46a6-845e-4cab3f5027d7",
+                    "name": "theme-group",
+                    "type": "label",
+                    "definition": "主题群组（theme-group）：由多个主题成分组合而成的复合主题结构。",
+                    "children": [
+                      {
+                        "id": "c5eda31b-72c2-4334-8515-e7a2332ea7b6",
+                        "name": "THEME-GROUP-TYPE",
+                        "type": "tier",
+                        "definition": null,
+                        "children": [
+                          {
+                            "id": "62676165-f9f2-4bea-89f8-87a1a39cf7cc",
+                            "name": "has-textual-theme",
+                            "type": "label",
+                            "definition": "有语篇主题（has-textual-theme）：包含语篇主题成分的主题群组。",
+                            "color": "#848693"
+                          },
+                          {
+                            "id": "3b76a34d-f4bc-4794-a0f0-bbeb55c27eb3",
+                            "name": "no-textual-theme",
+                            "type": "label",
+                            "definition": "无语篇主题（no-textual-theme）：不包含语篇主题成分的主题群组。",
+                            "color": "#d4b1d1"
+                          }
+                        ]
+                      },
+                      {
+                        "id": "72722e67-fd44-4fd4-bc6f-b9fa98b3ca2c",
+                        "name": "THEME-GROUP-TYPE2",
+                        "type": "tier",
+                        "definition": null,
+                        "children": [
+                          {
+                            "id": "ba3d4784-d54a-40b6-8c8b-b9eb751c947f",
+                            "name": "has-interpersonal-theme",
+                            "type": "label",
+                            "definition": "有人际主题（has-interpersonal-theme）：包含人际主题成分的主题群组。",
+                            "color": "#94d381"
+                          },
+                          {
+                            "id": "67e44d1a-4ef9-4dfa-bd43-5d06c4310a31",
+                            "name": "no-interpersonal-theme",
+                            "type": "label",
+                            "definition": "无人际主题（no-interpersonal-theme）：不包含人际主题成分的主题群组。",
+                            "color": "#cdaeba"
+                          }
+                        ]
+                      },
+                      {
+                        "id": "c09fddf4-b367-4177-95c7-2da7141bb7d6",
+                        "name": "THEME-GROUP-TYPE3",
+                        "type": "tier",
+                        "definition": null,
+                        "children": [
+                          {
+                            "id": "59985db0-f94f-4005-9787-7d6efcd8ec13",
+                            "name": "adjunct-ideat-theme",
+                            "type": "label",
+                            "definition": "附加语概念主题（adjunct-ideat-theme）：由附加语充当的概念主题。",
+                            "color": "#aebd7e"
+                          },
+                          {
+                            "id": "936eea34-69c4-4981-b9bb-d5e1104e4703",
+                            "name": "complem-ideat-theme",
+                            "type": "label",
+                            "definition": "补语概念主题（complem-ideat-theme）：由补语充当的概念主题。",
+                            "color": "#a67a96"
+                          },
+                          {
+                            "id": "9a8cf14a-4f0c-47d0-9cfb-2b4a6e5e4760",
+                            "name": "elided-ideat-theme",
+                            "type": "label",
+                            "definition": "省略概念主题（elided-ideat-theme）：在语境中被省略但在语义上存在的概念主题。",
+                            "color": "#96c6af"
+                          },
+                          {
+                            "id": "fea9dc7d-9199-4b29-a6f1-f41bd51ca234",
+                            "name": "empty-ideat-theme",
+                            "type": "label",
+                            "definition": "空概念主题（empty-ideat-theme）：语法上必需但语义内容空虚的概念主题（如虚词it）。",
+                            "color": "#7f89d2"
+                          },
+                          {
+                            "id": "1d547567-0835-441e-8182-88a3e3c4f93f",
+                            "name": "unmarked-ideat-theme",
+                            "type": "label",
+                            "definition": "无标记概念主题（unmarked-ideat-theme）：语法上常规的、未经特殊标记的概念主题，通常是句子的主语。",
+                            "color": "#d49579"
+                          }
+                        ]
+                      }
+                    ],
+                    "color": "#7fd295"
+                  }
+                ]
+              }
+            ],
+            "color": "#d19bda"
+          }
+        ]
+      }
+    ],
+    "color": "#af89c9"
+  },
+  "createdAt": "2025-12-12T13:52:44.971362",
+  "updatedAt": "2025-12-12T13:52:44.971362"
+}

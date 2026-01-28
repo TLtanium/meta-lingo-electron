@@ -1,0 +1,160 @@
+{
+  "id": "MIPVU",
+  "name": "MIPVU",
+  "category": "Metaphor Analysis",
+  "description": "MIPVU（Metaphor Identification Procedure — VU Amsterdam）把词（lexical/lexical unit）作为基本分析单位，引入“MRW（metaphor-related word，隐喻相关词）”作为总括术语，并把隐喻相关的实例分成 indirect / direct / implicit 三类；另外引入若干标记用于处理模糊或不可判定的情况（如 WIDLII、DFMA），并对多词单元（复合词、短语动词、polywords 等）给出特别注记规则。",
+  "root": {
+    "id": "e42bb563-343c-44ec-abf2-0dae0b7fa243",
+    "name": "metaphor",
+    "type": "label",
+    "definition": "MIPVU（Metaphor Identification Procedure — VU Amsterdam）把词（lexical/lexical unit）作为基本分析单位，引入“MRW（metaphor-related word，隐喻相关词）”作为总括术语，并把隐喻相关的实例分成 indirect / direct / implicit 三类；另外引入若干标记用于处理模糊或不可判定的情况（如 WIDLII、DFMA），并对多词单元（复合词、短语动词、polywords 等）给出特别注记规则。",
+    "children": [
+      {
+        "id": "7c40c74d-72ba-44cb-8256-4bca4f66676c",
+        "name": "SYSTEM-TYPE",
+        "type": "tier",
+        "definition": null,
+        "children": [
+          {
+            "id": "28b314bb-30db-4e8c-8ee7-e1914f318311",
+            "name": "markers",
+            "type": "label",
+            "definition": "本框架结构中，SYSTEM-TYPE 下分 markers（用于编码/标记的栏目）和 notes（对词形/多词单元/语义特殊情况的注记）。这对应 MIPVU 的实际操作表格：主表列出 MRW 状态/类型和若干辅助标记，旁边有注记栏记录 multi-word / new-formation / personification 等信息。",
+            "children": [
+              {
+                "id": "19e8632c-0929-4e9d-830c-ed9c1d43c461",
+                "name": "MARKERS-TYPE",
+                "type": "tier",
+                "definition": null,
+                "children": [
+                  {
+                    "id": "8c4ff32b-889f-4d79-8dd2-880bd97b8e5b",
+                    "name": "dfma",
+                    "type": "label",
+                    "definition": "dfma（DFMA — Discard For Metaphor Analysis）：当无法进行隐喻判定（例如转录语料中的词被截断、拼写/分词错误、词典中找不到可比较的“基本义”，或上下文信息严重不足）时，把该词标为 DFMA，表示从隐喻统计/分析中排除（而不是把它当作非隐喻随意计入）。这是处理噪声与不可判定项的正式做法。",
+                    "color": "#a87a98"
+                  },
+                  {
+                    "id": "621b899e-c406-4f46-ba21-0c6fad3445a3",
+                    "name": "mflag",
+                    "type": "label",
+                    "definition": "mflag（MFlag，metaphor flag：隐喻信号标志）：当一个词/词组本身并不是被“隐喻使用”但其存在表明有跨域映射可能时，标注为 MFlag（即“信号词”）。典型的 lexical flags 包括 “like / as if / metaphorically / resembling” 等明显的比较/提示词；在实践中也把某些作者标注/副词等作为信号考虑。MIPVU 推荐同时记录这些信号，因为它们对语篇隐喻密度与解释非常有用。",
+                    "color": "#b3a89c"
+                  },
+                  {
+                    "id": "fe328c9e-5a02-4efe-8d37-f836e451c331",
+                    "name": "mrw",
+                    "type": "label",
+                    "definition": "MRW（metaphor-related word）：MIPVU 的总称，指“在语境中可能由跨域映射（cross-domain mapping）解释的词或词组”。判定时要先找语境意义，再查词典找更“基本”的字面/具体义，比较两者是否存在足够的差异并可由相似性/比较解释。",
+                    "children": [
+                      {
+                        "id": "d24c06d4-d388-4a1a-9894-a1ffa6b427ac",
+                        "name": "MRW-TYPE",
+                        "type": "tier",
+                        "definition": null,
+                        "children": [
+                          {
+                            "id": "67d591b5-dcb6-4664-8742-b52e389d8ce0",
+                            "name": "direct",
+                            "type": "label",
+                            "definition": "direct（直接隐喻）：词在语境中仍然按其字面义使用，但整个表达是由跨域比较/映射产生的（典型场景：明喻／比较标记 such as “like”/“as”），例如 “He’s like a ferret.” 在 MIPVU 中可标为 mrw, direct（词本身是字面用法，但句子实现了域间映射）。",
+                            "color": "#d0d59f"
+                          },
+                          {
+                            "id": "42d5860a-a427-4118-9053-a8bce286a34c",
+                            "name": "implicit",
+                            "type": "label",
+                            "definition": "implicit（隐含/隐式隐喻）：没有明显来自“外域”的词，但通过替代（substitution，如代词）或省略（ellipsis）等指涉手段把可恢复的隐喻延伸出来（例：代词“that/this”指向前文的隐喻场景）；MIPVU 把这类也作为 MRW 的一种并建议单独标注。",
+                            "color": "#8a96af"
+                          },
+                          {
+                            "id": "79ee0895-6eaf-4f39-adad-d0ba5c0c068b",
+                            "name": "indirect",
+                            "type": "label",
+                            "definition": "indirect（间接隐喻）：语境义与词典记载的基本义存在对比（contrast），且两者可由相似性/比较关系联系——这是 MIP（原始 Pragglejaz）/MIPVU 最常处理的类型（例如：把“attack”用于“批评/抨击问题”而非军事攻击的字面义）。判定程序严格依赖上下文＋词典。",
+                            "color": "#ad89aa"
+                          }
+                        ]
+                      }
+                    ],
+                    "color": "#acccc2"
+                  },
+                  {
+                    "id": "4f5ced07-19df-47fa-b3c3-a07554391333",
+                    "name": "widlii",
+                    "type": "label",
+                    "definition": "widlii（WIDLII — “When In Doubt, Leave It In”）：用于棘手/边界性案例——当分析者无法在可接受的步骤内可靠地区分隐喻与非隐喻、或隐喻与换喻/其他修辞时，建议使用 WIDLII，把该项保留为“疑似隐喻”而不强行舍弃。它是保证可重复性和审阅透明性的一个策略（后来在语料库工作中也被大量采用）。",
+                    "color": "#bbd69a"
+                  }
+                ]
+              }
+            ],
+            "color": "#89b9b0"
+          },
+          {
+            "id": "0432581d-2517-4587-98f9-4da1ebe3b763",
+            "name": "notes",
+            "type": "label",
+            "definition": "MIPVU 在主表之外要求对某些词形或复合现象做辅助注记，以保证多词单位与特殊构词能被一致处理。",
+            "children": [
+              {
+                "id": "62d1a3e0-af44-4102-af57-bcc0879e6cf7",
+                "name": "NOTES-TYPE",
+                "type": "tier",
+                "definition": null,
+                "children": [
+                  {
+                    "id": "19127215-2930-44a8-9486-62ad074f7c39",
+                    "name": "compounds",
+                    "type": "label",
+                    "definition": "compounds（复合词）：是否把复合词当作单一词元取决于词典与正字法（例如单写成词或字典收录的hyphenated item通常视为一个 lexical unit；若在词典中分开列出则可能视为两个元素）。MIPVU 手册有明确指导并建议在注记栏注明处理方式。",
+                    "color": "#858781"
+                  },
+                  {
+                    "id": "a325fff1-a178-411d-b52b-7dc04f097be8",
+                    "name": "new-formations",
+                    "type": "label",
+                    "definition": "new-formations（新造词 / 创新构词）：MIPVU 要求把新造词拆解为其可识别的独立部分，并对每一部分按常规步骤判断其是否为 MRW（例如合成新词时，分析者需判断是整体新意还是部件贡献隐喻意味）。这对判定“novel metaphor / deliberate metaphor”尤其重要。",
+                    "color": "#a1be83"
+                  },
+                  {
+                    "id": "c07c8cd8-089a-4438-bdcf-c21c413ea8b5",
+                    "name": "phrasal-verbs",
+                    "type": "label",
+                    "definition": "phrasal-verbs（短语动词）：短语动词通常作为单一词元处理（例如 “get on with”/“give up”）。MIPVU 的注记列允许把“次要元素”标出来（手册/语料库表格里常用一列标记第二元素，如 column L），但隐喻判定通常针对主要成分或整组表达来做。",
+                    "color": "#b0d29a"
+                  },
+                  {
+                    "id": "139a9574-fbf4-4485-ae85-973e066e50cb",
+                    "name": "polywords",
+                    "type": "label",
+                    "definition": "polywords（polyword，多词固定搭配 / 词组化单元）：对 polywords（如 idiomatic/lexicalized multi-word items）也按“作为一个词元”处理；只有当分析需要时才把成分分开并在 notes 中记录哪一部分被视作隐喻承载体（手册与 VU 语料库注记对此有示例）。",
+                    "color": "#9acbd1"
+                  },
+                  {
+                    "id": "ad00088a-edc2-4e8c-b272-b8372d15099f",
+                    "name": "possible-personification",
+                    "type": "label",
+                    "definition": "possible-personification（可疑拟人 / PP 标注）：在 VU Amsterdam 的语料库实践里，有专门的状态码 PP（possible personification） 用来标注那类可能因为拟人手法而成为 MRW 的用法（例如某些抽象名词被赋予人的属性/行为）。该标签帮助把“拟人引起的隐喻”与一般隐喻区分开来（VU 语料库统计里也单独报告过 PP 的频率）。",
+                    "color": "#a09cbd"
+                  },
+                  {
+                    "id": "fb6a548d-9745-459e-81c8-84ebaaf2bd54",
+                    "name": "proper-names",
+                    "type": "label",
+                    "definition": "proper-names（专有名词）：专有名词通常不需要额外的特殊编码（按手册，按常规词元处理）；但如果专名本身含有比喻化成分（或是由复合构成的专名），则按多词/新造词规则注记并判断是否为 MRW。",
+                    "color": "#c28c7f"
+                  }
+                ]
+              }
+            ],
+            "color": "#b6d9d7"
+          }
+        ]
+      }
+    ],
+    "color": "#b0be95"
+  },
+  "createdAt": "2025-12-12T13:52:44.493331",
+  "updatedAt": "2025-12-12T13:52:44.493331"
+}

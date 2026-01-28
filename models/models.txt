@@ -1,0 +1,74 @@
+./models
+├── metaphor_identification
+│   ├── deberta-large-metaphor-detection-en
+│   └── deberta-v3-large-metaphor-in-dt-rb-rp
+├── multimodal_analyzer
+│   ├── clip-vit-large-patch14
+│   ├── whisper-large-v3-turbo
+│   └── yolov8
+├── nltk
+│   ├── corpora
+│   │   ├── omw-1.4
+│   │   │   ├── als
+│   │   │   ├── arb
+│   │   │   ├── bul
+│   │   │   ├── cow
+│   │   │   ├── dan
+│   │   │   ├── ell
+│   │   │   ├── fin
+│   │   │   ├── fra
+│   │   │   ├── heb
+│   │   │   ├── hrv
+│   │   │   ├── isl
+│   │   │   ├── ita
+│   │   │   ├── iwn
+│   │   │   ├── jpn
+│   │   │   ├── mcr
+│   │   │   ├── msa
+│   │   │   ├── nld
+│   │   │   ├── nor
+│   │   │   ├── pol
+│   │   │   ├── por
+│   │   │   ├── ron
+│   │   │   ├── slk
+│   │   │   ├── slv
+│   │   │   ├── swe
+│   │   │   └── tha
+│   │   ├── stopwords
+│   │   └── wordnet
+│   ├── models
+│   │   └── benepar_en3
+│   ├── taggers
+│   │   └── averaged_perceptron_tagger_eng
+│   └── tokenizers
+│       ├── punkt
+│       │   └── PY3
+│       └── punkt_tab
+│           ├── czech
+│           ├── danish
+│           ├── dutch
+│           ├── english
+│           ├── estonian
+│           ├── finnish
+│           ├── french
+│           ├── german
+│           ├── greek
+│           ├── italian
+│           ├── malayalam
+│           ├── norwegian
+│           ├── polish
+│           ├── portuguese
+│           ├── russian
+│           ├── slovene
+│           ├── spanish
+│           ├── swedish
+│           └── turkish
+├── pymusas
+│   └── PyMUSAS-Neural-Multilingual-Base-BEM
+│       ├── base_model_config
+│       └── label_definitions
+└── sentence_embeddings
+    └── paraphrase-multilingual-MiniLM-L12-v2
+        ├── 1_Pooling
+        ├── onnx
+        └── openvino

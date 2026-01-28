@@ -1,0 +1,4308 @@
+{
+  "non_metaphor": {
+    ".": {
+      "total": 9104,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    ",": {
+      "total": 8954,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "and": {
+      "total": 4070,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "i": {
+      "total": 2348,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "is": {
+      "total": 1675,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "was": {
+      "total": 1477,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "?": {
+      "total": 1470,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "‘": {
+      "total": 1299,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "’": {
+      "total": 1252,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "be": {
+      "total": 1111,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "n't": {
+      "total": 1109,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "not": {
+      "total": 974,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "but": {
+      "total": 965,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "we": {
+      "total": 853,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "she": {
+      "total": 755,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "are": {
+      "total": 735,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "what": {
+      "total": 613,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "yeah": {
+      "total": 589,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "her": {
+      "total": 580,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "or": {
+      "total": 563,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "which": {
+      "total": 545,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "would": {
+      "total": 531,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "were": {
+      "total": 528,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "!": {
+      "total": 492,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "all": {
+      "total": 491,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "can": {
+      "total": 443,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "if": {
+      "total": 406,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "oh": {
+      "total": 396,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    ")": {
+      "total": 392,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "been": {
+      "total": 392,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "their": {
+      "total": 391,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "(": {
+      "total": 388,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    ":": {
+      "total": 383,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "when": {
+      "total": 369,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "—": {
+      "total": 356,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "him": {
+      "total": 338,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "just": {
+      "total": 322,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "could": {
+      "total": 312,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "yes": {
+      "total": 277,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "'ll": {
+      "total": 263,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "'re": {
+      "total": 259,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "me": {
+      "total": 257,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "only": {
+      "total": 252,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    ";": {
+      "total": 247,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "very": {
+      "total": 227,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "its": {
+      "total": 218,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "how": {
+      "total": 218,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "should": {
+      "total": 205,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "\"": {
+      "total": 202,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "mm": {
+      "total": 198,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "any": {
+      "total": 197,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "children": {
+      "total": 179,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "er": {
+      "total": 179,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "'m": {
+      "total": 174,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "first": {
+      "total": 173,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "most": {
+      "total": 165,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "three": {
+      "total": 157,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "much": {
+      "total": 149,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "because": {
+      "total": 146,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "also": {
+      "total": 143,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "too": {
+      "total": 143,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "might": {
+      "total": 142,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "really": {
+      "total": 139,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "us": {
+      "total": 139,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "may": {
+      "total": 139,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "erm": {
+      "total": 138,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "still": {
+      "total": 131,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "must": {
+      "total": 131,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "cos": {
+      "total": 130,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "never": {
+      "total": 128,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "years": {
+      "total": 127,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "own": {
+      "total": 126,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "being": {
+      "total": 125,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "such": {
+      "total": 122,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "our": {
+      "total": 120,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "why": {
+      "total": 120,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "something": {
+      "total": 113,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "…": {
+      "total": 112,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "ca": {
+      "total": 112,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "even": {
+      "total": 112,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "year": {
+      "total": 110,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "both": {
+      "total": 105,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "four": {
+      "total": 102,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "five": {
+      "total": 97,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "quite": {
+      "total": 97,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "science": {
+      "total": 97,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "party": {
+      "total": 94,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "week": {
+      "total": 93,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "six": {
+      "total": 93,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "another": {
+      "total": 91,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "always": {
+      "total": 90,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "social": {
+      "total": 90,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "mr": {
+      "total": 87,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "nothing": {
+      "total": 86,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "government": {
+      "total": 85,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "labour": {
+      "total": 84,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "though": {
+      "total": 84,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "while": {
+      "total": 84,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "yet": {
+      "total": 82,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "since": {
+      "total": 79,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "paula": {
+      "total": 75,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "history": {
+      "total": 74,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "night": {
+      "total": 73,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "'": {
+      "total": 70,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "better": {
+      "total": 69,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "alright": {
+      "total": 69,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "perhaps": {
+      "total": 67,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "however": {
+      "total": 67,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "girls": {
+      "total": 66,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "local": {
+      "total": 65,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "probably": {
+      "total": 64,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "thank": {
+      "total": 64,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "actually": {
+      "total": 63,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "london": {
+      "total": 63,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "anything": {
+      "total": 62,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "wo": {
+      "total": 62,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "already": {
+      "total": 62,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "each": {
+      "total": 62,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "girl": {
+      "total": 61,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "at least": {
+      "total": 61,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "second": {
+      "total": 60,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "times": {
+      "total": 60,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "women": {
+      "total": 60,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "early": {
+      "total": 60,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "hundred": {
+      "total": 60,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "money": {
+      "total": 59,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "later": {
+      "total": 58,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "death": {
+      "total": 58,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "almost": {
+      "total": 57,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "whether": {
+      "total": 57,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "car": {
+      "total": 57,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "fact": {
+      "total": 56,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "else": {
+      "total": 56,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "others": {
+      "total": 56,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "problems": {
+      "total": 56,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "once": {
+      "total": 55,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "anyway": {
+      "total": 55,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "seven": {
+      "total": 55,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "ah": {
+      "total": 55,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "shall": {
+      "total": 55,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "criminal": {
+      "total": 55,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "case": {
+      "total": 54,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "dear": {
+      "total": 53,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "nine": {
+      "total": 53,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "of course": {
+      "total": 53,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "itself": {
+      "total": 53,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "policy": {
+      "total": 52,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "major": {
+      "total": 51,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "today": {
+      "total": 51,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "public": {
+      "total": 50,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "ever": {
+      "total": 50,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "himself": {
+      "total": 50,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "adam": {
+      "total": 50,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "rather": {
+      "total": 49,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "themselves": {
+      "total": 49,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "boys": {
+      "total": 49,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "possible": {
+      "total": 48,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "please": {
+      "total": 48,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "mum": {
+      "total": 48,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "bad": {
+      "total": 48,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "best": {
+      "total": 47,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "british": {
+      "total": 47,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "days": {
+      "total": 47,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "remember": {
+      "total": 47,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "kahlo": {
+      "total": 47,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "urban": {
+      "total": 47,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "although": {
+      "total": 46,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "morning": {
+      "total": 46,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "police": {
+      "total": 46,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "mrs": {
+      "total": 46,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "sartre": {
+      "total": 46,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "riots": {
+      "total": 46,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "moment": {
+      "total": 45,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "education": {
+      "total": 45,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "hmm": {
+      "total": 45,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "human": {
+      "total": 44,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "age": {
+      "total": 44,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "such as": {
+      "total": 44,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "during": {
+      "total": 44,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "am": {
+      "total": 44,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "months": {
+      "total": 43,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "individual": {
+      "total": 43,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "food": {
+      "total": 42,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "information": {
+      "total": 42,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "a bit": {
+      "total": 41,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "woman": {
+      "total": 41,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "real": {
+      "total": 41,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "white": {
+      "total": 41,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "important": {
+      "total": 41,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "twenty": {
+      "total": 41,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "different": {
+      "total": 40,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "per cent": {
+      "total": 40,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "ten": {
+      "total": 40,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "everything": {
+      "total": 40,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "often": {
+      "total": 40,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "book": {
+      "total": 40,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "american": {
+      "total": 40,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "for example": {
+      "total": 39,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "council": {
+      "total": 39,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "special": {
+      "total": 39,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "tomorrow": {
+      "total": 39,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "probation": {
+      "total": 39,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "certain": {
+      "total": 38,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "so that": {
+      "total": 38,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "weeks": {
+      "total": 38,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "development": {
+      "total": 38,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "town": {
+      "total": 38,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "garden": {
+      "total": 38,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "mattli": {
+      "total": 38,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "either": {
+      "total": 37,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "as well": {
+      "total": 37,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "general": {
+      "total": 37,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "yesterday": {
+      "total": 37,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "east": {
+      "total": 37,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "at all": {
+      "total": 36,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "rather than": {
+      "total": 36,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "result": {
+      "total": 36,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "late": {
+      "total": 36,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "herself": {
+      "total": 36,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "words": {
+      "total": 36,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "britain": {
+      "total": 36,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "society": {
+      "total": 36,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "church": {
+      "total": 36,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "sometimes": {
+      "total": 35,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "eight": {
+      "total": 35,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "therefore": {
+      "total": 34,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "english": {
+      "total": 34,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "parents": {
+      "total": 34,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "idea": {
+      "total": 34,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "seem": {
+      "total": 34,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "seems": {
+      "total": 34,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "practice": {
+      "total": 34,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "p.": {
+      "total": 34,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "1985": {
+      "total": 34,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "whose": {
+      "total": 33,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "became": {
+      "total": 33,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "10": {
+      "total": 33,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "wrong": {
+      "total": 33,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "love": {
+      "total": 33,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "thus": {
+      "total": 33,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "ann": {
+      "total": 33,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "frederica": {
+      "total": 33,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "west": {
+      "total": 32,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "crime": {
+      "total": 32,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "choice": {
+      "total": 32,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "sort of": {
+      "total": 32,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "election": {
+      "total": 31,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "person": {
+      "total": 31,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "ago": {
+      "total": 31,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "likely": {
+      "total": 31,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "earlier": {
+      "total": 31,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "family": {
+      "total": 31,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "holiday": {
+      "total": 31,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "thirty": {
+      "total": 31,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "suppose": {
+      "total": 31,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "rain": {
+      "total": 31,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "evening": {
+      "total": 30,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "particularly": {
+      "total": 30,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "unless": {
+      "total": 30,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "particular": {
+      "total": 30,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "services": {
+      "total": 30,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "certainly": {
+      "total": 30,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "n": {
+      "total": 30,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "necessary": {
+      "total": 30,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "whatever": {
+      "total": 29,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "shop": {
+      "total": 29,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "conference": {
+      "total": 29,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "single": {
+      "total": 28,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "water": {
+      "total": 28,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "walk": {
+      "total": 28,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "minutes": {
+      "total": 28,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "drink": {
+      "total": 28,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "thinking": {
+      "total": 28,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "wife": {
+      "total": 28,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "usually": {
+      "total": 28,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "economic": {
+      "total": 28,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "personal": {
+      "total": 28,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "programme": {
+      "total": 28,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "user": {
+      "total": 28,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "sentence": {
+      "total": 27,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "figure": {
+      "total": 27,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "indeed": {
+      "total": 27,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "workers": {
+      "total": 27,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "cases": {
+      "total": 27,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "nor": {
+      "total": 27,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "private": {
+      "total": 27,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "gary": {
+      "total": 27,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "forster": {
+      "total": 27,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "mummy": {
+      "total": 26,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "station": {
+      "total": 26,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "difficult": {
+      "total": 26,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "hope": {
+      "total": 26,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "million": {
+      "total": 26,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "rufus": {
+      "total": 26,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "task": {
+      "total": 26,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "project": {
+      "total": 26,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "hello": {
+      "total": 26,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "coffee": {
+      "total": 26,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "1981": {
+      "total": 26,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "daddy": {
+      "total": 26,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "delaney": {
+      "total": 26,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "magnetic": {
+      "total": 26,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "theories": {
+      "total": 25,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "tea": {
+      "total": 25,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "anyone": {
+      "total": 25,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "cars": {
+      "total": 25,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "beautiful": {
+      "total": 25,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "finished": {
+      "total": 25,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "dad": {
+      "total": 25,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "september": {
+      "total": 25,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "european": {
+      "total": 25,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "hall": {
+      "total": 25,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "example": {
+      "total": 25,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "as well as": {
+      "total": 25,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "staff": {
+      "total": 25,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "alexander": {
+      "total": 25,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "ii": {
+      "total": 25,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "totalization": {
+      "total": 25,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "madame": {
+      "total": 25,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "write": {
+      "total": 25,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "hardly": {
+      "total": 24,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "lack": {
+      "total": 24,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "boy": {
+      "total": 24,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "experience": {
+      "total": 24,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "somebody": {
+      "total": 24,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "exactly": {
+      "total": 24,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "court": {
+      "total": 24,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "germany": {
+      "total": 24,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "required": {
+      "total": 24,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "dress": {
+      "total": 24,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "schools": {
+      "total": 24,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "daniel": {
+      "total": 24,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "charlotte": {
+      "total": 24,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "several": {
+      "total": 24,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "punishment": {
+      "total": 24,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "nell": {
+      "total": 24,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "series": {
+      "total": 23,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "minister": {
+      "total": 23,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "liberal": {
+      "total": 23,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "news": {
+      "total": 23,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "simply": {
+      "total": 23,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "nearly": {
+      "total": 23,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "saturday": {
+      "total": 23,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "david": {
+      "total": 23,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "soon": {
+      "total": 23,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "minute": {
+      "total": 23,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "peter": {
+      "total": 23,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "easy": {
+      "total": 23,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "specialist": {
+      "total": 23,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "provided": {
+      "total": 23,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "review": {
+      "total": 23,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "month": {
+      "total": 23,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "according to": {
+      "total": 23,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "friday": {
+      "total": 23,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "century": {
+      "total": 23,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "ninety": {
+      "total": 22,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "o'clock": {
+      "total": 22,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "reason": {
+      "total": 22,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "robert": {
+      "total": 22,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "report": {
+      "total": 22,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "hong": {
+      "total": 22,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "kong": {
+      "total": 22,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "wish": {
+      "total": 22,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "york": {
+      "total": 22,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "dr": {
+      "total": 22,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "western": {
+      "total": 22,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "property": {
+      "total": 22,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "stairs": {
+      "total": 22,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "lovely": {
+      "total": 22,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "director": {
+      "total": 22,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "sea": {
+      "total": 22,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "risk": {
+      "total": 22,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "afternoon": {
+      "total": 22,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "interesting": {
+      "total": 22,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "okay": {
+      "total": 22,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "tim": {
+      "total": 22,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "alcohol": {
+      "total": 22,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "unemployment": {
+      "total": 22,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "killings": {
+      "total": 22,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "caused": {
+      "total": 21,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "trees": {
+      "total": 21,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "near": {
+      "total": 21,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "twelve": {
+      "total": 21,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "hours": {
+      "total": 21,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "key": {
+      "total": 21,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "secretary": {
+      "total": 21,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "no longer": {
+      "total": 21,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "street": {
+      "total": 21,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "van": {
+      "total": 21,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "debate": {
+      "total": 21,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "green": {
+      "total": 21,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "organisation": {
+      "total": 21,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "ooh": {
+      "total": 21,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "muldoon": {
+      "total": 21,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "cities": {
+      "total": 21,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "expensive": {
+      "total": 21,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "rock": {
+      "total": 21,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "thomson": {
+      "total": 21,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "meaning": {
+      "total": 20,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "paul": {
+      "total": 20,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "importance": {
+      "total": 20,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "sir": {
+      "total": 20,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "no one": {
+      "total": 20,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "executive": {
+      "total": 20,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "finally": {
+      "total": 20,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "royal": {
+      "total": 20,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "maybe": {
+      "total": 20,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "village": {
+      "total": 20,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "houses": {
+      "total": 20,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "previous": {
+      "total": 20,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "chapter": {
+      "total": 20,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "practical": {
+      "total": 20,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "george": {
+      "total": 20,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "monday": {
+      "total": 20,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "future": {
+      "total": 20,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "scientists": {
+      "total": 20,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "french": {
+      "total": 20,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "ought": {
+      "total": 20,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "ha": {
+      "total": 20,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "sorge": {
+      "total": 20,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "homicide": {
+      "total": 20,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "conservative": {
+      "total": 19,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "ensure": {
+      "total": 19,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "apparently": {
+      "total": 19,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "lunch": {
+      "total": 19,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "pub": {
+      "total": 19,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "instead": {
+      "total": 19,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "commission": {
+      "total": 19,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "alternative": {
+      "total": 19,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "none": {
+      "total": 19,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "happens": {
+      "total": 19,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "lived": {
+      "total": 19,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "basis": {
+      "total": 19,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "teachers": {
+      "total": 19,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "bye": {
+      "total": 19,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "lives": {
+      "total": 19,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "more than": {
+      "total": 19,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "principle": {
+      "total": 19,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "unity": {
+      "total": 19,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "drug": {
+      "total": 19,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "normal": {
+      "total": 19,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "ideal": {
+      "total": 18,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "cup": {
+      "total": 18,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "happened": {
+      "total": 18,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "event": {
+      "total": 18,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "truth": {
+      "total": 18,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "similar": {
+      "total": 18,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "red": {
+      "total": 18,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "fifty": {
+      "total": 18,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "letter": {
+      "total": 18,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "industrial": {
+      "total": 18,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "reasons": {
+      "total": 18,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "paid": {
+      "total": 18,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "somewhere": {
+      "total": 18,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "america": {
+      "total": 18,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "terrible": {
+      "total": 18,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "because of": {
+      "total": 18,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "summer": {
+      "total": 18,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "tv": {
+      "total": 18,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "fig.": {
+      "total": 18,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "established": {
+      "total": 18,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "legal": {
+      "total": 18,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "christopher": {
+      "total": 18,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "purpose": {
+      "total": 18,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "german": {
+      "total": 18,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "period": {
+      "total": 18,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "violence": {
+      "total": 18,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "wan": {
+      "total": 18,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "cook": {
+      "total": 18,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "nobody": {
+      "total": 18,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "whom": {
+      "total": 17,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "fingers": {
+      "total": 17,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "agreed": {
+      "total": 17,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "wales": {
+      "total": 17,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "worst": {
+      "total": 17,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "test": {
+      "total": 17,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "november": {
+      "total": 17,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "recently": {
+      "total": 17,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "technology": {
+      "total": 17,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "skills": {
+      "total": 17,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "attention": {
+      "total": 17,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "circumstances": {
+      "total": 17,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "international": {
+      "total": 17,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "lewis": {
+      "total": 17,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "traditional": {
+      "total": 17,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "obviously": {
+      "total": 17,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "friend": {
+      "total": 17,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "d": {
+      "total": 17,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "medical": {
+      "total": 17,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "partly": {
+      "total": 17,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "knowledge": {
+      "total": 17,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "afraid": {
+      "total": 17,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "du": {
+      "total": 17,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "ta": {
+      "total": 17,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "england": {
+      "total": 17,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "christmas": {
+      "total": 17,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "offenders": {
+      "total": 17,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "eqn": {
+      "total": 17,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "henry": {
+      "total": 17,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "b": {
+      "total": 16,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "theory": {
+      "total": 16,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "difficulties": {
+      "total": 16,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "supposed": {
+      "total": 16,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "parliament": {
+      "total": 16,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "thursday": {
+      "total": 16,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "let's": {
+      "total": 16,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "phone": {
+      "total": 16,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "brother": {
+      "total": 16,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "recent": {
+      "total": 16,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "apparent": {
+      "total": 16,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "chair": {
+      "total": 16,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "blacks": {
+      "total": 16,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "investment": {
+      "total": 16,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "responsibility": {
+      "total": 16,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "agency": {
+      "total": 16,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "committee": {
+      "total": 16,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "wyvis": {
+      "total": 16,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "floor": {
+      "total": 16,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "possibility": {
+      "total": 16,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "style": {
+      "total": 16,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "majority": {
+      "total": 16,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "empty": {
+      "total": 16,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "1988": {
+      "total": 16,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "various": {
+      "total": 16,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "extra": {
+      "total": 16,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "pardon": {
+      "total": 16,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "weekend": {
+      "total": 16,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "plus": {
+      "total": 16,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "burn": {
+      "total": 16,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "everybody": {
+      "total": 16,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "prison": {
+      "total": 16,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "actions": {
+      "total": 16,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "wednesday": {
+      "total": 16,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "learn": {
+      "total": 16,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "dinner": {
+      "total": 16,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "milk": {
+      "total": 16,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "bankside": {
+      "total": 16,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "definition": {
+      "total": 16,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "characteristics": {
+      "total": 16,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "sixty": {
+      "total": 16,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "kielder": {
+      "total": 16,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "catalogue": {
+      "total": 16,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "dalgliesh": {
+      "total": 16,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "ego-identity": {
+      "total": 16,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "kinnock": {
+      "total": 15,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "president": {
+      "total": 15,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "despite": {
+      "total": 15,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "daily": {
+      "total": 15,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "land": {
+      "total": 15,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "plastic": {
+      "total": 15,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "williams": {
+      "total": 15,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "jamie": {
+      "total": 15,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "professional": {
+      "total": 15,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "husband": {
+      "total": 15,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "nicholas": {
+      "total": 15,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "deaths": {
+      "total": 15,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "consequences": {
+      "total": 15,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "europe": {
+      "total": 15,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "entirely": {
+      "total": 15,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "yourself": {
+      "total": 15,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "bedroom": {
+      "total": 15,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "names": {
+      "total": 15,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "developed": {
+      "total": 15,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "gogh": {
+      "total": 15,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "yellow": {
+      "total": 15,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "rent": {
+      "total": 15,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "la": {
+      "total": 15,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "smith": {
+      "total": 15,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "available": {
+      "total": 15,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "type": {
+      "total": 15,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "speech": {
+      "total": 15,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "generally": {
+      "total": 15,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "neither": {
+      "total": 15,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "chance": {
+      "total": 15,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "yep": {
+      "total": 15,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "operator": {
+      "total": 15,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "hospital": {
+      "total": 15,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "unionist": {
+      "total": 15,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "lords": {
+      "total": 15,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "manchester": {
+      "total": 15,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "sunday": {
+      "total": 15,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "baby": {
+      "total": 15,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "concept": {
+      "total": 15,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "nevertheless": {
+      "total": 15,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "forget": {
+      "total": 15,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "arsenal": {
+      "total": 15,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "stuart": {
+      "total": 15,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "sex": {
+      "total": 15,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "tuesday": {
+      "total": 15,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "adults": {
+      "total": 15,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "in terms of": {
+      "total": 15,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "books": {
+      "total": 15,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "lawton": {
+      "total": 15,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "vector": {
+      "total": 15,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "holt": {
+      "total": 15,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "telecottages": {
+      "total": 15,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "becoming": {
+      "total": 14,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "politics": {
+      "total": 14,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "cash": {
+      "total": 14,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "hour": {
+      "total": 14,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "statement": {
+      "total": 14,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "older": {
+      "total": 14,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "liked": {
+      "total": 14,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "arm": {
+      "total": 14,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "each other": {
+      "total": 14,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "surely": {
+      "total": 14,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "pounds": {
+      "total": 14,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "a little": {
+      "total": 14,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "aware": {
+      "total": 14,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "angela": {
+      "total": 14,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "worse": {
+      "total": 14,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "colour": {
+      "total": 14,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "15": {
+      "total": 14,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "perfect": {
+      "total": 14,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "radio": {
+      "total": 14,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "worker": {
+      "total": 14,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "total": {
+      "total": 14,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "upstairs": {
+      "total": 14,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "sleep": {
+      "total": 14,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "sale": {
+      "total": 14,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "obvious": {
+      "total": 14,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "3": {
+      "total": 14,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "doubt": {
+      "total": 14,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "leinster": {
+      "total": 14,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "anna": {
+      "total": 14,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "equipment": {
+      "total": 14,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "march": {
+      "total": 14,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "king": {
+      "total": 14,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "career": {
+      "total": 14,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "balfour": {
+      "total": 14,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "equal": {
+      "total": 14,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "concern": {
+      "total": 14,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "interested": {
+      "total": 14,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "research": {
+      "total": 14,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "replacement": {
+      "total": 14,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "overall": {
+      "total": 14,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "boxing": {
+      "total": 14,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "match": {
+      "total": 14,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "especially": {
+      "total": 14,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "tenant": {
+      "total": 14,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "requirements": {
+      "total": 14,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "louis": {
+      "total": 14,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "exec": {
+      "total": 14,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "amaldi": {
+      "total": 14,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "aye": {
+      "total": 14,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "manslaughter": {
+      "total": 14,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "intent": {
+      "total": 14,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "ellen": {
+      "total": 14,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "meadowell": {
+      "total": 14,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "terry": {
+      "total": 14,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "chatterton": {
+      "total": 14,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "ordinary": {
+      "total": 13,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "normally": {
+      "total": 13,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "embankment": {
+      "total": 13,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "smiled": {
+      "total": 13,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "michael": {
+      "total": 13,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "club": {
+      "total": 13,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "brian": {
+      "total": 13,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "opportunity": {
+      "total": 13,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "trade": {
+      "total": 13,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "cultural": {
+      "total": 13,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "absolutely": {
+      "total": 13,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "newspaper": {
+      "total": 13,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "kill": {
+      "total": 13,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "drinking": {
+      "total": 13,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "as for": {
+      "total": 13,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "mill": {
+      "total": 13,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "effects": {
+      "total": 13,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "proved": {
+      "total": 13,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "page": {
+      "total": 13,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "2": {
+      "total": 13,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "becomes": {
+      "total": 13,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "specific": {
+      "total": 13,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "1980s": {
+      "total": 13,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "arguments": {
+      "total": 13,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "existence": {
+      "total": 13,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "numbers": {
+      "total": 13,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "funds": {
+      "total": 13,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "darling": {
+      "total": 13,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "completely": {
+      "total": 13,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "1911": {
+      "total": 13,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "spoke": {
+      "total": 13,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "session": {
+      "total": 13,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "fridge": {
+      "total": 13,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "relationships": {
+      "total": 13,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "except": {
+      "total": 13,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "understanding": {
+      "total": 13,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "eighteen": {
+      "total": 13,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "breakfast": {
+      "total": 13,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "villages": {
+      "total": 13,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "ours": {
+      "total": 13,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "trams": {
+      "total": 13,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "nights": {
+      "total": 13,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "analyst": {
+      "total": 13,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "rational": {
+      "total": 13,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "criminals": {
+      "total": 13,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "fucking": {
+      "total": 13,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "intifada": {
+      "total": 13,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "gordon": {
+      "total": 13,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "16": {
+      "total": 12,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "television": {
+      "total": 12,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "figures": {
+      "total": 12,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "nuclear": {
+      "total": 12,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "opposition": {
+      "total": 12,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "arts": {
+      "total": 12,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "affairs": {
+      "total": 12,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "official": {
+      "total": 12,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "carefully": {
+      "total": 12,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "teaching": {
+      "total": 12,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "remembered": {
+      "total": 12,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "difficulty": {
+      "total": 12,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "cabinet": {
+      "total": 12,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "shops": {
+      "total": 12,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "jobs": {
+      "total": 12,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "treasury": {
+      "total": 12,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "pink": {
+      "total": 12,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "francis": {
+      "total": 12,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "happen": {
+      "total": 12,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "continue": {
+      "total": 12,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "decisions": {
+      "total": 12,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "bank": {
+      "total": 12,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "silence": {
+      "total": 12,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "latest": {
+      "total": 12,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "programmes": {
+      "total": 12,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "events": {
+      "total": 12,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "frida": {
+      "total": 12,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "perfectly": {
+      "total": 12,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "p": {
+      "total": 12,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "learning": {
+      "total": 12,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "voluntary": {
+      "total": 12,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "analysis": {
+      "total": 12,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "universal": {
+      "total": 12,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "even if": {
+      "total": 12,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "uk": {
+      "total": 12,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "economy": {
+      "total": 12,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "independence": {
+      "total": 12,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "record": {
+      "total": 12,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "mueller": {
+      "total": 12,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "valley": {
+      "total": 12,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "scientific": {
+      "total": 12,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "computer": {
+      "total": 12,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "companies": {
+      "total": 12,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "difference": {
+      "total": 12,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "1987": {
+      "total": 12,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "farm": {
+      "total": 12,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "army": {
+      "total": 12,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "crucial": {
+      "total": 12,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "scheme": {
+      "total": 12,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "twins": {
+      "total": 12,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "depends": {
+      "total": 12,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "c": {
+      "total": 12,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "desire": {
+      "total": 12,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "psychological": {
+      "total": 12,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "notion": {
+      "total": 12,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "totality": {
+      "total": 12,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "sue": {
+      "total": 12,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "personality": {
+      "total": 12,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "forty": {
+      "total": 12,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "runcie": {
+      "total": 12,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "peace": {
+      "total": 12,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "harris": {
+      "total": 12,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "buildings": {
+      "total": 12,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "offences": {
+      "total": 12,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "writing": {
+      "total": 12,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "ddi": {
+      "total": 12,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "1980–1": {
+      "total": 12,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "race": {
+      "total": 12,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "palestinian": {
+      "total": 12,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "crusading": {
+      "total": 12,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "nines": {
+      "total": 12,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "rickie": {
+      "total": 12,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "papers": {
+      "total": 11,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "intended": {
+      "total": 11,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "in order": {
+      "total": 11,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "mine": {
+      "total": 11,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "beside": {
+      "total": 11,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "tears": {
+      "total": 11,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "suddenly": {
+      "total": 11,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "aunt": {
+      "total": 11,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "hill": {
+      "total": 11,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "nodded": {
+      "total": 11,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "conversation": {
+      "total": 11,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "regional": {
+      "total": 11,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "drinks": {
+      "total": 11,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "barton": {
+      "total": 11,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "virtually": {
+      "total": 11,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "brown": {
+      "total": 11,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "everyone": {
+      "total": 11,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "apart from": {
+      "total": 11,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "effort": {
+      "total": 11,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "ball": {
+      "total": 11,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "arms": {
+      "total": 11,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "30": {
+      "total": 11,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "october": {
+      "total": 11,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "1989": {
+      "total": 11,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "13": {
+      "total": 11,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "nhs": {
+      "total": 11,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "routine": {
+      "total": 11,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "university": {
+      "total": 11,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "remain": {
+      "total": 11,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "letters": {
+      "total": 11,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "anne": {
+      "total": 11,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "glad": {
+      "total": 11,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "clothes": {
+      "total": 11,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "artist": {
+      "total": 11,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "1982": {
+      "total": 11,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "1983": {
+      "total": 11,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "date": {
+      "total": 11,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "1": {
+      "total": 11,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "media": {
+      "total": 11,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "logic": {
+      "total": 11,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "achievement": {
+      "total": 11,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "hale": {
+      "total": 11,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "jean": {
+      "total": 11,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "eleven": {
+      "total": 11,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "issues": {
+      "total": 11,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "post": {
+      "total": 11,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "ideas": {
+      "total": 11,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "policies": {
+      "total": 11,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "retirement": {
+      "total": 11,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "chilly": {
+      "total": 11,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "awful": {
+      "total": 11,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "desk": {
+      "total": 11,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "complex": {
+      "total": 11,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "guess": {
+      "total": 11,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "pcbs": {
+      "total": 11,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "liverpool": {
+      "total": 11,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "environmental": {
+      "total": 11,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "germans": {
+      "total": 11,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "video": {
+      "total": 11,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "carson": {
+      "total": 11,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "agree": {
+      "total": 11,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "myself": {
+      "total": 11,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "methods": {
+      "total": 11,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "usual": {
+      "total": 11,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "merely": {
+      "total": 11,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "1976": {
+      "total": 11,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "in spite of": {
+      "total": 11,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "intention": {
+      "total": 11,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "cottage": {
+      "total": 11,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "wrote": {
+      "total": 11,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "grant": {
+      "total": 11,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "seventy": {
+      "total": 11,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "meow": {
+      "total": 11,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "rome": {
+      "total": 11,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "wonder": {
+      "total": 11,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "protection": {
+      "total": 11,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "tesco": {
+      "total": 11,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "mhm": {
+      "total": 11,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "tonight": {
+      "total": 11,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "architect": {
+      "total": 11,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "aec": {
+      "total": 11,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "jim": {
+      "total": 11,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "oldham": {
+      "total": 11,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "electron": {
+      "total": 11,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "duties": {
+      "total": 11,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "poverty": {
+      "total": 11,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "handsworth": {
+      "total": 11,
+      "metaphor": 0,
+      "ratio": 0.0
+    },
+    "imprisonment": {
+      "total": 11,
+      "metaphor": 0,
+      "ratio": 0.0
+    }
+  },
+  "metadata": {
+    "description": "MIPVU非隐喻词形映射表",
+    "filter_condition": "total > 10 AND metaphor_ratio == 0.0",
+    "source": "VUA-20/VUAMC (excluding test files)",
+    "train_files": 107,
+    "total_tokens": 187329,
+    "unique_word_forms": 15614,
+    "non_metaphor_count": 859
+  }
+}

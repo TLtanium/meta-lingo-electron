@@ -1,0 +1,2067 @@
+{
+  "id": "Extended-Mood",
+  "name": "Extended-Mood",
+  "category": "UAM - Grammar",
+  "description": "情态系统 (Modality System)：该系统用于分析语言资源如何表达说话者对命题真实性的判断（情态化）或对提议的义务性判断（意态）。",
+  "root": {
+    "id": "49458c07-746f-4810-8335-aacb43cf3d3e",
+    "name": "grammatical-unit",
+    "type": "label",
+    "definition": "情态系统 (Modality System)：该系统用于分析语言资源如何表达说话者对命题真实性的判断（情态化）或对提议的义务性判断（意态）。",
+    "children": [
+      {
+        "id": "febabf41-78a4-4644-a3c7-aa69b7d2dafa",
+        "name": "GRAMMATICAL-RANK",
+        "type": "tier",
+        "definition": null,
+        "children": [
+          {
+            "id": "4a3e772e-f468-4e26-acf7-0a3571fba7ed",
+            "name": "clause",
+            "type": "label",
+            "definition": "小句层 (clause)",
+            "children": [
+              {
+                "id": "906ec8f4-cd6e-41b5-9141-e08202117a32",
+                "name": "CONNECTEDNESS",
+                "type": "tier",
+                "definition": null,
+                "children": [
+                  {
+                    "id": "431b605b-46ee-4f3b-be12-326a4c4619db",
+                    "name": "no-connector",
+                    "type": "label",
+                    "definition": "无连接词 (no-connector)：小句之间没有连接词连接。",
+                    "color": "#baa585"
+                  },
+                  {
+                    "id": "304ef9f0-dc3a-40da-bc6e-a15a5047d4ed",
+                    "name": "with-connector",
+                    "type": "label",
+                    "definition": "有连接词 (with-connector)：小句通过连接词进行连接。",
+                    "color": "#c987a7"
+                  }
+                ]
+              },
+              {
+                "id": "ad524f87-dc1a-4dd0-8f6f-5add482c624f",
+                "name": "EVIDENTIAL-PROJECTION",
+                "type": "tier",
+                "definition": null,
+                "children": [
+                  {
+                    "id": "5cf1c0d6-efce-4af4-8b17-ca471279a783",
+                    "name": "evidential-projection",
+                    "type": "label",
+                    "definition": "证据投射 (evidential-projection)：表明信息来源或证据的语言结构。",
+                    "color": "#8d7889"
+                  },
+                  {
+                    "id": "33d34466-aac2-415b-aeca-cd92f4d2d08e",
+                    "name": "no-evidential-projection",
+                    "type": "label",
+                    "definition": "无证据投射 (no-evidential-projection)：不表明信息来源的普通陈述。",
+                    "color": "#afa7ae"
+                  }
+                ]
+              },
+              {
+                "id": "6ff4222c-c86e-4555-a5c0-9dd12efceadd",
+                "name": "FINITENESS",
+                "type": "tier",
+                "definition": null,
+                "children": [
+                  {
+                    "id": "d645356c-b657-4868-b1d3-cfa292ace6b3",
+                    "name": "finite-clause",
+                    "type": "label",
+                    "definition": "限定小句 (finite-clause)：包含限定动词的小句。",
+                    "children": [
+                      {
+                        "id": "30b36237-3f45-4e9e-b0f6-505b3caef7db",
+                        "name": "FINITE-CLAUSE-STRUCTURE",
+                        "type": "tier",
+                        "definition": null,
+                        "children": [
+                          {
+                            "id": "e95bf05f-dd99-4d64-8775-4c2c23b4f464",
+                            "name": "fact-clause",
+                            "type": "label",
+                            "definition": "事实小句 (fact-clause)：陈述客观事实的小句。",
+                            "color": "#a6c59c"
+                          },
+                          {
+                            "id": "a07bfc90-8c2a-40a5-9517-759f41129863",
+                            "name": "interrogative-clause",
+                            "type": "label",
+                            "definition": "疑问小句 (interrogative-clause)：表达疑问的小句。",
+                            "color": "#db7c96"
+                          },
+                          {
+                            "id": "8d93f919-2c73-408d-908d-bcbc68e95be3",
+                            "name": "relative-clause",
+                            "type": "label",
+                            "definition": "关系小句 (relative-clause)：修饰名词的关系从句。",
+                            "color": "#beaf92"
+                          },
+                          {
+                            "id": "0507a996-4269-4d94-8b14-9e3ed971f4cd",
+                            "name": "simple-finite-clause",
+                            "type": "label",
+                            "definition": "简单限定小句 (simple-finite-clause)：结构简单的限定小句。",
+                            "children": [
+                              {
+                                "id": "59852db8-e3e0-4afd-8c90-567e845bb571",
+                                "name": "FINITE-CLAUSE-TYPE3",
+                                "type": "tier",
+                                "definition": null,
+                                "children": [
+                                  {
+                                    "id": "e7c0abc3-4f5b-4c3d-8712-9c6f7d51f24a",
+                                    "name": "declarative-clause",
+                                    "type": "label",
+                                    "definition": "陈述句 (declarative-clause)：陈述事实或观点的句子。",
+                                    "color": "#bb8094"
+                                  },
+                                  {
+                                    "id": "25bbb27f-49d6-41bc-a3d0-ec2730fb47cb",
+                                    "name": "imperative-clause",
+                                    "type": "label",
+                                    "definition": "祈使句 (imperative-clause)：表达命令或请求的句子。",
+                                    "color": "#a7ccbc"
+                                  },
+                                  {
+                                    "id": "16154a99-e2ec-4155-beaf-96b6d6fe7d8a",
+                                    "name": "interrogative-clause",
+                                    "type": "label",
+                                    "definition": "疑问句 (interrogative-clause)：提出问题的句子。",
+                                    "color": "#d8b0c0"
+                                  }
+                                ]
+                              }
+                            ],
+                            "color": "#c2b1c8"
+                          },
+                          {
+                            "id": "cf2772ba-5aa0-4bd7-a121-a6924b1cf038",
+                            "name": "that-clause",
+                            "type": "label",
+                            "definition": "that小句 (that-clause)：由that引导的从句。",
+                            "color": "#83dbae"
+                          }
+                        ]
+                      },
+                      {
+                        "id": "2ab6bc38-c3e0-42fb-8c37-4eb1ee45dbd7",
+                        "name": "FINITE-CLAUSE-TYPE",
+                        "type": "tier",
+                        "definition": null,
+                        "children": [
+                          {
+                            "id": "0d29e616-db3a-4d17-a036-f2edbeacc6bc",
+                            "name": "existential-clause",
+                            "type": "label",
+                            "definition": "存在句 (existential-clause)：表示存在关系的句子（如there be句型）。",
+                            "color": "#add2cb"
+                          },
+                          {
+                            "id": "eb04e403-bb70-4d92-8390-d8bbba8634c6",
+                            "name": "extraposition",
+                            "type": "label",
+                            "definition": "外置结构 (extraposition)：主语外置的句子结构。",
+                            "color": "#81bcd5"
+                          },
+                          {
+                            "id": "93331aa4-8ece-42c5-b3e0-44154e5d80f4",
+                            "name": "interrogative-cleft",
+                            "type": "label",
+                            "definition": "疑问分裂句 (interrogative-cleft)：疑问形式的分裂句。",
+                            "color": "#a6d4c5"
+                          },
+                          {
+                            "id": "0cabeae7-bd8f-4cfd-8965-674eeea20348",
+                            "name": "it-cleft",
+                            "type": "label",
+                            "definition": "it分裂句 (it-cleft)：以it开头的分裂句结构。",
+                            "color": "#86c5a9"
+                          },
+                          {
+                            "id": "0c8d9c88-c0ed-4494-a9c1-307e4312e91d",
+                            "name": "postponement",
+                            "type": "label",
+                            "definition": "延后结构 (postponement)：主要成分延后出现的结构。",
+                            "color": "#98dcda"
+                          },
+                          {
+                            "id": "f5b0fb0b-5f16-406d-91a7-465c290a9ca0",
+                            "name": "unmarked-structure",
+                            "type": "label",
+                            "definition": "无标记结构 (unmarked-structure)：常规的、无特殊标记的句子结构。",
+                            "color": "#cbbf90"
+                          }
+                        ]
+                      },
+                      {
+                        "id": "d8c8f24c-7c5b-4271-b571-eaf442529cd6",
+                        "name": "MODALITY",
+                        "type": "tier",
+                        "definition": null,
+                        "children": [
+                          {
+                            "id": "37542d2c-13b2-49cd-9b6a-8837efe3bd9e",
+                            "name": "modal-clause",
+                            "type": "label",
+                            "definition": "情态小句 (modal-clause)：包含情态动词的小句。",
+                            "children": [
+                              {
+                                "id": "41218703-7dfb-4f4e-8cba-86fbb360fe11",
+                                "name": "MODAL-TYPE",
+                                "type": "tier",
+                                "definition": null,
+                                "children": [
+                                  {
+                                    "id": "d6922222-d240-494a-b212-6dfbffae5618",
+                                    "name": "future-clause",
+                                    "type": "label",
+                                    "definition": "将来时小句 (future-clause)：表达将来时间的小句。",
+                                    "color": "#b5a8bd"
+                                  },
+                                  {
+                                    "id": "f7335223-6e76-40e7-b902-bdb7b224c4d1",
+                                    "name": "true-modal-clause",
+                                    "type": "label",
+                                    "definition": "真情态小句 (true-modal-clause)：包含真正情态动词的小句。",
+                                    "color": "#baa28f"
+                                  }
+                                ]
+                              }
+                            ],
+                            "color": "#bbc4ae"
+                          },
+                          {
+                            "id": "2aca8857-dda8-459c-a5a6-6f33d4c335da",
+                            "name": "nonmodal-clause",
+                            "type": "label",
+                            "definition": "非情态小句 (nonmodal-clause)：不包含情态动词的小句。",
+                            "children": [
+                              {
+                                "id": "be06a32c-ee38-4b5a-b9fb-1580e66971fc",
+                                "name": "NONMODAL-CLAUSE-TYPE",
+                                "type": "tier",
+                                "definition": null,
+                                "children": [
+                                  {
+                                    "id": "c4dd65b0-306b-41ea-99ac-39076f2cc092",
+                                    "name": "do-insert",
+                                    "type": "label",
+                                    "definition": "do插入 (do-insert)：使用助动词do的结构。",
+                                    "color": "#babd7b"
+                                  },
+                                  {
+                                    "id": "dba52aad-fbc3-456f-8a90-55fafc40f3a8",
+                                    "name": "no-do-insert",
+                                    "type": "label",
+                                    "definition": "无do插入 (no-do-insert)：不使用助动词do的结构。",
+                                    "color": "#7d7bb7"
+                                  }
+                                ]
+                              },
+                              {
+                                "id": "72a0ea0f-9933-4e55-87c1-decaf1f5ba5f",
+                                "name": "TENSE",
+                                "type": "tier",
+                                "definition": null,
+                                "children": [
+                                  {
+                                    "id": "ae904b57-93a8-4552-b6c7-d15968342043",
+                                    "name": "past-clause",
+                                    "type": "label",
+                                    "definition": "过去时小句 (past-clause)：表达过去时间的小句。",
+                                    "color": "#d1787f"
+                                  },
+                                  {
+                                    "id": "dbf64510-e930-43ab-acc4-3b80762e60d6",
+                                    "name": "present-clause",
+                                    "type": "label",
+                                    "definition": "现在时小句 (present-clause)：表达现在时间的小句。",
+                                    "color": "#8582bb"
+                                  }
+                                ]
+                              }
+                            ],
+                            "color": "#bd82d1"
+                          }
+                        ]
+                      },
+                      {
+                        "id": "8d788b01-ea9d-4b3f-8e26-635962215536",
+                        "name": "TENSE-ASPECT",
+                        "type": "tier",
+                        "definition": null,
+                        "children": [
+                          {
+                            "id": "7d9214b0-e79d-4882-98b6-2dda769d6cef",
+                            "name": "future-perfect",
+                            "type": "label",
+                            "definition": "将来完成时 (future-perfect)：will have + 过去分词。",
+                            "color": "#c079d4"
+                          },
+                          {
+                            "id": "2a93230d-d373-48a2-8e69-11f6d8d98944",
+                            "name": "future-progressive-perfect",
+                            "type": "label",
+                            "definition": "将来进行完成时 (future-progressive-perfect)：will have been + 现在分词。",
+                            "color": "#8edacf"
+                          },
+                          {
+                            "id": "57b6b467-6600-49f6-acf5-3fd1fdc4ede6",
+                            "name": "modal-perfect",
+                            "type": "label",
+                            "definition": "情态完成时 (modal-perfect)：情态动词 + have + 过去分词。",
+                            "color": "#bbaaa1"
+                          },
+                          {
+                            "id": "6dda1bd1-3749-4668-84c5-246f97323b4c",
+                            "name": "modal-progressive-perfect",
+                            "type": "label",
+                            "definition": "情态进行完成时 (modal-progressive-perfect)：情态动词 + have been + 现在分词。",
+                            "color": "#8299b2"
+                          },
+                          {
+                            "id": "bddc32b2-c6de-4a6e-8e45-9538dabd15f3",
+                            "name": "past-perfect",
+                            "type": "label",
+                            "definition": "过去完成时 (past-perfect)：had + 过去分词。",
+                            "color": "#b2c5ae"
+                          },
+                          {
+                            "id": "572919f4-da35-4a16-bfa6-eaa05bbf0313",
+                            "name": "past-progressive-perfect",
+                            "type": "label",
+                            "definition": "过去进行完成时 (past-progressive-perfect)：had been + 现在分词。",
+                            "color": "#cd7da5"
+                          },
+                          {
+                            "id": "714ef795-25d0-4db8-82d0-ad52a177e048",
+                            "name": "present-perfect",
+                            "type": "label",
+                            "definition": "现在完成时 (present-perfect)：have/has + 过去分词。",
+                            "color": "#7d78d5"
+                          },
+                          {
+                            "id": "5efade04-827f-4b2e-933e-f0d3a2a6ca2f",
+                            "name": "present-progressive-perfect",
+                            "type": "label",
+                            "definition": "现在进行完成时 (present-progressive-perfect)：have/has been + 现在分词。",
+                            "color": "#989696"
+                          },
+                          {
+                            "id": "d7f43c58-e8ca-43f2-9d59-650167a15e7c",
+                            "name": "simple-future",
+                            "type": "label",
+                            "definition": "一般将来时 (simple-future)：will + 动词原形。",
+                            "color": "#8ed19e"
+                          },
+                          {
+                            "id": "9b9c0811-85c5-4a69-85e8-a80cbe397094",
+                            "name": "simple-modal",
+                            "type": "label",
+                            "definition": "一般情态 (simple-modal)：情态动词 + 动词原形。",
+                            "color": "#8c86da"
+                          },
+                          {
+                            "id": "26e658a9-c53c-451a-a0ec-b66d6c41c904",
+                            "name": "simple-past",
+                            "type": "label",
+                            "definition": "一般过去时 (simple-past)：动词过去式。",
+                            "color": "#a5accd"
+                          },
+                          {
+                            "id": "21465a68-e153-4123-b095-f174feba7d8b",
+                            "name": "simple-present",
+                            "type": "label",
+                            "definition": "一般现在时 (simple-present)：动词现在式。",
+                            "color": "#acb5c2"
+                          }
+                        ]
+                      }
+                    ],
+                    "color": "#a1d996"
+                  },
+                  {
+                    "id": "b2867321-1469-44c4-abc2-873985316970",
+                    "name": "nonfinite-clause",
+                    "type": "label",
+                    "definition": "非限定小句 (nonfinite-clause)：不包含限定动词的小句。",
+                    "children": [
+                      {
+                        "id": "ac6f60e6-8c42-4c1e-b2a8-0c06cb9b5ab7",
+                        "name": "NONFINITE-CLAUSE-TYPE",
+                        "type": "tier",
+                        "definition": null,
+                        "children": [
+                          {
+                            "id": "daf185fe-ba3e-422c-94f6-cda2215ca720",
+                            "name": "infinite-clause",
+                            "type": "label",
+                            "definition": "不定式小句 (infinite-clause)：以to + 动词原形构成的小句。",
+                            "color": "#dac7d2"
+                          },
+                          {
+                            "id": "961fc8c6-455e-44f5-9af1-ab2a81a89068",
+                            "name": "past-participle-clause",
+                            "type": "label",
+                            "definition": "过去分词小句 (past-participle-clause)：以过去分词开头的小句。",
+                            "color": "#dbb2d8"
+                          },
+                          {
+                            "id": "11b4241a-6e4f-43f4-8bfe-173068872865",
+                            "name": "present-participle-clause",
+                            "type": "label",
+                            "definition": "现在分词小句 (present-participle-clause)：以现在分词开头的小句。",
+                            "color": "#879ea8"
+                          }
+                        ]
+                      }
+                    ],
+                    "color": "#da917c"
+                  }
+                ]
+              },
+              {
+                "id": "97eb4161-e595-48dc-95e8-6ecf908246d4",
+                "name": "PERFECTNESS",
+                "type": "tier",
+                "definition": null,
+                "children": [
+                  {
+                    "id": "d4fa8bf3-19e8-4a9f-8dae-e74bc1533452",
+                    "name": "not-perfect-aspect",
+                    "type": "label",
+                    "definition": "非完成体 (not-perfect-aspect)：不表示完成的动作。",
+                    "color": "#a0c8ce"
+                  },
+                  {
+                    "id": "d4729caf-2dc5-4b54-b236-397639b95183",
+                    "name": "perfect-aspect",
+                    "type": "label",
+                    "definition": "完成体 (perfect-aspect)：表示已完成的动作。",
+                    "color": "#a897b8"
+                  }
+                ]
+              },
+              {
+                "id": "7a1ce6de-245c-44cd-a666-59703922548e",
+                "name": "POLARITY",
+                "type": "tier",
+                "definition": null,
+                "children": [
+                  {
+                    "id": "179105e8-98f3-41bc-aa12-85ce49ed66ff",
+                    "name": "negative-clause",
+                    "type": "label",
+                    "definition": "否定小句 (negative-clause)：表达否定意义的小句。",
+                    "color": "#d77eb8"
+                  },
+                  {
+                    "id": "f08a74f4-d836-4324-ab84-c48f8594bd28",
+                    "name": "positive-clause",
+                    "type": "label",
+                    "definition": "肯定小句 (positive-clause)：表达肯定意义的小句。",
+                    "color": "#7b93c5"
+                  }
+                ]
+              },
+              {
+                "id": "82a74349-33b4-487f-8473-1d97d8e653b4",
+                "name": "PROGRESSIVENESS",
+                "type": "tier",
+                "definition": null,
+                "children": [
+                  {
+                    "id": "5296fda3-9083-42cd-8220-91e9667b89c2",
+                    "name": "not-progressive-aspect",
+                    "type": "label",
+                    "definition": "非进行体 (not-progressive-aspect)：不表示正在进行的动作。",
+                    "color": "#b992c4"
+                  },
+                  {
+                    "id": "ad2412f0-f5ed-4137-b541-5bafa8e76167",
+                    "name": "progressive-aspect",
+                    "type": "label",
+                    "definition": "进行体 (progressive-aspect)：表示正在进行的动作。",
+                    "color": "#bdc491"
+                  }
+                ]
+              },
+              {
+                "id": "1f83249c-a8a8-4958-8401-b8072a444c71",
+                "name": "VOICE",
+                "type": "tier",
+                "definition": null,
+                "children": [
+                  {
+                    "id": "01a12f21-56e3-438c-812f-5e27618235c3",
+                    "name": "active-clause",
+                    "type": "label",
+                    "definition": "主动语态小句 (active-clause)：主语执行动作的小句。",
+                    "color": "#d690c9"
+                  },
+                  {
+                    "id": "aed1fa5a-4f90-4a49-b337-5649ee1c287f",
+                    "name": "passive-clause",
+                    "type": "label",
+                    "definition": "被动语态小句 (passive-clause)：主语承受动作的小句。",
+                    "color": "#d9917e"
+                  }
+                ]
+              }
+            ],
+            "color": "#928d7a"
+          },
+          {
+            "id": "9a0958a0-3fb8-4afc-8743-0129bcfe8dc8",
+            "name": "complex",
+            "type": "label",
+            "definition": "复合体层 (complex)",
+            "children": [
+              {
+                "id": "0aca18df-baff-4c36-8e64-8443a9a00eff",
+                "name": "COMPLEX-TYPE",
+                "type": "tier",
+                "definition": null,
+                "children": [
+                  {
+                    "id": "cbf5e792-05d1-4ac8-a04e-4ceea4673645",
+                    "name": "adjp-complex",
+                    "type": "label",
+                    "definition": "形容词词组复合体 (adjp-complex)：多个形容词词组组成的复合结构。",
+                    "color": "#cb7f9e"
+                  },
+                  {
+                    "id": "ed3e371c-de14-4462-b3c3-beb6fa2a5efa",
+                    "name": "clause-complex",
+                    "type": "label",
+                    "definition": "小句复合体 (clause-complex)：多个小句组成的复合结构。",
+                    "color": "#8fb2a5"
+                  },
+                  {
+                    "id": "49a13181-a720-4aed-921d-5eaf197c416b",
+                    "name": "np-complex",
+                    "type": "label",
+                    "definition": "名词词组复合体 (np-complex)：多个名词词组组成的复合结构。",
+                    "color": "#c99894"
+                  },
+                  {
+                    "id": "0f977390-1eb8-4fe8-b8c3-f4b267a1388f",
+                    "name": "vp-complex",
+                    "type": "label",
+                    "definition": "动词词组复合体 (vp-complex)：多个动词词组组成的复合结构。",
+                    "color": "#d3a9a5"
+                  }
+                ]
+              }
+            ],
+            "color": "#d28396"
+          },
+          {
+            "id": "39810fb3-f5ff-404b-b903-d4c124e3d93f",
+            "name": "group",
+            "type": "label",
+            "definition": "词组层 (group)",
+            "children": [
+              {
+                "id": "6e552ff5-2286-4a24-baf6-dff321e8acdd",
+                "name": "GROUP-TYPE",
+                "type": "tier",
+                "definition": null,
+                "children": [
+                  {
+                    "id": "c7daa640-b035-4425-9f49-30d526e11383",
+                    "name": "adjectival-group",
+                    "type": "label",
+                    "definition": "形容词词组 (adjectival-group)：以形容词为中心的词组。",
+                    "color": "#877fa5"
+                  },
+                  {
+                    "id": "16a69cf7-7ab3-4fb1-a1b5-a1881245d3aa",
+                    "name": "adverbial-group",
+                    "type": "label",
+                    "definition": "副词词组 (adverbial-group)：以副词为中心的词组。",
+                    "children": [
+                      {
+                        "id": "b4111822-dadb-443a-a117-24c3a83e7aa9",
+                        "name": "ADVERBIAL-GROUP-TYPE",
+                        "type": "tier",
+                        "definition": null,
+                        "children": [
+                          {
+                            "id": "3832955e-d563-4b8d-8b8d-c7c3a30a51b3",
+                            "name": "interrogative-adverbial-group",
+                            "type": "label",
+                            "definition": "疑问副词词组 (interrogative-adverbial-group)：用于疑问的副词词组。",
+                            "color": "#aab7ac"
+                          },
+                          {
+                            "id": "c2dd83e9-7cd1-48f9-8860-6904cb45a228",
+                            "name": "noninterrogative-adverbial-group",
+                            "type": "label",
+                            "definition": "非疑问副词词组 (noninterrogative-adverbial-group)：用于陈述的副词词组。",
+                            "color": "#a1d0b4"
+                          }
+                        ]
+                      }
+                    ],
+                    "color": "#aed0a0"
+                  },
+                  {
+                    "id": "81fb18d0-ae64-476d-95b1-95412c01f207",
+                    "name": "nominal-group",
+                    "type": "label",
+                    "definition": "名词词组 (nominal-group)：以名词为中心的词组。",
+                    "children": [
+                      {
+                        "id": "80a15645-c6b3-4653-b766-67888847974b",
+                        "name": "INTERROGATIVE-OR-NOT",
+                        "type": "tier",
+                        "definition": null,
+                        "children": [
+                          {
+                            "id": "5e16d8ac-4d12-45e6-b012-e6ebd53c7f6c",
+                            "name": "interrogative-noun-group",
+                            "type": "label",
+                            "definition": "疑问名词词组 (interrogative-noun-group)：用于疑问的名词词组。",
+                            "color": "#8fd29c"
+                          },
+                          {
+                            "id": "e7cc3f1f-81f7-4070-be35-d1773c07a1ea",
+                            "name": "noninterrogative-noun-group",
+                            "type": "label",
+                            "definition": "非疑问名词词组 (noninterrogative-noun-group)：用于陈述的名词词组。",
+                            "color": "#b1bab5"
+                          }
+                        ]
+                      },
+                      {
+                        "id": "8a852c2a-4f47-4fd7-9690-4ccc61d0400b",
+                        "name": "NP-TYPE",
+                        "type": "tier",
+                        "definition": null,
+                        "children": [
+                          {
+                            "id": "53820e8d-0147-4992-8477-ace510a7bee6",
+                            "name": "common-group",
+                            "type": "label",
+                            "definition": "普通词组 (common-group)：以普通名词为中心的词组。",
+                            "children": [
+                              {
+                                "id": "c019b21b-bb54-471f-9182-ece95cd506dd",
+                                "name": "COMMON-GROUP-TYPE",
+                                "type": "tier",
+                                "definition": null,
+                                "children": [
+                                  {
+                                    "id": "87b3520e-1aa8-4bfa-a7c7-ab303dd1a4ab",
+                                    "name": "determined-group",
+                                    "type": "label",
+                                    "definition": "有限定词词组 (determined-group)：包含限定词的名词词组。",
+                                    "children": [
+                                      {
+                                        "id": "c179fcd4-4a12-40e9-8f92-e9c36363a08c",
+                                        "name": "DETERMINED-GROUP-TYPE",
+                                        "type": "tier",
+                                        "definition": null,
+                                        "children": [
+                                          {
+                                            "id": "88ded77a-7c67-4912-bcd7-2065c8ca49a2",
+                                            "name": "article-determined",
+                                            "type": "label",
+                                            "definition": "冠词限定 (article-determined)：由冠词限定的词组。",
+                                            "children": [
+                                              {
+                                                "id": "224840bb-3b27-4524-9dac-9b5f0fdd07df",
+                                                "name": "ARTICLE-DETERMINED-TYPE",
+                                                "type": "tier",
+                                                "definition": null,
+                                                "children": [
+                                                  {
+                                                    "id": "8f2efc57-599b-45b6-9509-7adeb866d928",
+                                                    "name": "a-determined",
+                                                    "type": "label",
+                                                    "definition": "不定冠词限定 (a-determined)：由不定冠词a/an限定。",
+                                                    "color": "#c698ce"
+                                                  },
+                                                  {
+                                                    "id": "0ac79d43-63cf-4ac7-8cdf-7c5a73ebdb96",
+                                                    "name": "the-determined",
+                                                    "type": "label",
+                                                    "definition": "定冠词限定 (the-determined)：由定冠词the限定。",
+                                                    "color": "#d4aea3"
+                                                  }
+                                                ]
+                                              }
+                                            ],
+                                            "color": "#c0a389"
+                                          },
+                                          {
+                                            "id": "1fcb1549-0eb4-45f6-9732-e8cfe4bcf72b",
+                                            "name": "demonstrative-determined",
+                                            "type": "label",
+                                            "definition": "指示词限定 (demonstrative-determined)：由指示词限定的词组。",
+                                            "color": "#bdbed2"
+                                          },
+                                          {
+                                            "id": "3e796287-0c15-4e5b-85da-bd1f33c8ff47",
+                                            "name": "interrogative-determined",
+                                            "type": "label",
+                                            "definition": "疑问词限定 (interrogative-determined)：由疑问词限定的词组。",
+                                            "color": "#db8093"
+                                          },
+                                          {
+                                            "id": "271f9baf-1c6f-4a2f-87f6-ef3653fab74d",
+                                            "name": "possessive-determined",
+                                            "type": "label",
+                                            "definition": "所有格限定 (possessive-determined)：由所有格限定的词组。",
+                                            "color": "#8aa7b5"
+                                          },
+                                          {
+                                            "id": "41291145-8846-473f-9f1d-dcb089914e85",
+                                            "name": "quantifier-determined",
+                                            "type": "label",
+                                            "definition": "量词限定 (quantifier-determined)：由量词限定的词组。",
+                                            "children": [
+                                              {
+                                                "id": "5ffa8e5a-6223-447a-a388-fda847fee9d5",
+                                                "name": "QUANT-DETERMINED-TOKEN",
+                                                "type": "tier",
+                                                "definition": null,
+                                                "children": [
+                                                  {
+                                                    "id": "f77be19d-152e-4578-b0cd-1b9ac8b7e0e7",
+                                                    "name": "a-few-determined",
+                                                    "type": "label",
+                                                    "definition": "a-few限定 (a-few-determined)：由\"a few\"限定。",
+                                                    "color": "#c4ac98"
+                                                  },
+                                                  {
+                                                    "id": "774e0bf1-3ae2-4811-9189-2c56df1ca62b",
+                                                    "name": "a-little-determined",
+                                                    "type": "label",
+                                                    "definition": "a-little限定 (a-little-determined)：由\"a little\"限定。",
+                                                    "color": "#d6a3b8"
+                                                  },
+                                                  {
+                                                    "id": "7897aa99-10f4-44c0-a746-23b0fb21b63e",
+                                                    "name": "all-determined",
+                                                    "type": "label",
+                                                    "definition": "all限定 (all-determined)：由\"all\"限定。",
+                                                    "color": "#b2b293"
+                                                  },
+                                                  {
+                                                    "id": "ac068786-e6c2-40f1-beab-f7a147c8b691",
+                                                    "name": "any-determined",
+                                                    "type": "label",
+                                                    "definition": "any限定 (any-determined)：由\"any\"限定。",
+                                                    "color": "#98a090"
+                                                  },
+                                                  {
+                                                    "id": "31d9f2c2-5a5d-4868-b20b-e7f7c3191f74",
+                                                    "name": "both-determined",
+                                                    "type": "label",
+                                                    "definition": "both限定 (both-determined)：由\"both\"限定。",
+                                                    "color": "#c0c278"
+                                                  },
+                                                  {
+                                                    "id": "8334d976-8599-429a-a727-c1b127c5fe53",
+                                                    "name": "each-determined",
+                                                    "type": "label",
+                                                    "definition": "each限定 (each-determined)：由\"each\"限定。",
+                                                    "color": "#aea3d3"
+                                                  },
+                                                  {
+                                                    "id": "d8ba2f93-f301-482a-90f4-f64650a938fb",
+                                                    "name": "either-determined",
+                                                    "type": "label",
+                                                    "definition": "either限定 (either-determined)：由\"either\"限定。",
+                                                    "color": "#7a798c"
+                                                  },
+                                                  {
+                                                    "id": "0e485793-9747-49b3-a997-70e1e3338ef9",
+                                                    "name": "enough-determined",
+                                                    "type": "label",
+                                                    "definition": "enough限定 (enough-determined)：由\"enough\"限定。",
+                                                    "color": "#9698db"
+                                                  },
+                                                  {
+                                                    "id": "5e25ba8c-c8e8-48a2-8ae9-3aaf21db1a39",
+                                                    "name": "every-determined",
+                                                    "type": "label",
+                                                    "definition": "every限定 (every-determined)：由\"every\"限定。",
+                                                    "color": "#d6aa84"
+                                                  },
+                                                  {
+                                                    "id": "58b8b66c-1b67-40e4-81f1-1bedb1c8be22",
+                                                    "name": "few-determined",
+                                                    "type": "label",
+                                                    "definition": "few限定 (few-determined)：由\"few\"限定。",
+                                                    "color": "#c0d7c8"
+                                                  },
+                                                  {
+                                                    "id": "c4c1ae3d-25ad-4daa-b69e-6567f7b54cd5",
+                                                    "name": "little-determined",
+                                                    "type": "label",
+                                                    "definition": "little限定 (little-determined)：由\"little\"限定。",
+                                                    "color": "#a5b092"
+                                                  },
+                                                  {
+                                                    "id": "728d8bbc-f53a-4aed-b25d-fa3fbd5576c2",
+                                                    "name": "many-determined",
+                                                    "type": "label",
+                                                    "definition": "many限定 (many-determined)：由\"many\"限定。",
+                                                    "color": "#c7898f"
+                                                  },
+                                                  {
+                                                    "id": "f264a0f7-93c3-4e79-be51-8e6412e83154",
+                                                    "name": "more-determined",
+                                                    "type": "label",
+                                                    "definition": "more限定 (more-determined)：由\"more\"限定。",
+                                                    "color": "#c298c7"
+                                                  },
+                                                  {
+                                                    "id": "f314fbdd-12b5-4b88-9b17-411a55f0b11e",
+                                                    "name": "most-determined",
+                                                    "type": "label",
+                                                    "definition": "most限定 (most-determined)：由\"most\"限定。",
+                                                    "color": "#9b92be"
+                                                  },
+                                                  {
+                                                    "id": "7b1d6cde-9161-47ed-8133-b9566dbb0879",
+                                                    "name": "much-determined",
+                                                    "type": "label",
+                                                    "definition": "much限定 (much-determined)：由\"much\"限定。",
+                                                    "color": "#a97892"
+                                                  },
+                                                  {
+                                                    "id": "4a858905-4abd-40ac-b0a0-fcb3f045f0ea",
+                                                    "name": "neither-determined",
+                                                    "type": "label",
+                                                    "definition": "neither限定 (neither-determined)：由\"neither\"限定。",
+                                                    "color": "#8f7fd6"
+                                                  },
+                                                  {
+                                                    "id": "b91e1184-04f1-4af5-9467-5d1c48043757",
+                                                    "name": "no-determined",
+                                                    "type": "label",
+                                                    "definition": "no限定 (no-determined)：由\"no\"限定。",
+                                                    "color": "#d1a47f"
+                                                  },
+                                                  {
+                                                    "id": "e332fca2-cf52-449e-ae1d-03ace118986d",
+                                                    "name": "one-determined",
+                                                    "type": "label",
+                                                    "definition": "one限定 (one-determined)：由\"one\"限定。",
+                                                    "color": "#b2da8f"
+                                                  },
+                                                  {
+                                                    "id": "003a6e3e-bd45-46b6-bc27-cdac29d9e93a",
+                                                    "name": "other-determined",
+                                                    "type": "label",
+                                                    "definition": "other限定 (other-determined)：由\"other\"限定。",
+                                                    "color": "#cd9fd8"
+                                                  },
+                                                  {
+                                                    "id": "86980018-4d43-4c1c-b79d-8edaf6f3f37e",
+                                                    "name": "several-determined",
+                                                    "type": "label",
+                                                    "definition": "several限定 (several-determined)：由\"several\"限定。",
+                                                    "color": "#cb8fa4"
+                                                  },
+                                                  {
+                                                    "id": "21307c2a-6a9c-4a5c-b839-624aca43d8dc",
+                                                    "name": "some-determined",
+                                                    "type": "label",
+                                                    "definition": "some限定 (some-determined)：由\"some\"限定。",
+                                                    "color": "#a0ae7d"
+                                                  }
+                                                ]
+                                              },
+                                              {
+                                                "id": "c6cb8b83-f38e-4705-917c-4b736864e56e",
+                                                "name": "QUANT-MOOD-CONTEXT",
+                                                "type": "tier",
+                                                "definition": null,
+                                                "children": [
+                                                  {
+                                                    "id": "91c30409-4b0a-47a3-9909-4f87a494b9f5",
+                                                    "name": "in-command",
+                                                    "type": "label",
+                                                    "definition": "命令语境中 (in-command)：在祈使句中使用的量词。",
+                                                    "color": "#9485a6"
+                                                  },
+                                                  {
+                                                    "id": "90296d97-702c-4c6c-be34-dbc5609be519",
+                                                    "name": "in-question",
+                                                    "type": "label",
+                                                    "definition": "疑问语境中 (in-question)：在疑问句中使用的量词。",
+                                                    "color": "#a597cf"
+                                                  },
+                                                  {
+                                                    "id": "2a877c02-c23e-45f4-90db-b8cba8f2c6f5",
+                                                    "name": "in-statement",
+                                                    "type": "label",
+                                                    "definition": "陈述语境中 (in-statement)：在陈述句中使用的量词。",
+                                                    "color": "#dcc7b7"
+                                                  }
+                                                ]
+                                              },
+                                              {
+                                                "id": "037d3319-26de-407c-a9f5-4b841e5cf27d",
+                                                "name": "QUANT-POLARITY-CONTEXT",
+                                                "type": "tier",
+                                                "definition": null,
+                                                "children": [
+                                                  {
+                                                    "id": "437c53bc-ddcc-4458-8878-3fe0b0160c05",
+                                                    "name": "in-negative-context",
+                                                    "type": "label",
+                                                    "definition": "否定语境中 (in-negative-context)：在否定句中使用的量词。",
+                                                    "color": "#c8d2ad"
+                                                  },
+                                                  {
+                                                    "id": "a4b5b008-a79b-4aef-add6-e67098213d0b",
+                                                    "name": "in-positive-context",
+                                                    "type": "label",
+                                                    "definition": "肯定语境中 (in-positive-context)：在肯定句中使用的量词。",
+                                                    "color": "#cbc0b2"
+                                                  }
+                                                ]
+                                              },
+                                              {
+                                                "id": "b5eb66ba-8b7f-4ce0-92ce-f37a2c0d7489",
+                                                "name": "QUANTIFIER-CONTEXT-ERROR",
+                                                "type": "tier",
+                                                "definition": null,
+                                                "children": [
+                                                  {
+                                                    "id": "b2bcaf48-4ace-4e29-8aa2-1575f07252d7",
+                                                    "name": "few-in-negative-context",
+                                                    "type": "label",
+                                                    "definition": "few在否定语境错误 (few-in-negative-context)：few错误地用在否定语境中。",
+                                                    "color": "#9d9697"
+                                                  },
+                                                  {
+                                                    "id": "affb0d42-e988-4908-8c39-c227bbcf64c7",
+                                                    "name": "much-any-in-positive-statement",
+                                                    "type": "label",
+                                                    "definition": "much/any在肯定陈述错误 (much-any-in-positive-statement)：much/any错误地用在肯定陈述中。",
+                                                    "color": "#aed1ab"
+                                                  },
+                                                  {
+                                                    "id": "0bdb7412-8efb-4b9f-a32a-e3f5d8f81200",
+                                                    "name": "no-quantifier-context-error",
+                                                    "type": "label",
+                                                    "definition": "无量词语境错误 (no-quantifier-context-error)：量词使用正确。",
+                                                    "color": "#95928e"
+                                                  },
+                                                  {
+                                                    "id": "1d15b646-d053-447a-8f00-2901a4ed4e17",
+                                                    "name": "some-in-negative-context",
+                                                    "type": "label",
+                                                    "definition": "some在否定语境错误 (some-in-negative-context)：some错误地用在否定语境中。",
+                                                    "color": "#d6c8c8"
+                                                  }
+                                                ]
+                                              },
+                                              {
+                                                "id": "95268f04-0b62-4635-b868-fdbe0f7d217c",
+                                                "name": "QUANTIFIER-DETERMINED-TYPE",
+                                                "type": "tier",
+                                                "definition": null,
+                                                "children": [
+                                                  {
+                                                    "id": "38155185-296b-44b1-8e16-bacc9673762d",
+                                                    "name": "count-quantifier-with-noncount-noun",
+                                                    "type": "label",
+                                                    "definition": "可数量词配不可数名词 (count-quantifier-with-noncount-noun)：语法错误。",
+                                                    "color": "#bdd3a7"
+                                                  },
+                                                  {
+                                                    "id": "946923bf-07a1-4f46-9f29-a688606ba2e9",
+                                                    "name": "no-quantifier-agreement-error",
+                                                    "type": "label",
+                                                    "definition": "无量词一致性错误 (no-quantifier-agreement-error)：量词使用正确。",
+                                                    "color": "#c1b081"
+                                                  },
+                                                  {
+                                                    "id": "d0279d4e-9407-403e-9afd-0f4b9de54fc4",
+                                                    "name": "noncount-quantifier-with-count-noun",
+                                                    "type": "label",
+                                                    "definition": "不可数量词配可数名词 (noncount-quantifier-with-count-noun)：语法错误。",
+                                                    "color": "#b97fb7"
+                                                  },
+                                                  {
+                                                    "id": "3d1eff93-e9d8-425a-8a59-ac238f1d102e",
+                                                    "name": "plural-quantifier-with-singular-noun",
+                                                    "type": "label",
+                                                    "definition": "复数量词配单数名词 (plural-quantifier-with-singular-noun)：语法错误。",
+                                                    "color": "#d59eb4"
+                                                  },
+                                                  {
+                                                    "id": "38160213-4e60-43ed-8d0e-bd32774f90af",
+                                                    "name": "singular-quantifier-with-plural-noun",
+                                                    "type": "label",
+                                                    "definition": "单数量词配复数名词 (singular-quantifier-with-plural-noun)：语法错误。",
+                                                    "color": "#829ea4"
+                                                  }
+                                                ]
+                                              },
+                                              {
+                                                "id": "96bbe927-57f4-42a3-b24a-f2966e7e2dc0",
+                                                "name": "QUANTIFIER-DETERMINED-TYPE2",
+                                                "type": "tier",
+                                                "definition": null,
+                                                "children": [
+                                                  {
+                                                    "id": "2217e598-fc51-48d1-b8a5-11426bcaa30f",
+                                                    "name": "intensified-quantification",
+                                                    "type": "label",
+                                                    "definition": "强化量化 (intensified-quantification)：量词被程度副词修饰。",
+                                                    "color": "#b983bd"
+                                                  },
+                                                  {
+                                                    "id": "cf1ba9f5-016a-401b-b44f-f0685e3f46ac",
+                                                    "name": "no-intensified-quantification",
+                                                    "type": "label",
+                                                    "definition": "非强化量化 (no-intensified-quantification)：量词未被程度副词修饰。",
+                                                    "color": "#af79d0"
+                                                  }
+                                                ]
+                                              }
+                                            ],
+                                            "color": "#a8b3ca"
+                                          }
+                                        ]
+                                      }
+                                    ],
+                                    "color": "#b3d2cd"
+                                  },
+                                  {
+                                    "id": "9488cb5c-1000-4236-879f-525b3989c9ae",
+                                    "name": "not-determined-group",
+                                    "type": "label",
+                                    "definition": "无限定词词组 (not-determined-group)：不包含限定词的名词词组。",
+                                    "color": "#84918a"
+                                  }
+                                ]
+                              },
+                              {
+                                "id": "66dd3252-0eee-45b5-9710-e709c23a2d35",
+                                "name": "COMMON-GROUP-TYPE2",
+                                "type": "tier",
+                                "definition": null,
+                                "children": [
+                                  {
+                                    "id": "8747c988-b10e-45a5-8b55-f4e4b7283b83",
+                                    "name": "not-predetermined-group",
+                                    "type": "label",
+                                    "definition": "无前限定词组 (not-predetermined-group)：不包含前限定词的词组。",
+                                    "color": "#a79ea3"
+                                  },
+                                  {
+                                    "id": "d012e1dd-29e8-41a8-bf58-bcfedacff7c9",
+                                    "name": "predetermined-group",
+                                    "type": "label",
+                                    "definition": "有前限定词组 (predetermined-group)：包含前限定词的词组。",
+                                    "children": [
+                                      {
+                                        "id": "5e728cd2-ff9b-425d-bd9f-a95700922ef5",
+                                        "name": "PREDETERMINED-GROUP-TYPE",
+                                        "type": "tier",
+                                        "definition": null,
+                                        "children": [
+                                          {
+                                            "id": "7a4b0432-76e2-4af8-b7ac-cdd13c78bb1d",
+                                            "name": "nonpartitive-predetermined",
+                                            "type": "label",
+                                            "definition": "非部分格前限定 (nonpartitive-predetermined)：非部分关系的前限定。",
+                                            "color": "#8fd3a6"
+                                          },
+                                          {
+                                            "id": "91b91263-a629-41ec-83bb-45c7568e2c92",
+                                            "name": "partitive-predetermined",
+                                            "type": "label",
+                                            "definition": "部分格前限定 (partitive-predetermined)：表示部分关系的前限定。",
+                                            "color": "#80a3ac"
+                                          }
+                                        ]
+                                      },
+                                      {
+                                        "id": "91b087b0-e6bc-4199-9e8c-168738649ed3",
+                                        "name": "PREDETERMINED-GROUP-TYPE2",
+                                        "type": "tier",
+                                        "definition": null,
+                                        "children": [
+                                          {
+                                            "id": "1800b300-8731-4953-a0e3-5f8d223fd544",
+                                            "name": "exclamative-predetermined",
+                                            "type": "label",
+                                            "definition": "感叹前限定 (exclamative-predetermined)：感叹词作前限定词。",
+                                            "color": "#9ccb78"
+                                          },
+                                          {
+                                            "id": "35b54be7-92a1-4d55-91c5-6cbc4a9f0f41",
+                                            "name": "multiplier-predetermined",
+                                            "type": "label",
+                                            "definition": "倍数前限定 (multiplier-predetermined)：倍数词作前限定词。",
+                                            "color": "#a5839a"
+                                          },
+                                          {
+                                            "id": "c43c895b-5fe3-49be-a189-639599fc0c39",
+                                            "name": "other-predetermined",
+                                            "type": "label",
+                                            "definition": "其他前限定 (other-predetermined)：其他类型的前限定词。",
+                                            "color": "#89c8c8"
+                                          },
+                                          {
+                                            "id": "58fe02dc-40f5-463d-95ea-718dfe2943a6",
+                                            "name": "quantifier-predetermined",
+                                            "type": "label",
+                                            "definition": "量词前限定 (quantifier-predetermined)：量词作前限定词。",
+                                            "children": [
+                                              {
+                                                "id": "b5ac318b-e23c-4c48-b18b-ab2529697aa9",
+                                                "name": "QUANTIFIER-PREDETERMINED-TYPE",
+                                                "type": "tier",
+                                                "definition": null,
+                                                "children": [
+                                                  {
+                                                    "id": "e6bf4adb-8a65-4e48-8e4e-8ba08734de54",
+                                                    "name": "all-predetermined",
+                                                    "type": "label",
+                                                    "definition": "all前限定 (all-predetermined)：all作为前限定词。",
+                                                    "color": "#79b99e"
+                                                  },
+                                                  {
+                                                    "id": "86491c48-5de1-48a8-9307-e19a70ec3107",
+                                                    "name": "much-premodified",
+                                                    "type": "label",
+                                                    "definition": "much前修饰 (much-premodified)：much被前置修饰。",
+                                                    "color": "#cc86d2"
+                                                  },
+                                                  {
+                                                    "id": "05c79601-a667-46d9-bca8-1e27b8320cef",
+                                                    "name": "some-predetermined",
+                                                    "type": "label",
+                                                    "definition": "some前限定 (some-predetermined)：some作为前限定词。",
+                                                    "color": "#8bd88c"
+                                                  }
+                                                ]
+                                              }
+                                            ],
+                                            "color": "#a9887f"
+                                          },
+                                          {
+                                            "id": "24e37ea6-bb6e-4117-8d05-7f586fc1876f",
+                                            "name": "sufficiency-predetermined",
+                                            "type": "label",
+                                            "definition": "充分性前限定 (sufficiency-predetermined)：表示充分性的前限定词。",
+                                            "color": "#da93ca"
+                                          }
+                                        ]
+                                      },
+                                      {
+                                        "id": "1afbeb6d-1359-4db9-818d-e9f61fa845d7",
+                                        "name": "PREDETERMINED-GROUP-TYPE3",
+                                        "type": "tier",
+                                        "definition": null,
+                                        "children": [
+                                          {
+                                            "id": "1967c908-f335-4b9b-93b6-b7920c6b595a",
+                                            "name": "no-predeterminer-error",
+                                            "type": "label",
+                                            "definition": "无前限定词错误 (no-predeterminer-error)：前限定词使用正确。",
+                                            "color": "#799e89"
+                                          },
+                                          {
+                                            "id": "d4708f14-4d97-4914-8908-1041fc5bab8a",
+                                            "name": "wrong-quantifier-nonpartitive",
+                                            "type": "label",
+                                            "definition": "错误量词非部分格 (wrong-quantifier-nonpartitive)：量词在非部分格中使用错误。",
+                                            "color": "#94d77d"
+                                          }
+                                        ]
+                                      }
+                                    ],
+                                    "color": "#aac79a"
+                                  }
+                                ]
+                              },
+                              {
+                                "id": "564dbbf6-9e7b-48ca-a02b-c73e6bce9664",
+                                "name": "COMMON-GROUP-TYPE3",
+                                "type": "tier",
+                                "definition": null,
+                                "children": [
+                                  {
+                                    "id": "7367d5fc-e240-4292-8eca-e063035b18ba",
+                                    "name": "not-premodified-group",
+                                    "type": "label",
+                                    "definition": "无前修饰词组 (not-premodified-group)：中心名词前无修饰语。",
+                                    "color": "#add17b"
+                                  },
+                                  {
+                                    "id": "5d9b5550-ca46-42be-b80e-44a8ef05e862",
+                                    "name": "premodified-group",
+                                    "type": "label",
+                                    "definition": "有前修饰词组 (premodified-group)：中心名词前有修饰语。",
+                                    "color": "#afa79e"
+                                  }
+                                ]
+                              },
+                              {
+                                "id": "39dcdca7-6960-4be5-bb15-1d2c1b3e8ee0",
+                                "name": "COMMON-GROUP-TYPE4",
+                                "type": "tier",
+                                "definition": null,
+                                "children": [
+                                  {
+                                    "id": "0f24c8e6-a439-49fc-ba85-cf4cd5f6829d",
+                                    "name": "not-qualified-group",
+                                    "type": "label",
+                                    "definition": "无后置限定词组 (not-qualified-group)：中心名词后无限定语。",
+                                    "color": "#bbc4db"
+                                  },
+                                  {
+                                    "id": "d47f217a-22a2-44fa-957b-68653570035b",
+                                    "name": "qualified-group",
+                                    "type": "label",
+                                    "definition": "有后置限定词组 (qualified-group)：中心名词后有限定语。",
+                                    "color": "#7bd07d"
+                                  }
+                                ]
+                              },
+                              {
+                                "id": "7cff104c-7813-4b68-9b04-a7d0d81a0dac",
+                                "name": "COMMON-GROUP-TYPE5",
+                                "type": "tier",
+                                "definition": null,
+                                "children": [
+                                  {
+                                    "id": "1e9d759e-717c-44e2-a36b-590e08232bbd",
+                                    "name": "abstract-group",
+                                    "type": "label",
+                                    "definition": "抽象词组 (abstract-group)：表示抽象概念的名词词组。",
+                                    "color": "#b693c6"
+                                  },
+                                  {
+                                    "id": "5d019d05-0161-4349-af0e-7d190cde7c71",
+                                    "name": "concrete-group",
+                                    "type": "label",
+                                    "definition": "具体词组 (concrete-group)：表示具体事物的名词词组。",
+                                    "color": "#b7907c"
+                                  }
+                                ]
+                              },
+                              {
+                                "id": "9dc9b17a-93a2-4fda-bf3c-22cbf7e8407b",
+                                "name": "COMMON-GROUP-TYPE6",
+                                "type": "tier",
+                                "definition": null,
+                                "children": [
+                                  {
+                                    "id": "3f9c074f-364d-4ef5-b68f-204c8c7220d9",
+                                    "name": "count-group",
+                                    "type": "label",
+                                    "definition": "可数词组 (count-group)：以可数名词为中心的词组。",
+                                    "color": "#8484c1"
+                                  },
+                                  {
+                                    "id": "754743a6-972e-47d4-b377-3ee9dd6037f7",
+                                    "name": "noncount-group",
+                                    "type": "label",
+                                    "definition": "不可数词组 (noncount-group)：以不可数名词为中心的词组。",
+                                    "color": "#7bbeb8"
+                                  }
+                                ]
+                              },
+                              {
+                                "id": "89174e4b-4e52-4f08-ab9a-c2ac37137541",
+                                "name": "NOMINALISATION-GROUP",
+                                "type": "tier",
+                                "definition": null,
+                                "children": [
+                                  {
+                                    "id": "2184d426-e4d1-414a-950b-58edcde3f574",
+                                    "name": "congruent-group",
+                                    "type": "label",
+                                    "definition": "一致性词组 (congruent-group)：使用动词或形容词表达的一致性结构。",
+                                    "color": "#d8bb9c"
+                                  },
+                                  {
+                                    "id": "f4dffbad-ebfa-4896-ad30-dfa579496755",
+                                    "name": "nominalised-group",
+                                    "type": "label",
+                                    "definition": "名词化词组 (nominalised-group)：将动词或形容词名词化的结构。",
+                                    "color": "#a5cb7d"
+                                  }
+                                ]
+                              }
+                            ],
+                            "color": "#8ec4cb"
+                          },
+                          {
+                            "id": "a8eeaa28-9924-43cf-b305-fe04388595db",
+                            "name": "pronominal-group",
+                            "type": "label",
+                            "definition": "代词词组 (pronominal-group)：以代词为中心的词组。",
+                            "color": "#79ab9a"
+                          },
+                          {
+                            "id": "f0057fa2-3c6c-41f1-9aa8-d8f2d050716b",
+                            "name": "proper-group",
+                            "type": "label",
+                            "definition": "专有词组 (proper-group)：以专有名词为中心的词组。",
+                            "color": "#bf80ad"
+                          }
+                        ]
+                      },
+                      {
+                        "id": "b9501ede-f95c-4417-ac62-7ede72f0ce39",
+                        "name": "NUMBER",
+                        "type": "tier",
+                        "definition": null,
+                        "children": [
+                          {
+                            "id": "3e3c8684-a1a3-4dc3-91d3-13e933c0e319",
+                            "name": "plural-group",
+                            "type": "label",
+                            "definition": "复数词组 (plural-group)：表示复数概念的词组。",
+                            "color": "#c9bb98"
+                          },
+                          {
+                            "id": "2d225569-3846-4f51-b6cf-16baa3a5c091",
+                            "name": "singular-group",
+                            "type": "label",
+                            "definition": "单数词组 (singular-group)：表示单数概念的词组。",
+                            "color": "#b87bb7"
+                          }
+                        ]
+                      }
+                    ],
+                    "color": "#d7d6c4"
+                  },
+                  {
+                    "id": "cd792965-fc8d-4326-a200-227b2c58a126",
+                    "name": "prep-group",
+                    "type": "label",
+                    "definition": "介词词组 (prep-group)：以介词为中心的词组。",
+                    "children": [
+                      {
+                        "id": "2b726776-ce11-468d-aab2-1fad6538d564",
+                        "name": "PP-TYPE",
+                        "type": "tier",
+                        "definition": null,
+                        "children": [
+                          {
+                            "id": "00274c76-dda7-4ed4-9409-1fab0ae57a9c",
+                            "name": "interrogative-prep-group",
+                            "type": "label",
+                            "definition": "疑问介词词组 (interrogative-prep-group)：用于疑问的介词词组。",
+                            "color": "#9482a0"
+                          },
+                          {
+                            "id": "6f33b7d1-7175-4cc3-8a78-54dfb8631bb5",
+                            "name": "noninterrogative-prep-group",
+                            "type": "label",
+                            "definition": "非疑问介词词组 (noninterrogative-prep-group)：用于陈述的介词词组。",
+                            "color": "#9ad5ba"
+                          }
+                        ]
+                      }
+                    ],
+                    "color": "#a9999e"
+                  }
+                ]
+              }
+            ],
+            "color": "#a79aa2"
+          },
+          {
+            "id": "af72d828-712e-4f73-8b2f-15351d8f8118",
+            "name": "token",
+            "type": "label",
+            "definition": "词汇层 (token)",
+            "children": [
+              {
+                "id": "50730da2-54e9-4e9d-87f6-5ef608dd4091",
+                "name": "TOKEN-TYPE",
+                "type": "tier",
+                "definition": null,
+                "children": [
+                  {
+                    "id": "18e7cac8-0f75-4a83-86df-52133e0099d4",
+                    "name": "punctuation",
+                    "type": "label",
+                    "definition": "标点符号 (punctuation)：各种标点符号。",
+                    "children": [
+                      {
+                        "id": "ec2e0d3d-92b3-49ad-ad33-36da7895fd8b",
+                        "name": "PUNCTUATION-TYPE",
+                        "type": "tier",
+                        "definition": null,
+                        "children": [
+                          {
+                            "id": "ada2660a-09e8-4cd6-ab7f-d686aa92aa91",
+                            "name": "closequote",
+                            "type": "label",
+                            "definition": "右引号 (closequote)：结束引用的标点。",
+                            "color": "#b9d4b8"
+                          },
+                          {
+                            "id": "30dcdc02-2115-4d7d-b5b5-7388ab2a636e",
+                            "name": "comma",
+                            "type": "label",
+                            "definition": "逗号 (comma)：逗号标点。",
+                            "color": "#85c77a"
+                          },
+                          {
+                            "id": "918c307f-d30e-41b0-bb96-1f3c6f0f4008",
+                            "name": "dollarsign",
+                            "type": "label",
+                            "definition": "美元符号 (dollarsign)：货币符号$。",
+                            "color": "#a0a0b9"
+                          },
+                          {
+                            "id": "4568e4d3-6332-4aa1-91d0-50a983716742",
+                            "name": "double-quote",
+                            "type": "label",
+                            "definition": "双引号 (double-quote)：双引号标点。",
+                            "color": "#a99ac8"
+                          },
+                          {
+                            "id": "73628b62-162d-48cf-9ba9-61791fc25615",
+                            "name": "exclamation-mark",
+                            "type": "label",
+                            "definition": "感叹号 (exclamation-mark)：感叹号标点。",
+                            "color": "#9a93d8"
+                          },
+                          {
+                            "id": "aeb01031-71b1-4d7a-8f2d-7707f53d5cab",
+                            "name": "hatch",
+                            "type": "label",
+                            "definition": "井号 (hatch)：#符号。",
+                            "color": "#b1898b"
+                          },
+                          {
+                            "id": "58ecca94-8124-4de1-b05a-728b8ba6465c",
+                            "name": "left-parenthesis",
+                            "type": "label",
+                            "definition": "左括号 (left-parenthesis)：(符号。",
+                            "color": "#a99598"
+                          },
+                          {
+                            "id": "ac54e2a5-1e59-4c2f-8bdb-18218acc3059",
+                            "name": "openquote",
+                            "type": "label",
+                            "definition": "左引号 (openquote)：开始引用的标点。",
+                            "color": "#ab92bb"
+                          },
+                          {
+                            "id": "ff4a4767-750b-4830-9bbd-0ad1d3317989",
+                            "name": "period",
+                            "type": "label",
+                            "definition": "句号 (period)：句号标点。",
+                            "color": "#b9cec2"
+                          },
+                          {
+                            "id": "4cf6af13-8579-40d6-8dcd-924372d0decc",
+                            "name": "question-mark",
+                            "type": "label",
+                            "definition": "问号 (question-mark)：问号标点。",
+                            "color": "#888fb7"
+                          },
+                          {
+                            "id": "d4d160a6-6902-406a-b8e7-d9084ec85991",
+                            "name": "right-parenthesis",
+                            "type": "label",
+                            "definition": "右括号 (right-parenthesis)：)符号。",
+                            "color": "#84c6b6"
+                          },
+                          {
+                            "id": "4fe62979-8011-4991-9a29-6755212e29ad",
+                            "name": "semicolon",
+                            "type": "label",
+                            "definition": "分号 (semicolon)：分号标点。",
+                            "color": "#8279b7"
+                          }
+                        ]
+                      }
+                    ],
+                    "color": "#d28889"
+                  },
+                  {
+                    "id": "d3083d48-7555-41fc-8059-73b5ec0ff723",
+                    "name": "word",
+                    "type": "label",
+                    "definition": "词 (word)：实际的词汇单位。",
+                    "children": [
+                      {
+                        "id": "33839891-8949-4840-a122-db8107e427f6",
+                        "name": "POS",
+                        "type": "tier",
+                        "definition": null,
+                        "children": [
+                          {
+                            "id": "0e1497ed-58e7-4816-ad31-14cc57cc987f",
+                            "name": "adjective",
+                            "type": "label",
+                            "definition": "形容词 (adjective)：描述性词汇。",
+                            "children": [
+                              {
+                                "id": "7b7dfc7d-aa9d-4c3f-a355-7c8c69f9f671",
+                                "name": "ADJECTIVE-TYPE",
+                                "type": "tier",
+                                "definition": null,
+                                "children": [
+                                  {
+                                    "id": "482c5ee8-eecb-49a0-966e-db3712a3b739",
+                                    "name": "comparative-adjective",
+                                    "type": "label",
+                                    "definition": "比较级形容词 (comparative-adjective)：表示比较的形容词形式。",
+                                    "color": "#7ad6b7"
+                                  },
+                                  {
+                                    "id": "0d371e2d-0e09-4f59-bcd2-6b6cdf86940a",
+                                    "name": "simple-adjective",
+                                    "type": "label",
+                                    "definition": "原级形容词 (simple-adjective)：形容词原形。",
+                                    "color": "#bd9acd"
+                                  },
+                                  {
+                                    "id": "4f8c453e-ac24-4aff-a1c8-30ab7f57cae7",
+                                    "name": "superlative-adjective",
+                                    "type": "label",
+                                    "definition": "最高级形容词 (superlative-adjective)：表示最高程度的形容词形式。",
+                                    "color": "#b9ce89"
+                                  }
+                                ]
+                              }
+                            ],
+                            "color": "#add18a"
+                          },
+                          {
+                            "id": "26a9419b-ef20-4afd-a530-9f0f6748ed39",
+                            "name": "adverb",
+                            "type": "label",
+                            "definition": "副词 (adverb)：修饰动词、形容词或其他副词的词。",
+                            "children": [
+                              {
+                                "id": "1a43ee29-6224-4fe5-a055-88c11550af08",
+                                "name": "ADVERB-TYPE",
+                                "type": "tier",
+                                "definition": null,
+                                "children": [
+                                  {
+                                    "id": "fba130e4-308b-4c38-b867-6447dc02831c",
+                                    "name": "descriptive-adverb",
+                                    "type": "label",
+                                    "definition": "描述性副词 (descriptive-adverb)：描述动作方式的副词。",
+                                    "color": "#78a678"
+                                  },
+                                  {
+                                    "id": "d64c0c53-9db0-4bbe-97f4-993d3bec9d84",
+                                    "name": "direction-adverb",
+                                    "type": "label",
+                                    "definition": "方向副词 (direction-adverb)：表示方向的副词。",
+                                    "color": "#b58aaf"
+                                  },
+                                  {
+                                    "id": "d597ff46-b41c-4e15-8e9c-03809657d157",
+                                    "name": "intensifying-adverb",
+                                    "type": "label",
+                                    "definition": "强化副词 (intensifying-adverb)：表示程度的副词。",
+                                    "color": "#94d38f"
+                                  },
+                                  {
+                                    "id": "fff6829d-b287-4cba-a373-240acfda5141",
+                                    "name": "interrogative-adverb",
+                                    "type": "label",
+                                    "definition": "疑问副词 (interrogative-adverb)：用于疑问的副词。",
+                                    "color": "#7cc67f"
+                                  },
+                                  {
+                                    "id": "2db77868-f568-44b0-b0e3-1289b0d4857c",
+                                    "name": "more-adverb",
+                                    "type": "label",
+                                    "definition": "more副词 (more-adverb)：比较级标记词more。",
+                                    "color": "#c988a1"
+                                  },
+                                  {
+                                    "id": "c89898cc-bfd3-4ca9-b917-f5cd78b03653",
+                                    "name": "most-adverb",
+                                    "type": "label",
+                                    "definition": "most副词 (most-adverb)：最高级标记词most。",
+                                    "color": "#90ad85"
+                                  },
+                                  {
+                                    "id": "60f12a0a-b115-41c5-9793-d5d8716a96e3",
+                                    "name": "noninterrogative-adverb",
+                                    "type": "label",
+                                    "definition": "非疑问副词 (noninterrogative-adverb)：非疑问用途的副词。",
+                                    "color": "#93d195"
+                                  },
+                                  {
+                                    "id": "ce130c6d-ccc3-40f4-a65e-69034d30aadd",
+                                    "name": "place-time-adverb",
+                                    "type": "label",
+                                    "definition": "时地副词 (place-time-adverb)：表示时间或地点的副词。",
+                                    "color": "#95b787"
+                                  },
+                                  {
+                                    "id": "895541a9-22ff-4ad5-9b94-d34553e1f9c9",
+                                    "name": "sufficiency-adverb",
+                                    "type": "label",
+                                    "definition": "充分性副词 (sufficiency-adverb)：表示充分程度的副词。",
+                                    "color": "#c0c6c8"
+                                  }
+                                ]
+                              }
+                            ],
+                            "color": "#cdd7b9"
+                          },
+                          {
+                            "id": "0449eddd-7332-4a1a-bb30-7b1311fc5425",
+                            "name": "cd",
+                            "type": "label",
+                            "definition": "基数词 (cd)：表示数量的词。",
+                            "color": "#99a5a4"
+                          },
+                          {
+                            "id": "2c0e1ba3-025c-4cdf-86d4-912ea5914e74",
+                            "name": "conjunction",
+                            "type": "label",
+                            "definition": "连词 (conjunction)：连接词语或句子的词。",
+                            "children": [
+                              {
+                                "id": "39313956-4fc0-4b77-8324-70f5442ff889",
+                                "name": "CONJUNCTION-TYPE",
+                                "type": "tier",
+                                "definition": null,
+                                "children": [
+                                  {
+                                    "id": "5aa725cb-8049-4ed5-a0f7-a4d8f1f84f9b",
+                                    "name": "coordinating-conjunction",
+                                    "type": "label",
+                                    "definition": "并列连词 (coordinating-conjunction)：连接同等地位成分的连词。",
+                                    "color": "#85a9c3"
+                                  },
+                                  {
+                                    "id": "036c88bb-39c8-47d7-84d8-6f1f0599f8f1",
+                                    "name": "subordinating-conjunction",
+                                    "type": "label",
+                                    "definition": "从属连词 (subordinating-conjunction)：引导从句的连词。",
+                                    "color": "#cdcb7a"
+                                  }
+                                ]
+                              }
+                            ],
+                            "color": "#d4d5c1"
+                          },
+                          {
+                            "id": "7b7f9dbd-e459-4a08-931f-f8772ec86e2e",
+                            "name": "determiner",
+                            "type": "label",
+                            "definition": "限定词 (determiner)：限定名词的词。",
+                            "children": [
+                              {
+                                "id": "21f9f26f-90b1-4e93-b648-97a99834787b",
+                                "name": "DETERMINER-TYPE",
+                                "type": "tier",
+                                "definition": null,
+                                "children": [
+                                  {
+                                    "id": "aae8b2f0-bbaa-47cf-a542-7597a20fde86",
+                                    "name": "interrogative-determiner",
+                                    "type": "label",
+                                    "definition": "疑问限定词 (interrogative-determiner)：用于疑问的限定词。",
+                                    "color": "#c9b7b5"
+                                  },
+                                  {
+                                    "id": "e9374ae0-a92c-4583-908f-37430fc9f04b",
+                                    "name": "noninterrogative-determiner",
+                                    "type": "label",
+                                    "definition": "非疑问限定词 (noninterrogative-determiner)：用于陈述的限定词。",
+                                    "color": "#b9a1d0"
+                                  }
+                                ]
+                              }
+                            ],
+                            "color": "#bdae81"
+                          },
+                          {
+                            "id": "863cdeab-1949-46cb-bd54-bd61f5a7d071",
+                            "name": "interrogative-word",
+                            "type": "label",
+                            "definition": "疑问词 (interrogative-word)：用于提问的词。",
+                            "children": [
+                              {
+                                "id": "ae353192-536c-45ba-acb3-e768d6c8f90e",
+                                "name": "INTERROGATIVE-WORD-TYPE",
+                                "type": "tier",
+                                "definition": null,
+                                "children": [
+                                  {
+                                    "id": "fa72ea31-fb1a-4473-a354-015f86397b0d",
+                                    "name": "wp",
+                                    "type": "label",
+                                    "definition": "疑问代词 (wp)：who, what等疑问代词。",
+                                    "color": "#9c85cd"
+                                  },
+                                  {
+                                    "id": "5f7feb9e-704b-4aea-aa9d-36de24772df5",
+                                    "name": "wrb",
+                                    "type": "label",
+                                    "definition": "疑问副词 (wrb)：where, when等疑问副词。",
+                                    "color": "#b596af"
+                                  }
+                                ]
+                              }
+                            ],
+                            "color": "#cd8487"
+                          },
+                          {
+                            "id": "7e636c6b-c69e-40ef-8164-6d6d72d02988",
+                            "name": "noun",
+                            "type": "label",
+                            "definition": "名词 (noun)：表示人、事物或概念的词。",
+                            "children": [
+                              {
+                                "id": "49d0991f-b26a-489e-b797-4adfb905bcb4",
+                                "name": "COMMON-TYPE",
+                                "type": "tier",
+                                "definition": null,
+                                "children": [
+                                  {
+                                    "id": "3e4062cd-3dd7-42ec-80e4-2a4250787660",
+                                    "name": "common-noun",
+                                    "type": "label",
+                                    "definition": "普通名词 (common-noun)：表示一般事物的名词。",
+                                    "children": [
+                                      {
+                                        "id": "f65d3f49-9726-44a0-bd90-cfa8819a68ee",
+                                        "name": "COMMON-NOUN-TYPE",
+                                        "type": "tier",
+                                        "definition": null,
+                                        "children": [
+                                          {
+                                            "id": "c96ad29e-a345-4897-86c8-4f8e06c76173",
+                                            "name": "count-noun",
+                                            "type": "label",
+                                            "definition": "可数名词 (count-noun)：可以计数的名词。",
+                                            "color": "#9c84af"
+                                          },
+                                          {
+                                            "id": "920a2231-c77d-4135-aa15-846d32cf0320",
+                                            "name": "noncount-noun",
+                                            "type": "label",
+                                            "definition": "不可数名词 (noncount-noun)：不可计数的名词。",
+                                            "color": "#8cc992"
+                                          }
+                                        ]
+                                      },
+                                      {
+                                        "id": "83c30680-550a-4e96-95d9-bf652243d518",
+                                        "name": "COMMON-NOUN-TYPE2",
+                                        "type": "tier",
+                                        "definition": null,
+                                        "children": [
+                                          {
+                                            "id": "2c4c3e48-a3b5-46e8-bb12-2edb72994c79",
+                                            "name": "abstract-noun",
+                                            "type": "label",
+                                            "definition": "抽象名词 (abstract-noun)：表示抽象概念的名词。",
+                                            "color": "#d2a8a7"
+                                          },
+                                          {
+                                            "id": "9ef12015-83db-418b-8c88-1c1598be5a47",
+                                            "name": "concrete-noun",
+                                            "type": "label",
+                                            "definition": "具体名词 (concrete-noun)：表示具体事物的名词。",
+                                            "color": "#ca81c9"
+                                          }
+                                        ]
+                                      },
+                                      {
+                                        "id": "66bdba7e-686c-4860-b3cf-c96a4dd72e46",
+                                        "name": "NOMINALISATION",
+                                        "type": "tier",
+                                        "definition": null,
+                                        "children": [
+                                          {
+                                            "id": "a0d025b2-c557-4203-ad35-38735057a051",
+                                            "name": "congruent",
+                                            "type": "label",
+                                            "definition": "一致性 (congruent)：使用常规的动词或形容词表达。",
+                                            "color": "#b079c8"
+                                          },
+                                          {
+                                            "id": "d83c7c71-7e13-44fe-b485-4505b2d32af9",
+                                            "name": "nominalisation",
+                                            "type": "label",
+                                            "definition": "名词化 (nominalisation)：将动词或形容词转化为名词形式。",
+                                            "color": "#c6b79a"
+                                          }
+                                        ]
+                                      }
+                                    ],
+                                    "color": "#96ce99"
+                                  },
+                                  {
+                                    "id": "addbc954-a1d5-4465-97bf-c7c67bb1f688",
+                                    "name": "proper-noun",
+                                    "type": "label",
+                                    "definition": "专有名词 (proper-noun)：表示特定事物的名词。",
+                                    "color": "#c9a3cb"
+                                  }
+                                ]
+                              },
+                              {
+                                "id": "33544ac5-583c-4da0-9488-788d7c90e0ba",
+                                "name": "NOUN-TYPE",
+                                "type": "tier",
+                                "definition": null,
+                                "children": [
+                                  {
+                                    "id": "629cdc1e-fe31-4189-8fac-fd5b9bf00d50",
+                                    "name": "plural-noun",
+                                    "type": "label",
+                                    "definition": "复数名词 (plural-noun)：表示复数的名词形式。",
+                                    "color": "#9984b1"
+                                  },
+                                  {
+                                    "id": "911b3bfd-a4f3-4497-9615-a969dd49e78e",
+                                    "name": "singular-noun",
+                                    "type": "label",
+                                    "definition": "单数名词 (singular-noun)：表示单数的名词形式。",
+                                    "color": "#9c93b1"
+                                  }
+                                ]
+                              }
+                            ],
+                            "color": "#80cfdb"
+                          },
+                          {
+                            "id": "ae3485cb-7cdf-46b6-84a6-139feb901169",
+                            "name": "pos",
+                            "type": "label",
+                            "definition": "词性标记 (pos)：词性标注。",
+                            "color": "#a078c3"
+                          },
+                          {
+                            "id": "08f314b0-032b-4365-8340-fbeeecb482bd",
+                            "name": "preposition",
+                            "type": "label",
+                            "definition": "介词 (preposition)：表示关系的词。",
+                            "children": [
+                              {
+                                "id": "d00420e1-5740-405c-b08f-cc746af4d1fa",
+                                "name": "PREPOSITION-TYPE",
+                                "type": "tier",
+                                "definition": null,
+                                "children": [
+                                  {
+                                    "id": "3e22d051-60ed-4df2-a020-1179d5688cf6",
+                                    "name": "normal-prep",
+                                    "type": "label",
+                                    "definition": "普通介词 (normal-prep)：一般的介词。",
+                                    "color": "#93c588"
+                                  },
+                                  {
+                                    "id": "08ac9714-a182-41e2-af40-75a2f8b44247",
+                                    "name": "to-prep",
+                                    "type": "label",
+                                    "definition": "to介词 (to-prep)：特殊的to介词。",
+                                    "color": "#db7cc6"
+                                  }
+                                ]
+                              }
+                            ],
+                            "color": "#c89f96"
+                          },
+                          {
+                            "id": "a97c8d98-df31-431d-b4e0-1fa5111aa734",
+                            "name": "pronoun",
+                            "type": "label",
+                            "definition": "代词 (pronoun)：代替名词的词。",
+                            "children": [
+                              {
+                                "id": "d89ffc13-2249-4062-a004-062110e0c443",
+                                "name": "PRONOUN-TYPE2",
+                                "type": "tier",
+                                "definition": null,
+                                "children": [
+                                  {
+                                    "id": "bc2ecaee-8a97-4f8a-a5ce-264dd1db2e97",
+                                    "name": "interrogative-pronoun",
+                                    "type": "label",
+                                    "definition": "疑问代词 (interrogative-pronoun)：用于疑问的代词。",
+                                    "color": "#c1afa5"
+                                  },
+                                  {
+                                    "id": "f7191453-a8d3-4f68-a83a-eb371db99850",
+                                    "name": "noninterrogative-pronoun",
+                                    "type": "label",
+                                    "definition": "非疑问代词 (noninterrogative-pronoun)：用于陈述的代词。",
+                                    "children": [
+                                      {
+                                        "id": "99b3c093-c51a-4902-8b6d-44f9df735f06",
+                                        "name": "PRONOUN-TYPE",
+                                        "type": "tier",
+                                        "definition": null,
+                                        "children": [
+                                          {
+                                            "id": "e0557f26-9a62-4fec-ac3a-6dbc3d94c0d7",
+                                            "name": "plural-pronoun",
+                                            "type": "label",
+                                            "definition": "复数代词 (plural-pronoun)：表示复数的代词。",
+                                            "color": "#c7b7cb"
+                                          },
+                                          {
+                                            "id": "79cbbd64-9f45-4626-b635-a0908bc59990",
+                                            "name": "singular-pronoun",
+                                            "type": "label",
+                                            "definition": "单数代词 (singular-pronoun)：表示单数的代词。",
+                                            "color": "#a5b77d"
+                                          }
+                                        ]
+                                      }
+                                    ],
+                                    "color": "#84ac8d"
+                                  },
+                                  {
+                                    "id": "d1b241ef-1a9c-4d0b-914c-5bf0ae568e6c",
+                                    "name": "three-pronoun",
+                                    "type": "label",
+                                    "definition": "第三人称代词 (three-pronoun)：第三人称代词。",
+                                    "color": "#b7bba6"
+                                  }
+                                ]
+                              }
+                            ],
+                            "color": "#bbbc9d"
+                          },
+                          {
+                            "id": "bac4556f-a716-4954-8245-891d30401734",
+                            "name": "verb",
+                            "type": "label",
+                            "definition": "动词 (verb)：表示动作或状态的词。",
+                            "children": [
+                              {
+                                "id": "8f87843a-8ee3-43aa-aa01-74526467e155",
+                                "name": "VERB-TYPE2",
+                                "type": "tier",
+                                "definition": null,
+                                "children": [
+                                  {
+                                    "id": "37e8d2d6-0106-42ba-8ff3-fef94a9b64be",
+                                    "name": "lexical-verb",
+                                    "type": "label",
+                                    "definition": "实义动词 (lexical-verb)：有实际意义的动词。",
+                                    "children": [
+                                      {
+                                        "id": "58f92c28-8a4f-491b-8a2a-7f6593f2e1fb",
+                                        "name": "VERB-TYPE",
+                                        "type": "tier",
+                                        "definition": null,
+                                        "children": [
+                                          {
+                                            "id": "f8d3847e-913a-4a01-bb30-da12bdf99d4d",
+                                            "name": "3ps-verb",
+                                            "type": "label",
+                                            "definition": "第三人称单数动词 (3ps-verb)：第三人称单数现在时动词形式。",
+                                            "color": "#b0abaa"
+                                          },
+                                          {
+                                            "id": "fbc2e5e4-df6a-4c8d-8b3b-744bb837aa7c",
+                                            "name": "infinitive-verb",
+                                            "type": "label",
+                                            "definition": "不定式动词 (infinitive-verb)：动词原形。",
+                                            "color": "#a9977c"
+                                          },
+                                          {
+                                            "id": "4910d07a-ff96-4f10-a17e-5b7405ae2151",
+                                            "name": "past-participle-verb",
+                                            "type": "label",
+                                            "definition": "过去分词动词 (past-participle-verb)：过去分词形式。",
+                                            "color": "#7fb5c6"
+                                          },
+                                          {
+                                            "id": "a47ebe91-fc8d-4aea-bfc8-8b3d82d2c2c5",
+                                            "name": "past-verb",
+                                            "type": "label",
+                                            "definition": "过去式动词 (past-verb)：动词过去式。",
+                                            "color": "#9986ce"
+                                          },
+                                          {
+                                            "id": "c5578972-7021-4b49-aedd-b7c4ddb42c74",
+                                            "name": "present-participle-verb",
+                                            "type": "label",
+                                            "definition": "现在分词动词 (present-participle-verb)：现在分词形式。",
+                                            "color": "#9bbbb7"
+                                          },
+                                          {
+                                            "id": "f7319ae5-174b-4f68-a1a6-172ec1de57c6",
+                                            "name": "present-verb",
+                                            "type": "label",
+                                            "definition": "现在式动词 (present-verb)：动词现在式。",
+                                            "color": "#85bbd1"
+                                          }
+                                        ]
+                                      }
+                                    ],
+                                    "color": "#c37d8e"
+                                  },
+                                  {
+                                    "id": "44cd83f0-af1b-41ca-8db3-931014cc1d0a",
+                                    "name": "modal-aux",
+                                    "type": "label",
+                                    "definition": "情态助动词 (modal-aux)：表示情态的助动词。",
+                                    "color": "#b0969f"
+                                  }
+                                ]
+                              }
+                            ],
+                            "color": "#b1a3ae"
+                          },
+                          {
+                            "id": "c7316f4d-3dd5-4ecd-8aec-e4998bc52f71",
+                            "name": "yes-no",
+                            "type": "label",
+                            "definition": "是否词 (yes-no)：表示肯定或否定的词。",
+                            "color": "#a2bda5"
+                          }
+                        ]
+                      }
+                    ],
+                    "color": "#b19699"
+                  }
+                ]
+              }
+            ],
+            "color": "#8ebe90"
+          },
+          {
+            "id": "fbf8061d-8635-4afd-9880-efa6110c585a",
+            "name": "unkn",
+            "type": "label",
+            "definition": "未知 (unkn)：无法确定类别的语言单位。",
+            "color": "#dc90d1"
+          }
+        ]
+      }
+    ],
+    "color": "#7c9b7c"
+  },
+  "createdAt": "2025-12-12T13:52:44.955791",
+  "updatedAt": "2025-12-12T13:52:44.955791"
+}

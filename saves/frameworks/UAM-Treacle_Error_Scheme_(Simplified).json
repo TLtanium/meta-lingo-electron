@@ -1,0 +1,540 @@
+{
+  "id": "UAM-Treacle_Error_Scheme_(Simplified)",
+  "name": "UAM-Treacle Error Scheme (Simplified)",
+  "category": "UAM - Error Analysis",
+  "description": "错误 (error)：语言学习者在第二语言使用过程中出现的偏离目标语言规范的现象，是错误分析的核心标注对象。",
+  "root": {
+    "id": "11dd1dac-1c25-4cf5-a0a3-357eba503cbb",
+    "name": "error",
+    "type": "label",
+    "definition": "错误 (error)：语言学习者在第二语言使用过程中出现的偏离目标语言规范的现象，是错误分析的核心标注对象。",
+    "children": [
+      {
+        "id": "85a5cad0-50aa-48a4-afc4-289c58b976c1",
+        "name": "MAIN-ERROR-TYPE",
+        "type": "tier",
+        "definition": null,
+        "children": [
+          {
+            "id": "a800b1ce-edf8-4335-8640-586932ce44f2",
+            "name": "grammar-error",
+            "type": "label",
+            "definition": "语法错误 (grammar-error)：违反目标语言语法规则的错误，按语法单位进行细分。",
+            "children": [
+              {
+                "id": "e2128d2c-df24-41fe-bb11-8b789773e610",
+                "name": "GRAMMATICAL-UNIT",
+                "type": "tier",
+                "definition": null,
+                "children": [
+                  {
+                    "id": "c8a7ec42-7d4a-44c5-bc5e-736e1698a94a",
+                    "name": "adjectival-phrase-error",
+                    "type": "label",
+                    "definition": "形容词短语错误 (adjectival-phrase-error)：形容词短语构成、修饰关系或位置使用错误。",
+                    "color": "#c8cd8f"
+                  },
+                  {
+                    "id": "02c1e02b-f62e-4983-9e3c-d65a82d87561",
+                    "name": "adverb-phrase-error",
+                    "type": "label",
+                    "definition": "副词短语错误 (adverb-phrase-error)：副词短语形式、功能或位置使用错误。",
+                    "color": "#8ad1bd"
+                  },
+                  {
+                    "id": "f42d997a-1d16-44e4-bd89-5371a3f408ee",
+                    "name": "clause-complex-error",
+                    "type": "label",
+                    "definition": "复合句错误 (clause-complex-error)：复合句结构、连接词使用或从句关系错误。",
+                    "color": "#aec4bb"
+                  },
+                  {
+                    "id": "5c3fb018-0542-4acb-8b66-feabd0e31773",
+                    "name": "clause-error",
+                    "type": "label",
+                    "definition": "分句错误 (clause-error)：单个分句内部的语法结构错误。",
+                    "color": "#9c9fbd"
+                  },
+                  {
+                    "id": "597fa7d5-c0ec-4464-b50f-77b990635fad",
+                    "name": "morphological-error",
+                    "type": "label",
+                    "definition": "形态错误 (morphological-error)：词汇形态变化错误，如时态、语态、单复数等。",
+                    "color": "#8fd2bf"
+                  },
+                  {
+                    "id": "f8bc07eb-cda1-4b61-ac7c-d31723c5f270",
+                    "name": "np-error",
+                    "type": "label",
+                    "definition": "名词短语错误 (np-error)：名词短语构成相关的各类错误。",
+                    "children": [
+                      {
+                        "id": "2cd607b7-66da-4a90-822a-e2c3e496a88a",
+                        "name": "NOM-GROUP-ERRORS-TYPE",
+                        "type": "tier",
+                        "definition": null,
+                        "children": [
+                          {
+                            "id": "75ba6a2d-b73a-481d-b990-08139ee4904d",
+                            "name": "determiner-error",
+                            "type": "label",
+                            "definition": "限定词错误 (determiner-error)：冠词、指示词、量词等限定词使用错误。",
+                            "color": "#b6aec0"
+                          },
+                          {
+                            "id": "2247ecfe-de85-4b80-9680-3fb0d48b9105",
+                            "name": "head-error",
+                            "type": "label",
+                            "definition": "中心词错误 (head-error)：名词短语中心名词选择或形式错误。",
+                            "color": "#81d8d5"
+                          },
+                          {
+                            "id": "04bdb495-490c-4ae5-a7b9-c6b40e4797be",
+                            "name": "postmodifier-error",
+                            "type": "label",
+                            "definition": "后置修饰语错误 (postmodifier-error)：名词后置修饰成分使用错误。",
+                            "color": "#88809f"
+                          },
+                          {
+                            "id": "d0f8ee75-9c6e-41d4-a789-0e2a4aee049c",
+                            "name": "premodifier-error",
+                            "type": "label",
+                            "definition": "前置修饰语错误 (premodifier-error)：名词前置修饰成分使用错误。",
+                            "color": "#bed2aa"
+                          },
+                          {
+                            "id": "f04ad109-694c-4697-9d7c-864a8710378d",
+                            "name": "pronoun--error",
+                            "type": "label",
+                            "definition": "代词错误 (pronoun--error)：代词形式、指代关系或位置错误。",
+                            "color": "#ad8b88"
+                          },
+                          {
+                            "id": "fa341e7c-1892-4608-9a3b-513e682af7e3",
+                            "name": "proper-name--error",
+                            "type": "label",
+                            "definition": "专有名词错误 (proper-name--error)：专有名词拼写、大小写或形式错误。",
+                            "color": "#b2acc8"
+                          },
+                          {
+                            "id": "d559d6b8-80d4-4588-a9cd-ab216523f54e",
+                            "name": "unhandled-np--error",
+                            "type": "label",
+                            "definition": "未处理名词短语错误 (unhandled-np--error)：难以归类的名词短语错误。",
+                            "color": "#d99cc7"
+                          }
+                        ]
+                      }
+                    ],
+                    "color": "#7fb2a9"
+                  },
+                  {
+                    "id": "025b65fd-5768-4fa6-b06d-6b8575826d4e",
+                    "name": "other-grammatical-error",
+                    "type": "label",
+                    "definition": "其他语法错误 (other-grammatical-error)：不属于上述具体类别的其他语法错误。",
+                    "color": "#cdcdc6"
+                  },
+                  {
+                    "id": "63c0dade-78ef-4ede-80d0-3f6750dcab94",
+                    "name": "prep-phrase-error",
+                    "type": "label",
+                    "definition": "介词短语错误 (prep-phrase-error)：介词短语构成、介词选择或位置错误。",
+                    "color": "#998687"
+                  },
+                  {
+                    "id": "deac17f5-58f9-45ae-9c0c-0d5445e9c963",
+                    "name": "vp-error",
+                    "type": "label",
+                    "definition": "动词短语错误 (vp-error)：动词短语构成、时态、语态或动词搭配错误。",
+                    "color": "#b783bf"
+                  }
+                ]
+              }
+            ],
+            "color": "#d886d2"
+          },
+          {
+            "id": "480d7d3e-8e78-4dfb-b206-7b5b79324a53",
+            "name": "lexical-error",
+            "type": "label",
+            "definition": "词汇错误 (lexical-error)：词汇选择、拼写或词汇形式使用方面的错误。",
+            "children": [
+              {
+                "id": "3750d57e-1c7c-4cef-9651-305268592a6b",
+                "name": "LEXICAL-ERROR-TYPE2",
+                "type": "tier",
+                "definition": null,
+                "children": [
+                  {
+                    "id": "89898517-a51e-4bc3-a0cf-52cc197bc1cd",
+                    "name": "lexical-intralanguage-error",
+                    "type": "label",
+                    "definition": "语言内词汇错误 (lexical-intralanguage-error)：在目标语言系统内部产生的词汇错误。",
+                    "children": [
+                      {
+                        "id": "c41b6df6-f52e-4d02-8967-e4e50122599f",
+                        "name": "LEXICAL-ERROR-TYPE",
+                        "type": "tier",
+                        "definition": null,
+                        "children": [
+                          {
+                            "id": "509179dc-4cb7-461e-8235-ec69e9f03ff5",
+                            "name": "spelling-error",
+                            "type": "label",
+                            "definition": "拼写错误 (spelling-error)：词汇拼写错误。",
+                            "color": "#a4bfcb"
+                          },
+                          {
+                            "id": "c0646912-fa1f-4c93-85ef-36ed173e3be9",
+                            "name": "wordchoice-error",
+                            "type": "label",
+                            "definition": "词汇选择错误 (wordchoice-error)：词汇选择不当或语义搭配错误。",
+                            "color": "#c88eaa"
+                          }
+                        ]
+                      }
+                    ],
+                    "color": "#888bd4"
+                  },
+                  {
+                    "id": "6397197d-56ec-41c8-aa54-7ef808307836",
+                    "name": "lexical-transfer-error",
+                    "type": "label",
+                    "definition": "词汇迁移错误 (lexical-transfer-error)：受母语或其他语言影响产生的词汇错误。",
+                    "children": [
+                      {
+                        "id": "b02eb94a-4c06-435b-9d92-e5e0c97272c5",
+                        "name": "LEXICAL-TRANSFER-ERROR-TYPE",
+                        "type": "tier",
+                        "definition": null,
+                        "children": [
+                          {
+                            "id": "986c325a-bd7b-4965-a9ee-5deaa92fc48d",
+                            "name": "transfer-where-similar-exists",
+                            "type": "label",
+                            "definition": "相似词存在时的迁移 (transfer-where-similar-exists)：目标语言中存在相似词汇时的迁移错误。",
+                            "children": [
+                              {
+                                "id": "a240bce4-4b9b-44de-a235-8f5f84249a2e",
+                                "name": "TRANSFER-WHERE-SIMILAR-EXISTS-TYPE",
+                                "type": "tier",
+                                "definition": null,
+                                "children": [
+                                  {
+                                    "id": "92e0ddcd-1fa4-4ee9-b74c-6e3c1b310c2f",
+                                    "name": "false-friend",
+                                    "type": "label",
+                                    "definition": "假朋友词 (false-friend)：形似但意义不同的词汇使用错误。",
+                                    "color": "#7a80da"
+                                  },
+                                  {
+                                    "id": "81c4141b-d032-487f-b23c-dc4f10068c06",
+                                    "name": "malformation",
+                                    "type": "label",
+                                    "definition": "词汇变形错误 (malformation)：词汇形态构成错误。",
+                                    "color": "#7ec482"
+                                  },
+                                  {
+                                    "id": "05831603-dc71-4d3b-89c7-83c04123e5bd",
+                                    "name": "transferred-spelling",
+                                    "type": "label",
+                                    "definition": "迁移拼写 (transferred-spelling)：按母语拼写规则拼写目标语言词汇。",
+                                    "color": "#d57d8a"
+                                  }
+                                ]
+                              }
+                            ],
+                            "color": "#797cbb"
+                          },
+                          {
+                            "id": "88ddede7-be19-4bbf-8487-9d7369a67806",
+                            "name": "word-creation",
+                            "type": "label",
+                            "definition": "词汇创造 (word-creation)：学习者创造新词的现象。",
+                            "children": [
+                              {
+                                "id": "2cf6ffb9-4964-4e9e-a41e-e4a1aaf5bc2a",
+                                "name": "WORD-CREATION-TYPE",
+                                "type": "tier",
+                                "definition": null,
+                                "children": [
+                                  {
+                                    "id": "dab0bd99-066a-47d2-836c-3ea6eee9c430",
+                                    "name": "borrowing",
+                                    "type": "label",
+                                    "definition": "借用 (borrowing)：直接借用母语词汇。",
+                                    "color": "#84c2cd"
+                                  },
+                                  {
+                                    "id": "39dfd036-6d8c-446d-8f47-a4f9c3611bac",
+                                    "name": "coinage",
+                                    "type": "label",
+                                    "definition": "造词 (coinage)：自创新词汇。",
+                                    "color": "#827988"
+                                  }
+                                ]
+                              }
+                            ],
+                            "color": "#d379b7"
+                          }
+                        ]
+                      }
+                    ],
+                    "color": "#8ed8a3"
+                  }
+                ]
+              }
+            ],
+            "color": "#d9b69c"
+          },
+          {
+            "id": "bc7011a3-52f3-443b-9e42-3215d9f6eabe",
+            "name": "phrasing-error",
+            "type": "label",
+            "definition": "措辞错误 (phrasing-error)：短语层面的表达方式错误。",
+            "children": [
+              {
+                "id": "8cda262f-fe9c-4af9-94ff-8efec37bda4d",
+                "name": "PHRASING-ERROR-TYPE",
+                "type": "tier",
+                "definition": null,
+                "children": [
+                  {
+                    "id": "76965e95-4843-466b-af56-98a9e7bf9464",
+                    "name": "other-phrasing-error",
+                    "type": "label",
+                    "definition": "其他措辞错误 (other-phrasing-error)：难以具体分类的措辞错误。",
+                    "color": "#d6d795"
+                  },
+                  {
+                    "id": "35fdf44a-ecb6-40d3-b7c2-0f7e660bf6f2",
+                    "name": "transferred-phrasing",
+                    "type": "label",
+                    "definition": "迁移措辞 (transferred-phrasing)：受母语表达习惯影响的措辞错误。",
+                    "color": "#78ba99"
+                  }
+                ]
+              }
+            ],
+            "color": "#ccacb1"
+          },
+          {
+            "id": "cf88042f-5229-43f3-980f-4dc707e04cd6",
+            "name": "pragmatic-error",
+            "type": "label",
+            "definition": "语用错误 (pragmatic-error)：语言使用在语境、语篇、交际等层面的错误。",
+            "children": [
+              {
+                "id": "f92aeb45-5025-4acf-a260-0089d8107021",
+                "name": "PRAGMATIC-ERROR-TYPE",
+                "type": "tier",
+                "definition": null,
+                "children": [
+                  {
+                    "id": "d9620dc7-10ce-4095-8877-257081b9c638",
+                    "name": "coherence-error",
+                    "type": "label",
+                    "definition": "连贯性错误 (coherence-error)：语篇逻辑连贯性方面的错误。",
+                    "children": [
+                      {
+                        "id": "9cacc180-4cff-41be-bd7c-bdf5fecb925a",
+                        "name": "COHERENCE-ERROR-TYPE",
+                        "type": "tier",
+                        "definition": null,
+                        "children": [
+                          {
+                            "id": "8688c67d-c4a3-4908-9196-ffb62020d73e",
+                            "name": "incoherent-connector-for-context",
+                            "type": "label",
+                            "definition": "语境不当连接词 (incoherent-connector-for-context)：连接词与语境不符。",
+                            "color": "#d4c3d8"
+                          },
+                          {
+                            "id": "b4919962-45b1-4988-8755-62522c4c6747",
+                            "name": "incomplete-sentence",
+                            "type": "label",
+                            "definition": "不完整句子 (incomplete-sentence)：句子结构不完整。",
+                            "color": "#b078a3"
+                          },
+                          {
+                            "id": "1336142e-d96a-40d8-965d-7747c2474aaf",
+                            "name": "incorrect-modal-for-context",
+                            "type": "label",
+                            "definition": "语境不当情态 (incorrect-modal-for-context)：情态动词与语境不符。",
+                            "color": "#79a0aa"
+                          },
+                          {
+                            "id": "b001af72-0559-4fb1-b53d-3ffabcf4f253",
+                            "name": "incorrect-tense-for-context",
+                            "type": "label",
+                            "definition": "语境不当时态 (incorrect-tense-for-context)：时态与语境不符。",
+                            "color": "#bdcec0"
+                          },
+                          {
+                            "id": "aaf4202a-ee21-4d66-9b9a-e08aab2a30bd",
+                            "name": "other-coherence-error",
+                            "type": "label",
+                            "definition": "其他连贯性错误 (other-coherence-error)：其他影响语篇连贯的错误。",
+                            "color": "#8cc6c2"
+                          }
+                        ]
+                      }
+                    ],
+                    "color": "#d9c793"
+                  },
+                  {
+                    "id": "6b947c19-e5b9-4935-8b05-d89aea1a112f",
+                    "name": "cohesion-error",
+                    "type": "label",
+                    "definition": "衔接性错误 (cohesion-error)：语篇衔接手段使用错误。",
+                    "children": [
+                      {
+                        "id": "8023daf2-369c-4a45-aea0-5bc01f44a62a",
+                        "name": "COHESION-ERROR-TYPE",
+                        "type": "tier",
+                        "definition": null,
+                        "children": [
+                          {
+                            "id": "ffc699f1-f553-4c15-aca0-e86d033a3729",
+                            "name": "ellipsis-error",
+                            "type": "label",
+                            "definition": "省略错误 (ellipsis-error)：省略结构使用错误。",
+                            "color": "#d29ac3"
+                          },
+                          {
+                            "id": "cb5d4990-95f4-40e2-adcd-ece076436b2f",
+                            "name": "reference-error",
+                            "type": "label",
+                            "definition": "指代错误 (reference-error)：指代关系不当或不明确。",
+                            "color": "#a28a8c"
+                          },
+                          {
+                            "id": "692455e0-f7be-4fb0-b4a6-0fcd07440770",
+                            "name": "substitution-error",
+                            "type": "label",
+                            "definition": "替代错误 (substitution-error)：替代手段使用错误。",
+                            "color": "#9ab18c"
+                          }
+                        ]
+                      }
+                    ],
+                    "color": "#9997c5"
+                  },
+                  {
+                    "id": "969e7444-a11a-4e4d-af28-4cb33b932fb7",
+                    "name": "other-pragmatic-error",
+                    "type": "label",
+                    "definition": "其他语用错误 (other-pragmatic-error)：难以具体分类的语用层面错误。",
+                    "color": "#8dadb6"
+                  },
+                  {
+                    "id": "6b9c6f6e-e005-4ab4-ada1-8c1f56e096bc",
+                    "name": "register-error",
+                    "type": "label",
+                    "definition": "语域错误 (register-error)：语言使用的正式程度或语域选择错误。",
+                    "children": [
+                      {
+                        "id": "3ce8a7c8-6135-4490-b014-5e467efd35e7",
+                        "name": "REGISTER-ERROR-TYPE",
+                        "type": "tier",
+                        "definition": null,
+                        "children": [
+                          {
+                            "id": "da0f633e-4411-4bcc-803f-75cad8acb5f7",
+                            "name": "contraction-in-academic-writing",
+                            "type": "label",
+                            "definition": "学术写作中的缩略 (contraction-in-academic-writing)：在正式学术写作中使用缩略形式。",
+                            "color": "#96b1b9"
+                          },
+                          {
+                            "id": "fba3185b-cfc1-4c64-ac77-2d510e24cd4d",
+                            "name": "other-register-error",
+                            "type": "label",
+                            "definition": "其他语域错误 (other-register-error)：其他语域不当使用错误。",
+                            "color": "#c2d3d0"
+                          }
+                        ]
+                      }
+                    ],
+                    "color": "#bba5d3"
+                  }
+                ]
+              }
+            ],
+            "color": "#8cc48f"
+          },
+          {
+            "id": "e94cf0a9-a3a5-4513-bc42-296fb9dfe872",
+            "name": "punctuation-error",
+            "type": "label",
+            "definition": "标点错误 (punctuation-error)：标点符号使用错误。",
+            "children": [
+              {
+                "id": "ab6757af-649c-450a-ac96-82c8648657e3",
+                "name": "PUNCTUATION-ERROR-TYPE",
+                "type": "tier",
+                "definition": null,
+                "children": [
+                  {
+                    "id": "384a760c-b228-4c62-a340-e95dfaa714c7",
+                    "name": "capitalisation-required",
+                    "type": "label",
+                    "definition": "需要大写 (capitalisation-required)：应该大写但未大写。",
+                    "color": "#9ad391"
+                  },
+                  {
+                    "id": "cc593200-61ac-4cb9-854f-8107b496a5c6",
+                    "name": "punctuation-inserted-not-required",
+                    "type": "label",
+                    "definition": "添加不必要标点 (punctuation-inserted-not-required)：添加了不需要的标点符号。",
+                    "color": "#bca67e"
+                  },
+                  {
+                    "id": "e956a761-8e22-4203-b7a2-484a39254ea6",
+                    "name": "punctuation-required-not-present",
+                    "type": "label",
+                    "definition": "缺少必要标点 (punctuation-required-not-present)：缺少必要的标点符号。",
+                    "color": "#7b89d4"
+                  },
+                  {
+                    "id": "38a1ec63-6e03-4d20-9219-8a34d0e51a0a",
+                    "name": "space-separator-error",
+                    "type": "label",
+                    "definition": "空格分隔错误 (space-separator-error)：空格使用错误。",
+                    "color": "#cac68f"
+                  },
+                  {
+                    "id": "e5d1ffd4-2616-4a5c-8a7c-c7c4960987c5",
+                    "name": "unnecessary-capitalisation",
+                    "type": "label",
+                    "definition": "不必要大写 (unnecessary-capitalisation)：不应大写但大写了。",
+                    "color": "#c2897c"
+                  },
+                  {
+                    "id": "c9a5f1c6-54d0-4b40-b58f-297cdb607a68",
+                    "name": "wrong-punctuation",
+                    "type": "label",
+                    "definition": "错误标点 (wrong-punctuation)：使用了错误的标点符号。",
+                    "color": "#cbda93"
+                  }
+                ]
+              }
+            ],
+            "color": "#aec895"
+          },
+          {
+            "id": "72ec24a0-70b9-4338-b2b5-31c2d1d22850",
+            "name": "uncodable-error",
+            "type": "label",
+            "definition": "无法编码错误 (uncodable-error)：由于各种原因无法准确分类或编码的错误。",
+            "color": "#d67f93"
+          }
+        ]
+      }
+    ],
+    "color": "#c79c7e"
+  },
+  "createdAt": "2025-12-12T13:52:44.897526",
+  "updatedAt": "2025-12-12T13:52:44.897526"
+}

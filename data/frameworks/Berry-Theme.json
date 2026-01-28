@@ -1,0 +1,387 @@
+{
+  "id": "Berry-Theme",
+  "name": "Berry-Theme",
+  "category": "UAM - Grammar",
+  "description": "Berry主题系统 (Berry Theme)：这是一个基于系统功能语言学的主题分析框架，用于分析小句的信息结构和语篇功能。",
+  "root": {
+    "id": "df69fea8-dbc2-457d-93c1-b211c1918778",
+    "name": "element",
+    "type": "label",
+    "definition": "Berry主题系统 (Berry Theme)：这是一个基于系统功能语言学的主题分析框架，用于分析小句的信息结构和语篇功能。",
+    "children": [
+      {
+        "id": "2c876f9b-d0bc-4229-a3bd-d29752a91fd5",
+        "name": "THEME-TYPE",
+        "type": "tier",
+        "definition": null,
+        "children": [
+          {
+            "id": "65c7bcd4-389a-479e-85e0-3c2f570221a5",
+            "name": "rheme",
+            "type": "label",
+            "definition": "述题 (rheme)：提供关于主题的新信息的小句部分，通常跟在主题之后。",
+            "color": "#db7fd2"
+          },
+          {
+            "id": "8a4de06b-ec46-40ae-ab25-6b4e617c004c",
+            "name": "sentence",
+            "type": "label",
+            "definition": "句子 (sentence)：完整的句法单位。",
+            "color": "#c5bc7f"
+          },
+          {
+            "id": "0eda69bb-212b-4fa6-943d-15adfe64cfe8",
+            "name": "theme",
+            "type": "label",
+            "definition": "主题 (theme)：小句的出发点，通常是小句讨论的内容或话题。",
+            "children": [
+              {
+                "id": "35892c38-1e35-4ad4-b58a-dda3ac1c7945",
+                "name": "THEME1-TYPE",
+                "type": "tier",
+                "definition": null,
+                "children": [
+                  {
+                    "id": "f184307d-0783-4ebb-b318-09335a68eaf0",
+                    "name": "theme-component",
+                    "type": "label",
+                    "definition": "主题成分 (theme-component)：主题的构成要素。",
+                    "children": [
+                      {
+                        "id": "a913a70f-baa2-48bd-b350-41bf9bb04b5d",
+                        "name": "THEME-COMPONENT-TYPE",
+                        "type": "tier",
+                        "definition": null,
+                        "children": [
+                          {
+                            "id": "384cf2f1-58f1-4856-a4f0-1b1cec7a6a84",
+                            "name": "conjunction",
+                            "type": "label",
+                            "definition": "连接词 (conjunction)：连接小句与小句之间逻辑关系的词语，属于语篇主题的一种。",
+                            "children": [
+                              {
+                                "id": "0f1edf4e-fad9-4d5a-940b-fa7d2526e75b",
+                                "name": "TEXTUAL-THEME-TYPE",
+                                "type": "tier",
+                                "definition": null,
+                                "children": [
+                                  {
+                                    "id": "03cac9db-8003-42af-b030-8da73223cdc5",
+                                    "name": "arguing",
+                                    "type": "label",
+                                    "definition": "论辩类 (arguing)：表达论证关系的语篇主题。",
+                                    "children": [
+                                      {
+                                        "id": "db943dfb-bca9-4a72-a5ee-4a33b38f933f",
+                                        "name": "ARGUING-TYPE",
+                                        "type": "tier",
+                                        "definition": null,
+                                        "children": [
+                                          {
+                                            "id": "cc9f41fa-9703-4103-87f6-cd07159d08fa",
+                                            "name": "adversative",
+                                            "type": "label",
+                                            "definition": "逆转 (adversative)：表示对比或反对的关系，如\"但是\"、\"然而\"。",
+                                            "color": "#8682bf"
+                                          },
+                                          {
+                                            "id": "ccc50b5d-74dd-4bde-b233-93db96520832",
+                                            "name": "alternatively",
+                                            "type": "label",
+                                            "definition": "替代 (alternatively)：表示选择或替代关系。",
+                                            "color": "#a784a9"
+                                          },
+                                          {
+                                            "id": "f3a695ac-2d98-4971-8ce6-2ce6d45e4014",
+                                            "name": "concessive",
+                                            "type": "label",
+                                            "definition": "让步 (concessive)：表示让步关系，如\"尽管\"、\"虽然\"。",
+                                            "color": "#7bd18c"
+                                          },
+                                          {
+                                            "id": "7588d470-c4be-42cd-8e29-9d5643188bcc",
+                                            "name": "consequence",
+                                            "type": "label",
+                                            "definition": "结果 (consequence)：表示因果或结果关系。",
+                                            "color": "#c8c9a1"
+                                          },
+                                          {
+                                            "id": "f5f735d5-25a7-4d36-a577-e100f2f84827",
+                                            "name": "corrective",
+                                            "type": "label",
+                                            "definition": "纠正 (corrective)：表示纠正或修正关系，如\"而是\"、\"相反\"。",
+                                            "color": "#907993"
+                                          }
+                                        ]
+                                      }
+                                    ],
+                                    "color": "#a478a0"
+                                  },
+                                  {
+                                    "id": "e3bd016b-9805-4f86-a66f-a22d73ad9bed",
+                                    "name": "extending",
+                                    "type": "label",
+                                    "definition": "扩展类 (extending)：表达扩展关系的语篇主题。",
+                                    "children": [
+                                      {
+                                        "id": "589ba1e3-7a01-480a-8be6-86d6f4b67af2",
+                                        "name": "EXTENDING-TYPE",
+                                        "type": "tier",
+                                        "definition": null,
+                                        "children": [
+                                          {
+                                            "id": "99611539-e909-461e-bada-cfa850995984",
+                                            "name": "actuality",
+                                            "type": "label",
+                                            "definition": "现实性 (actuality)：表示实际情况。",
+                                            "color": "#86b196"
+                                          },
+                                          {
+                                            "id": "997d8d74-afc0-4831-8d47-0ddb3e43fa48",
+                                            "name": "addition",
+                                            "type": "label",
+                                            "definition": "添加 (addition)：表示添加或补充关系。",
+                                            "color": "#b5c08e"
+                                          },
+                                          {
+                                            "id": "fafd6af6-6871-41c6-b090-5d6f98153c4a",
+                                            "name": "appositive",
+                                            "type": "label",
+                                            "definition": "同位 (appositive)：表示同位或解释关系。",
+                                            "color": "#b4bd79"
+                                          },
+                                          {
+                                            "id": "6fa21595-7a5a-43a5-aa7c-5100587d5aef",
+                                            "name": "contextualising",
+                                            "type": "label",
+                                            "definition": "语境化 (contextualising)：提供语境信息。",
+                                            "color": "#a7d8db"
+                                          },
+                                          {
+                                            "id": "dfa71f4b-3a55-4d1f-be60-1ecd170d785a",
+                                            "name": "likewise",
+                                            "type": "label",
+                                            "definition": "同样 (likewise)：表示相似或类比关系。",
+                                            "color": "#a6d7d1"
+                                          },
+                                          {
+                                            "id": "324939f3-0d38-4b27-9211-bfdcb17bfd4e",
+                                            "name": "summative",
+                                            "type": "label",
+                                            "definition": "总结 (summative)：表示总结关系。",
+                                            "color": "#c2beb3"
+                                          }
+                                        ]
+                                      }
+                                    ],
+                                    "color": "#cfc989"
+                                  },
+                                  {
+                                    "id": "ae9ec115-9c8f-49fe-bfe7-ac3ee6c73e8f",
+                                    "name": "other-textual-type",
+                                    "type": "label",
+                                    "definition": "",
+                                    "color": "#85ba94"
+                                  },
+                                  {
+                                    "id": "74741d04-a741-46dd-abe4-c8591b2a04ec",
+                                    "name": "structuring",
+                                    "type": "label",
+                                    "definition": "结构化 (structuring)：组织语篇结构的成分。",
+                                    "children": [
+                                      {
+                                        "id": "e07ac791-80be-4af0-805d-a1be22545fd4",
+                                        "name": "STRUCTURING1-TYPE",
+                                        "type": "tier",
+                                        "definition": null,
+                                        "children": [
+                                          {
+                                            "id": "6f0612aa-69cc-4bed-8c98-c1cc45d4d272",
+                                            "name": "comparing",
+                                            "type": "label",
+                                            "definition": "比较 (comparing)：表示比较关系。",
+                                            "color": "#b08a96"
+                                          },
+                                          {
+                                            "id": "70c4c9c0-0fb9-4df8-9ec1-e1423868f0b6",
+                                            "name": "concluding",
+                                            "type": "label",
+                                            "definition": "结论 (concluding)：表示结论。",
+                                            "color": "#cfb298"
+                                          },
+                                          {
+                                            "id": "03651489-41d0-4c9f-af2e-09fc53cf3c89",
+                                            "name": "dismissive",
+                                            "type": "label",
+                                            "definition": "忽略 (dismissive)：表示忽略或不重要。",
+                                            "color": "#a98482"
+                                          },
+                                          {
+                                            "id": "3e7a5f26-61b6-49c8-9a3c-1b318215702a",
+                                            "name": "sequencing",
+                                            "type": "label",
+                                            "definition": "顺序 (sequencing)：表示时间或逻辑顺序。",
+                                            "color": "#d3d1a0"
+                                          }
+                                        ]
+                                      }
+                                    ],
+                                    "color": "#cb9ac6"
+                                  }
+                                ]
+                              }
+                            ],
+                            "color": "#8dd086"
+                          },
+                          {
+                            "id": "d68639f5-29d3-4f6c-88aa-11addd225bb3",
+                            "name": "extra-theme",
+                            "type": "label",
+                            "definition": "额外主题 (extra-theme)：前置的非主语成分，通常为了强调而提前的成分。",
+                            "color": "#c89489"
+                          },
+                          {
+                            "id": "3a3fd57f-b804-4cf3-b900-6816a9e77c5c",
+                            "name": "subject-theme",
+                            "type": "label",
+                            "definition": "主语主题 (subject-theme)：作为主题的主语成分，这是英语中最常见的主题类型。",
+                            "color": "#93d579"
+                          }
+                        ]
+                      }
+                    ],
+                    "color": "#a1cdbf"
+                  },
+                  {
+                    "id": "a97c17e4-251c-494c-8a58-546cc741cc6d",
+                    "name": "theme-group",
+                    "type": "label",
+                    "definition": "主题群 (theme-group)：主题的组合形式。",
+                    "children": [
+                      {
+                        "id": "3a7556ae-393a-4fdf-bb98-e2e42be7da48",
+                        "name": "CONJUNCTION",
+                        "type": "tier",
+                        "definition": null,
+                        "children": [
+                          {
+                            "id": "da0405cd-06d5-41e3-a7da-274015c6bbf2",
+                            "name": "has-conjunction",
+                            "type": "label",
+                            "definition": "有连接词 (has-conjunction)：小句开头有连接词。",
+                            "color": "#a0b9a5"
+                          },
+                          {
+                            "id": "48ea1c80-06ab-4f8d-91ba-d8973b2d7259",
+                            "name": "no-conjunction",
+                            "type": "label",
+                            "definition": "无连接词 (no-conjunction)：小句开头无连接词。",
+                            "color": "#cbc47b"
+                          }
+                        ]
+                      },
+                      {
+                        "id": "0331902d-03a1-4620-ab0e-e2531faa5c8c",
+                        "name": "EXTRA-THEME",
+                        "type": "tier",
+                        "definition": null,
+                        "children": [
+                          {
+                            "id": "36d3fd5f-5155-4ed7-80b1-812e1add394a",
+                            "name": "has-extra-theme",
+                            "type": "label",
+                            "definition": "有额外主题 (has-extra-theme)：存在前置的非主语成分。",
+                            "children": [
+                              {
+                                "id": "fa7f590e-a51d-4dcf-9c40-2825abfe0dd1",
+                                "name": "THEME-GROUP-TYPE3",
+                                "type": "tier",
+                                "definition": null,
+                                "children": [
+                                  {
+                                    "id": "44751f15-0506-41c9-8d87-288e1ff6bb12",
+                                    "name": "fronted-adjunct",
+                                    "type": "label",
+                                    "definition": "前置附加语 (fronted-adjunct)：前置的状语成分。",
+                                    "color": "#d388c2"
+                                  },
+                                  {
+                                    "id": "ed1f8b93-747f-4a35-9b34-6e7220b539d0",
+                                    "name": "fronted-complement",
+                                    "type": "label",
+                                    "definition": "前置补语 (fronted-complement)：前置的补语成分。",
+                                    "color": "#83add7"
+                                  },
+                                  {
+                                    "id": "7b7969f3-fe6d-4e0a-bf7e-a3511a9e200c",
+                                    "name": "fronted-direct-object",
+                                    "type": "label",
+                                    "definition": "前置直接宾语 (fronted-direct-object)：前置的直接宾语。",
+                                    "color": "#c3a196"
+                                  },
+                                  {
+                                    "id": "98141232-3edf-45e4-9b4a-fb339b945af8",
+                                    "name": "fronted-indirect-object",
+                                    "type": "label",
+                                    "definition": "前置间接宾语 (fronted-indirect-object)：前置的间接宾语。",
+                                    "color": "#aba9c9"
+                                  },
+                                  {
+                                    "id": "d55cc22f-e542-4804-81ef-8e0835dfb8fb",
+                                    "name": "unknown-element-fronted",
+                                    "type": "label",
+                                    "definition": "未知前置成分 (unknown-element-fronted)：其他类型的前置成分。",
+                                    "color": "#828d8f"
+                                  }
+                                ]
+                              }
+                            ],
+                            "color": "#8eb285"
+                          }
+                        ]
+                      },
+                      {
+                        "id": "2e330c95-e4ef-47cf-94fe-3db0fa907374",
+                        "name": "SUBJECT-THEME",
+                        "type": "tier",
+                        "definition": null,
+                        "children": [
+                          {
+                            "id": "60b0e973-3c18-4216-82af-7012d08ddc8c",
+                            "name": "ellided-subject-theme",
+                            "type": "label",
+                            "definition": "省略主语主题 (ellided-subject-theme)：主语被省略的情况。",
+                            "color": "#a17bac"
+                          },
+                          {
+                            "id": "eb99a998-1430-41f8-ae9e-7a3980ef44c4",
+                            "name": "has-subject-theme",
+                            "type": "label",
+                            "definition": "有主语主题 (has-subject-theme)：明确存在主语主题。",
+                            "color": "#89908e"
+                          },
+                          {
+                            "id": "062db52c-a24e-465f-92e5-be1d9a5d5f14",
+                            "name": "no-subject-theme",
+                            "type": "label",
+                            "definition": "无主语主题 (no-subject-theme)：不存在主语主题的情况。",
+                            "color": "#aac0b7"
+                          }
+                        ]
+                      }
+                    ],
+                    "color": "#7fd295"
+                  }
+                ]
+              }
+            ],
+            "color": "#d19bda"
+          }
+        ]
+      }
+    ],
+    "color": "#af89c9"
+  },
+  "createdAt": "2025-12-12T13:52:44.906824",
+  "updatedAt": "2025-12-12T13:52:44.906824"
+}
