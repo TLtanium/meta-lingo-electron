@@ -1594,6 +1594,7 @@
     "byCoderMetrics": "Metrics by Coder",
     "byLabelMetrics": "Metrics by Label",
     "selected": "Selected",
+    "archives": "archives",
     "files": "files",
     "loadArchivesFailed": "Failed to load archives",
     "invalidFormat": "Invalid archive format",

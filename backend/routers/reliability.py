@@ -123,7 +123,8 @@ async def calculate_reliability(request: CalculateRequest):
     
     return {
         "success": True,
-        "data": result.data
+        "data": result.data,
+        "summary": result.summary
     }
 
 

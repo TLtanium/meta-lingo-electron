@@ -207,6 +207,8 @@ export default function DataSourcePanel({
     
     try {
       let filesToValidate: ArchiveFile[] = []
+      // 记录成功加载的存档ID，用于正确计算标准答案索引
+      let loadedArchiveIds: string[] = []
       
       if (sourceType === 'corpus') {
         // 从语料库加载存档内容
@@ -235,6 +237,8 @@ export default function DataSourcePanel({
                   name: archive.filename,
                   content: JSON.stringify(archiveData)
                 })
+                // 记录成功加载的存档ID
+                loadedArchiveIds.push(archiveId)
               } else {
                 console.error('[Reliability] Failed to get archive data:', archiveId, result)
               }
@@ -271,11 +275,15 @@ export default function DataSourcePanel({
       if (result.success && result.data && result.summary) {
         setValidationPassed(true)
         
-        // 计算标准答案在文件列表中的索引
+        // 计算标准答案在实际加载成功的文件列表中的索引
         let goldIndex: number | undefined = undefined
         if (sourceType === 'corpus' && goldStandardId) {
-          goldIndex = selectedArchiveIds.indexOf(goldStandardId)
-          if (goldIndex === -1) goldIndex = undefined
+          // 使用 loadedArchiveIds 来计算正确的索引
+          goldIndex = loadedArchiveIds.indexOf(goldStandardId)
+          if (goldIndex === -1) {
+            goldIndex = undefined
+            console.warn('[Reliability] Gold standard archive not found in loaded files:', goldStandardId)
+          }
         } else if (sourceType === 'upload' && goldStandardFileIndex !== null) {
           goldIndex = goldStandardFileIndex
         }

@@ -191,10 +191,24 @@ def _annotations_to_set(annotations: List[Dict]) -> Set[Tuple[int, int, str]]:
 
 def _annotation_to_key(ann: Dict) -> Optional[Tuple[int, int, str]]:
     """将单个标注转换为元组键"""
-    start = ann.get('position', ann.get('startPosition', ann.get('start_position')))
+    # 处理 position/startPosition/start_position 字段
+    # 注意：dict.get() 在键存在但值为 None 时会返回 None，而不是默认值
+    start = ann.get('position')
+    if start is None:
+        start = ann.get('startPosition')
+    if start is None:
+        start = ann.get('start_position')
+    
     text = ann.get('text', '')
-    end = ann.get('end_position', ann.get('endPosition', start + len(text) if start is not None else None))
     label = ann.get('label', '')
+    
+    # 处理 end_position/endPosition 字段
+    end = ann.get('end_position')
+    if end is None:
+        end = ann.get('endPosition')
+    if end is None and start is not None:
+        # 如果没有结束位置，根据起始位置和文本长度计算
+        end = start + len(text)
     
     if start is not None and end is not None and label:
         return (int(start), int(end), label)

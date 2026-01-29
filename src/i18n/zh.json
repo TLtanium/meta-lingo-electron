@@ -1617,6 +1617,7 @@
     "byCoderMetrics": "按编码者分类的指标",
     "byLabelMetrics": "按标签分类的指标",
     "selected": "已选择",
+    "archives": "个存档",
     "files": "个文件",
     "loadArchivesFailed": "加载存档列表失败",
     "invalidFormat": "无效的存档格式",
