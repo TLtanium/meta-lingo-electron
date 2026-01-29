@@ -3,6 +3,11 @@ import path from 'path'
 import { spawn, ChildProcess, execSync } from 'child_process'
 import fs from 'fs'
 
+// Chromium flags to fix Web Audio API crash when decoding large audio files in packaged app
+// This increases memory limits and disables some security restrictions
+app.commandLine.appendSwitch('js-flags', '--max-old-space-size=4096')
+app.commandLine.appendSwitch('disable-features', 'AudioServiceOutOfProcess')
+
 let mainWindow: BrowserWindow | null = null
 let backendProcess: ChildProcess | null = null
 
@@ -386,7 +391,10 @@ function createWindow() {
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
-      nodeIntegration: false
+      nodeIntegration: false,
+      // Allow Web Audio API to work properly in packaged app
+      webSecurity: false,  // Allow file:// to access http://localhost
+      allowRunningInsecureContent: true,  // Allow mixed content
     },
     frame: true,
     titleBarStyle: isMac ? 'hiddenInset' : 'default',

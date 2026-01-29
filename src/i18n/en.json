@@ -1305,6 +1305,7 @@
     "reprocessAlignment": "Process Alignment",
     "processing": "Processing...",
     "alignmentComplete": "Alignment processing complete",
+    "audioLoadError": "Failed to load audio",
     "audioTimeline": "Audio Annotation Timeline",
     "waveform": "Waveform/Pitch",
     "annotations": "Annotations",

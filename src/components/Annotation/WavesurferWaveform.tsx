@@ -73,6 +73,8 @@ interface WavesurferWaveformProps {
   onDrawModeChange?: (isDrawMode: boolean) => void  // 通知父组件画框模式状态
   // 初始缩放级别（用于数据可视化等场景）
   initialZoom?: number
+  // Pre-computed waveform peaks (to skip Web Audio API decode which crashes in Electron packaged app)
+  precomputedPeaks?: number[]
 }
 
 // Exposed methods via ref
@@ -109,7 +111,8 @@ const WavesurferWaveform = forwardRef<WavesurferWaveformRef, WavesurferWaveformP
   savedAudioBoxes = [],
   onAudioBoxAdd,
   onDrawModeChange,
-  initialZoom
+  initialZoom,
+  precomputedPeaks
 }, ref) => {
   const { t } = useTranslation()
   const theme = useTheme()
@@ -146,6 +149,7 @@ const WavesurferWaveform = forwardRef<WavesurferWaveformRef, WavesurferWaveformP
   const [drawMode, setDrawMode] = useState(false)
   const drawModeRef = useRef(false)  // 用于在事件处理器中访问最新状态
   const [isDrawing, setIsDrawing] = useState(false)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [drawStart, setDrawStart] = useState<{ x: number; y: number } | null>(null)
   const [currentBox, setCurrentBox] = useState<{ 
     x1: number; y1: number; x2: number; y2: number; 
@@ -397,35 +401,54 @@ const WavesurferWaveform = forwardRef<WavesurferWaveformRef, WavesurferWaveformP
   useEffect(() => {
     if (!containerRef.current || !audioUrl) return
 
+    // Reset error state
+    setLoadError(null)
+
     // Destroy previous instance
     if (wavesurferRef.current) {
       wavesurferRef.current.destroy()
     }
 
-    // Create regions plugin
-    const regions = RegionsPlugin.create()
-    regionsRef.current = regions
+    try {
+      // Create regions plugin
+      const regions = RegionsPlugin.create()
+      regionsRef.current = regions
 
-    // Create WaveSurfer instance - WaveSurfer handles all audio playback
-    const ws = WaveSurfer.create({
-      container: containerRef.current,
-      waveColor: themeColors.waveColor,
-      progressColor: themeColors.progressColor,
-      cursorColor: '#f44336',
-      cursorWidth: 2,
-      height: height,
-      minPxPerSec: zoom,
-      normalize: true,
-      plugins: [regions],
-      mediaControls: false,
-      autoplay: false,
-      interact: true,
-    })
+      // Create WaveSurfer instance - WaveSurfer handles all audio playback
+      const ws = WaveSurfer.create({
+        container: containerRef.current,
+        waveColor: themeColors.waveColor,
+        progressColor: themeColors.progressColor,
+        cursorColor: '#f44336',
+        cursorWidth: 2,
+        height: height,
+        minPxPerSec: zoom,
+        normalize: true,
+        plugins: [regions],
+        mediaControls: false,
+        autoplay: false,
+        interact: true,
+      })
 
-    wavesurferRef.current = ws
+      wavesurferRef.current = ws
 
-    // Load audio
-    ws.load(audioUrl)
+      // Error handling for audio load failures
+      ws.on('error', (err) => {
+        console.error('[WavesurferWaveform] WaveSurfer error:', err)
+        setLoadError(typeof err === 'string' ? err : 'Failed to load audio')
+      })
+
+      // Load audio - ws.load returns a Promise
+      // If precomputed peaks are available, pass them to skip Web Audio API decode (fixes crash in Electron packaged app)
+      const loadPromise = precomputedPeaks && precomputedPeaks.length > 0
+        ? ws.load(audioUrl, [precomputedPeaks])  // Pass peaks as [peaks] for single channel
+        : ws.load(audioUrl)
+      
+      if (loadPromise && typeof loadPromise.catch === 'function') {
+        loadPromise.catch((err: any) => {
+          setLoadError(err?.message || String(err))
+        });
+      }
 
     // Event handlers
     ws.on('ready', () => {
@@ -433,7 +456,7 @@ const WavesurferWaveform = forwardRef<WavesurferWaveformRef, WavesurferWaveformP
       const wsDuration = ws.getDuration()
       setDuration(wsDuration)
       onDurationChange?.(wsDuration)
-      
+
       // Add word alignment regions with text labels
       if (wordAlignments.length > 0) {
         wordAlignments.forEach((word, index) => {
@@ -544,8 +567,12 @@ const WavesurferWaveform = forwardRef<WavesurferWaveformRef, WavesurferWaveformP
     // 禁用 WaveSurfer 的拖选功能，使用我们自己的画框功能
     // regions.enableDragSelection 已移除，避免与画框功能冲突
 
-    return () => {
-      ws.destroy()
+      return () => {
+        ws.destroy()
+      }
+    } catch (err) {
+      console.error('[WavesurferWaveform] Failed to initialize WaveSurfer:', err)
+      setLoadError(err instanceof Error ? err.message : 'Failed to initialize audio player')
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [audioUrl, height, isDarkMode])
@@ -582,9 +609,17 @@ const WavesurferWaveform = forwardRef<WavesurferWaveformRef, WavesurferWaveformP
     }
   }, [currentTime, isReady])
 
-  // Draw pitch curve on canvas
+  // Draw pitch curve on canvas - MUST wait for isReady to have correct duration
   useEffect(() => {
-    if (!canvasRef.current || !pitchData?.enabled || !showPitch) return
+    // CRITICAL: Wait for WaveSurfer to be ready so we have the correct duration
+    if (!canvasRef.current || !pitchData?.enabled || !showPitch || !isReady) return
+
+    // Validate pitchData has all required fields before proceeding
+    if (!pitchData.f0 || !pitchData.periodicity || !pitchData.times ||
+        typeof pitchData.fmin !== 'number' || typeof pitchData.fmax !== 'number') {
+      console.warn('[WavesurferWaveform] pitchData missing required fields')
+      return
+    }
 
     const canvas = canvasRef.current
     const ctx = canvas.getContext('2d')
@@ -609,11 +644,10 @@ const WavesurferWaveform = forwardRef<WavesurferWaveformRef, WavesurferWaveformP
     // Clear canvas
     ctx.clearRect(0, 0, containerWidth, height)
 
-    // Validate all required pitch data fields
+    // Extract validated pitch data
     const { f0, periodicity, times, fmin, fmax } = pitchData
-    if (!f0 || f0.length === 0 || !periodicity || !times || 
-        typeof fmin !== 'number' || typeof fmax !== 'number' || fmin >= fmax) {
-      console.warn('[WavesurferWaveform] Invalid pitch data, skipping render')
+    if (f0.length === 0 || fmin >= fmax) {
+      console.warn('[WavesurferWaveform] Invalid pitch data values, skipping render')
       return
     }
 
@@ -679,7 +713,7 @@ const WavesurferWaveform = forwardRef<WavesurferWaveformRef, WavesurferWaveformP
       }
     })
 
-  }, [pitchData, showPitch, containerWidth, height, duration])
+  }, [pitchData, showPitch, containerWidth, height, duration, isReady])
 
   // Playback controls
   const handlePlayPause = useCallback(() => {
@@ -945,6 +979,26 @@ const WavesurferWaveform = forwardRef<WavesurferWaveformRef, WavesurferWaveformP
     const secs = Math.floor(seconds % 60)
     const ms = Math.floor((seconds % 1) * 100)
     return `${mins}:${secs.toString().padStart(2, '0')}.${ms.toString().padStart(2, '0')}`
+  }
+
+  // Show error state if audio failed to load
+  if (loadError) {
+    return (
+      <Box sx={{ 
+        width: '100%', 
+        p: 3, 
+        bgcolor: themeColors.background, 
+        borderRadius: 1,
+        textAlign: 'center'
+      }}>
+        <Typography color="error" gutterBottom>
+          {t('annotation.audioLoadError', 'Failed to load audio')}
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
+          {loadError}
+        </Typography>
+      </Box>
+    )
   }
 
   return (

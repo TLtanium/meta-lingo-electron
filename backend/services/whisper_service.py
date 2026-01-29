@@ -2,6 +2,7 @@
 Whisper Audio Transcription Service
 Uses Whisper Large V3 Turbo for speech-to-text with timestamps
 For English audio, also performs forced alignment (Wav2Vec2) and pitch extraction (TorchCrepe)
+Also extracts waveform peaks for frontend visualization (skips Web Audio API decode)
 """
 
 import os
@@ -18,6 +19,77 @@ from config import MODELS_DIR
 # Import alignment and pitch services for English audio processing
 from services.alignment_service import get_alignment_service
 from services.pitch_service import get_pitch_service
+
+
+def extract_waveform_peaks(audio_path: str, num_peaks: int = 1000) -> Dict[str, Any]:
+    """
+    Extract waveform peaks from audio file for visualization.
+    This allows frontend to skip Web Audio API decodeAudioData which crashes on large files.
+    
+    Args:
+        audio_path: Path to audio file
+        num_peaks: Number of peaks to extract (higher = more detail)
+        
+    Returns:
+        Dictionary with peaks data and duration
+    """
+    try:
+        import numpy as np
+        
+        # Try soundfile first (fastest, no ffmpeg needed)
+        try:
+            import soundfile as sf
+            audio_data, sample_rate = sf.read(str(audio_path))
+            # Convert to mono if stereo
+            if len(audio_data.shape) > 1:
+                audio_data = np.mean(audio_data, axis=1)
+        except Exception:
+            # Fall back to librosa
+            import librosa
+            audio_data, sample_rate = librosa.load(str(audio_path), sr=None, mono=True)
+        
+        # Calculate duration
+        duration = len(audio_data) / sample_rate
+        
+        # Downsample to get peaks
+        samples_per_peak = len(audio_data) // num_peaks
+        if samples_per_peak < 1:
+            samples_per_peak = 1
+            num_peaks = len(audio_data)
+        
+        peaks = []
+        for i in range(num_peaks):
+            start_idx = i * samples_per_peak
+            end_idx = min(start_idx + samples_per_peak, len(audio_data))
+            chunk = audio_data[start_idx:end_idx]
+            
+            if len(chunk) > 0:
+                # Get max absolute value in this chunk (normalized to -1..1)
+                peak_val = float(np.max(np.abs(chunk)))
+                peaks.append(peak_val)
+            else:
+                peaks.append(0.0)
+        
+        # Normalize peaks to 0..1 range
+        max_peak = max(peaks) if peaks else 1.0
+        if max_peak > 0:
+            peaks = [p / max_peak for p in peaks]
+        
+        logger.info(f"Extracted {len(peaks)} waveform peaks from {audio_path}, duration: {duration:.2f}s")
+        
+        return {
+            "success": True,
+            "peaks": peaks,
+            "duration": duration,
+            "sample_rate": sample_rate
+        }
+        
+    except Exception as e:
+        logger.error(f"Waveform extraction failed: {e}")
+        return {
+            "success": False,
+            "error": str(e)
+        }
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -482,6 +554,29 @@ class WhisperService:
                     logger.info("Non-English audio detected, skipping alignment and pitch extraction")
                 transcript_data["alignment"] = {"enabled": False, "reason": reason}
                 transcript_data["pitch"] = {"enabled": False, "reason": reason}
+            
+            # Extract waveform peaks for frontend visualization
+            # This allows frontend to skip Web Audio API decodeAudioData which crashes on large files in Electron
+            logger.info("Extracting waveform peaks for visualization...")
+            if progress_callback:
+                progress_callback(95, 100, "Extracting waveform...")
+            
+            try:
+                waveform_result = extract_waveform_peaks(str(audio_path), num_peaks=2000)
+                if waveform_result.get("success"):
+                    transcript_data["waveform"] = {
+                        "enabled": True,
+                        "peaks": waveform_result.get("peaks", []),
+                        "duration": waveform_result.get("duration", 0),
+                        "sample_rate": waveform_result.get("sample_rate", 16000)
+                    }
+                    logger.info(f"Waveform extraction complete: {len(waveform_result.get('peaks', []))} peaks")
+                else:
+                    logger.warning(f"Waveform extraction failed: {waveform_result.get('error')}")
+                    transcript_data["waveform"] = {"enabled": False, "error": waveform_result.get("error")}
+            except Exception as e:
+                logger.error(f"Waveform extraction error: {e}")
+                transcript_data["waveform"] = {"enabled": False, "error": str(e)}
             
             if progress_callback:
                 progress_callback(100, 100, "Processing complete")

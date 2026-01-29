@@ -1327,6 +1327,7 @@
     "reprocessAlignment": "处理对齐",
     "processing": "处理中...",
     "alignmentComplete": "对齐处理完成",
+    "audioLoadError": "音频加载失败",
     "audioTimeline": "音频标注时间轴",
     "waveform": "波形/音高",
     "annotations": "标注",

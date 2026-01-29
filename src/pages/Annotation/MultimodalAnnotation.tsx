@@ -157,6 +157,15 @@ export default function MultimodalAnnotation() {
     error?: string
     reason?: string
   } | null>(null)
+  
+  // Pre-computed waveform peaks (to avoid Web Audio API decode crash in Electron packaged app)
+  const [waveformData, setWaveformData] = useState<{
+    enabled: boolean
+    peaks?: number[]
+    duration?: number
+    sample_rate?: number
+    error?: string
+  } | null>(null)
 
   // Annotation state
   const [annotations, setAnnotations] = useState<Annotation[]>([])
@@ -543,17 +552,16 @@ export default function MultimodalAnnotation() {
           // Load alignment data (for English audio with Wav2Vec2 forced alignment)
           if (response.transcript?.alignment) {
             setAlignmentData(response.transcript.alignment)
-            console.log('[MultimodalAnnotation] Alignment data loaded:', {
-              enabled: response.transcript.alignment.enabled,
-              wordCount: response.transcript.alignment.word_alignments?.length || 0
-            })
-          } else {
-            console.log('[MultimodalAnnotation] No alignment data in transcript')
           }
           
           // Load pitch data (for English audio with TorchCrepe F0 extraction)
           if (response.transcript?.pitch) {
             setPitchData(response.transcript.pitch)
+          }
+          
+          // Load pre-computed waveform peaks (to avoid Web Audio API crash in Electron packaged app)
+          if (response.transcript?.waveform) {
+            setWaveformData(response.transcript.waveform)
           }
           
           // Load SpaCy annotations (pass segments to avoid stale state)
@@ -1400,6 +1408,7 @@ export default function MultimodalAnnotation() {
                 searchHighlights={searchHighlights}
                 alignmentData={alignmentData}
                 pitchData={pitchData}
+                waveformData={waveformData}
                 savedAudioBoxes={savedAudioBoxes}
                 onAudioBoxAdd={handleAudioBoxAdd}
                 onWaveformExportReady={handleWaveformExportReady}

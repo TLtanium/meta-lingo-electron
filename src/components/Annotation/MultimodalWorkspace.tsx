@@ -162,6 +162,14 @@ interface MultimodalWorkspaceProps {
   // Audio waveform data (English only)
   alignmentData?: AlignmentData | null
   pitchData?: PitchData | null
+  // Pre-computed waveform peaks (to avoid Web Audio API crash in Electron packaged app)
+  waveformData?: {
+    enabled: boolean
+    peaks?: number[]
+    duration?: number
+    sample_rate?: number
+    error?: string
+  } | null
   // 音频画框标注
   savedAudioBoxes?: AudioBox[]
   onAudioBoxAdd?: (box: Omit<AudioBox, 'id'>) => void
@@ -233,6 +241,7 @@ export default function MultimodalWorkspace({
   searchHighlights: externalSearchHighlights = [],
   alignmentData = null,
   pitchData = null,
+  waveformData = null,
   savedAudioBoxes = [],
   onAudioBoxAdd,
   onWaveformExportReady
@@ -1389,7 +1398,8 @@ export default function MultimodalWorkspace({
                 duration={duration}
                 currentTime={currentTime}
                 wordAlignments={alignmentData.word_alignments}
-                pitchData={pitchData?.enabled ? pitchData as any : undefined}
+                pitchData={pitchData?.enabled && pitchData?.f0 ? pitchData as any : undefined}
+                precomputedPeaks={waveformData?.enabled && waveformData?.peaks ? waveformData.peaks : undefined}
                 onSeek={(time) => {
                   setCurrentTime(time)
                   setCurrentFrame(Math.round(time * fps))
