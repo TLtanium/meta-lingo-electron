@@ -54,6 +54,8 @@ export interface SpectrogramRenderOptions {
   height: number
   /** Duration in seconds */
   duration: number
+  /** Pixels per second (optional, for reference; rendering uses width/duration) */
+  pixelsPerSecond?: number
   /** Device pixel ratio (default min(devicePixelRatio, 2)) */
   dpr?: number
   /** Whether to render formant tracks */
