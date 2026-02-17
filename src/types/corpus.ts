@@ -206,6 +206,43 @@ export interface PitchData {
   reason?: string
 }
 
+// ==================== Acoustic Models (Praat) ====================
+
+export interface SpectrogramData {
+  times: number[]
+  frequencies: number[]
+  energy_matrix: number[][]  // times × freqs, dB values
+  dynamic_range: number
+}
+
+export interface FormantData {
+  times: number[]
+  f1: number[]
+  f2: number[]
+  f3: number[]
+  f4: number[]
+  f5: number[]
+}
+
+export interface AcousticData {
+  enabled: boolean
+  spectrogram?: SpectrogramData
+  formants?: FormantData
+  intensity?: { times: number[]; values: number[] }
+  hnr?: { times: number[]; values: number[] }
+  jitter?: { local: number; local_absolute: number; rap: number; ppq5: number; ddp: number }
+  shimmer?: { local: number; local_db: number; apq3: number; apq5: number; apq11: number; dda: number }
+  parameters?: {
+    max_formant: number
+    max_number_of_formants: number
+    time_step: number
+    dynamic_range: number
+    gender: string
+  }
+  error?: string
+  reason?: string
+}
+
 // ==================== YOLO Models ====================
 
 export interface YoloDetection {

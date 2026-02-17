@@ -120,6 +120,7 @@ export interface AnnotationArchive {
   audioBoxes?: AudioBox[]            // 音频画框标注
   waveformData?: WaveformData        // 波形数据（用于历史可视化）
   pitchData?: PitchDataArchive       // 音高数据（用于历史可视化）
+  acousticData?: AcousticDataArchive // 声学分析数据（用于历史可视化）
   audioVisualizationSvg?: string     // 音频可视化 SVG（保存时生成）
   manualTracks?: VideoBox[]
   clipAnnotations?: ClipAnnotationData  // CLIP语义分类数据
@@ -234,6 +235,27 @@ export interface PitchDataArchive {
   times: number[]        // 时间点数组
   fmin: number           // 最小频率
   fmax: number           // 最大频率
+}
+
+/**
+ * 声学分析数据（用于历史存档）
+ */
+export interface AcousticDataArchive {
+  enabled: boolean
+  spectrogram?: {
+    times: number[]
+    frequencies: number[]
+    energy_matrix: number[][]
+    dynamic_range: number
+  }
+  formants?: {
+    times: number[]
+    f1: number[]; f2: number[]; f3: number[]; f4: number[]; f5: number[]
+  }
+  intensity?: { times: number[]; values: number[] }
+  hnr?: { times: number[]; values: number[] }
+  jitter?: Record<string, number>
+  shimmer?: Record<string, number>
 }
 
 // ==================== SpaCy Types ====================
@@ -409,6 +431,7 @@ export interface SaveAnnotationRequest {
   audioBoxes?: AudioBox[]           // 音频画框标注
   waveformData?: WaveformData       // 波形数据
   pitchData?: PitchDataArchive      // 音高数据
+  acousticData?: AcousticDataArchive  // 声学分析数据（频谱图、共振峰等）
   audioVisualizationSvg?: string    // 音频可视化 SVG
 }
 

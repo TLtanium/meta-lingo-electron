@@ -54,17 +54,18 @@ import { useCorpusStore } from '../../stores/corpusStore'
 import { frameworkApi, annotationApi, createMultimodalAnnotationRequest, corpusApi } from '../../api'
 import { FrameworkTree, MultimodalWorkspace, SearchAnnotateBox, BatchAnnotateDialog } from '../../components/Annotation'
 import type { SearchMatch } from '../../components/Annotation/SearchAnnotateBox'
-import type { 
-  Framework, 
-  FrameworkCategory, 
-  Annotation, 
+import type {
+  Framework,
+  FrameworkCategory,
+  Annotation,
   SelectedLabel,
   AnnotationArchiveListItem,
   Corpus,
   CorpusText,
   YoloTrack,
   TranscriptSegment,
-  AudioBox
+  AudioBox,
+  AcousticData
 } from '../../types'
 
 // SpaCy annotation types
@@ -166,6 +167,9 @@ export default function MultimodalAnnotation() {
     sample_rate?: number
     error?: string
   } | null>(null)
+
+  // Praat acoustic analysis data (spectrogram, formants, etc.)
+  const [acousticData, setAcousticData] = useState<AcousticData | null>(null)
 
   // Annotation state
   const [annotations, setAnnotations] = useState<Annotation[]>([])
@@ -492,6 +496,7 @@ export default function MultimodalAnnotation() {
     setClipAnnotation(null)
     setAlignmentData(null)
     setPitchData(null)
+    setAcousticData(null)
   }
 
   const handleMediaSelect = async (media: CorpusText) => {
@@ -514,6 +519,7 @@ export default function MultimodalAnnotation() {
     setClipAnnotation(null)
     setAlignmentData(null)
     setPitchData(null)
+    setAcousticData(null)
     setMediaLoading(true)
     
     // Set media type
@@ -563,7 +569,12 @@ export default function MultimodalAnnotation() {
           if (response.transcript?.waveform) {
             setWaveformData(response.transcript.waveform)
           }
-          
+
+          // Load Praat acoustic analysis data (spectrogram, formants, etc.)
+          if (response.transcript?.acoustic) {
+            setAcousticData(response.transcript.acoustic)
+          }
+
           // Load SpaCy annotations (pass segments to avoid stale state)
           await loadSpacyAnnotations(currentCorpus.id, media.id, loadedSegments)
           
@@ -661,7 +672,7 @@ export default function MultimodalAnnotation() {
               await loadClipAnnotations(targetCorpus.id, matchingMedia.id)
             }
             
-            // 重新加载对齐和音高数据（音频专用）
+            // 重新加载对齐、音高和声学数据（音频专用）
             if (data.mediaType === 'audio') {
               try {
                 const contentResponse = await corpusApi.getText(targetCorpus.id, matchingMedia.id)
@@ -674,9 +685,17 @@ export default function MultimodalAnnotation() {
                   if (contentResponse.transcript?.pitch) {
                     setPitchData(contentResponse.transcript.pitch)
                   }
+                  // 加载预计算波形数据
+                  if (contentResponse.transcript?.waveform) {
+                    setWaveformData(contentResponse.transcript.waveform)
+                  }
+                  // 加载声学分析数据（频谱图、共振峰等）
+                  if (contentResponse.transcript?.acoustic) {
+                    setAcousticData(contentResponse.transcript.acoustic)
+                  }
                 }
               } catch (err) {
-                console.warn('[handleLoadArchive] Failed to reload alignment/pitch data:', err)
+                console.warn('[handleLoadArchive] Failed to reload alignment/pitch/acoustic data:', err)
               }
             }
           } else {
@@ -873,6 +892,17 @@ export default function MultimodalAnnotation() {
         fmin: pitchData.fmin || 50,
         fmax: pitchData.fmax || 550
       } : undefined
+
+      // 准备声学分析数据用于存档
+      const acousticDataArchive = acousticData?.enabled ? {
+        enabled: true,
+        spectrogram: acousticData.spectrogram,
+        formants: acousticData.formants,
+        intensity: acousticData.intensity,
+        hnr: acousticData.hnr,
+        jitter: acousticData.jitter,
+        shimmer: acousticData.shimmer
+      } : undefined
       
       // 导出音频波形 SVG（音频模式）
       let audioVisualizationSvg: string | undefined
@@ -903,6 +933,7 @@ export default function MultimodalAnnotation() {
           // 音频专用数据
           audioBoxes: savedAudioBoxes.length > 0 ? savedAudioBoxes : undefined,
           pitchData: pitchDataArchive,
+          acousticData: acousticDataArchive,
           audioVisualizationSvg
         }
       )
@@ -972,11 +1003,9 @@ export default function MultimodalAnnotation() {
   }, [selectedLabel, pendingMatches, handleAnnotationAdd, t])
 
   // Get video and audio texts
-  // Chinese audio is filtered out from multimodal annotation (should use plain text annotation instead)
+  // All audio (including Chinese) now supported with waveform + pitch + spectrogram visualization
   const videoTexts = currentCorpus?.texts.filter(t => t.mediaType === 'video') || []
-  const isChineseCorpus = currentCorpus?.language?.toLowerCase() === 'chinese'
-  const allAudioTexts = currentCorpus?.texts.filter(t => t.mediaType === 'audio') || []
-  const audioTexts = isChineseCorpus ? [] : allAudioTexts
+  const audioTexts = currentCorpus?.texts.filter(t => t.mediaType === 'audio') || []
 
   // Flatten frameworks for select
   const allFrameworks = frameworks.flatMap(cat => 
@@ -1208,17 +1237,9 @@ export default function MultimodalAnnotation() {
                 )}
 
                 {currentCorpus && videoTexts.length === 0 && audioTexts.length === 0 && (
-                  <Box>
-                    <Typography variant="body2" color="text.secondary" textAlign="center">
-                      {t('annotation.noMediaInCorpus')}
-                    </Typography>
-                    {/* Show hint for Chinese audio */}
-                    {isChineseCorpus && allAudioTexts.length > 0 && (
-                      <Typography variant="caption" color="info.main" textAlign="center" display="block" sx={{ mt: 1 }}>
-                        {t('annotation.chineseAudioHint', '中文音频请在纯文本标注模式下进行标注')}
-                      </Typography>
-                    )}
-                  </Box>
+                  <Typography variant="body2" color="text.secondary" textAlign="center">
+                    {t('annotation.noMediaInCorpus')}
+                  </Typography>
                 )}
               </Stack>
             </AccordionDetails>
@@ -1409,6 +1430,7 @@ export default function MultimodalAnnotation() {
                 alignmentData={alignmentData}
                 pitchData={pitchData}
                 waveformData={waveformData}
+                acousticData={acousticData}
                 savedAudioBoxes={savedAudioBoxes}
                 onAudioBoxAdd={handleAudioBoxAdd}
                 onWaveformExportReady={handleWaveformExportReady}

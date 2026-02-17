@@ -49,7 +49,8 @@ import type {
   YoloTrack,
   TranscriptSegment,
   VideoKeyframe,
-  AudioBox
+  AudioBox,
+  AcousticData
 } from '../../types'
 import { AnnotationTable } from './index'
 import TranscriptAnnotator from './TranscriptAnnotator'
@@ -159,7 +160,7 @@ interface MultimodalWorkspaceProps {
   showSpacyAnnotations?: boolean
   clipAnnotation?: ClipAnnotationData | null
   searchHighlights?: SearchHighlight[]  // 来自父组件的搜索高亮
-  // Audio waveform data (English only)
+  // Audio waveform data
   alignmentData?: AlignmentData | null
   pitchData?: PitchData | null
   // Pre-computed waveform peaks (to avoid Web Audio API crash in Electron packaged app)
@@ -170,6 +171,8 @@ interface MultimodalWorkspaceProps {
     sample_rate?: number
     error?: string
   } | null
+  // Praat acoustic analysis data (spectrogram, formants, etc.)
+  acousticData?: AcousticData | null
   // 音频画框标注
   savedAudioBoxes?: AudioBox[]
   onAudioBoxAdd?: (box: Omit<AudioBox, 'id'>) => void
@@ -242,6 +245,7 @@ export default function MultimodalWorkspace({
   alignmentData = null,
   pitchData = null,
   waveformData = null,
+  acousticData = null,
   savedAudioBoxes = [],
   onAudioBoxAdd,
   onWaveformExportReady
@@ -1388,8 +1392,9 @@ export default function MultimodalWorkspace({
       {/* Audio Section */}
       {mediaType === 'audio' && (
         <Paper sx={{ p: 2 }}>
-          {/* Use WavesurferWaveform for English audio with alignment data */}
-          {alignmentData?.enabled && alignmentData.word_alignments && alignmentData.word_alignments.length > 0 ? (
+          {/* Use WavesurferWaveform for audio with any visualization data (alignment, pitch, acoustic, or waveform) */}
+          {(waveformData?.enabled || pitchData?.enabled || acousticData?.enabled ||
+            (alignmentData?.enabled && alignmentData.word_alignments && alignmentData.word_alignments.length > 0)) ? (
             <>
               {/* WaveSurfer handles all audio playback - no separate audio element needed */}
               <WavesurferWaveform
@@ -1397,8 +1402,9 @@ export default function MultimodalWorkspace({
                 audioUrl={mediaPath}
                 duration={duration}
                 currentTime={currentTime}
-                wordAlignments={alignmentData.word_alignments}
+                wordAlignments={alignmentData?.enabled ? alignmentData.word_alignments || [] : []}
                 pitchData={pitchData?.enabled && pitchData?.f0 ? pitchData as any : undefined}
+                acousticData={acousticData?.enabled ? acousticData : undefined}
                 precomputedPeaks={waveformData?.enabled && waveformData?.peaks ? waveformData.peaks : undefined}
                 onSeek={(time) => {
                   setCurrentTime(time)
@@ -1418,7 +1424,7 @@ export default function MultimodalWorkspace({
                       Math.floor(range.start * 10),
                       Math.floor(range.end * 10)
                     ) || `[${range.start.toFixed(2)}s - ${range.end.toFixed(2)}s]`
-                    
+
                     onAnnotationAdd({
                       text: rangeText,
                       startPosition: 0,
@@ -1461,7 +1467,7 @@ export default function MultimodalWorkspace({
               />
             </>
           ) : (
-            /* Standard audio player for non-English or no alignment */
+            /* Standard audio player - fallback when no visualization data available */
             <audio
               ref={audioRef}
               src={mediaPath}

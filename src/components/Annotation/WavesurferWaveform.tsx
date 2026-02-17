@@ -18,7 +18,14 @@ import Forward5Icon from '@mui/icons-material/Forward5'
 import Replay5Icon from '@mui/icons-material/Replay5'
 import HighlightAltIcon from '@mui/icons-material/HighlightAlt'
 import { useTranslation } from 'react-i18next'
-import type { AudioBox } from '../../types'
+import GraphicEqIcon from '@mui/icons-material/GraphicEq'
+import type { AudioBox, AcousticData } from '../../types'
+import {
+  renderSpectrogram,
+  renderFormantTracks,
+  renderOverlayCurve,
+  renderFrequencyAxis,
+} from '../../utils/spectrogramRenderer'
 
 // Types
 interface WordAlignment {
@@ -75,6 +82,9 @@ interface WavesurferWaveformProps {
   initialZoom?: number
   // Pre-computed waveform peaks (to skip Web Audio API decode which crashes in Electron packaged app)
   precomputedPeaks?: number[]
+  // Acoustic analysis data (Praat spectrogram, formants, intensity, HNR, etc.)
+  acousticData?: AcousticData
+  spectrogramHeight?: number  // Default 150
 }
 
 // Exposed methods via ref
@@ -112,7 +122,9 @@ const WavesurferWaveform = forwardRef<WavesurferWaveformRef, WavesurferWaveformP
   onAudioBoxAdd,
   onDrawModeChange,
   initialZoom,
-  precomputedPeaks
+  precomputedPeaks,
+  acousticData,
+  spectrogramHeight: spectrogramHeightProp = 150
 }, ref) => {
   const { t } = useTranslation()
   const theme = useTheme()
@@ -133,6 +145,7 @@ const WavesurferWaveform = forwardRef<WavesurferWaveformRef, WavesurferWaveformP
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const boxCanvasRef = useRef<HTMLCanvasElement>(null)  // 画框 Canvas
+  const spectrogramCanvasRef = useRef<HTMLCanvasElement>(null)  // 频谱图 Canvas
   const wavesurferRef = useRef<WaveSurfer | null>(null)
   const regionsRef = useRef<ReturnType<typeof RegionsPlugin.create> | null>(null)
   const zoomRef = useRef(100) // Store zoom value for event handlers
@@ -145,6 +158,13 @@ const WavesurferWaveform = forwardRef<WavesurferWaveformRef, WavesurferWaveformP
   const [internalTime, setInternalTime] = useState(0)
   const [viewportWidth, setViewportWidth] = useState(800)
   
+  // Acoustic feature display toggles
+  const [showSpectrogram, setShowSpectrogram] = useState(true)
+  const [showFormants, setShowFormants] = useState(true)
+  const [showIntensity, setShowIntensity] = useState(false)
+  const [showHNR, setShowHNR] = useState(false)
+  const spectrogramHeight = spectrogramHeightProp
+
   // 画框模式状态
   const [drawMode, setDrawMode] = useState(false)
   const drawModeRef = useRef(false)  // 用于在事件处理器中访问最新状态
@@ -736,6 +756,62 @@ const WavesurferWaveform = forwardRef<WavesurferWaveformRef, WavesurferWaveformP
 
   }, [pitchData, showPitch, containerWidth, height, duration, isReady])
 
+  // Draw spectrogram + formant tracks on canvas
+  useEffect(() => {
+    if (!spectrogramCanvasRef.current || !acousticData?.enabled || !acousticData.spectrogram || !showSpectrogram || !isReady) return
+
+    const canvas = spectrogramCanvasRef.current
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+
+    const dpr = Math.min(window.devicePixelRatio || 1, 2)
+    const physicalWidth = Math.floor(containerWidth * dpr)
+    const physicalHeight = Math.floor(spectrogramHeight * dpr)
+
+    if (canvas.width !== physicalWidth || canvas.height !== physicalHeight) {
+      canvas.width = physicalWidth
+      canvas.height = physicalHeight
+      canvas.style.width = `${containerWidth}px`
+      canvas.style.height = `${spectrogramHeight}px`
+    }
+
+    ctx.setTransform(1, 0, 0, 1, 0, 0)
+
+    // Clear canvas
+    ctx.clearRect(0, 0, physicalWidth, physicalHeight)
+
+    const renderOpts = { width: containerWidth, height: spectrogramHeight, duration, dpr }
+
+    // Render spectrogram heatmap
+    renderSpectrogram(ctx, acousticData.spectrogram, renderOpts)
+
+    // Render frequency axis labels
+    const maxFreq = acousticData.spectrogram.frequencies[acousticData.spectrogram.frequencies.length - 1] || 5500
+    renderFrequencyAxis(ctx, maxFreq, renderOpts)
+
+    // Render formant tracks overlay
+    if (showFormants && acousticData.formants) {
+      renderFormantTracks(ctx, acousticData.formants, renderOpts, maxFreq)
+    }
+
+    // Render intensity overlay
+    if (showIntensity && acousticData.intensity && acousticData.intensity.values.length > 0) {
+      const vals = acousticData.intensity.values.filter(v => v > 0)
+      const minI = vals.length > 0 ? Math.min(...vals) : 0
+      const maxI = vals.length > 0 ? Math.max(...vals) : 100
+      renderOverlayCurve(ctx, acousticData.intensity.times, acousticData.intensity.values, renderOpts, '#FFD700', minI, maxI)
+    }
+
+    // Render HNR overlay
+    if (showHNR && acousticData.hnr && acousticData.hnr.values.length > 0) {
+      const vals = acousticData.hnr.values.filter(v => v > 0)
+      const minH = vals.length > 0 ? Math.min(...vals) : 0
+      const maxH = vals.length > 0 ? Math.max(...vals) : 40
+      renderOverlayCurve(ctx, acousticData.hnr.times, acousticData.hnr.values, renderOpts, '#FF69B4', minH, maxH)
+    }
+
+  }, [acousticData, showSpectrogram, showFormants, showIntensity, showHNR, containerWidth, spectrogramHeight, duration, isReady])
+
   // Playback controls
   const handlePlayPause = useCallback(() => {
     if (wavesurferRef.current) {
@@ -1144,12 +1220,57 @@ const WavesurferWaveform = forwardRef<WavesurferWaveformRef, WavesurferWaveformP
         
         {/* 音频框标注数量 */}
         {savedAudioBoxes.length > 0 && (
-          <Chip 
-            size="small" 
+          <Chip
+            size="small"
             label={t('annotation.audioBoxCount', '{{count}} boxes', { count: savedAudioBoxes.length })}
             variant="outlined"
             color="secondary"
           />
+        )}
+
+        {/* Acoustic feature toggles */}
+        {acousticData?.enabled && (
+          <>
+            <Tooltip title={t('annotation.showSpectrogram')}>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={showSpectrogram}
+                    onChange={() => setShowSpectrogram(!showSpectrogram)}
+                    size="small"
+                  />
+                }
+                label={<Typography variant="caption"><GraphicEqIcon sx={{ fontSize: 16, mr: 0.5, verticalAlign: 'middle' }} />{t('annotation.showSpectrogram')}</Typography>}
+              />
+            </Tooltip>
+            {showSpectrogram && (
+              <>
+                <FormControlLabel
+                  control={<Switch checked={showFormants} onChange={() => setShowFormants(!showFormants)} size="small" />}
+                  label={<Typography variant="caption">{t('annotation.showFormants')}</Typography>}
+                />
+                {acousticData.intensity && (
+                  <FormControlLabel
+                    control={<Switch checked={showIntensity} onChange={() => setShowIntensity(!showIntensity)} size="small" />}
+                    label={<Typography variant="caption">{t('annotation.showIntensity')}</Typography>}
+                  />
+                )}
+                {acousticData.hnr && (
+                  <FormControlLabel
+                    control={<Switch checked={showHNR} onChange={() => setShowHNR(!showHNR)} size="small" />}
+                    label={<Typography variant="caption">{t('annotation.showHNR')}</Typography>}
+                  />
+                )}
+              </>
+            )}
+            {/* Jitter/Shimmer scalar display */}
+            {acousticData.jitter && acousticData.jitter.local > 0 && (
+              <Chip size="small" label={`Jitter: ${(acousticData.jitter.local * 100).toFixed(2)}%`} variant="outlined" />
+            )}
+            {acousticData.shimmer && acousticData.shimmer.local > 0 && (
+              <Chip size="small" label={`Shimmer: ${(acousticData.shimmer.local * 100).toFixed(2)}%`} variant="outlined" />
+            )}
+          </>
         )}
       </Stack>
 
@@ -1220,6 +1341,34 @@ const WavesurferWaveform = forwardRef<WavesurferWaveformRef, WavesurferWaveformP
             }}
           />
         </Box>
+
+        {/* Gap between waveform and spectrogram */}
+        {acousticData?.enabled && showSpectrogram && acousticData.spectrogram && (
+          <Box sx={{ height: 4, bgcolor: isDarkMode ? '#333' : '#e0e0e0', minWidth: containerWidth }} />
+        )}
+
+        {/* Spectrogram + Formant canvas */}
+        {acousticData?.enabled && showSpectrogram && acousticData.spectrogram && (
+          <Box
+            sx={{
+              minWidth: containerWidth,
+              height: spectrogramHeight,
+              position: 'relative'
+            }}
+          >
+            <canvas
+              ref={spectrogramCanvasRef}
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: containerWidth,
+                height: spectrogramHeight,
+                pointerEvents: 'none'
+              }}
+            />
+          </Box>
+        )}
 
         {/* Hovered word info */}
         {hoveredWord && (

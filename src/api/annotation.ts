@@ -11,7 +11,8 @@ import type {
   SpacyAnnotationData,
   AudioBox,
   WaveformData,
-  PitchDataArchive
+  PitchDataArchive,
+  AcousticDataArchive
 } from '../types'
 
 // Annotation API response types
@@ -196,6 +197,7 @@ export function createMultimodalAnnotationRequest(
     audioBoxes?: AudioBox[]
     waveformData?: WaveformData
     pitchData?: PitchDataArchive
+    acousticData?: AcousticDataArchive
     audioVisualizationSvg?: string
   }
 ): SaveAnnotationRequest {
@@ -219,6 +221,7 @@ export function createMultimodalAnnotationRequest(
     audioBoxes: options?.audioBoxes,
     waveformData: options?.waveformData,
     pitchData: options?.pitchData,
+    acousticData: options?.acousticData,
     audioVisualizationSvg: options?.audioVisualizationSvg
   }
 }

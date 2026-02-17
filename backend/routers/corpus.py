@@ -2845,11 +2845,12 @@ def process_media_file_sync(
     clip_annotation: bool,
     clip_labels: list,
     clip_frame_interval: int,
-    language: str
+    language: str,
+    gender: str = "male"
 ):
     """
     Background task to process audio/video files with progress updates (synchronous)
-    
+
     Args:
         task_id: Task ID for progress tracking
         text_id: Text entry ID in database
@@ -2861,6 +2862,7 @@ def process_media_file_sync(
         clip_labels: Labels for CLIP classification
         clip_frame_interval: Frame interval for CLIP (default 30)
         language: Language for transcription
+        gender: Speaker gender for acoustic analysis ('male' or 'female')
     """
     logger.info(f"=== Starting background processing for task {task_id} ===")
     service = get_corpus_service()
@@ -2894,11 +2896,12 @@ def process_media_file_sync(
                 pct = 10 + int((current / max(total, 1)) * 40)
                 send_progress_sync(task_id, "transcribing", pct, msg)
             
-            # Transcribe
+            # Transcribe (pass gender for acoustic analysis)
             result = whisper.transcribe_and_save(
                 save_path,
                 language=language,
-                progress_callback=audio_progress_callback
+                progress_callback=audio_progress_callback,
+                gender=gender
             )
             
             if not result.get("success"):
@@ -2907,9 +2910,17 @@ def process_media_file_sync(
                                   status="failed")
                 return
             
-            send_progress_sync(task_id, "spacy", 50, "Running SpaCy annotation...")
-            
-            # SpaCy annotation (50-60%)
+            # Report acoustic analysis completion if it ran
+            json_path_check = result.get('json_path')
+            if json_path_check and os.path.exists(json_path_check):
+                with open(json_path_check, 'r', encoding='utf-8') as f_check:
+                    transcript_check = json.load(f_check)
+                if transcript_check.get("acoustic", {}).get("enabled"):
+                    send_progress_sync(task_id, "acoustic", 52, "Acoustic analysis complete (spectrogram, formants)")
+
+            send_progress_sync(task_id, "spacy", 55, "Running SpaCy annotation...")
+
+            # SpaCy annotation (55-65%)
             from services.spacy_service import get_spacy_service
             spacy_svc = get_spacy_service()
             
@@ -3400,10 +3411,11 @@ async def upload_files(
     clip_labels = config_data.get("clip_labels", [])
     clip_frame_interval = config_data.get("clip_frame_interval", 30)
     language = config_data.get("language") or corpus.get('language', 'english')
+    gender = config_data.get("gender", "male")
     tags = config_data.get("tags", [])
     metadata_dict = config_data.get("metadata", {})
-    
-    logger.info(f"=== Upload config: transcribe={transcribe}, yolo_annotation={yolo_annotation}, clip_annotation={clip_annotation}, clip_frame_interval={clip_frame_interval}, language={language} ===")
+
+    logger.info(f"=== Upload config: transcribe={transcribe}, yolo_annotation={yolo_annotation}, clip_annotation={clip_annotation}, clip_frame_interval={clip_frame_interval}, language={language}, gender={gender} ===")
     
     # Build upload config
     metadata = TextMetadata(**metadata_dict) if metadata_dict else None
@@ -3479,7 +3491,8 @@ async def upload_files(
                     clip_annotation,
                     clip_labels,
                     clip_frame_interval,
-                    language
+                    language,
+                    gender
                 )
                 
                 logger.info(f"=== Created background task {task_id} for {file.filename} ===")

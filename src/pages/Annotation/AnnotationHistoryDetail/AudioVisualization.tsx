@@ -16,6 +16,7 @@ import {
   IconButton,
   Tooltip,
   Divider,
+  Chip,
   ToggleButton,
   ToggleButtonGroup,
   useTheme
@@ -29,7 +30,12 @@ import PieChartOutlineIcon from '@mui/icons-material/PieChartOutline'
 import TimelineIcon from '@mui/icons-material/Timeline'
 import { useTranslation } from 'react-i18next'
 import * as d3 from 'd3'
-import type { Annotation, TranscriptSegment, AudioBox, PitchDataArchive } from '../../../types'
+import type { Annotation, TranscriptSegment, AudioBox, PitchDataArchive, AcousticDataArchive } from '../../../types'
+import {
+  renderSpectrogram,
+  renderFormantTracks,
+  renderFrequencyAxis
+} from '../../../utils/spectrogramRenderer'
 
 interface AudioVisualizationProps {
   annotations: Annotation[]
@@ -38,6 +44,7 @@ interface AudioVisualizationProps {
   audioUrl?: string
   audioBoxes?: AudioBox[]
   pitchData?: PitchDataArchive
+  acousticData?: AcousticDataArchive
   audioVisualizationSvg?: string  // 保存时生成的 SVG
 }
 
@@ -50,12 +57,13 @@ const COLORS = [
 
 type ChartType = 'waveform' | 'bar' | 'pie'
 
-export default function AudioVisualization({ 
-  annotations, 
+export default function AudioVisualization({
+  annotations,
   transcriptSegments,
   duration,
   audioBoxes = [],
   pitchData,
+  acousticData,
   audioVisualizationSvg
 }: AudioVisualizationProps) {
   const { t } = useTranslation()
@@ -77,10 +85,15 @@ export default function AudioVisualization({
   const svgContainerRef = useRef<HTMLDivElement>(null)
   const chartSvgRef = useRef<SVGSVGElement>(null)
   const tooltipRef = useRef<HTMLDivElement>(null)
-  
+  const spectrogramCanvasRef = useRef<HTMLCanvasElement>(null)
+
   const [chartType, setChartType] = useState<ChartType>('waveform')
   const [zoom, setZoom] = useState(100) // 缩放百分比
   const minZoom = 100 // 最小缩放 100%（原大小）
+
+  // 频谱图是否有数据
+  const hasSpectrogram = !!(acousticData?.enabled && acousticData.spectrogram)
+  const hasFormants = !!(acousticData?.enabled && acousticData.formants)
   
   // 过滤出文本标注（排除视频和音频画框类型）
   const textAnnotations = annotations.filter(a => a.type !== 'video' && a.type !== 'audio')
@@ -111,6 +124,60 @@ export default function AudioVisualization({
       .sort((a, b) => b.value - a.value)
   }, [audioBoxes])
   
+  // 绘制频谱图（静态，在波形视图下方）
+  useEffect(() => {
+    if (chartType !== 'waveform' || !hasSpectrogram || !spectrogramCanvasRef.current) return
+    if (!acousticData?.spectrogram) return
+
+    const canvas = spectrogramCanvasRef.current
+    const spec = acousticData.spectrogram
+    const spectrogramHeight = 150
+
+    // 计算宽度 - 与波形SVG同步
+    const pixelsPerSecond = 100 * (zoom / 100) // match SVG zoom
+    const totalWidth = Math.max(duration * pixelsPerSecond, 600)
+
+    const dpr = window.devicePixelRatio || 1
+    canvas.width = totalWidth * dpr
+    canvas.height = spectrogramHeight * dpr
+    canvas.style.width = `${totalWidth}px`
+    canvas.style.height = `${spectrogramHeight}px`
+
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+
+    ctx.scale(dpr, dpr)
+    ctx.clearRect(0, 0, totalWidth, spectrogramHeight)
+
+    // Render spectrogram heatmap
+    const maxFreq = spec.frequencies[spec.frequencies.length - 1] || 5500
+    renderSpectrogram(ctx, spec, {
+      width: totalWidth,
+      height: spectrogramHeight,
+      pixelsPerSecond,
+      duration
+    })
+
+    // Render frequency axis
+    renderFrequencyAxis(ctx, maxFreq, {
+      width: totalWidth,
+      height: spectrogramHeight,
+      pixelsPerSecond,
+      duration
+    })
+
+    // Render formant tracks if available
+    if (hasFormants && acousticData.formants) {
+      renderFormantTracks(ctx, acousticData.formants, {
+        width: totalWidth,
+        height: spectrogramHeight,
+        pixelsPerSecond,
+        duration
+      }, maxFreq)
+    }
+
+  }, [chartType, hasSpectrogram, hasFormants, acousticData, duration, zoom])
+
   // 绘制柱状图
   const drawBarChart = useCallback(() => {
     if (!chartSvgRef.current || labelStats.length === 0) return
@@ -621,8 +688,8 @@ export default function AudioVisualization({
   // 检查是否有数据
   const hasData = transcriptSegments.length > 0 || audioBoxes.length > 0 || textAnnotations.length > 0
   const hasSvg = !!audioVisualizationSvg
-  
-  if (!hasData && !hasSvg) {
+
+  if (!hasData && !hasSvg && !hasSpectrogram) {
     return (
       <Alert severity="info">
         {t('annotation.noAudioVisualizationData', '暂无音频标注数据可视化')}
@@ -668,7 +735,7 @@ export default function AudioVisualization({
             onChange={(_, value) => value && setChartType(value)}
             size="small"
           >
-            <ToggleButton value="waveform" disabled={!hasSvg}>
+            <ToggleButton value="waveform" disabled={!hasSvg && !hasSpectrogram}>
               <TimelineIcon sx={{ mr: 0.5 }} fontSize="small" />
               {t('annotation.waveform', '波形图')}
             </ToggleButton>
@@ -707,19 +774,19 @@ export default function AudioVisualization({
           
           {/* 导出按钮 */}
           <Tooltip title={t('annotation.exportSvg', '导出 SVG')}>
-            <IconButton 
-              size="small" 
+            <IconButton
+              size="small"
               onClick={chartType === 'waveform' ? handleExportWaveformSVG : handleExportChartSVG}
-              disabled={chartType === 'waveform' && !hasSvg}
+              disabled={chartType === 'waveform' && !hasSvg && !hasSpectrogram}
             >
               <SaveAltIcon fontSize="small" />
             </IconButton>
           </Tooltip>
           <Tooltip title={t('annotation.exportPng', '导出 PNG')}>
-            <IconButton 
-              size="small" 
+            <IconButton
+              size="small"
               onClick={chartType === 'waveform' ? handleExportWaveformPNG : handleExportChartPNG}
-              disabled={chartType === 'waveform' && !hasSvg}
+              disabled={chartType === 'waveform' && !hasSvg && !hasSpectrogram}
             >
               <ImageIcon fontSize="small" />
             </IconButton>
@@ -737,7 +804,7 @@ export default function AudioVisualization({
                 borderColor: 'divider',
                 borderRadius: 1,
                 overflow: 'auto',
-                maxHeight: 500,
+                maxHeight: hasSpectrogram ? 700 : 500,
                 bgcolor: themeColors.cardBg,
                 '&::-webkit-scrollbar': { height: 10, width: 10 },
                 '&::-webkit-scrollbar-thumb': { bgcolor: themeColors.scrollbarThumb, borderRadius: 5 }
@@ -754,6 +821,55 @@ export default function AudioVisualization({
                 }}
                 dangerouslySetInnerHTML={{ __html: audioVisualizationSvg }}
               />
+              {/* 频谱图（在波形下方） */}
+              {hasSpectrogram && (
+                <Box sx={{ borderTop: '2px solid', borderColor: 'divider', mt: 0.5 }}>
+                  <Typography variant="caption" color="text.secondary" sx={{ px: 1, pt: 0.5, display: 'block' }}>
+                    {t('annotation.spectrogram', '语谱图')}
+                    {hasFormants && ` + ${t('annotation.formants', '共振峰')}`}
+                  </Typography>
+                  <Box sx={{
+                    transform: `scale(${zoom / 100})`,
+                    transformOrigin: 'top left',
+                    transition: 'transform 0.1s ease-out'
+                  }}>
+                    <canvas
+                      ref={spectrogramCanvasRef}
+                      style={{ display: 'block' }}
+                    />
+                  </Box>
+                </Box>
+              )}
+            </Box>
+          ) : hasSpectrogram ? (
+            /* 只有频谱图没有波形SVG的情况 */
+            <Box
+              sx={{
+                border: '1px solid',
+                borderColor: 'divider',
+                borderRadius: 1,
+                overflow: 'auto',
+                maxHeight: 300,
+                bgcolor: themeColors.cardBg,
+                '&::-webkit-scrollbar': { height: 10, width: 10 },
+                '&::-webkit-scrollbar-thumb': { bgcolor: themeColors.scrollbarThumb, borderRadius: 5 }
+              }}
+              onWheel={handleWheel}
+            >
+              <Typography variant="caption" color="text.secondary" sx={{ px: 1, pt: 0.5, display: 'block' }}>
+                {t('annotation.spectrogram', '语谱图')}
+                {hasFormants && ` + ${t('annotation.formants', '共振峰')}`}
+              </Typography>
+              <Box sx={{
+                transform: `scale(${zoom / 100})`,
+                transformOrigin: 'top left',
+                transition: 'transform 0.1s ease-out'
+              }}>
+                <canvas
+                  ref={spectrogramCanvasRef}
+                  style={{ display: 'block' }}
+                />
+              </Box>
             </Box>
           ) : (
             <Alert severity="warning">
@@ -795,10 +911,33 @@ export default function AudioVisualization({
         </>
       )}
       
+      {/* 声学特征标量统计 (Jitter/Shimmer) */}
+      {acousticData?.enabled && (acousticData.jitter || acousticData.shimmer) && (
+        <Box sx={{ mt: 2, p: 1.5, border: '1px solid', borderColor: 'divider', borderRadius: 1, bgcolor: themeColors.cardBg }}>
+          <Typography variant="subtitle2" sx={{ mb: 1 }}>
+            {t('annotation.acousticFeatures', '声学特征')}
+          </Typography>
+          <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+            {acousticData.jitter && (
+              <>
+                <Chip size="small" label={`Jitter (local): ${((acousticData.jitter as any).local * 100).toFixed(3)}%`} variant="outlined" />
+                <Chip size="small" label={`Jitter (RAP): ${((acousticData.jitter as any).rap * 100).toFixed(3)}%`} variant="outlined" />
+              </>
+            )}
+            {acousticData.shimmer && (
+              <>
+                <Chip size="small" label={`Shimmer (local): ${((acousticData.shimmer as any).local * 100).toFixed(3)}%`} variant="outlined" />
+                <Chip size="small" label={`Shimmer (dB): ${(acousticData.shimmer as any).local_db?.toFixed(3) || '-'} dB`} variant="outlined" />
+              </>
+            )}
+          </Stack>
+        </Box>
+      )}
+
       {/* 统计摘要 */}
       <Box sx={{ mt: 2 }}>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-          {t('annotation.audioBox', '画框')}: {audioBoxes.length} | 
+          {t('annotation.audioBox', '画框')}: {audioBoxes.length} |
           {' '}{labelStats.length} {t('annotation.labelTypes', '种标签')}
           {duration > 0 && (
             <> | {t('annotation.duration', '时长')}: {Math.floor(duration / 60)}:{String(Math.floor(duration % 60)).padStart(2, '0')}</>

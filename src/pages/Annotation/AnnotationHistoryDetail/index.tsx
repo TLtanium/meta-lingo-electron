@@ -30,7 +30,7 @@ import TableChartIcon from '@mui/icons-material/TableChart'
 import BarChartIcon from '@mui/icons-material/BarChart'
 import { useTranslation } from 'react-i18next'
 import { api } from '../../../api/client'
-import type { AnnotationArchive, Annotation, YoloTrack, VideoBox, ClipAnnotationData, AudioBox, PitchDataArchive } from '../../../types'
+import type { AnnotationArchive, Annotation, YoloTrack, VideoBox, ClipAnnotationData, AudioBox, PitchDataArchive, AcousticDataArchive } from '../../../types'
 import AnnotationDataTable from './AnnotationDataTable'
 import VideoAnnotationTable from './VideoAnnotationTable'
 import AudioAnnotationTable from './AudioAnnotationTable'
@@ -168,6 +168,7 @@ export default function AnnotationHistoryDetail({ archive, onBack }: AnnotationH
   // 音频专用
   const audioBoxes = (archiveData as any).audioBoxes as AudioBox[] || []
   const pitchData = (archiveData as any).pitchData as PitchDataArchive | undefined
+  const acousticData = (archiveData as any).acousticData as AcousticDataArchive | undefined
   const audioVisualizationSvg = (archiveData as any).audioVisualizationSvg as string | undefined
   
   // 计算视频标注总数（manualTracks + annotations 中 type === 'video' 的）
@@ -361,6 +362,7 @@ export default function AnnotationHistoryDetail({ archive, onBack }: AnnotationH
               audioUrl={archiveData.mediaPath}
               audioBoxes={audioBoxes}
               pitchData={pitchData}
+              acousticData={acousticData}
               audioVisualizationSvg={audioVisualizationSvg}
             />
           ) : isVideo ? (

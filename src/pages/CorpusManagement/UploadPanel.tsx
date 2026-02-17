@@ -63,6 +63,9 @@ const PROCESSING_STAGES = [
   { key: 'extract_audio', label: 'Extracting Audio' },
   { key: 'transcribing', label: 'Transcribing' },
   { key: 'spacy', label: 'SpaCy Annotation' },
+  { key: 'usas', label: 'USAS Annotation' },
+  { key: 'mipvu', label: 'MIPVU Annotation' },
+  { key: 'acoustic', label: 'Acoustic Analysis' },
   { key: 'yolo', label: 'YOLO Detection' },
   { key: 'clip', label: 'CLIP Classification' },
   { key: 'database', label: 'Saving' },
@@ -213,6 +216,7 @@ export default function UploadPanel({
   const [clipFrameInterval, setClipFrameInterval] = useState(30)  // Default frame interval for CLIP
   const [customClipLabel, setCustomClipLabel] = useState('')
   const [transcriptLanguage, setTranscriptLanguage] = useState('english')
+  const [speakerGender, setSpeakerGender] = useState<'male' | 'female'>('male')  // Speaker gender for acoustic analysis
   const [isUploading, setIsUploading] = useState(false)
   const [uploadError, setUploadError] = useState<string | null>(null)
   const [uploadSuccess, setUploadSuccess] = useState<string | null>(null)
@@ -473,6 +477,7 @@ export default function UploadPanel({
         clip_labels: clipAnnotation ? clipLabels : [],
         clip_frame_interval: clipAnnotation ? clipFrameInterval : 30,
         language: transcriptLanguage,
+        gender: speakerGender,
         tags: metadata.tags || [],
         metadata: fileMetadata
       }
@@ -646,6 +651,7 @@ export default function UploadPanel({
 
   const hasAudioVideo = files.some(f => f.type === 'audio' || f.type === 'video')
   const hasVideo = files.some(f => f.type === 'video')
+  const hasAudio = files.some(f => f.type === 'audio')
 
   return (
     <Box sx={{ p: 3, maxWidth: 1100, mx: 'auto' }}>
@@ -1061,6 +1067,20 @@ export default function UploadPanel({
                           </MenuItem>
                         )
                       })}
+                    </Select>
+                  </FormControl>
+                )}
+
+                {hasAudio && transcribeAudio && (
+                  <FormControl size="small" sx={{ ml: 4, maxWidth: 250 }}>
+                    <InputLabel>{t('corpus.speakerGender', 'Speaker Gender')}</InputLabel>
+                    <Select
+                      value={speakerGender}
+                      onChange={(e) => setSpeakerGender(e.target.value as 'male' | 'female')}
+                      label={t('corpus.speakerGender', 'Speaker Gender')}
+                    >
+                      <MenuItem value="male">{t('corpus.male', 'Male')}</MenuItem>
+                      <MenuItem value="female">{t('corpus.female', 'Female')}</MenuItem>
                     </Select>
                   </FormControl>
                 )}

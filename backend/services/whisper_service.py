@@ -284,17 +284,18 @@ class WhisperService:
             return False
     
     def transcribe(
-        self, 
-        audio_path: str, 
+        self,
+        audio_path: str,
         language: str = None,
         return_timestamps: bool = True,
         use_word_timestamps: bool = True,
         progress_callback: callable = None,
-        skip_alignment_pitch: bool = False
+        skip_alignment_pitch: bool = False,
+        **kwargs
     ) -> Dict[str, Any]:
         """
         Transcribe audio file
-        
+
         Args:
             audio_path: Path to audio file
             language: Language code (e.g., 'en', 'zh'), None for auto-detect
@@ -302,6 +303,7 @@ class WhisperService:
             use_word_timestamps: Whether to use word-level timestamps
             progress_callback: Progress callback function
             skip_alignment_pitch: Whether to skip Wav2Vec2 alignment and pitch extraction (for video files)
+            **kwargs: Additional arguments (gender, max_formant for acoustic analysis)
             
         Returns:
             Transcription result dictionary
@@ -487,22 +489,20 @@ class WhisperService:
                 else:
                     is_english = False
             
-            # Only perform alignment and pitch extraction for English audio files (not video)
+            # === 1) Wav2Vec2 forced alignment: English audio only ===
             if is_english and not skip_alignment_pitch:
-                logger.info("English audio detected, performing forced alignment and pitch extraction...")
-                
-                # Forced alignment with Wav2Vec2
+                logger.info("English audio detected, performing forced alignment...")
                 try:
                     if progress_callback:
-                        progress_callback(85, 100, "Performing forced alignment...")
-                    
+                        progress_callback(80, 100, "Performing forced alignment...")
+
                     alignment_svc = get_alignment_service()
                     alignment_result = alignment_svc.align_audio(
-                        str(audio_path), 
+                        str(audio_path),
                         full_text,
                         progress_callback=lambda p, m: logger.info(f"Alignment: {p}% - {m}")
                     )
-                    
+
                     if alignment_result.get("success"):
                         transcript_data["alignment"] = {
                             "enabled": True,
@@ -513,16 +513,26 @@ class WhisperService:
                     else:
                         logger.warning(f"Forced alignment failed: {alignment_result.get('error')}")
                         transcript_data["alignment"] = {"enabled": False, "error": alignment_result.get("error")}
-                        
+
                 except Exception as e:
                     logger.error(f"Forced alignment error: {e}")
                     transcript_data["alignment"] = {"enabled": False, "error": str(e)}
-                
-                # Pitch extraction with TorchCrepe
+            else:
+                if skip_alignment_pitch:
+                    reason = "Video file - alignment only for audio"
+                    logger.info("Video file detected, skipping alignment")
+                else:
+                    reason = "Non-English audio - alignment only for English"
+                    logger.info("Non-English audio detected, skipping alignment")
+                transcript_data["alignment"] = {"enabled": False, "reason": reason}
+
+            # === 2) TorchCrepe pitch extraction: ALL audio (not just English) ===
+            if not skip_alignment_pitch:
+                logger.info("Extracting pitch (TorchCrepe) for audio...")
                 try:
                     if progress_callback:
-                        progress_callback(92, 100, "Extracting pitch...")
-                    
+                        progress_callback(85, 100, "Extracting pitch...")
+
                     pitch_svc = get_pitch_service()
                     pitch_result = pitch_svc.extract_pitch(
                         str(audio_path),
@@ -531,7 +541,7 @@ class WhisperService:
                         fmax=550.0,
                         progress_callback=lambda p, m: logger.info(f"Pitch: {p}% - {m}")
                     )
-                    
+
                     if pitch_result.get("success"):
                         transcript_data["pitch"] = {
                             "enabled": True,
@@ -547,25 +557,57 @@ class WhisperService:
                     else:
                         logger.warning(f"Pitch extraction failed: {pitch_result.get('error')}")
                         transcript_data["pitch"] = {"enabled": False, "error": pitch_result.get("error")}
-                        
+
                 except Exception as e:
                     logger.error(f"Pitch extraction error: {e}")
                     transcript_data["pitch"] = {"enabled": False, "error": str(e)}
             else:
-                if skip_alignment_pitch:
-                    reason = "Video file - alignment/pitch only for audio"
-                    logger.info("Video file detected, skipping alignment and pitch extraction")
-                else:
-                    reason = "Non-English audio"
-                    logger.info("Non-English audio detected, skipping alignment and pitch extraction")
-                transcript_data["alignment"] = {"enabled": False, "reason": reason}
-                transcript_data["pitch"] = {"enabled": False, "reason": reason}
-            
+                transcript_data["pitch"] = {"enabled": False, "reason": "Video file - pitch only for audio"}
+
+            # === 3) Praat acoustic analysis: ALL audio (not video) ===
+            if not skip_alignment_pitch:
+                logger.info("Running Praat acoustic analysis...")
+                try:
+                    if progress_callback:
+                        progress_callback(90, 100, "Running acoustic analysis...")
+
+                    from services.acoustic_service import get_acoustic_service
+                    acoustic_svc = get_acoustic_service()
+
+                    # Get gender parameter from kwargs (passed from upload config)
+                    gender = kwargs.get("gender", "male")
+                    max_formant = kwargs.get("max_formant", 5500 if gender == "male" else 6000)
+
+                    acoustic_result = acoustic_svc.analyze(
+                        str(audio_path),
+                        max_formant=max_formant,
+                        max_number_of_formants=5,
+                        time_step=0.01,
+                        dynamic_range=50.0,
+                        gender=gender,
+                        progress_callback=lambda p, m: logger.info(f"Acoustic: {p}% - {m}")
+                    )
+
+                    if acoustic_result.get("success"):
+                        transcript_data["acoustic"] = acoustic_result["data"]
+                        logger.info("Praat acoustic analysis complete")
+                    else:
+                        logger.warning(f"Acoustic analysis failed: {acoustic_result.get('error')}")
+                        transcript_data["acoustic"] = {"enabled": False, "error": acoustic_result.get("error")}
+
+                except Exception as e:
+                    logger.error(f"Acoustic analysis error: {e}")
+                    import traceback
+                    traceback.print_exc()
+                    transcript_data["acoustic"] = {"enabled": False, "error": str(e)}
+            else:
+                transcript_data["acoustic"] = {"enabled": False, "reason": "Video file - acoustic analysis only for audio"}
+
             # Extract waveform peaks for frontend visualization
             # This allows frontend to skip Web Audio API decodeAudioData which crashes on large files in Electron
             logger.info("Extracting waveform peaks for visualization...")
             if progress_callback:
-                progress_callback(95, 100, "Extracting waveform...")
+                progress_callback(96, 100, "Extracting waveform...")
             
             try:
                 waveform_result = extract_waveform_peaks(str(audio_path))
