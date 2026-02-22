@@ -30,7 +30,12 @@ import {
   Tab,
   Tooltip,
   useTheme,
-  LinearProgress
+  LinearProgress,
+  Table,
+  TableHead,
+  TableBody,
+  TableRow,
+  TableCell
 } from '@mui/material'
 import { useTranslation } from 'react-i18next'
 import PlayArrowIcon from '@mui/icons-material/PlayArrow'
@@ -1538,30 +1543,63 @@ export default function MultimodalWorkspace({
           {/* Tab 2: Audio / Video annotation list */}
           {bottomTabIndex === 2 && mediaType === 'audio' && (
             savedAudioBoxes.length > 0 ? (
-              <Box>
-                <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 80px 80px 80px auto', gap: 0.5, mb: 0.5 }}>
-                  <Typography variant="caption" color="text.secondary" fontWeight={600}>{t('annotation.label', '标签')}</Typography>
-                  <Typography variant="caption" color="text.secondary" fontWeight={600}>{t('annotation.startTime', '开始')}</Typography>
-                  <Typography variant="caption" color="text.secondary" fontWeight={600}>{t('annotation.endTime', '结束')}</Typography>
-                  <Typography variant="caption" color="text.secondary" fontWeight={600}>{t('annotation.duration', '时长')}</Typography>
-                  <Typography variant="caption" color="text.secondary" fontWeight={600}>{t('common.action', '操作')}</Typography>
-                </Box>
-                {savedAudioBoxes.map((box) => (
-                  <Box key={box.id} sx={{ display: 'grid', gridTemplateColumns: '1fr 80px 80px 80px auto', gap: 0.5, alignItems: 'center', py: 0.5, borderBottom: '1px solid', borderColor: 'divider' }}>
-                    <Chip
-                      size="small"
-                      label={box.label}
-                      sx={{ bgcolor: box.color + '33', borderColor: box.color, color: box.color, borderWidth: 1, borderStyle: 'solid', maxWidth: '100%' }}
-                    />
-                    <Typography variant="caption">{box.startTime.toFixed(2)}s</Typography>
-                    <Typography variant="caption">{box.endTime.toFixed(2)}s</Typography>
-                    <Typography variant="caption">{(box.endTime - box.startTime).toFixed(2)}s</Typography>
-                    <IconButton size="small" color="error" onClick={() => onAudioBoxRemove?.(box.id)} title={t('common.delete', '删除')}>
-                      <ClearIcon fontSize="small" />
-                    </IconButton>
-                  </Box>
-                ))}
-              </Box>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', width: 'auto' }}>
+                      {t('annotation.label', '标签')}
+                    </TableCell>
+                    <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', width: 80 }}>
+                      {t('annotation.startTime', '开始')}
+                    </TableCell>
+                    <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', width: 80 }}>
+                      {t('annotation.endTime', '结束')}
+                    </TableCell>
+                    <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', width: 80 }}>
+                      {t('annotation.duration', '时长')}
+                    </TableCell>
+                    <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', width: 48 }} />
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {savedAudioBoxes.map((box) => (
+                    <TableRow key={box.id} hover>
+                      <TableCell sx={{ py: 0.5 }}>
+                        <Chip
+                          size="small"
+                          label={box.label}
+                          sx={{
+                            bgcolor: box.color + '22',
+                            borderColor: box.color,
+                            color: box.color,
+                            borderWidth: 1,
+                            borderStyle: 'solid',
+                            fontWeight: 600,
+                            maxWidth: 200,
+                            '& .MuiChip-label': { overflow: 'hidden', textOverflow: 'ellipsis' }
+                          }}
+                        />
+                      </TableCell>
+                      <TableCell sx={{ py: 0.5, fontFamily: 'monospace', fontSize: '0.75rem' }}>
+                        {box.startTime.toFixed(2)}s
+                      </TableCell>
+                      <TableCell sx={{ py: 0.5, fontFamily: 'monospace', fontSize: '0.75rem' }}>
+                        {box.endTime.toFixed(2)}s
+                      </TableCell>
+                      <TableCell sx={{ py: 0.5, fontFamily: 'monospace', fontSize: '0.75rem' }}>
+                        {(box.endTime - box.startTime).toFixed(2)}s
+                      </TableCell>
+                      <TableCell sx={{ py: 0.5 }}>
+                        <Tooltip title={t('common.delete', '删除')}>
+                          <IconButton size="small" color="error" onClick={() => onAudioBoxRemove?.(box.id)}>
+                            <ClearIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             ) : (
               <Typography variant="body2" color="text.secondary">
                 {t('annotation.noAudioBoxes', '暂无音频画框标注。使用画框工具在波形上绘制标注框。')}

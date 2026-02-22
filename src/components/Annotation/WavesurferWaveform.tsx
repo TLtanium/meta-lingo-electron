@@ -839,7 +839,9 @@ const WavesurferWaveform = forwardRef<WavesurferWaveformRef, WavesurferWaveformP
       renderOverlayCurve(ctx, acousticData.hnr.times, acousticData.hnr.values, renderOpts, '#FF69B4', minH, maxH)
     }
 
-  }, [acousticData, showSpectrogram, showFormants, showIntensity, showHNR, zoom, spectrogramHeight, duration, isReady])
+  // containerWidth must be in deps: it changes when viewportWidth updates via ResizeObserver,
+  // which would otherwise leave the canvas sized to the stale value.
+  }, [acousticData, showSpectrogram, showFormants, showIntensity, showHNR, zoom, spectrogramHeight, duration, isReady, containerWidth])
 
   // Playback controls
   const handlePlayPause = useCallback(() => {
@@ -950,14 +952,19 @@ const WavesurferWaveform = forwardRef<WavesurferWaveformRef, WavesurferWaveformP
   // 画框 Canvas 鼠标按下 - 按照视频标注的模式简化
   const handleBoxMouseDown = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     if (!drawMode || !selectedLabel) return
-    
+
     const canvas = boxCanvasRef.current
     if (!canvas) return
-    
+
     const rect = canvas.getBoundingClientRect()
-    const x = e.clientX - rect.left
+    // Clamp x to the audio data extent (duration * zoom) so drawing is constrained to the
+    // actual audio region. The canvas is wider than the audio (it includes scroll headroom),
+    // and drawing beyond the audio end causes endTime to be clipped on save, producing drift.
+    const audioPixelWidth = Math.max(Math.ceil(duration * zoom), 600)
+    const rawX = e.clientX - rect.left
+    const x = Math.max(0, Math.min(rawX, audioPixelWidth))
     const y = e.clientY - rect.top
-    
+
     setIsDrawing(true)
     setDrawStart({ x, y })
     setCurrentBox({
@@ -965,26 +972,29 @@ const WavesurferWaveform = forwardRef<WavesurferWaveformRef, WavesurferWaveformP
       label: selectedLabel.node.name,
       color: selectedLabel.color
     })
-  }, [drawMode, selectedLabel])
+  }, [drawMode, selectedLabel, duration, zoom])
 
   // 画框 Canvas 鼠标移动 - 按照视频标注的模式，直接更新无节流
   const handleBoxMouseMove = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     if (!isDrawing || !drawStart || !drawMode) return
-    
+
     const canvas = boxCanvasRef.current
     if (!canvas) return
-    
+
     const rect = canvas.getBoundingClientRect()
-    const x = e.clientX - rect.left
+    // Same x-clamping as mouseDown so the live feedback exactly matches the saved result
+    const audioPixelWidth = Math.max(Math.ceil(duration * zoom), 600)
+    const rawX = e.clientX - rect.left
+    const x = Math.max(0, Math.min(rawX, audioPixelWidth))
     const y = e.clientY - rect.top
-    
+
     const x1 = Math.min(drawStart.x, x)
     const y1 = Math.min(drawStart.y, y)
     const x2 = Math.max(drawStart.x, x)
     const y2 = Math.max(drawStart.y, y)
-    
+
     setCurrentBox(prev => prev ? { ...prev, x1, y1, x2, y2 } : null)
-  }, [isDrawing, drawStart, drawMode])
+  }, [isDrawing, drawStart, drawMode, duration, zoom])
 
   // 画框 Canvas 鼠标释放 - 按照视频标注的模式简化
   const handleBoxMouseUp = useCallback(() => {
