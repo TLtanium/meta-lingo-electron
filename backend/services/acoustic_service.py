@@ -190,6 +190,10 @@ class AcousticService:
         Time axis is downsampled to MAX_SPECTROGRAM_TIME_FRAMES for efficient
         JSON serialization and frontend rendering.
 
+        Uses parselmouth's numpy interface (spectrogram.values) which is the
+        correct and reliable API. Do NOT use get_value_in_frame_bin() — that
+        method does not exist in parselmouth and will throw AttributeError.
+
         Returns:
             Dict with times, frequencies, energy_matrix (dB), dynamic_range
         """
@@ -202,61 +206,56 @@ class AcousticService:
                 frequency_step=20.0,  # Hz step for frequency resolution
             )
 
-            # Get time and frequency axes
-            n_times = spectrogram.get_number_of_frames()
-            n_freqs = spectrogram.get_number_of_bins()
+            # Access dimensions via parselmouth's SampledXY attributes
+            # spectrogram.nx = number of time frames
+            # spectrogram.ny = number of frequency bins
+            # spectrogram.values = numpy ndarray of shape (n_freqs, n_times) with power values
+            n_times = spectrogram.nx
+            n_freqs = spectrogram.ny
 
-            # Original frequency bins
-            orig_frequencies = [
-                spectrogram.get_frequency_from_bin_number(i + 1) for i in range(n_freqs)
-            ]
+            # Compute frequency axis: y1 = centre of first bin, dy = bin spacing
+            freq_indices = np.linspace(0, n_freqs - 1, min(MAX_SPECTROGRAM_FREQ_BINS, n_freqs), dtype=int)
+            all_freqs = spectrogram.y1 + np.arange(n_freqs) * spectrogram.dy
+            frequencies = [round(float(all_freqs[i]), 1) for i in freq_indices]
 
-            # Downsample frequency axis to ~128 bins
-            target_freq_bins = min(MAX_SPECTROGRAM_FREQ_BINS, n_freqs)
-            freq_indices = np.linspace(0, n_freqs - 1, target_freq_bins, dtype=int)
-            frequencies = [round(orig_frequencies[i], 1) for i in freq_indices]
-
-            # Downsample time axis if too many frames
-            # This is critical for keeping JSON size manageable and rendering fast.
+            # Compute time axis: x1 = centre of first frame, dx = frame spacing
             target_time_bins = min(MAX_SPECTROGRAM_TIME_FRAMES, n_times)
-            if n_times > target_time_bins:
-                time_indices = np.linspace(0, n_times - 1, target_time_bins, dtype=int)
-            else:
-                time_indices = np.arange(n_times)
+            time_indices = (
+                np.linspace(0, n_times - 1, target_time_bins, dtype=int)
+                if n_times > target_time_bins
+                else np.arange(n_times)
+            )
+            all_times = spectrogram.x1 + np.arange(n_times) * spectrogram.dx
+            times = [round(float(all_times[i]), 4) for i in time_indices]
 
-            times = [round(spectrogram.get_time_from_frame_number(int(i) + 1), 4) for i in time_indices]
+            # Extract energy matrix using numpy (vectorized — no per-frame loop).
+            # spectrogram.values shape: (n_freqs, n_times) — power spectral density values.
+            spec_values = spectrogram.values  # (n_freqs, n_times)
+            sub = spec_values[np.ix_(freq_indices, time_indices)]  # (n_freq_bins, n_time_bins)
 
-            # Extract energy matrix in dB (power spectral density)
-            # energy_matrix[time_idx][freq_idx]
-            energy_matrix = []
-            for t_idx in time_indices:
-                frame = []
-                for f_idx in freq_indices:
-                    # Get power spectral density value
-                    value = spectrogram.get_value_in_frame_bin(int(t_idx) + 1, int(f_idx) + 1)
-                    if value is not None and value > 0:
-                        # Convert to dB: 10 * log10(value)
-                        db_value = 10.0 * np.log10(value + 1e-30)
-                    else:
-                        db_value = -dynamic_range
-                    frame.append(round(float(db_value), 1))
-                energy_matrix.append(frame)
+            # Convert power to dB: 10 * log10(power). Silence → -dynamic_range dB.
+            with np.errstate(divide='ignore', invalid='ignore'):
+                db_sub = np.where(
+                    sub > 0,
+                    10.0 * np.log10(np.maximum(sub, 1e-30)),
+                    -float(dynamic_range),
+                )
 
-            # Apply dynamic range clipping
-            # Find the maximum dB value
-            max_db = max(max(frame) for frame in energy_matrix) if energy_matrix else 0
+            # Dynamic range clipping relative to peak
+            max_db = float(np.max(db_sub))
+            if not np.isfinite(max_db):
+                max_db = 0.0
             min_db = max_db - dynamic_range
+            db_sub = np.clip(db_sub, min_db, max_db)
+            db_sub = np.round(db_sub, 1)
 
-            for t_idx in range(len(energy_matrix)):
-                for f_idx in range(len(energy_matrix[t_idx])):
-                    energy_matrix[t_idx][f_idx] = max(
-                        min_db, energy_matrix[t_idx][f_idx]
-                    )
+            # Transpose to (n_times, n_freqs) for JSON as energy_matrix[time][freq]
+            energy_matrix = db_sub.T.tolist()
 
             logger.info(
-                f"Spectrogram: {n_times} original frames → {len(times)} downsampled x {target_freq_bins} freq bins, "
+                f"Spectrogram: {n_times} original frames → {len(times)} downsampled × {len(freq_indices)} freq bins, "
                 f"range [{min_db:.1f}, {max_db:.1f}] dB, "
-                f"data size ≈ {len(times) * target_freq_bins * 6 / 1024:.0f} KB"
+                f"data size ≈ {len(times) * len(freq_indices) * 6 / 1024:.0f} KB"
             )
 
             return {
@@ -268,6 +267,8 @@ class AcousticService:
 
         except Exception as e:
             logger.error(f"Spectrogram extraction failed: {e}")
+            import traceback
+            traceback.print_exc()
             return {
                 "times": [],
                 "frequencies": [],
@@ -324,15 +325,25 @@ class AcousticService:
                 for fi in range(max_number_of_formants, 5):
                     formant_arrays[fi].append(0.0)
 
-            # Apply median smoothing to reduce noise
-            kernel = 5
+            # Clamp formants to plausible speech ranges before smoothing
+            # (removes acoustic analysis outliers that blow up far outside vocal tract range)
+            speech_ranges = [(200, 1200), (500, 3500), (1000, 4500), (1500, 5000), (2000, 5500)]
+            for fi, (lo, hi) in enumerate(speech_ranges):
+                arr = formant_arrays[fi]
+                for j in range(len(arr)):
+                    if arr[j] > 0 and (arr[j] < lo or arr[j] > hi):
+                        arr[j] = 0.0  # mark as unvoiced/invalid
+
+            # Apply median smoothing to reduce noise.
+            # kernel=11 → 110ms smoothing window at 10ms step (≈ Praat's standard smoothing).
+            kernel = 11
             f1 = median_filter_1d(f1, kernel)
             f2 = median_filter_1d(f2, kernel)
             f3 = median_filter_1d(f3, kernel)
             f4 = median_filter_1d(f4, kernel)
             f5 = median_filter_1d(f5, kernel)
 
-            logger.info(f"Formants: {n_frames} frames extracted (smoothed with median k={kernel})")
+            logger.info(f"Formants: {n_frames} frames extracted (clamped + smoothed with median k={kernel})")
 
             return {
                 "times": times,

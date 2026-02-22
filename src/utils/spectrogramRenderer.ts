@@ -301,7 +301,9 @@ export function renderOverlayCurve(
 }
 
 /**
- * Draw frequency axis labels on the right edge of the spectrogram.
+ * Draw frequency axis labels tiled horizontally across the spectrogram.
+ * Labels are repeated every ~150 CSS px so they are always visible while
+ * the user scrolls horizontally — not just at the far right edge.
  */
 export function renderFrequencyAxis(
   ctx: CanvasRenderingContext2D,
@@ -317,27 +319,35 @@ export function renderFrequencyAxis(
   ctx.save()
   ctx.setTransform(1, 0, 0, 1, 0, 0)
 
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.85)'
-  ctx.font = `${Math.max(10, 10 * dpr)}px sans-serif`
-  ctx.textAlign = 'right'
+  ctx.font = `${Math.max(9, 9 * dpr)}px sans-serif`
+  ctx.textAlign = 'left'
+
+  // Repeat labels every 150 CSS pixels (300 physical pixels at 2× DPR)
+  // so at least one set of labels is always visible in the viewport.
+  const labelRepeatPx = Math.round(150 * dpr)
 
   const step = maxFreq > 4000 ? 1000 : 500
   for (let freq = step; freq < maxFreq; freq += step) {
     const y = canvasH * (1 - freq / maxFreq)
-    // Faint horizontal line
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)'
+
+    // Full-width faint horizontal gridline (draw once)
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.18)'
     ctx.lineWidth = 0.5 * dpr
     ctx.beginPath()
     ctx.moveTo(0, y)
     ctx.lineTo(canvasW, y)
     ctx.stroke()
-    // Label with background for readability
-    const label = `${freq}`
+
+    // Tiled Hz labels along the x-axis
+    const label = `${freq >= 1000 ? (freq / 1000).toFixed(freq % 1000 === 0 ? 0 : 1) + 'k' : freq}`
     const textW = ctx.measureText(label).width
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.5)'
-    ctx.fillRect(canvasW - textW - 8 * dpr, y - 6 * dpr, textW + 4 * dpr, 12 * dpr)
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.9)'
-    ctx.fillText(label, canvasW - 4 * dpr, y + 4 * dpr)
+    for (let xBase = 0; xBase < canvasW; xBase += labelRepeatPx) {
+      const xText = xBase + 4 * dpr
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.55)'
+      ctx.fillRect(xText - 2 * dpr, y - 7 * dpr, textW + 4 * dpr, 13 * dpr)
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.92)'
+      ctx.fillText(label, xText, y + 4 * dpr)
+    }
   }
 
   ctx.restore()
