@@ -12,6 +12,31 @@ from typing import Dict, Any, Optional, List
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Maximum number of time frames for spectrogram data sent to frontend.
+# Higher = more detail but bigger JSON and slower rendering.
+# 2000 frames is a good balance for visualization.
+MAX_SPECTROGRAM_TIME_FRAMES = 2000
+
+# Maximum number of frequency bins
+MAX_SPECTROGRAM_FREQ_BINS = 128
+
+
+def median_filter_1d(arr: list, kernel_size: int = 5) -> list:
+    """Apply a 1D median filter to smooth formant/pitch tracks.
+    Zeros are treated as missing data and preserved."""
+    if len(arr) < kernel_size:
+        return arr
+    half = kernel_size // 2
+    result = arr[:]
+    for i in range(half, len(arr) - half):
+        if arr[i] <= 0:
+            continue  # preserve missing data markers
+        window = [arr[j] for j in range(i - half, i + half + 1) if arr[j] > 0]
+        if window:
+            window.sort()
+            result[i] = window[len(window) // 2]
+    return result
+
 
 class AcousticService:
     """Service for acoustic analysis using Praat (via parselmouth)"""
@@ -162,6 +187,8 @@ class AcousticService:
     ) -> Dict[str, Any]:
         """
         Extract spectrogram using Praat algorithm.
+        Time axis is downsampled to MAX_SPECTROGRAM_TIME_FRAMES for efficient
+        JSON serialization and frontend rendering.
 
         Returns:
             Dict with times, frequencies, energy_matrix (dB), dynamic_range
@@ -179,27 +206,34 @@ class AcousticService:
             n_times = spectrogram.get_number_of_frames()
             n_freqs = spectrogram.get_number_of_bins()
 
-            # Extract time points
-            times = [round(spectrogram.get_time_from_frame_number(i + 1), 4) for i in range(n_times)]
-
             # Original frequency bins
             orig_frequencies = [
                 spectrogram.get_frequency_from_bin_number(i + 1) for i in range(n_freqs)
             ]
 
             # Downsample frequency axis to ~128 bins
-            target_freq_bins = min(128, n_freqs)
+            target_freq_bins = min(MAX_SPECTROGRAM_FREQ_BINS, n_freqs)
             freq_indices = np.linspace(0, n_freqs - 1, target_freq_bins, dtype=int)
             frequencies = [round(orig_frequencies[i], 1) for i in freq_indices]
+
+            # Downsample time axis if too many frames
+            # This is critical for keeping JSON size manageable and rendering fast.
+            target_time_bins = min(MAX_SPECTROGRAM_TIME_FRAMES, n_times)
+            if n_times > target_time_bins:
+                time_indices = np.linspace(0, n_times - 1, target_time_bins, dtype=int)
+            else:
+                time_indices = np.arange(n_times)
+
+            times = [round(spectrogram.get_time_from_frame_number(int(i) + 1), 4) for i in time_indices]
 
             # Extract energy matrix in dB (power spectral density)
             # energy_matrix[time_idx][freq_idx]
             energy_matrix = []
-            for t_idx in range(n_times):
+            for t_idx in time_indices:
                 frame = []
                 for f_idx in freq_indices:
                     # Get power spectral density value
-                    value = spectrogram.get_value_in_frame_bin(t_idx + 1, int(f_idx) + 1)
+                    value = spectrogram.get_value_in_frame_bin(int(t_idx) + 1, int(f_idx) + 1)
                     if value is not None and value > 0:
                         # Convert to dB: 10 * log10(value)
                         db_value = 10.0 * np.log10(value + 1e-30)
@@ -220,8 +254,9 @@ class AcousticService:
                     )
 
             logger.info(
-                f"Spectrogram: {n_times} frames x {target_freq_bins} freq bins, "
-                f"range [{min_db:.1f}, {max_db:.1f}] dB"
+                f"Spectrogram: {n_times} original frames → {len(times)} downsampled x {target_freq_bins} freq bins, "
+                f"range [{min_db:.1f}, {max_db:.1f}] dB, "
+                f"data size ≈ {len(times) * target_freq_bins * 6 / 1024:.0f} KB"
             )
 
             return {
@@ -249,6 +284,7 @@ class AcousticService:
     ) -> Dict[str, Any]:
         """
         Extract F1-F5 formant trajectories using Burg method.
+        Applies median smoothing to reduce noise.
 
         Returns:
             Dict with times, f1, f2, f3, f4, f5 arrays
@@ -288,7 +324,15 @@ class AcousticService:
                 for fi in range(max_number_of_formants, 5):
                     formant_arrays[fi].append(0.0)
 
-            logger.info(f"Formants: {n_frames} frames extracted")
+            # Apply median smoothing to reduce noise
+            kernel = 5
+            f1 = median_filter_1d(f1, kernel)
+            f2 = median_filter_1d(f2, kernel)
+            f3 = median_filter_1d(f3, kernel)
+            f4 = median_filter_1d(f4, kernel)
+            f5 = median_filter_1d(f5, kernel)
+
+            logger.info(f"Formants: {n_frames} frames extracted (smoothed with median k={kernel})")
 
             return {
                 "times": times,

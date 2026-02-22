@@ -3,11 +3,13 @@
  * Shared rendering functions for spectrogram heatmap and formant track overlay.
  * Used by both WavesurferWaveform (annotation mode) and AudioVisualization (history view).
  *
- * IMPORTANT: All functions expect the caller to set up the canvas with physical
- * (DPR-scaled) buffer size and CSS display size. The caller passes CSS-pixel
- * dimensions in options; these functions multiply by DPR internally.
- * The caller should NOT call ctx.scale(dpr, dpr) before calling these functions
- * because putImageData and stroke/fill are handled in physical coordinates.
+ * Rendering approach:
+ * - Spectrogram heatmap: create a small offscreen canvas at data resolution
+ *   (nTimes × nFreqs), paint each data point as one pixel, then drawImage()
+ *   to scale it up to the target canvas. This is orders of magnitude faster
+ *   than per-pixel rendering because the browser uses GPU-accelerated scaling.
+ * - Formant/overlay curves: drawn with standard Canvas2D stroke operations
+ *   in physical pixel coordinates.
  */
 
 /**
@@ -15,32 +17,25 @@
  * 0 = dark purple/black (low energy), 1 = yellow (high energy)
  */
 export function energyToColor(normalized: number): [number, number, number] {
-  // Clamp
   const t = Math.max(0, Math.min(1, normalized))
-
-  // Simplified viridis-like colormap using RGB interpolation
   let r: number, g: number, b: number
 
   if (t < 0.25) {
-    // Dark purple → blue
     const s = t / 0.25
     r = Math.round(68 * (1 - s) + 59 * s)
     g = Math.round(1 * (1 - s) + 82 * s)
     b = Math.round(84 * (1 - s) + 139 * s)
   } else if (t < 0.5) {
-    // Blue → teal/green
     const s = (t - 0.25) / 0.25
     r = Math.round(59 * (1 - s) + 33 * s)
     g = Math.round(82 * (1 - s) + 145 * s)
     b = Math.round(139 * (1 - s) + 140 * s)
   } else if (t < 0.75) {
-    // Teal → yellow-green
     const s = (t - 0.5) / 0.25
     r = Math.round(33 * (1 - s) + 143 * s)
     g = Math.round(145 * (1 - s) + 215 * s)
     b = Math.round(140 * (1 - s) + 68 * s)
   } else {
-    // Yellow-green → yellow
     const s = (t - 0.75) / 0.25
     r = Math.round(143 * (1 - s) + 253 * s)
     g = Math.round(215 * (1 - s) + 231 * s)
@@ -50,8 +45,8 @@ export function energyToColor(normalized: number): [number, number, number] {
   return [r, g, b]
 }
 
-/** Formant colors: F1=red, F2=green, F3=blue, F4=cyan, F5=magenta */
-export const FORMANT_COLORS = ['#FF3333', '#33CC33', '#3388FF', '#00CCCC', '#CC33CC']
+/** Formant colors: F1=red, F2=orange, F3=blue, F4=cyan, F5=magenta */
+export const FORMANT_COLORS = ['#FF4444', '#FF8800', '#4488FF', '#00CCCC', '#CC44CC']
 
 export interface SpectrogramRenderOptions {
   /** Canvas width in CSS pixels */
@@ -60,16 +55,10 @@ export interface SpectrogramRenderOptions {
   height: number
   /** Duration in seconds */
   duration: number
-  /** Pixels per second (optional, for reference; rendering uses width/duration) */
+  /** Pixels per second (optional) */
   pixelsPerSecond?: number
   /** Device pixel ratio (default min(devicePixelRatio, 2)) */
   dpr?: number
-  /** Whether to render formant tracks */
-  showFormants?: boolean
-  /** Whether to render intensity curve */
-  showIntensity?: boolean
-  /** Whether to render HNR curve */
-  showHNR?: boolean
 }
 
 export interface SpectrogramDataInput {
@@ -90,11 +79,10 @@ export interface FormantDataInput {
 
 /**
  * Render a spectrogram heatmap onto a canvas context.
- * Uses ImageData + putImageData for performance.
  *
- * IMPORTANT: The canvas buffer must already be sized to physicalWidth × physicalHeight.
- * The caller should set canvas.width = width * dpr, canvas.height = height * dpr.
- * This function uses the canvas buffer dimensions directly.
+ * Strategy: paint an offscreen canvas at data resolution (nTimes × nFreqs),
+ * then use drawImage() to scale it up to the target canvas.
+ * This is ~100x faster than per-pixel rendering for large canvases.
  */
 export function renderSpectrogram(
   ctx: CanvasRenderingContext2D,
@@ -102,71 +90,78 @@ export function renderSpectrogram(
   options: SpectrogramRenderOptions
 ): void {
   const { times, frequencies, energy_matrix, dynamic_range } = data
-  if (!times.length || !frequencies.length || !energy_matrix.length) return
+  if (!times.length || !frequencies.length || !energy_matrix.length) {
+    console.warn('[renderSpectrogram] Empty data, skipping')
+    return
+  }
 
-  // Use actual canvas buffer dimensions for pixel operations
   const canvasW = ctx.canvas.width
   const canvasH = ctx.canvas.height
   if (canvasW <= 0 || canvasH <= 0) return
 
+  const nTimes = times.length
+  const nFreqs = frequencies.length
+
   // Find max dB for normalization
   let maxDb = -Infinity
   for (let t = 0; t < energy_matrix.length; t++) {
-    for (let f = 0; f < energy_matrix[t].length; f++) {
-      if (energy_matrix[t][f] > maxDb) maxDb = energy_matrix[t][f]
+    const row = energy_matrix[t]
+    if (!row) continue
+    for (let f = 0; f < row.length; f++) {
+      if (row[f] > maxDb) maxDb = row[f]
     }
   }
   if (!isFinite(maxDb)) return
   const minDb = maxDb - dynamic_range
 
-  // Create ImageData for pixel-level rendering
-  const imageData = ctx.createImageData(canvasW, canvasH)
+  // Create offscreen canvas at DATA resolution (very small: e.g. 2000 x 128)
+  const offscreen = document.createElement('canvas')
+  offscreen.width = nTimes
+  offscreen.height = nFreqs
+  const offCtx = offscreen.getContext('2d')
+  if (!offCtx) return
+
+  const imageData = offCtx.createImageData(nTimes, nFreqs)
   const pixels = imageData.data
 
-  const nFreqs = frequencies.length
-  const nTimes = times.length
-  // Map pixel x → time: use the audio duration portion of the canvas
-  const audioPxWidth = (options.duration > 0 && options.width > 0)
-    ? canvasW * (options.duration / (options.width / (options.pixelsPerSecond || (options.width / options.duration))))
-    : canvasW
-  const pxPerSec = canvasW / options.duration
+  // Fill pixels: each data point = 1 pixel
+  // Row 0 in imageData = top of canvas = highest frequency
+  for (let fy = 0; fy < nFreqs; fy++) {
+    const freqIdx = nFreqs - 1 - fy  // flip: top = high freq
 
-  // For each pixel, find the nearest time and frequency bin
-  for (let py = 0; py < canvasH; py++) {
-    // Map pixel y to frequency index (top = high freq, bottom = low freq)
-    const freqRatio = 1 - py / canvasH
-    const freqIdx = Math.min(nFreqs - 1, Math.max(0, Math.round(freqRatio * (nFreqs - 1))))
+    for (let tx = 0; tx < nTimes; tx++) {
+      const row = energy_matrix[tx]
+      if (!row) continue
+      const dbVal = row[freqIdx] ?? minDb
+      const normalized = Math.max(0, Math.min(1, (dbVal - minDb) / dynamic_range))
+      const [r, g, b] = energyToColor(normalized)
 
-    for (let px = 0; px < canvasW; px++) {
-      // Map pixel x to time
-      const timeSec = px / pxPerSec
-      // Find nearest time index
-      const timeIdx = findNearestIndex(times, timeSec, nTimes)
-
-      if (timeIdx >= 0 && timeIdx < nTimes && energy_matrix[timeIdx]) {
-        const dbVal = energy_matrix[timeIdx][freqIdx] ?? minDb
-        const normalized = Math.max(0, Math.min(1, (dbVal - minDb) / dynamic_range))
-        const [r, g, b] = energyToColor(normalized)
-
-        const offset = (py * canvasW + px) * 4
-        pixels[offset] = r
-        pixels[offset + 1] = g
-        pixels[offset + 2] = b
-        pixels[offset + 3] = 255 // fully opaque
-      }
+      const offset = (fy * nTimes + tx) * 4
+      pixels[offset] = r
+      pixels[offset + 1] = g
+      pixels[offset + 2] = b
+      pixels[offset + 3] = 255
     }
   }
 
-  // Reset any transform before putImageData (putImageData ignores transforms but some
-  // contexts might have compositing issues)
+  offCtx.putImageData(imageData, 0, 0)
+
+  // Scale the offscreen canvas (nTimes × nFreqs) to the full target canvas (canvasW × canvasH).
+  // The browser uses GPU-accelerated bilinear interpolation for smooth scaling.
+  // The canvas is always sized to exactly fit the audio width, so we draw to the full canvas.
   ctx.save()
   ctx.setTransform(1, 0, 0, 1, 0, 0)
-  ctx.putImageData(imageData, 0, 0)
+
+  ctx.imageSmoothingEnabled = true
+  ctx.imageSmoothingQuality = 'high'
+  ctx.drawImage(offscreen, 0, 0, nTimes, nFreqs, 0, 0, canvasW, canvasH)
+
   ctx.restore()
 }
 
 /**
- * Render formant tracks (F1-F5) as colored lines on top of the spectrogram.
+ * Render formant tracks (F1-F5) as colored dots/lines on top of the spectrogram.
+ * Uses dot rendering for Praat-like appearance.
  */
 export function renderFormantTracks(
   ctx: CanvasRenderingContext2D,
@@ -185,26 +180,32 @@ export function renderFormantTracks(
   const formantArrays = [formants.f1, formants.f2, formants.f3, formants.f4, formants.f5]
   const fTimes = formants.times
 
-  // Save and reset transform so stroke coords are in physical pixels
   ctx.save()
   ctx.setTransform(1, 0, 0, 1, 0, 0)
+
+  // Render formants as dots (Praat-like) for better readability
+  const dotRadius = Math.max(1.5, 1.2 * dpr)
 
   formantArrays.forEach((fArr, idx) => {
     if (!fArr || !fArr.length) return
 
+    ctx.fillStyle = FORMANT_COLORS[idx]
+    ctx.globalAlpha = 0.9
+
+    // Also draw connecting lines for smoother appearance
     ctx.strokeStyle = FORMANT_COLORS[idx]
-    ctx.lineWidth = Math.max(1.5, 1.5 * dpr)
-    ctx.globalAlpha = 0.85
+    ctx.lineWidth = Math.max(1, 0.8 * dpr)
+    ctx.globalAlpha = 0.4
     ctx.beginPath()
-    let started = false
+    let lineStarted = false
 
     for (let i = 0; i < fArr.length; i++) {
       const freq = fArr[i]
       if (freq <= 0 || freq > maxFreq) {
-        if (started) {
+        if (lineStarted) {
           ctx.stroke()
           ctx.beginPath()
-          started = false
+          lineStarted = false
         }
         continue
       }
@@ -212,14 +213,28 @@ export function renderFormantTracks(
       const x = fTimes[i] * pxPerSec
       const y = canvasH * (1 - freq / maxFreq)
 
-      if (!started) {
+      if (!lineStarted) {
         ctx.moveTo(x, y)
-        started = true
+        lineStarted = true
       } else {
         ctx.lineTo(x, y)
       }
     }
-    if (started) ctx.stroke()
+    if (lineStarted) ctx.stroke()
+
+    // Draw dots on top
+    ctx.globalAlpha = 0.9
+    for (let i = 0; i < fArr.length; i++) {
+      const freq = fArr[i]
+      if (freq <= 0 || freq > maxFreq) continue
+
+      const x = fTimes[i] * pxPerSec
+      const y = canvasH * (1 - freq / maxFreq)
+
+      ctx.beginPath()
+      ctx.arc(x, y, dotRadius, 0, Math.PI * 2)
+      ctx.fill()
+    }
   })
 
   ctx.globalAlpha = 1
@@ -302,47 +317,28 @@ export function renderFrequencyAxis(
   ctx.save()
   ctx.setTransform(1, 0, 0, 1, 0, 0)
 
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.8)'
-  ctx.font = `${10 * dpr}px sans-serif`
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.85)'
+  ctx.font = `${Math.max(10, 10 * dpr)}px sans-serif`
   ctx.textAlign = 'right'
 
-  // Pick frequency markers every 1000 Hz
   const step = maxFreq > 4000 ? 1000 : 500
   for (let freq = step; freq < maxFreq; freq += step) {
     const y = canvasH * (1 - freq / maxFreq)
-    // Draw faint horizontal line
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)'
+    // Faint horizontal line
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)'
     ctx.lineWidth = 0.5 * dpr
     ctx.beginPath()
     ctx.moveTo(0, y)
     ctx.lineTo(canvasW, y)
     ctx.stroke()
-    // Draw label
-    ctx.fillText(`${freq}`, canvasW - 4 * dpr, y + 4 * dpr)
+    // Label with background for readability
+    const label = `${freq}`
+    const textW = ctx.measureText(label).width
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.5)'
+    ctx.fillRect(canvasW - textW - 8 * dpr, y - 6 * dpr, textW + 4 * dpr, 12 * dpr)
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.9)'
+    ctx.fillText(label, canvasW - 4 * dpr, y + 4 * dpr)
   }
 
   ctx.restore()
-}
-
-/**
- * Binary search for the nearest index in a sorted array.
- */
-function findNearestIndex(arr: number[], target: number, len: number): number {
-  if (len === 0) return -1
-  if (target <= arr[0]) return 0
-  if (target >= arr[len - 1]) return len - 1
-
-  let lo = 0
-  let hi = len - 1
-  while (lo <= hi) {
-    const mid = (lo + hi) >> 1
-    if (arr[mid] === target) return mid
-    if (arr[mid] < target) lo = mid + 1
-    else hi = mid - 1
-  }
-
-  // lo is the insertion point; compare neighbors
-  if (lo >= len) return len - 1
-  if (lo === 0) return 0
-  return Math.abs(arr[lo] - target) < Math.abs(arr[lo - 1] - target) ? lo : lo - 1
 }

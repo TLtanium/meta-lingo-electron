@@ -1255,28 +1255,13 @@ const WavesurferWaveform = forwardRef<WavesurferWaveformRef, WavesurferWaveformP
           />
         )}
 
-        {/* Acoustic feature toggles */}
+        {/* Acoustic features dialog button (toggles are inside the dialog) */}
         {acousticData?.enabled && (
-          <>
-            <FormControlLabel
-              control={<Switch checked={showSpectrogram} onChange={() => setShowSpectrogram(!showSpectrogram)} size="small" />}
-              label={<Typography variant="caption"><GraphicEqIcon sx={{ fontSize: 14, mr: 0.3, verticalAlign: 'middle' }} />{t('annotation.spectrogram', '语谱图')}</Typography>}
-              sx={{ mr: 0 }}
-            />
-            {showSpectrogram && (
-              <FormControlLabel
-                control={<Switch checked={showFormants} onChange={() => setShowFormants(!showFormants)} size="small" />}
-                label={<Typography variant="caption">{t('annotation.formants', 'F1-F5')}</Typography>}
-                sx={{ mr: 0 }}
-              />
-            )}
-            {/* Acoustic params dialog button */}
-            <Tooltip title={t('annotation.acousticFeatures', '声学特征')}>
-              <IconButton size="small" onClick={() => setAcousticParamsOpen(true)}>
-                <GraphicEqIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
-          </>
+          <Tooltip title={t('annotation.acousticFeatures', '声学特征')}>
+            <IconButton size="small" onClick={() => setAcousticParamsOpen(true)}>
+              <GraphicEqIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
         )}
       </Stack>
 
