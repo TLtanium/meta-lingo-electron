@@ -59,6 +59,13 @@ export interface SpectrogramRenderOptions {
   pixelsPerSecond?: number
   /** Device pixel ratio (default min(devicePixelRatio, 2)) */
   dpr?: number
+  /**
+   * Physical canvas pixels that the audio data spans (x-axis extent).
+   * Only the first audioPxWidth pixels contain audio data; everything
+   * beyond is transparent padding (e.g. half-viewport scroll headroom).
+   * Defaults to ctx.canvas.width when not provided.
+   */
+  audioPxWidth?: number
 }
 
 export interface SpectrogramDataInput {
@@ -146,15 +153,17 @@ export function renderSpectrogram(
 
   offCtx.putImageData(imageData, 0, 0)
 
-  // Scale the offscreen canvas (nTimes × nFreqs) to the full target canvas (canvasW × canvasH).
+  // Scale the offscreen canvas (nTimes × nFreqs) to the audio portion of the target canvas.
+  // audioPxWidth is the physical pixel width covering audio data; the remainder is padding.
   // The browser uses GPU-accelerated bilinear interpolation for smooth scaling.
-  // The canvas is always sized to exactly fit the audio width, so we draw to the full canvas.
+  const drawW = options.audioPxWidth ?? canvasW
+
   ctx.save()
   ctx.setTransform(1, 0, 0, 1, 0, 0)
 
   ctx.imageSmoothingEnabled = true
   ctx.imageSmoothingQuality = 'high'
-  ctx.drawImage(offscreen, 0, 0, nTimes, nFreqs, 0, 0, canvasW, canvasH)
+  ctx.drawImage(offscreen, 0, 0, nTimes, nFreqs, 0, 0, drawW, canvasH)
 
   ctx.restore()
 }
@@ -175,7 +184,9 @@ export function renderFormantTracks(
 
   const { duration } = options
   const dpr = options.dpr ?? Math.min(window.devicePixelRatio || 1, 2)
-  const pxPerSec = canvasW / duration
+  // Use audioPxWidth for x-axis scale so formants align with spectrogram data, not padding
+  const audioW = options.audioPxWidth ?? canvasW
+  const pxPerSec = audioW / duration
 
   const formantArrays = [formants.f1, formants.f2, formants.f3, formants.f4, formants.f5]
   const fTimes = formants.times
@@ -261,7 +272,9 @@ export function renderOverlayCurve(
 
   const { duration } = options
   const dpr = options.dpr ?? Math.min(window.devicePixelRatio || 1, 2)
-  const pxPerSec = canvasW / duration
+  // Use audioPxWidth for x-axis scale so overlay curves align with spectrogram data, not padding
+  const audioW = options.audioPxWidth ?? canvasW
+  const pxPerSec = audioW / duration
   const range = maxVal - minVal
 
   ctx.save()
@@ -315,6 +328,8 @@ export function renderFrequencyAxis(
   if (canvasW <= 0 || canvasH <= 0) return
 
   const dpr = options.dpr ?? Math.min(window.devicePixelRatio || 1, 2)
+  // Gridlines and labels only span the audio data portion, not the trailing padding
+  const audioW = options.audioPxWidth ?? canvasW
 
   ctx.save()
   ctx.setTransform(1, 0, 0, 1, 0, 0)
@@ -330,18 +345,18 @@ export function renderFrequencyAxis(
   for (let freq = step; freq < maxFreq; freq += step) {
     const y = canvasH * (1 - freq / maxFreq)
 
-    // Full-width faint horizontal gridline (draw once)
+    // Gridline only up to the audio data extent (not trailing padding)
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.18)'
     ctx.lineWidth = 0.5 * dpr
     ctx.beginPath()
     ctx.moveTo(0, y)
-    ctx.lineTo(canvasW, y)
+    ctx.lineTo(audioW, y)
     ctx.stroke()
 
-    // Tiled Hz labels along the x-axis
+    // Tiled Hz labels along the x-axis (within audio data extent)
     const label = `${freq >= 1000 ? (freq / 1000).toFixed(freq % 1000 === 0 ? 0 : 1) + 'k' : freq}`
     const textW = ctx.measureText(label).width
-    for (let xBase = 0; xBase < canvasW; xBase += labelRepeatPx) {
+    for (let xBase = 0; xBase < audioW; xBase += labelRepeatPx) {
       const xText = xBase + 4 * dpr
       ctx.fillStyle = 'rgba(0, 0, 0, 0.55)'
       ctx.fillRect(xText - 2 * dpr, y - 7 * dpr, textW + 4 * dpr, 13 * dpr)

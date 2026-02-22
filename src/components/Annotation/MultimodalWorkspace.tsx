@@ -176,6 +176,7 @@ interface MultimodalWorkspaceProps {
   // 音频画框标注
   savedAudioBoxes?: AudioBox[]
   onAudioBoxAdd?: (box: Omit<AudioBox, 'id'>) => void
+  onAudioBoxRemove?: (id: number) => void
   // 导出波形 SVG 的回调（注册导出函数）
   onWaveformExportReady?: (exportFn: () => string | null) => void
 }
@@ -248,6 +249,7 @@ export default function MultimodalWorkspace({
   acousticData = null,
   savedAudioBoxes = [],
   onAudioBoxAdd,
+  onAudioBoxRemove,
   onWaveformExportReady
 }: MultimodalWorkspaceProps) {
   // showSpacyAnnotations is no longer used (removed from UI)
@@ -1022,8 +1024,10 @@ export default function MultimodalWorkspace({
     setHighlightedSegmentId(String(segment.id))
   }, [seekTo])
 
-  // Filter annotations
-  const textAnnotations = useMemo(() => annotations.filter(a => a.type !== 'video'), [annotations])
+  // Filter annotations: text-only (exclude video and audio-box types)
+  // Audio boxes are managed separately via savedAudioBoxes; video boxes via annotations with type='video'
+  const textAnnotations = useMemo(() => annotations.filter(a => a.type !== 'video' && a.type !== 'audio'), [annotations])
+  const videoAnnotations = useMemo(() => annotations.filter(a => a.type === 'video'), [annotations])
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', gap: 2, overflow: 'auto' }}>
@@ -1485,11 +1489,17 @@ export default function MultimodalWorkspace({
       {/* Bottom Section: Transcript & Annotations */}
       <Paper sx={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 250 }}>
         <Tabs value={bottomTabIndex} onChange={(_, v) => setBottomTabIndex(v)} sx={{ borderBottom: 1, borderColor: 'divider' }}>
-          <Tab label="转录文本标注" />
-          <Tab label={`标注列表 (${annotations.length})`} />
+          <Tab label={t('annotation.transcriptTextAnnotation', '转录文本标注')} />
+          <Tab label={`${t('annotation.textAnnotationList', '文本标注列表')} (${textAnnotations.length})`} />
+          <Tab label={
+            mediaType === 'audio'
+              ? `${t('annotation.audioAnnotationList', '音频标注列表')} (${savedAudioBoxes.length})`
+              : `${t('annotation.videoAnnotationList', '视频标注列表')} (${videoAnnotations.length})`
+          } />
         </Tabs>
 
         <Box sx={{ flex: 1, overflow: 'auto', p: 2 }}>
+          {/* Tab 0: Transcript text annotation (TranscriptAnnotator) */}
           {bottomTabIndex === 0 && transcriptText && (
             <TranscriptAnnotator
               transcriptSegments={transcriptSegments}
@@ -1511,16 +1521,64 @@ export default function MultimodalWorkspace({
             />
           )}
 
+          {/* Tab 1: Text annotation list (framework/label annotations only) */}
           {bottomTabIndex === 1 && (
             <AnnotationTable
-              annotations={annotations}
+              annotations={textAnnotations}
               onDelete={onAnnotationRemove}
               onUpdate={onAnnotationUpdate}
               onHighlight={setHighlightedAnnotationId}
               highlightedId={highlightedAnnotationId}
               spacyTokens={spacyTokens}
               spacyEntities={spacyEntities}
-              showVideoColumns={mediaType === 'video'}
+              showVideoColumns={false}
+            />
+          )}
+
+          {/* Tab 2: Audio / Video annotation list */}
+          {bottomTabIndex === 2 && mediaType === 'audio' && (
+            savedAudioBoxes.length > 0 ? (
+              <Box>
+                <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 80px 80px 80px auto', gap: 0.5, mb: 0.5 }}>
+                  <Typography variant="caption" color="text.secondary" fontWeight={600}>{t('annotation.label', '标签')}</Typography>
+                  <Typography variant="caption" color="text.secondary" fontWeight={600}>{t('annotation.startTime', '开始')}</Typography>
+                  <Typography variant="caption" color="text.secondary" fontWeight={600}>{t('annotation.endTime', '结束')}</Typography>
+                  <Typography variant="caption" color="text.secondary" fontWeight={600}>{t('annotation.duration', '时长')}</Typography>
+                  <Typography variant="caption" color="text.secondary" fontWeight={600}>{t('common.action', '操作')}</Typography>
+                </Box>
+                {savedAudioBoxes.map((box) => (
+                  <Box key={box.id} sx={{ display: 'grid', gridTemplateColumns: '1fr 80px 80px 80px auto', gap: 0.5, alignItems: 'center', py: 0.5, borderBottom: '1px solid', borderColor: 'divider' }}>
+                    <Chip
+                      size="small"
+                      label={box.label}
+                      sx={{ bgcolor: box.color + '33', borderColor: box.color, color: box.color, borderWidth: 1, borderStyle: 'solid', maxWidth: '100%' }}
+                    />
+                    <Typography variant="caption">{box.startTime.toFixed(2)}s</Typography>
+                    <Typography variant="caption">{box.endTime.toFixed(2)}s</Typography>
+                    <Typography variant="caption">{(box.endTime - box.startTime).toFixed(2)}s</Typography>
+                    <IconButton size="small" color="error" onClick={() => onAudioBoxRemove?.(box.id)} title={t('common.delete', '删除')}>
+                      <ClearIcon fontSize="small" />
+                    </IconButton>
+                  </Box>
+                ))}
+              </Box>
+            ) : (
+              <Typography variant="body2" color="text.secondary">
+                {t('annotation.noAudioBoxes', '暂无音频画框标注。使用画框工具在波形上绘制标注框。')}
+              </Typography>
+            )
+          )}
+
+          {bottomTabIndex === 2 && mediaType === 'video' && (
+            <AnnotationTable
+              annotations={videoAnnotations}
+              onDelete={onAnnotationRemove}
+              onUpdate={onAnnotationUpdate}
+              onHighlight={setHighlightedAnnotationId}
+              highlightedId={highlightedAnnotationId}
+              spacyTokens={spacyTokens}
+              spacyEntities={spacyEntities}
+              showVideoColumns={true}
             />
           )}
         </Box>

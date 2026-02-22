@@ -760,28 +760,18 @@ export default function MultimodalAnnotation() {
     setAnnotations(prev => prev.map(a => a.id === id ? { ...a, ...updates } : a))
   }, [])
 
-  // 添加音频画框标注
+  // 添加音频画框标注 - 只保存到 savedAudioBoxes，不混入文本 annotations 列表
   const handleAudioBoxAdd = useCallback((box: Omit<AudioBox, 'id'>) => {
     const audioBox: AudioBox = {
       ...box,
       id: Date.now()
     }
     setSavedAudioBoxes(prev => [...prev, audioBox])
-    
-    // 同时添加到标注列表（用于在标注界面显示和删除）
-    const annotation: Annotation = {
-      id: `audio-box-${audioBox.id}`,
-      text: `[${box.label}] ${box.startTime.toFixed(1)}s - ${box.endTime.toFixed(1)}s`,
-      startPosition: 0,
-      endPosition: 0,
-      label: box.label,
-      labelPath: box.label,
-      color: box.color,
-      type: 'audio',
-      timestamp: box.startTime,
-      frameNumber: Math.floor(box.startTime * 25)
-    }
-    setAnnotations(prev => [...prev, annotation])
+  }, [])
+
+  // 删除音频画框标注
+  const handleAudioBoxRemove = useCallback((id: number) => {
+    setSavedAudioBoxes(prev => prev.filter(box => box.id !== id))
   }, [])
 
   // 注册波形导出函数
@@ -1374,7 +1364,7 @@ export default function MultimodalAnnotation() {
                     variant="contained"
                     size="small"
                     onClick={handleSaveClick}
-                    disabled={saving || !currentFramework || annotations.length === 0}
+                    disabled={saving || !currentFramework || (annotations.length === 0 && savedAudioBoxes.length === 0)}
                   >
                     {t('common.save')}
                   </Button>
@@ -1433,6 +1423,7 @@ export default function MultimodalAnnotation() {
                 acousticData={acousticData}
                 savedAudioBoxes={savedAudioBoxes}
                 onAudioBoxAdd={handleAudioBoxAdd}
+                onAudioBoxRemove={handleAudioBoxRemove}
                 onWaveformExportReady={handleWaveformExportReady}
               />
             </Box>

@@ -793,21 +793,23 @@ const WavesurferWaveform = forwardRef<WavesurferWaveformRef, WavesurferWaveformP
     if (!ctx) return
 
     const dpr = Math.min(window.devicePixelRatio || 1, 2)
-    // Use audio-only width (without the extra half-viewport padding) for the spectrogram
+    // Audio data spans audioWidth CSS pixels; canvas extends to full containerWidth
+    // so the spectrogram fills the same space as the waveform (including scroll headroom).
     const audioWidth = Math.max(Math.ceil(duration * zoom), 600)
-    const physicalWidth = Math.floor(audioWidth * dpr)
+    const audioPhysicalWidth = Math.floor(audioWidth * dpr)
+    const physicalWidth = Math.floor(containerWidth * dpr)   // full container
     const physicalHeight = Math.floor(spectrogramHeight * dpr)
 
     // Always re-set canvas dimensions to ensure clean buffer
     canvas.width = physicalWidth
     canvas.height = physicalHeight
-    canvas.style.width = `${audioWidth}px`
+    canvas.style.width = `${containerWidth}px`  // match waveform container width
     canvas.style.height = `${spectrogramHeight}px`
 
     // Reset transform
     ctx.setTransform(1, 0, 0, 1, 0, 0)
 
-    const renderOpts = { width: audioWidth, height: spectrogramHeight, duration, dpr }
+    const renderOpts = { width: containerWidth, height: spectrogramHeight, duration, dpr, audioPxWidth: audioPhysicalWidth }
 
     // Render spectrogram heatmap (fills entire canvas via putImageData)
     renderSpectrogram(ctx, acousticData.spectrogram, renderOpts)

@@ -802,9 +802,10 @@ export default function AudioVisualization({
               <Box
                 ref={svgContainerRef}
                 sx={{
-                  transform: `scale(${zoom / 100})`,
-                  transformOrigin: 'top left',
-                  transition: 'transform 0.1s ease-out',
+                  // CSS zoom (layout-aware) so the scrollbar reflects the true scaled width.
+                  // Unlike transform: scale(), zoom affects the element's layout size,
+                  // enabling overflow:auto to correctly scroll the full zoomed content.
+                  zoom: zoom / 100,
                   '& svg': { display: 'block' }
                 }}
                 dangerouslySetInnerHTML={{ __html: audioVisualizationSvg }}
@@ -816,16 +817,11 @@ export default function AudioVisualization({
                     {t('annotation.spectrogram', '语谱图')}
                     {hasFormants && ` + ${t('annotation.formants', '共振峰')}`}
                   </Typography>
-                  <Box sx={{
-                    transform: `scale(${zoom / 100})`,
-                    transformOrigin: 'top left',
-                    transition: 'transform 0.1s ease-out'
-                  }}>
-                    <canvas
-                      ref={spectrogramCanvasRef}
-                      style={{ display: 'block' }}
-                    />
-                  </Box>
+                  {/* No zoom wrapper: canvas is already sized by pixelsPerSecond = 100*(zoom/100) */}
+                  <canvas
+                    ref={spectrogramCanvasRef}
+                    style={{ display: 'block' }}
+                  />
                 </Box>
               )}
             </Box>
@@ -848,16 +844,11 @@ export default function AudioVisualization({
                 {t('annotation.spectrogram', '语谱图')}
                 {hasFormants && ` + ${t('annotation.formants', '共振峰')}`}
               </Typography>
-              <Box sx={{
-                transform: `scale(${zoom / 100})`,
-                transformOrigin: 'top left',
-                transition: 'transform 0.1s ease-out'
-              }}>
-                <canvas
-                  ref={spectrogramCanvasRef}
-                  style={{ display: 'block' }}
-                />
-              </Box>
+              {/* No zoom wrapper: canvas is already sized by pixelsPerSecond = 100*(zoom/100) */}
+              <canvas
+                ref={spectrogramCanvasRef}
+                style={{ display: 'block' }}
+              />
             </Box>
           ) : (
             <Alert severity="warning">

@@ -1370,6 +1370,8 @@
     "audioBox": "画框",
     "audioBoxCount": "{{count}} 个画框",
     "audioAnnotationList": "音频标注列表",
+    "transcriptTextAnnotation": "转录文本标注",
+    "noAudioBoxes": "暂无音频画框标注。使用画框工具在波形上绘制标注框。",
     "noAudioAnnotations": "暂无音频标注数据",
     "annotation": "标注",
     "pitchData": "音高",

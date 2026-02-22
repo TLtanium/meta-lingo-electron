@@ -1348,6 +1348,8 @@
     "audioBox": "Audio Box",
     "audioBoxCount": "{{count}} boxes",
     "audioAnnotationList": "Audio Annotations",
+    "transcriptTextAnnotation": "Transcript Annotation",
+    "noAudioBoxes": "No audio box annotations. Use the draw tool to annotate regions on the waveform.",
     "noAudioAnnotations": "No audio annotations",
     "annotation": "Annotation",
     "pitchData": "Pitch",

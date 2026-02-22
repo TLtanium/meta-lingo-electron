@@ -318,10 +318,10 @@ export default function AnnotationHistoryDetail({ archive, onBack }: AnnotationH
           />
         </Tabs>
         
-        {/* 文本/多模态标注表格 */}
+        {/* 文本/多模态标注表格 — 仅显示文本标注，排除视频和音频画框类型 */}
         <TabPanel value={tabValue} index={0}>
-          <AnnotationDataTable 
-            annotations={annotations}
+          <AnnotationDataTable
+            annotations={annotations.filter(a => a.type !== 'video' && a.type !== 'audio')}
             archiveName={archive.textName || archive.resourceName || archive.id}
             excludeVideoAnnotations={isVideo || isAudio}
           />
