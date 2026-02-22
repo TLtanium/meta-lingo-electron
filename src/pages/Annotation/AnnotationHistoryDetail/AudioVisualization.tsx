@@ -131,49 +131,37 @@ export default function AudioVisualization({
 
     const canvas = spectrogramCanvasRef.current
     const spec = acousticData.spectrogram
-    const spectrogramHeight = 150
+    const spectrogramHeight = 250
 
     // 计算宽度 - 与波形SVG同步
     const pixelsPerSecond = 100 * (zoom / 100) // match SVG zoom
     const totalWidth = Math.max(duration * pixelsPerSecond, 600)
 
-    const dpr = window.devicePixelRatio || 1
-    canvas.width = totalWidth * dpr
-    canvas.height = spectrogramHeight * dpr
+    const dpr = Math.min(window.devicePixelRatio || 1, 2)
+    // Set canvas buffer to physical size
+    canvas.width = Math.floor(totalWidth * dpr)
+    canvas.height = Math.floor(spectrogramHeight * dpr)
     canvas.style.width = `${totalWidth}px`
     canvas.style.height = `${spectrogramHeight}px`
 
     const ctx = canvas.getContext('2d')
     if (!ctx) return
 
-    ctx.scale(dpr, dpr)
-    ctx.clearRect(0, 0, totalWidth, spectrogramHeight)
+    // DO NOT call ctx.scale(dpr, dpr) - render functions handle physical coordinates internally
+    ctx.setTransform(1, 0, 0, 1, 0, 0)
 
-    // Render spectrogram heatmap
-    const maxFreq = spec.frequencies[spec.frequencies.length - 1] || 5500
-    renderSpectrogram(ctx, spec, {
-      width: totalWidth,
-      height: spectrogramHeight,
-      pixelsPerSecond,
-      duration
-    })
+    const renderOpts = { width: totalWidth, height: spectrogramHeight, pixelsPerSecond, duration, dpr }
+
+    // Render spectrogram heatmap (uses putImageData at physical pixel level)
+    renderSpectrogram(ctx, spec, renderOpts)
 
     // Render frequency axis
-    renderFrequencyAxis(ctx, maxFreq, {
-      width: totalWidth,
-      height: spectrogramHeight,
-      pixelsPerSecond,
-      duration
-    })
+    const maxFreq = spec.frequencies[spec.frequencies.length - 1] || 5500
+    renderFrequencyAxis(ctx, maxFreq, renderOpts)
 
     // Render formant tracks if available
     if (hasFormants && acousticData.formants) {
-      renderFormantTracks(ctx, acousticData.formants, {
-        width: totalWidth,
-        height: spectrogramHeight,
-        pixelsPerSecond,
-        duration
-      }, maxFreq)
+      renderFormantTracks(ctx, acousticData.formants, renderOpts, maxFreq)
     }
 
   }, [chartType, hasSpectrogram, hasFormants, acousticData, duration, zoom])
@@ -804,7 +792,7 @@ export default function AudioVisualization({
                 borderColor: 'divider',
                 borderRadius: 1,
                 overflow: 'auto',
-                maxHeight: hasSpectrogram ? 700 : 500,
+                maxHeight: hasSpectrogram ? 850 : 500,
                 bgcolor: themeColors.cardBg,
                 '&::-webkit-scrollbar': { height: 10, width: 10 },
                 '&::-webkit-scrollbar-thumb': { bgcolor: themeColors.scrollbarThumb, borderRadius: 5 }

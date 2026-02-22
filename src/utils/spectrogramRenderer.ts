@@ -2,6 +2,12 @@
  * Spectrogram Rendering Utilities
  * Shared rendering functions for spectrogram heatmap and formant track overlay.
  * Used by both WavesurferWaveform (annotation mode) and AudioVisualization (history view).
+ *
+ * IMPORTANT: All functions expect the caller to set up the canvas with physical
+ * (DPR-scaled) buffer size and CSS display size. The caller passes CSS-pixel
+ * dimensions in options; these functions multiply by DPR internally.
+ * The caller should NOT call ctx.scale(dpr, dpr) before calling these functions
+ * because putImageData and stroke/fill are handled in physical coordinates.
  */
 
 /**
@@ -85,19 +91,23 @@ export interface FormantDataInput {
 /**
  * Render a spectrogram heatmap onto a canvas context.
  * Uses ImageData + putImageData for performance.
+ *
+ * IMPORTANT: The canvas buffer must already be sized to physicalWidth × physicalHeight.
+ * The caller should set canvas.width = width * dpr, canvas.height = height * dpr.
+ * This function uses the canvas buffer dimensions directly.
  */
 export function renderSpectrogram(
   ctx: CanvasRenderingContext2D,
   data: SpectrogramDataInput,
   options: SpectrogramRenderOptions
 ): void {
-  const { width, height, duration } = options
-  const dpr = options.dpr ?? Math.min(window.devicePixelRatio || 1, 2)
-  const physicalWidth = Math.floor(width * dpr)
-  const physicalHeight = Math.floor(height * dpr)
-
   const { times, frequencies, energy_matrix, dynamic_range } = data
   if (!times.length || !frequencies.length || !energy_matrix.length) return
+
+  // Use actual canvas buffer dimensions for pixel operations
+  const canvasW = ctx.canvas.width
+  const canvasH = ctx.canvas.height
+  if (canvasW <= 0 || canvasH <= 0) return
 
   // Find max dB for normalization
   let maxDb = -Infinity
@@ -106,25 +116,30 @@ export function renderSpectrogram(
       if (energy_matrix[t][f] > maxDb) maxDb = energy_matrix[t][f]
     }
   }
+  if (!isFinite(maxDb)) return
   const minDb = maxDb - dynamic_range
 
   // Create ImageData for pixel-level rendering
-  const imageData = ctx.createImageData(physicalWidth, physicalHeight)
+  const imageData = ctx.createImageData(canvasW, canvasH)
   const pixels = imageData.data
 
   const nFreqs = frequencies.length
   const nTimes = times.length
-  const pixelsPerSecond = physicalWidth / duration
+  // Map pixel x → time: use the audio duration portion of the canvas
+  const audioPxWidth = (options.duration > 0 && options.width > 0)
+    ? canvasW * (options.duration / (options.width / (options.pixelsPerSecond || (options.width / options.duration))))
+    : canvasW
+  const pxPerSec = canvasW / options.duration
 
   // For each pixel, find the nearest time and frequency bin
-  for (let py = 0; py < physicalHeight; py++) {
+  for (let py = 0; py < canvasH; py++) {
     // Map pixel y to frequency index (top = high freq, bottom = low freq)
-    const freqRatio = 1 - py / physicalHeight
+    const freqRatio = 1 - py / canvasH
     const freqIdx = Math.min(nFreqs - 1, Math.max(0, Math.round(freqRatio * (nFreqs - 1))))
 
-    for (let px = 0; px < physicalWidth; px++) {
+    for (let px = 0; px < canvasW; px++) {
       // Map pixel x to time
-      const timeSec = px / pixelsPerSecond
+      const timeSec = px / pxPerSec
       // Find nearest time index
       const timeIdx = findNearestIndex(times, timeSec, nTimes)
 
@@ -133,7 +148,7 @@ export function renderSpectrogram(
         const normalized = Math.max(0, Math.min(1, (dbVal - minDb) / dynamic_range))
         const [r, g, b] = energyToColor(normalized)
 
-        const offset = (py * physicalWidth + px) * 4
+        const offset = (py * canvasW + px) * 4
         pixels[offset] = r
         pixels[offset + 1] = g
         pixels[offset + 2] = b
@@ -142,7 +157,12 @@ export function renderSpectrogram(
     }
   }
 
+  // Reset any transform before putImageData (putImageData ignores transforms but some
+  // contexts might have compositing issues)
+  ctx.save()
+  ctx.setTransform(1, 0, 0, 1, 0, 0)
   ctx.putImageData(imageData, 0, 0)
+  ctx.restore()
 }
 
 /**
@@ -154,20 +174,26 @@ export function renderFormantTracks(
   options: SpectrogramRenderOptions,
   maxFreq: number
 ): void {
-  const { width, height, duration } = options
-  const dpr = options.dpr ?? Math.min(window.devicePixelRatio || 1, 2)
+  const canvasW = ctx.canvas.width
+  const canvasH = ctx.canvas.height
+  if (canvasW <= 0 || canvasH <= 0) return
 
-  const pixelsPerSecond = (width * dpr) / duration
-  const physicalHeight = Math.floor(height * dpr)
+  const { duration } = options
+  const dpr = options.dpr ?? Math.min(window.devicePixelRatio || 1, 2)
+  const pxPerSec = canvasW / duration
 
   const formantArrays = [formants.f1, formants.f2, formants.f3, formants.f4, formants.f5]
   const fTimes = formants.times
+
+  // Save and reset transform so stroke coords are in physical pixels
+  ctx.save()
+  ctx.setTransform(1, 0, 0, 1, 0, 0)
 
   formantArrays.forEach((fArr, idx) => {
     if (!fArr || !fArr.length) return
 
     ctx.strokeStyle = FORMANT_COLORS[idx]
-    ctx.lineWidth = 1.5 * dpr
+    ctx.lineWidth = Math.max(1.5, 1.5 * dpr)
     ctx.globalAlpha = 0.85
     ctx.beginPath()
     let started = false
@@ -183,8 +209,8 @@ export function renderFormantTracks(
         continue
       }
 
-      const x = fTimes[i] * pixelsPerSecond
-      const y = physicalHeight * (1 - freq / maxFreq)
+      const x = fTimes[i] * pxPerSec
+      const y = canvasH * (1 - freq / maxFreq)
 
       if (!started) {
         ctx.moveTo(x, y)
@@ -197,6 +223,7 @@ export function renderFormantTracks(
   })
 
   ctx.globalAlpha = 1
+  ctx.restore()
 }
 
 /**
@@ -213,14 +240,20 @@ export function renderOverlayCurve(
 ): void {
   if (!times.length || !values.length) return
 
-  const { width, height, duration } = options
+  const canvasW = ctx.canvas.width
+  const canvasH = ctx.canvas.height
+  if (canvasW <= 0 || canvasH <= 0) return
+
+  const { duration } = options
   const dpr = options.dpr ?? Math.min(window.devicePixelRatio || 1, 2)
-  const pixelsPerSecond = (width * dpr) / duration
-  const physicalHeight = Math.floor(height * dpr)
+  const pxPerSec = canvasW / duration
   const range = maxVal - minVal
 
+  ctx.save()
+  ctx.setTransform(1, 0, 0, 1, 0, 0)
+
   ctx.strokeStyle = color
-  ctx.lineWidth = 1.5 * dpr
+  ctx.lineWidth = Math.max(1.5, 1.5 * dpr)
   ctx.globalAlpha = 0.7
   ctx.beginPath()
   let started = false
@@ -236,9 +269,9 @@ export function renderOverlayCurve(
       continue
     }
 
-    const x = times[i] * pixelsPerSecond
+    const x = times[i] * pxPerSec
     const normalized = range > 0 ? (val - minVal) / range : 0.5
-    const y = physicalHeight * (1 - Math.max(0, Math.min(1, normalized)))
+    const y = canvasH * (1 - Math.max(0, Math.min(1, normalized)))
 
     if (!started) {
       ctx.moveTo(x, y)
@@ -249,6 +282,7 @@ export function renderOverlayCurve(
   }
   if (started) ctx.stroke()
   ctx.globalAlpha = 1
+  ctx.restore()
 }
 
 /**
@@ -259,10 +293,14 @@ export function renderFrequencyAxis(
   maxFreq: number,
   options: SpectrogramRenderOptions
 ): void {
-  const { width, height } = options
+  const canvasW = ctx.canvas.width
+  const canvasH = ctx.canvas.height
+  if (canvasW <= 0 || canvasH <= 0) return
+
   const dpr = options.dpr ?? Math.min(window.devicePixelRatio || 1, 2)
-  const physicalWidth = Math.floor(width * dpr)
-  const physicalHeight = Math.floor(height * dpr)
+
+  ctx.save()
+  ctx.setTransform(1, 0, 0, 1, 0, 0)
 
   ctx.fillStyle = 'rgba(255, 255, 255, 0.8)'
   ctx.font = `${10 * dpr}px sans-serif`
@@ -271,17 +309,19 @@ export function renderFrequencyAxis(
   // Pick frequency markers every 1000 Hz
   const step = maxFreq > 4000 ? 1000 : 500
   for (let freq = step; freq < maxFreq; freq += step) {
-    const y = physicalHeight * (1 - freq / maxFreq)
+    const y = canvasH * (1 - freq / maxFreq)
     // Draw faint horizontal line
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)'
     ctx.lineWidth = 0.5 * dpr
     ctx.beginPath()
     ctx.moveTo(0, y)
-    ctx.lineTo(physicalWidth, y)
+    ctx.lineTo(canvasW, y)
     ctx.stroke()
     // Draw label
-    ctx.fillText(`${freq}`, physicalWidth - 4 * dpr, y + 4 * dpr)
+    ctx.fillText(`${freq}`, canvasW - 4 * dpr, y + 4 * dpr)
   }
+
+  ctx.restore()
 }
 
 /**
