@@ -35,7 +35,8 @@ import {
   TableHead,
   TableBody,
   TableRow,
-  TableCell
+  TableCell,
+  TableContainer
 } from '@mui/material'
 import { useTranslation } from 'react-i18next'
 import PlayArrowIcon from '@mui/icons-material/PlayArrow'
@@ -1540,72 +1541,100 @@ export default function MultimodalWorkspace({
             />
           )}
 
-          {/* Tab 2: Audio / Video annotation list */}
-          {bottomTabIndex === 2 && mediaType === 'audio' && (
-            savedAudioBoxes.length > 0 ? (
-              <Table size="small">
-                <TableHead>
-                  <TableRow>
-                    <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', width: 'auto' }}>
-                      {t('annotation.label', '标签')}
-                    </TableCell>
-                    <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', width: 80 }}>
-                      {t('annotation.startTime', '开始')}
-                    </TableCell>
-                    <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', width: 80 }}>
-                      {t('annotation.endTime', '结束')}
-                    </TableCell>
-                    <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', width: 80 }}>
-                      {t('annotation.duration', '时长')}
-                    </TableCell>
-                    <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', width: 48 }} />
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {savedAudioBoxes.map((box) => (
-                    <TableRow key={box.id} hover>
-                      <TableCell sx={{ py: 0.5 }}>
-                        <Chip
-                          size="small"
-                          label={box.label}
-                          sx={{
-                            bgcolor: box.color + '22',
-                            borderColor: box.color,
-                            color: box.color,
-                            borderWidth: 1,
-                            borderStyle: 'solid',
-                            fontWeight: 600,
-                            maxWidth: 200,
-                            '& .MuiChip-label': { overflow: 'hidden', textOverflow: 'ellipsis' }
-                          }}
-                        />
-                      </TableCell>
-                      <TableCell sx={{ py: 0.5, fontFamily: 'monospace', fontSize: '0.75rem' }}>
-                        {box.startTime.toFixed(2)}s
-                      </TableCell>
-                      <TableCell sx={{ py: 0.5, fontFamily: 'monospace', fontSize: '0.75rem' }}>
-                        {box.endTime.toFixed(2)}s
-                      </TableCell>
-                      <TableCell sx={{ py: 0.5, fontFamily: 'monospace', fontSize: '0.75rem' }}>
-                        {(box.endTime - box.startTime).toFixed(2)}s
-                      </TableCell>
-                      <TableCell sx={{ py: 0.5 }}>
-                        <Tooltip title={t('common.delete', '删除')}>
-                          <IconButton size="small" color="error" onClick={() => onAudioBoxRemove?.(box.id)}>
-                            <ClearIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                      </TableCell>
+          {/* Tab 2: Audio / Video annotation list — styled to match AnnotationTable */}
+          {bottomTabIndex === 2 && mediaType === 'audio' && (() => {
+            const headerCellSx = {
+              bgcolor: isDarkMode ? 'rgba(255,255,255,0.05)' : '#f5f5f5',
+              fontWeight: 600,
+              borderBottom: `2px solid ${isDarkMode ? 'rgba(255,255,255,0.1)' : '#ddd'}`,
+              fontSize: '12px',
+              px: 1.5,
+              py: 1,
+              whiteSpace: 'nowrap',
+              textAlign: 'center'
+            }
+            const bodyCellSx = {
+              fontSize: '12px',
+              borderBottom: `1px solid ${isDarkMode ? 'rgba(255,255,255,0.05)' : '#eee'}`,
+              px: 1.5,
+              py: 0.75,
+              whiteSpace: 'nowrap',
+              textAlign: 'center',
+              verticalAlign: 'middle'
+            }
+            return (
+              <TableContainer
+                component={Paper}
+                sx={{
+                  maxHeight: 300,
+                  bgcolor: isDarkMode ? 'rgba(255,255,255,0.02)' : '#FAFAFA',
+                  border: '1px solid',
+                  borderColor: isDarkMode ? 'rgba(255,255,255,0.1)' : 'divider',
+                  overflowX: 'auto'
+                }}
+              >
+                <Table size="small" stickyHeader sx={{ minWidth: 'max-content' }}>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell sx={headerCellSx}>#</TableCell>
+                      <TableCell sx={headerCellSx}>{t('annotation.label', '标签')}</TableCell>
+                      <TableCell sx={headerCellSx}>{t('annotation.startTime', '开始')}</TableCell>
+                      <TableCell sx={headerCellSx}>{t('annotation.endTime', '结束')}</TableCell>
+                      <TableCell sx={headerCellSx}>{t('annotation.duration', '时长')}</TableCell>
+                      <TableCell sx={headerCellSx}>{t('annotation.action', '操作')}</TableCell>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            ) : (
-              <Typography variant="body2" color="text.secondary">
-                {t('annotation.noAudioBoxes', '暂无音频画框标注。使用画框工具在波形上绘制标注框。')}
-              </Typography>
+                  </TableHead>
+                  <TableBody>
+                    {savedAudioBoxes.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={6} sx={{ textAlign: 'center', color: 'text.secondary', py: 3, fontSize: '12px' }}>
+                          {t('annotation.noAudioBoxes', '暂无音频画框标注。使用画框工具在波形上绘制标注框。')}
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      savedAudioBoxes.map((box, idx) => (
+                        <TableRow key={box.id} hover>
+                          <TableCell sx={{ ...bodyCellSx, color: 'text.secondary' }}>{idx + 1}</TableCell>
+                          <TableCell sx={bodyCellSx}>
+                            <Chip
+                              size="small"
+                              label={box.label}
+                              sx={{
+                                bgcolor: box.color + '22',
+                                borderColor: box.color,
+                                color: box.color,
+                                borderWidth: 1,
+                                borderStyle: 'solid',
+                                fontWeight: 600,
+                                maxWidth: 160,
+                                '& .MuiChip-label': { overflow: 'hidden', textOverflow: 'ellipsis' }
+                              }}
+                            />
+                          </TableCell>
+                          <TableCell sx={{ ...bodyCellSx, fontFamily: 'monospace' }}>
+                            {box.startTime.toFixed(2)}s
+                          </TableCell>
+                          <TableCell sx={{ ...bodyCellSx, fontFamily: 'monospace' }}>
+                            {box.endTime.toFixed(2)}s
+                          </TableCell>
+                          <TableCell sx={{ ...bodyCellSx, fontFamily: 'monospace' }}>
+                            {(box.endTime - box.startTime).toFixed(2)}s
+                          </TableCell>
+                          <TableCell sx={bodyCellSx}>
+                            <Tooltip title={t('common.delete', '删除')}>
+                              <IconButton size="small" color="error" onClick={() => onAudioBoxRemove?.(box.id)}>
+                                <ClearIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </TableContainer>
             )
-          )}
+          })()}
 
           {bottomTabIndex === 2 && mediaType === 'video' && (
             <AnnotationTable

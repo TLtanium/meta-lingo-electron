@@ -200,7 +200,13 @@ const WavesurferWaveform = forwardRef<WavesurferWaveformRef, WavesurferWaveformP
     Math.ceil((duration || 1) * zoom + viewportWidth / 2),
     800
   )
-  
+
+  // Actual audio data width in CSS pixels: WaveSurfer will render at exactly this width.
+  // By giving WaveSurfer an explicit audioWidth container (not '100%'), we prevent it from
+  // auto-expanding to fill containerWidth (which includes scroll headroom). All canvas
+  // overlays (pitch, box, spectrogram) also use this width so everything stays aligned.
+  const audioWidth = Math.max(Math.ceil((duration || 1) * zoom), 600)
+
   // Track viewport width for container sizing
   useEffect(() => {
     if (!scrollContainerRef.current) return
@@ -231,7 +237,7 @@ const WavesurferWaveform = forwardRef<WavesurferWaveformRef, WavesurferWaveformP
       
       const pitchCanvas = canvasRef.current
       const dpr = Math.min(window.devicePixelRatio || 1, 2)
-      const svgWidth = containerWidth
+      const svgWidth = audioWidth  // export at audio data width (excludes scroll headroom)
       const svgHeight = height
       
       // 创建完整尺寸的离屏 canvas 用于绘制波形
@@ -441,7 +447,7 @@ const WavesurferWaveform = forwardRef<WavesurferWaveformRef, WavesurferWaveformP
       console.error('[exportToSVG] Failed:', error)
       return null
     }
-  }, [containerWidth, height, duration, zoom, showPitch, showSpectrogram, acousticData, spectrogramHeight, savedAudioBoxes, wordAlignments, precomputedPeaks, isDarkMode, themeColors.waveColor, themeColors.background])
+  }, [audioWidth, height, duration, zoom, showPitch, showSpectrogram, acousticData, spectrogramHeight, savedAudioBoxes, wordAlignments, precomputedPeaks, isDarkMode, themeColors.waveColor, themeColors.background])
 
   // Expose methods via ref
   useImperativeHandle(ref, () => ({
@@ -696,22 +702,22 @@ const WavesurferWaveform = forwardRef<WavesurferWaveformRef, WavesurferWaveformP
 
     // 限制 DPR 最大为 2，避免高分屏性能问题
     const dpr = Math.min(window.devicePixelRatio || 1, 2)
-    const physicalWidth = Math.floor(containerWidth * dpr)
+    const physicalWidth = Math.floor(audioWidth * dpr)
     const physicalHeight = Math.floor(height * dpr)
-    
+
     // 只有尺寸变化时才重新设置 canvas 尺寸
     if (canvas.width !== physicalWidth || canvas.height !== physicalHeight) {
       canvas.width = physicalWidth
       canvas.height = physicalHeight
-      canvas.style.width = `${containerWidth}px`
+      canvas.style.width = `${audioWidth}px`
       canvas.style.height = `${height}px`
     }
-    
+
     ctx.setTransform(1, 0, 0, 1, 0, 0)
     ctx.scale(dpr, dpr)
 
     // Clear canvas
-    ctx.clearRect(0, 0, containerWidth, height)
+    ctx.clearRect(0, 0, audioWidth, height)
 
     // Extract validated pitch data
     const { f0, periodicity, times, fmin, fmax } = pitchData
@@ -720,7 +726,7 @@ const WavesurferWaveform = forwardRef<WavesurferWaveformRef, WavesurferWaveformP
       return
     }
 
-    const pixelsPerSecond = containerWidth / duration
+    const pixelsPerSecond = audioWidth / duration
     const freqRange = fmax - fmin
 
     // Draw pitch curve
@@ -776,13 +782,13 @@ const WavesurferWaveform = forwardRef<WavesurferWaveformRef, WavesurferWaveformP
         const normalizedFreq = (freq - fmin) / freqRange
         const y = height - (normalizedFreq * height * 0.8 + height * 0.1)
         ctx.fillStyle = 'rgba(0, 0, 0, 0.2)'
-        ctx.fillRect(0, y, containerWidth, 1)
+        ctx.fillRect(0, y, audioWidth, 1)
         ctx.fillStyle = '#666'
-        ctx.fillText(`${freq}Hz`, containerWidth - 5, y + 3)
+        ctx.fillText(`${freq}Hz`, audioWidth - 5, y + 3)
       }
     })
 
-  }, [pitchData, showPitch, containerWidth, height, duration, isReady])
+  }, [pitchData, showPitch, audioWidth, height, duration, isReady])
 
   // Draw spectrogram + formant tracks on canvas
   useEffect(() => {
@@ -793,23 +799,21 @@ const WavesurferWaveform = forwardRef<WavesurferWaveformRef, WavesurferWaveformP
     if (!ctx) return
 
     const dpr = Math.min(window.devicePixelRatio || 1, 2)
-    // Audio data spans audioWidth CSS pixels; canvas extends to full containerWidth
-    // so the spectrogram fills the same space as the waveform (including scroll headroom).
-    const audioWidth = Math.max(Math.ceil(duration * zoom), 600)
-    const audioPhysicalWidth = Math.floor(audioWidth * dpr)
-    const physicalWidth = Math.floor(containerWidth * dpr)   // full container
+    // Canvas width = audioWidth (same as WaveSurfer). No scroll-headroom padding here.
+    const physicalWidth = Math.floor(audioWidth * dpr)
     const physicalHeight = Math.floor(spectrogramHeight * dpr)
 
     // Always re-set canvas dimensions to ensure clean buffer
     canvas.width = physicalWidth
     canvas.height = physicalHeight
-    canvas.style.width = `${containerWidth}px`  // match waveform container width
+    canvas.style.width = `${audioWidth}px`
     canvas.style.height = `${spectrogramHeight}px`
 
     // Reset transform
     ctx.setTransform(1, 0, 0, 1, 0, 0)
 
-    const renderOpts = { width: containerWidth, height: spectrogramHeight, duration, dpr, audioPxWidth: audioPhysicalWidth }
+    // audioPxWidth is omitted → renderers fill the full canvas (which IS audioWidth wide)
+    const renderOpts = { width: audioWidth, height: spectrogramHeight, duration, dpr }
 
     // Render spectrogram heatmap (fills entire canvas via putImageData)
     renderSpectrogram(ctx, acousticData.spectrogram, renderOpts)
@@ -839,9 +843,8 @@ const WavesurferWaveform = forwardRef<WavesurferWaveformRef, WavesurferWaveformP
       renderOverlayCurve(ctx, acousticData.hnr.times, acousticData.hnr.values, renderOpts, '#FF69B4', minH, maxH)
     }
 
-  // containerWidth must be in deps: it changes when viewportWidth updates via ResizeObserver,
-  // which would otherwise leave the canvas sized to the stale value.
-  }, [acousticData, showSpectrogram, showFormants, showIntensity, showHNR, zoom, spectrogramHeight, duration, isReady, containerWidth])
+  // audioWidth = f(duration, zoom) — both are already deps; no containerWidth needed.
+  }, [acousticData, showSpectrogram, showFormants, showIntensity, showHNR, zoom, spectrogramHeight, duration, isReady, audioWidth])
 
   // Playback controls
   const handlePlayPause = useCallback(() => {
@@ -957,13 +960,10 @@ const WavesurferWaveform = forwardRef<WavesurferWaveformRef, WavesurferWaveformP
     if (!canvas) return
 
     const rect = canvas.getBoundingClientRect()
-    // Clamp x to the audio data extent (duration * zoom) so drawing is constrained to the
-    // actual audio region. The canvas is wider than the audio (it includes scroll headroom),
-    // and drawing beyond the audio end causes endTime to be clipped on save, producing drift.
-    const audioPixelWidth = Math.max(Math.ceil(duration * zoom), 600)
-    const rawX = e.clientX - rect.left
-    const x = Math.max(0, Math.min(rawX, audioPixelWidth))
-    const y = e.clientY - rect.top
+    // Canvas is exactly audioWidth wide, so all mouse events are within audio extent.
+    // No clamping needed; just use raw CSS-pixel coordinates.
+    const x = Math.max(0, e.clientX - rect.left)
+    const y = Math.max(0, e.clientY - rect.top)
 
     setIsDrawing(true)
     setDrawStart({ x, y })
@@ -972,7 +972,7 @@ const WavesurferWaveform = forwardRef<WavesurferWaveformRef, WavesurferWaveformP
       label: selectedLabel.node.name,
       color: selectedLabel.color
     })
-  }, [drawMode, selectedLabel, duration, zoom])
+  }, [drawMode, selectedLabel])
 
   // 画框 Canvas 鼠标移动 - 按照视频标注的模式，直接更新无节流
   const handleBoxMouseMove = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -982,11 +982,9 @@ const WavesurferWaveform = forwardRef<WavesurferWaveformRef, WavesurferWaveformP
     if (!canvas) return
 
     const rect = canvas.getBoundingClientRect()
-    // Same x-clamping as mouseDown so the live feedback exactly matches the saved result
-    const audioPixelWidth = Math.max(Math.ceil(duration * zoom), 600)
-    const rawX = e.clientX - rect.left
-    const x = Math.max(0, Math.min(rawX, audioPixelWidth))
-    const y = e.clientY - rect.top
+    // Canvas is exactly audioWidth wide; raw coordinates are within audio extent.
+    const x = Math.max(0, e.clientX - rect.left)
+    const y = Math.max(0, e.clientY - rect.top)
 
     const x1 = Math.min(drawStart.x, x)
     const y1 = Math.min(drawStart.y, y)
@@ -994,7 +992,7 @@ const WavesurferWaveform = forwardRef<WavesurferWaveformRef, WavesurferWaveformP
     const y2 = Math.max(drawStart.y, y)
 
     setCurrentBox(prev => prev ? { ...prev, x1, y1, x2, y2 } : null)
-  }, [isDrawing, drawStart, drawMode, duration, zoom])
+  }, [isDrawing, drawStart, drawMode])
 
   // 画框 Canvas 鼠标释放 - 按照视频标注的模式简化
   const handleBoxMouseUp = useCallback(() => {
@@ -1036,10 +1034,10 @@ const WavesurferWaveform = forwardRef<WavesurferWaveformRef, WavesurferWaveformP
     const ctx = canvas.getContext('2d')
     if (!ctx) return
     
-    // 使用完整的 containerWidth，Canvas 跟随内容滚动
-    const cssWidth = containerWidth
+    // Canvas 宽度等于 audioWidth（与波形图对齐），不含 scroll headroom
+    const cssWidth = audioWidth
     const cssHeight = height
-    
+
     // 设置 canvas 尺寸（只在变化时更新，避免频繁重置）
     if (canvas.width !== cssWidth || canvas.height !== cssHeight) {
       canvas.width = cssWidth
@@ -1107,7 +1105,7 @@ const WavesurferWaveform = forwardRef<WavesurferWaveformRef, WavesurferWaveformP
       ctx.fillText(label, x1 + 5, Math.max(13, y1 - 5))
     }
     
-  }, [containerWidth, height, zoom, savedAudioBoxes, currentBox, isDrawing])
+  }, [audioWidth, duration, height, zoom, savedAudioBoxes, currentBox, isDrawing])
 
   // Format time
   const formatTime = (seconds: number): string => {
@@ -1298,11 +1296,12 @@ const WavesurferWaveform = forwardRef<WavesurferWaveformRef, WavesurferWaveformP
             position: 'relative'
           }}
         >
-          {/* Waveform - let WaveSurfer manage its own width */}
+          {/* Waveform - explicit audioWidth prevents WaveSurfer from auto-expanding
+              into the scroll-headroom area (which would misalign pitch/spectrogram overlays) */}
           <Box
             ref={containerRef}
             sx={{
-              width: '100%',
+              width: audioWidth,
               height: '100%',
               position: 'absolute',
               top: 0,
@@ -1319,7 +1318,7 @@ const WavesurferWaveform = forwardRef<WavesurferWaveformRef, WavesurferWaveformP
                 top: 0,
                 left: 0,
                 pointerEvents: 'none',
-                width: containerWidth,
+                width: audioWidth,
                 height: height
               }}
             />
@@ -1336,7 +1335,7 @@ const WavesurferWaveform = forwardRef<WavesurferWaveformRef, WavesurferWaveformP
               position: 'absolute',
               top: 0,
               left: 0,
-              width: containerWidth,
+              width: audioWidth,
               height: height,
               cursor: drawMode ? 'crosshair' : 'default',
               pointerEvents: drawMode ? 'auto' : 'none',
@@ -1365,7 +1364,7 @@ const WavesurferWaveform = forwardRef<WavesurferWaveformRef, WavesurferWaveformP
                 position: 'absolute',
                 top: 0,
                 left: 0,
-                width: containerWidth,
+                width: audioWidth,
                 height: spectrogramHeight,
                 pointerEvents: 'none'
               }}
