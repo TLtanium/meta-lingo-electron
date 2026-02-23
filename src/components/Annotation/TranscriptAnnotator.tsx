@@ -494,14 +494,28 @@ const TranscriptAnnotator = forwardRef<TranscriptAnnotatorRef, TranscriptAnnotat
     return () => window.removeEventListener('resize', measurePositions)
   }, [annotations, transcriptSegments, annotationsBySegment])
 
-  // Scroll to highlighted segment when it changes (e.g., triggered by row click in AnnotationTable)
+  // Scroll to highlighted segment when it changes — scroll ONLY within the container,
+  // never triggering a full-page scroll (which would drag the waveform/video out of view)
   useEffect(() => {
     if (!highlightedSegmentId || !containerRef.current) return
-    const el = containerRef.current.querySelector(
+    const container = containerRef.current
+    const el = container.querySelector(
       `[data-segment-id="${highlightedSegmentId}"]`
-    )
-    if (el) {
-      el.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+    ) as HTMLElement | null
+    if (!el) return
+
+    // Compute element position relative to the scrollable container
+    const containerRect = container.getBoundingClientRect()
+    const elRect = el.getBoundingClientRect()
+    const elTop = elRect.top - containerRect.top + container.scrollTop
+    const elBottom = elTop + el.offsetHeight
+    const visibleBottom = container.scrollTop + container.clientHeight
+
+    // Only scroll if the element is fully or partially out of the visible area
+    if (elTop < container.scrollTop || elBottom > visibleBottom) {
+      // Center the element vertically within the container
+      const targetScrollTop = elTop - (container.clientHeight - el.offsetHeight) / 2
+      container.scrollTo({ top: Math.max(0, targetScrollTop), behavior: 'smooth' })
     }
   }, [highlightedSegmentId])
 
