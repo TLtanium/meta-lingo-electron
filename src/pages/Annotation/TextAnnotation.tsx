@@ -111,7 +111,9 @@ interface SpacyAnnotation {
 
 export default function TextAnnotation() {
   const { t } = useTranslation()
-  const { corpora, currentCorpus, setCurrentCorpus, setCorpora } = useCorpusStore()
+  const { corpora, setCorpora } = useCorpusStore()
+  // 使用本地状态存储当前语料库，避免与多模态标注页共享 currentCorpus 导致互相干扰
+  const [currentCorpus, setCurrentCorpus] = useState<Corpus | null>(null)
 
   // 框架状态
   const [frameworks, setFrameworks] = useState<FrameworkCategory[]>([])
@@ -150,6 +152,8 @@ export default function TextAnnotation() {
   // 标注状态
   const [annotations, setAnnotations] = useState<Annotation[]>([])
   const [highlightedAnnotationId, setHighlightedAnnotationId] = useState<string | null>(null)
+  // 表格行点击选中的标注（用于在文本区域高亮定位）
+  const [selectedAnnotationId, setSelectedAnnotationId] = useState<string | null>(null)
   const [currentArchiveId, setCurrentArchiveId] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [saveMessage, setSaveMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
@@ -172,6 +176,13 @@ export default function TextAnnotation() {
   
   // 自动标注状态
   const [autoAnnotating, setAutoAnnotating] = useState(false)
+
+  // 表格行选中时滚动到对应标注
+  useEffect(() => {
+    if (selectedAnnotationId) {
+      textAnnotatorRef.current?.scrollToAnnotation(selectedAnnotationId)
+    }
+  }, [selectedAnnotationId])
 
   // 加载框架、语料库和所有存档
   // Load frameworks and corpora on mount
@@ -1294,6 +1305,7 @@ export default function TextAnnotation() {
                 onAnnotationRemove={handleAnnotationRemove}
                 sentences={spacyAnnotation?.sentences}
                 searchHighlights={searchMatches.map(m => ({ start: m.start, end: m.end }))}
+                selectedAnnotationId={selectedAnnotationId}
               />
 
               {/* 标注表格 */}
@@ -1309,6 +1321,11 @@ export default function TextAnnotation() {
                   highlightedId={highlightedAnnotationId}
                   spacyTokens={spacyAnnotation?.tokens}
                   spacyEntities={spacyAnnotation?.entities}
+                  corpusId={currentCorpus?.id}
+                  textIds={selectedText?.id ? [selectedText.id] : 'all'}
+                  selectionMode={selectedText?.id ? 'selected' : 'all'}
+                  onSelect={(id) => setSelectedAnnotationId(prev => prev === id ? null : id)}
+                  selectedId={selectedAnnotationId}
                 />
               </Box>
             </Box>

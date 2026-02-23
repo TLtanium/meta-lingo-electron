@@ -26,7 +26,7 @@ import ImageIcon from '@mui/icons-material/Image'
 import ZoomInIcon from '@mui/icons-material/ZoomIn'
 import ZoomOutIcon from '@mui/icons-material/ZoomOut'
 import BarChartIcon from '@mui/icons-material/BarChart'
-import PieChartOutlineIcon from '@mui/icons-material/PieChartOutline'
+import DonutLargeIcon from '@mui/icons-material/DonutLarge'
 import TimelineIcon from '@mui/icons-material/Timeline'
 import { useTranslation } from 'react-i18next'
 import * as d3 from 'd3'
@@ -55,7 +55,13 @@ const COLORS = [
   '#6f5ef9', '#89ca7e', '#f5a623', '#d0648a', '#22c3aa'
 ]
 
-type ChartType = 'waveform' | 'bar' | 'pie'
+// 太阳图配色：音频画框（蓝色系）、文本标注（橙色系）
+const AUDIO_COLOR = '#3b82f6'
+const TEXT_ANN_COLOR = '#f97316'
+const AUDIO_PALETTE = ['#93c5fd', '#60a5fa', '#3b82f6', '#2563eb', '#1d4ed8', '#1e40af', '#1e3a8a']
+const TEXT_PALETTE = ['#fed7aa', '#fdba74', '#fb923c', '#f97316', '#ea580c', '#c2410c', '#9a3412']
+
+type ChartType = 'waveform' | 'bar' | 'sunburst'
 
 export default function AudioVisualization({
   annotations,
@@ -101,11 +107,11 @@ export default function AudioVisualization({
   // 统计标签数量（基于 audioBoxes）
   const labelStats = useMemo(() => {
     const counts: Record<string, { count: number; color: string; totalDuration: number }> = {}
-    
+
     audioBoxes.forEach(box => {
       if (!counts[box.label]) {
-        counts[box.label] = { 
-          count: 0, 
+        counts[box.label] = {
+          count: 0,
           color: box.color || COLORS[Object.keys(counts).length % COLORS.length],
           totalDuration: 0
         }
@@ -113,7 +119,7 @@ export default function AudioVisualization({
       counts[box.label].count++
       counts[box.label].totalDuration += (box.endTime - box.startTime)
     })
-    
+
     return Object.entries(counts)
       .map(([label, data]) => ({
         name: label,
@@ -123,6 +129,19 @@ export default function AudioVisualization({
       }))
       .sort((a, b) => b.value - a.value)
   }, [audioBoxes])
+
+  // 统计文本标注标签数量
+  const textAnnotationStats = useMemo(() => {
+    const counts: Record<string, number> = {}
+    textAnnotations.forEach(ann => {
+      if (!ann.id.startsWith('spacy-')) {
+        counts[ann.label] = (counts[ann.label] || 0) + 1
+      }
+    })
+    return Object.entries(counts)
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value)
+  }, [textAnnotations])
   
   // 绘制频谱图（静态，在波形视图下方）
   useEffect(() => {
@@ -319,189 +338,247 @@ export default function AudioVisualization({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [labelStats, audioBoxes.length, t, isDarkMode])
   
-  // 绘制饼图
-  const drawPieChart = useCallback(() => {
-    if (!chartSvgRef.current || labelStats.length === 0) return
-    
+  // 绘制太阳图（同时展示音频画框 + 文本标注层级分布）
+  const drawSunburstChart = useCallback(() => {
+    if (!chartSvgRef.current) return
+    const hasAudioData = labelStats.length > 0
+    const hasTextData = textAnnotationStats.length > 0
+    if (!hasAudioData && !hasTextData) return
+
     const svg = d3.select(chartSvgRef.current)
     svg.selectAll('*').remove()
-    
+
     const width = 700
-    const height = 450
-    const radius = Math.min(width * 0.35, height * 0.4)
-    const innerRadius = radius * 0.45
-    
+    const height = 520
+    const centerX = width / 2
+    const centerY = height / 2 + 15
+    const radius = Math.min(width, height) / 2 - 70
+
     svg.attr('viewBox', `0 0 ${width} ${height}`)
        .attr('width', '100%')
        .attr('height', '100%')
-    
-    // 标题
-    svg.append('text')
-      .attr('x', width / 2)
-      .attr('y', 25)
-      .attr('text-anchor', 'middle')
-      .attr('fill', themeColors.text)
-      .attr('font-size', 14)
-      .attr('font-weight', 600)
-      .text(t('annotation.audioLabelStatistics', '音频标注统计'))
-    
+
+    // 准备层级数据
+    interface HierarchyNode {
+      name: string
+      value?: number
+      children?: HierarchyNode[]
+      color?: string
+      group?: string
+      duration?: number
+    }
+
+    const hierarchyData: HierarchyNode = {
+      name: t('annotation.totalAnnotations', '总标注'),
+      children: []
+    }
+
+    if (hasAudioData) {
+      hierarchyData.children!.push({
+        name: t('annotation.audioBoxes', '音频画框'),
+        color: AUDIO_COLOR,
+        children: labelStats.map((item, i) => ({
+          name: item.name,
+          value: item.value,
+          color: AUDIO_PALETTE[Math.min(i, AUDIO_PALETTE.length - 1)],
+          group: t('annotation.audioBoxes', '音频画框'),
+          duration: item.totalDuration
+        }))
+      })
+    }
+
+    if (hasTextData) {
+      hierarchyData.children!.push({
+        name: t('annotation.textAnnotations', '文本标注'),
+        color: TEXT_ANN_COLOR,
+        children: textAnnotationStats.map((item, i) => ({
+          name: item.name,
+          value: item.value,
+          color: TEXT_PALETTE[Math.min(i, TEXT_PALETTE.length - 1)],
+          group: t('annotation.textAnnotations', '文本标注')
+        }))
+      })
+    }
+
+    // 创建层级结构
+    const root = d3.hierarchy(hierarchyData)
+      .sum(d => d.value || 0)
+      .sort((a, b) => (b.value || 0) - (a.value || 0))
+
+    const partition = d3.partition<HierarchyNode>()
+      .size([2 * Math.PI, radius])
+
+    partition(root)
+
+    type NodeWithCurrent = d3.HierarchyRectangularNode<HierarchyNode> & {
+      current: { x0: number; x1: number; y0: number; y1: number }
+    }
+
+    root.descendants().forEach((d: any) => {
+      d.current = { x0: d.x0, x1: d.x1, y0: d.y0, y1: d.y1 }
+    })
+
+    // 弧形生成器
+    const arc = d3.arc<NodeWithCurrent>()
+      .startAngle(d => d.current.x0)
+      .endAngle(d => d.current.x1)
+      .padAngle(d => Math.min((d.current.x1 - d.current.x0) / 2, 0.025))
+      .padRadius(radius / 3)
+      .innerRadius(d => d.current.y0 === 0 ? 0 : d.current.y0 * 0.75 + 28)
+      .outerRadius(d => Math.max(d.current.y0 * 0.75 + 28, d.current.y1 * 0.75 + 22))
+
     const g = svg.append('g')
-      .attr('transform', `translate(${width * 0.35}, ${height / 2 + 10})`)
-    
-    // 创建饼图生成器
-    const pie = d3.pie<typeof labelStats[0]>()
-      .value(d => d.value)
-      .sort(null)
-      .padAngle(0.02)
-    
-    const arc = d3.arc<d3.PieArcDatum<typeof labelStats[0]>>()
-      .innerRadius(innerRadius)
-      .outerRadius(radius)
-      .cornerRadius(6)
-    
-    const arcHover = d3.arc<d3.PieArcDatum<typeof labelStats[0]>>()
-      .innerRadius(innerRadius)
-      .outerRadius(radius + 10)
-      .cornerRadius(6)
-    
-    const pieData = pie(labelStats)
-    
-    // 绘制弧形
-    g.selectAll('.arc')
-      .data(pieData)
+      .attr('transform', `translate(${centerX}, ${centerY})`)
+
+    // 颜色辅助
+    const getNodeColor = (d: d3.HierarchyRectangularNode<HierarchyNode>): string => {
+      if (d.data.color) return d.data.color
+      return d.depth === 1 ? (d.data.name.includes('音频') ? AUDIO_COLOR : TEXT_ANN_COLOR) : '#888'
+    }
+
+    const arcVisible = (d: NodeWithCurrent) =>
+      d.current.y1 <= radius * 3 && d.current.y0 >= 0 && d.current.x1 > d.current.x0
+
+    const labelVisible = (d: NodeWithCurrent) =>
+      d.current.y1 <= radius * 3 && d.current.y0 >= 20 && (d.current.x1 - d.current.x0) > 0.15
+
+    const labelTransform = (d: NodeWithCurrent) => {
+      const angle = (d.current.x0 + d.current.x1) / 2
+      const r = (d.current.y0 * 0.75 + 28 + d.current.y1 * 0.75 + 22) / 2
+      const x = Math.sin(angle) * r
+      const y = -Math.cos(angle) * r
+      const rotation = angle * 180 / Math.PI - 90
+      const flip = angle > Math.PI
+      return `translate(${x},${y}) rotate(${flip ? rotation + 180 : rotation})`
+    }
+
+    // 绘制弧形路径
+    const path = g.selectAll<SVGPathElement, NodeWithCurrent>('path.sb-arc')
+      .data(root.descendants().filter(d => d.depth > 0) as NodeWithCurrent[])
       .join('path')
-      .attr('class', 'arc')
+      .attr('class', 'sb-arc')
       .attr('d', arc)
-      .attr('fill', d => d.data.color)
+      .attr('fill', d => getNodeColor(d))
       .attr('stroke', themeColors.background)
-      .attr('stroke-width', 2)
+      .attr('stroke-width', 1.5)
+      .attr('fill-opacity', d => arcVisible(d) ? (d.depth === 1 ? 0.88 : 0.82) : 0)
       .style('cursor', 'pointer')
       .on('mouseover', function(event, d) {
+        if (!arcVisible(d)) return
         d3.select(this)
-          .transition()
-          .duration(200)
-          .attr('d', arcHover)
-        
+          .attr('fill-opacity', 1)
+          .attr('stroke', isDarkMode ? '#fff' : '#333')
+          .attr('stroke-width', 2.5)
+
         if (tooltipRef.current) {
-          const percentage = ((d.endAngle - d.startAngle) / (2 * Math.PI) * 100).toFixed(1)
+          const total = root.value || 1
+          const pct = ((d.value || 0) / total * 100).toFixed(1)
+          const groupLabel = d.parent?.data.name || ''
+          const color = getNodeColor(d)
+          const durStr = (d.data as any).duration != null
+            ? `<div>${t('annotation.totalDuration', '总时长')}: <strong>${(d.data as any).duration.toFixed(2)}s</strong></div>` : ''
           tooltipRef.current.innerHTML = `
-            <div style="font-weight:600;color:${d.data.color};margin-bottom:4px;border-bottom:2px solid ${d.data.color};padding-bottom:4px">
-              ${d.data.name}
-            </div>
-            <div>${t('annotation.count', '数量')}: <strong>${d.data.value}</strong></div>
-            <div>${t('annotation.percentage', '占比')}: <strong>${percentage}%</strong></div>
-            <div>${t('annotation.totalDuration', '总时长')}: <strong>${d.data.totalDuration.toFixed(2)}s</strong></div>
+            <div style="font-weight:700;color:${color};border-bottom:2px solid ${color};padding-bottom:4px;margin-bottom:6px">${d.data.name}</div>
+            ${groupLabel && groupLabel !== t('annotation.totalAnnotations', '总标注') ? `<div style="color:${themeColors.subText};font-size:11px;margin-bottom:4px">${groupLabel}</div>` : ''}
+            <div>${t('annotation.count', '数量')}: <strong>${d.value}</strong></div>
+            <div>${t('annotation.percentage', '占比')}: <strong>${pct}%</strong></div>
+            ${durStr}
           `
           tooltipRef.current.style.display = 'block'
           tooltipRef.current.style.left = `${event.pageX + 15}px`
           tooltipRef.current.style.top = `${event.pageY + 15}px`
         }
       })
-      .on('mouseout', function() {
+      .on('mouseout', function(_, d) {
         d3.select(this)
-          .transition()
-          .duration(200)
-          .attr('d', arc)
-        
-        if (tooltipRef.current) {
-          tooltipRef.current.style.display = 'none'
-        }
+          .attr('stroke', themeColors.background)
+          .attr('stroke-width', 1.5)
+          .attr('fill-opacity', arcVisible(d) ? (d.depth === 1 ? 0.88 : 0.82) : 0)
+        if (tooltipRef.current) tooltipRef.current.style.display = 'none'
       })
-    
-    // 百分比标签 (只显示较大的分段)
-    const labelArc = d3.arc<d3.PieArcDatum<typeof labelStats[0]>>()
-      .innerRadius(radius * 0.75)
-      .outerRadius(radius * 0.75)
-    
-    g.selectAll('.label')
-      .data(pieData.filter(d => (d.endAngle - d.startAngle) > 0.3))
+
+    // 绘制标签
+    g.selectAll<SVGTextElement, NodeWithCurrent>('text.sb-label')
+      .data(root.descendants().filter(d => d.depth > 0) as NodeWithCurrent[])
       .join('text')
-      .attr('class', 'label')
-      .attr('transform', d => `translate(${labelArc.centroid(d)})`)
+      .attr('class', 'sb-label')
+      .attr('transform', labelTransform)
       .attr('text-anchor', 'middle')
       .attr('dominant-baseline', 'middle')
-      .attr('fill', '#fff')
-      .attr('font-size', 11)
-      .attr('font-weight', 600)
-      .attr('text-shadow', '0 1px 2px rgba(0,0,0,0.3)')
-      .text(d => `${((d.endAngle - d.startAngle) / (2 * Math.PI) * 100).toFixed(0)}%`)
-    
-    // 中心统计
-    const centerGroup = g.append('g')
-    
-    centerGroup.append('text')
+      .attr('fill', 'white')
+      .attr('font-size', d => d.depth === 1 ? 12 : 10)
+      .attr('font-weight', d => d.depth === 1 ? 700 : 500)
+      .attr('fill-opacity', d => labelVisible(d) ? 1 : 0)
+      .attr('pointer-events', 'none')
+      .text(d => {
+        const label = d.data.name
+        const maxLen = d.depth === 1 ? 10 : 8
+        return label.length > maxLen ? label.slice(0, maxLen) + '…' : label
+      })
+
+    // 中心显示总数
+    const totalCount = (hasAudioData ? audioBoxes.length : 0) + (hasTextData ? textAnnotations.filter(a => !a.id.startsWith('spacy-')).length : 0)
+    g.append('text')
+      .attr('text-anchor', 'middle')
+      .attr('dominant-baseline', 'central')
       .attr('y', -10)
-      .attr('text-anchor', 'middle')
       .attr('fill', themeColors.text)
-      .attr('font-size', 28)
+      .attr('font-size', 26)
       .attr('font-weight', 700)
-      .text(audioBoxes.length)
-    
-    centerGroup.append('text')
-      .attr('y', 15)
+      .text(totalCount)
+    g.append('text')
       .attr('text-anchor', 'middle')
+      .attr('y', 16)
       .attr('fill', themeColors.subText)
       .attr('font-size', 12)
       .text(t('common.items', '条'))
-    
-    // 图例
-    const legendG = svg.append('g')
-      .attr('transform', `translate(${width * 0.65}, 60)`)
-    
-    const legendItems = labelStats.slice(0, 12)
-    const legendSpacing = 28
-    
-    legendItems.forEach((item, i) => {
-      const y = i * legendSpacing
-      
-      // 颜色块
-      legendG.append('rect')
-        .attr('x', 0)
-        .attr('y', y)
-        .attr('width', 16)
-        .attr('height', 16)
+
+    // 标题
+    svg.append('text')
+      .attr('x', width / 2)
+      .attr('y', 22)
+      .attr('text-anchor', 'middle')
+      .attr('fill', themeColors.text)
+      .attr('font-size', 14)
+      .attr('font-weight', 600)
+      .text(t('annotation.annotationDistribution', '标注分布'))
+
+    // 图例（右侧）
+    const legendX = centerX + radius + 20
+    const legendStartY = centerY - radius + 10
+    const items: Array<{ color: string; name: string }> = []
+    if (hasAudioData) items.push({ color: AUDIO_COLOR, name: t('annotation.audioBoxes', '音频画框') })
+    if (hasTextData) items.push({ color: TEXT_ANN_COLOR, name: t('annotation.textAnnotations', '文本标注') })
+
+    items.forEach((item, i) => {
+      const y = legendStartY + i * 26
+      svg.append('circle')
+        .attr('cx', legendX + 8)
+        .attr('cy', y)
+        .attr('r', 7)
         .attr('fill', item.color)
-        .attr('rx', 3)
-      
-      // 标签名
-      const labelText = item.name.length > 15 ? item.name.slice(0, 15) + '...' : item.name
-      legendG.append('text')
-        .attr('x', 24)
-        .attr('y', y + 12)
+      svg.append('text')
+        .attr('x', legendX + 22)
+        .attr('y', y + 4)
         .attr('fill', themeColors.text)
-        .attr('font-size', 11)
-        .text(labelText)
-      
-      // 数量
-      legendG.append('text')
-        .attr('x', 150)
-        .attr('y', y + 12)
-        .attr('fill', item.color)
-        .attr('font-size', 11)
+        .attr('font-size', 12)
         .attr('font-weight', 600)
-        .text(item.value)
+        .text(item.name)
     })
-    
-    if (labelStats.length > 12) {
-      legendG.append('text')
-        .attr('x', 0)
-        .attr('y', 12 * legendSpacing + 10)
-        .attr('fill', '#999')
-        .attr('font-size', 11)
-        .text(`+${labelStats.length - 12} more...`)
-    }
-    
+
+    void path // avoid unused var lint
+
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [labelStats, audioBoxes.length, t, isDarkMode])
+  }, [labelStats, textAnnotationStats, audioBoxes.length, textAnnotations, t, isDarkMode])
   
   // 根据图表类型绘制
   useEffect(() => {
     if (chartType === 'bar') {
       drawBarChart()
-    } else if (chartType === 'pie') {
-      drawPieChart()
+    } else if (chartType === 'sunburst') {
+      drawSunburstChart()
     }
-  }, [chartType, drawBarChart, drawPieChart])
+  }, [chartType, drawBarChart, drawSunburstChart])
   
   // 处理滚轮缩放（仅波形视图）
   const handleWheel = useCallback((e: React.WheelEvent) => {
@@ -727,13 +804,13 @@ export default function AudioVisualization({
               <TimelineIcon sx={{ mr: 0.5 }} fontSize="small" />
               {t('annotation.waveform', '波形图')}
             </ToggleButton>
-            <ToggleButton value="bar" disabled={audioBoxes.length === 0}>
+            <ToggleButton value="bar" disabled={audioBoxes.length === 0 && textAnnotations.length === 0}>
               <BarChartIcon sx={{ mr: 0.5 }} fontSize="small" />
               {t('annotation.barChart', '柱状图')}
             </ToggleButton>
-            <ToggleButton value="pie" disabled={audioBoxes.length === 0}>
-              <PieChartOutlineIcon sx={{ mr: 0.5 }} fontSize="small" />
-              {t('annotation.pieChart', '饼图')}
+            <ToggleButton value="sunburst" disabled={audioBoxes.length === 0 && textAnnotations.length === 0}>
+              <DonutLargeIcon sx={{ mr: 0.5 }} fontSize="small" />
+              {t('annotation.sunburstChart', '太阳图')}
             </ToggleButton>
           </ToggleButtonGroup>
         </Stack>
@@ -858,26 +935,26 @@ export default function AudioVisualization({
         </>
       )}
       
-      {/* 柱状图/饼图视图 */}
-      {(chartType === 'bar' || chartType === 'pie') && (
+      {/* 柱状图/太阳图视图 */}
+      {(chartType === 'bar' || chartType === 'sunburst') && (
         <>
-          {labelStats.length > 0 ? (
-            <Box 
-              sx={{ 
-                border: 1, 
-                borderColor: 'divider', 
+          {(labelStats.length > 0 || textAnnotationStats.length > 0) ? (
+            <Box
+              sx={{
+                border: 1,
+                borderColor: 'divider',
                 borderRadius: 2,
-                maxHeight: 500,
+                maxHeight: 560,
                 overflow: 'auto'
               }}
             >
               <Box sx={{ p: 2, width: '100%', display: 'flex', justifyContent: 'center' }}>
                 <svg
                   ref={chartSvgRef}
-                  style={{ 
-                    width: '100%', 
+                  style={{
+                    width: '100%',
                     maxWidth: 700,
-                    height: chartType === 'bar' ? 400 : 450
+                    height: chartType === 'bar' ? 400 : 520
                   }}
                 />
               </Box>
