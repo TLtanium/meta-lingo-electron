@@ -70,6 +70,15 @@ class ExtendedContextRequest(BaseModel):
     text_id: str
     position: int
     context_chars: int = 200
+    highlight_lemmas: Optional[List[str]] = None  # Lemmas to highlight in context via SpaCy metadata
+    keyword: Optional[str] = None  # Full keyword text (e.g., multi-word N-gram "of the") for accurate span highlighting
+
+
+class HighlightSpan(BaseModel):
+    """A character span to highlight"""
+    start: int
+    end: int
+    text: str
 
 
 class ExtendedContextResponse(BaseModel):
@@ -82,6 +91,7 @@ class ExtendedContextResponse(BaseModel):
     text_id: Optional[str] = None
     filename: Optional[str] = None
     error: Optional[str] = None
+    collocate_spans: Optional[List[HighlightSpan]] = None  # Lemma-matched spans for precise highlighting
 
 
 class CQLParseRequest(BaseModel):
@@ -152,7 +162,9 @@ async def get_extended_context(request: ExtendedContextRequest):
         corpus_id=request.corpus_id,
         text_id=request.text_id,
         position=request.position,
-        context_chars=request.context_chars
+        context_chars=request.context_chars,
+        highlight_lemmas=request.highlight_lemmas,
+        keyword=request.keyword
     )
     
     return ExtendedContextResponse(**result)

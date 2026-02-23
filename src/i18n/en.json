@@ -342,7 +342,7 @@
       "minFreq": "Min Frequency",
       "maxFreq": "Max Frequency",
       "noLimit": "No Limit",
-      "lowercase": "Convert to Lowercase",
+      "lowercase": "Convert to lowercase",
       "searchTarget": "Search Target",
       "targetWord": "Word Form",
       "targetLemma": "Lemma",
@@ -480,8 +480,7 @@
       "frequencySettings": "Frequency Settings",
       "minFreq": "Min Frequency",
       "maxResults": "Max Results",
-      "lowercase": "Convert to Lowercase",
-      "lowercaseHelp": "Merge words with different cases"
+      "lowercase": "Convert to lowercase"
     },
     "results": {
       "title": "Results",
@@ -715,8 +714,7 @@
       "excludeWords": "Exclude Words",
       "excludeWordsDesc": "N-grams containing these words will be excluded",
       "excludeWordsPlaceholder": "One word per line to exclude...",
-      "lowercase": "Convert to Lowercase",
-      "lowercaseDesc": "Convert all text to lowercase before analysis"
+      "lowercase": "Convert to lowercase"
     },
     "results": {
       "title": "Results",
@@ -961,8 +959,9 @@
     }
   },
   "wordsketch": {
-    "title": "Word Sketch",
-    "description": "Word grammatical collocation patterns",
+    "title": "Collocation Analysis",
+    "description": "Analyze word collocation patterns",
+    "collocationAnalysisTab": "Collocation Analysis",
     "wordSketchTab": "Word Sketch",
     "sketchDifferenceTab": "Sketch Difference",
     "wordSketch": "Word Sketch",
@@ -976,7 +975,7 @@
     "minScore": "Min Score",
     "resultsPerRelation": "Results per Relation",
     "maxResults": "Max Results per Relation",
-    "lowercase": "Lowercase",
+    "lowercase": "Convert to lowercase",
     "useLemma": "Use Lemma",
     "analyze": "Start Analysis",
     "results": "Analysis Results",
@@ -1035,6 +1034,102 @@
       "runDiffFirst": "Run Sketch Difference analysis first to see visualization"
     },
     "analysisResults": "Analysis Results"
+  },
+  "collocationAnalysis": {
+    "title": "Collocation Analysis",
+    "description": "Analyze word collocations with statistical measures",
+    "corpus": {
+      "title": "Corpus Selection",
+      "selectAll": "Select All Documents",
+      "selectManually": "Select Manually",
+      "selectedCount": "Selected Documents"
+    },
+    "search": {
+      "title": "Search Configuration",
+      "nodeWord": "Node Word",
+      "nodeWordPlaceholder": "Enter a node word to analyze...",
+      "span": "Collocation Span",
+      "spanHelp": "Number of tokens on each side of the node word",
+      "minFreq": "Min Frequency",
+      "maxFreq": "Max Frequency",
+      "lowercase": "Convert to lowercase",
+      "removeStopwords": "Remove Stopwords",
+      "frequencyRange": "Frequency Range",
+      "excludeWords": "Exclude Words",
+      "excludeWordsPlaceholder": "Enter words separated by commas...",
+      "excludeWordsPlaceholderMultiline": "One word per line\ne.g.:\nthe\nis\nof",
+      "excludeWordsHelp": "One word per line"
+    },
+    "posFilter": {
+      "title": "POS Filter"
+    },
+    "analyze": "Start Analysis",
+    "analyzing": "Analyzing...",
+    "results": {
+      "title": "Results",
+      "totalTokens": "Total Tokens",
+      "uniqueCollocates": "Unique Collocates",
+      "nodeFrequency": "Node Frequency",
+      "selected": "Selected",
+      "filterPlaceholder": "Filter collocates...",
+      "selectAll": "Select All",
+      "copySelected": "Copy Selected",
+      "exportCSV": "Export CSV",
+      "noData": "No results to display",
+      "runFirst": "Configure search parameters and run analysis to see results",
+      "nodeNotFound": "Node word not found in corpus",
+      "rowsPerPage": "Rows per page"
+    },
+    "table": {
+      "collocate": "Collocate",
+      "collocationFreq": "Coll. Freq",
+      "collocationFreqFull": "Collocation Frequency",
+      "totalFreq": "Total Freq",
+      "totalFreqFull": "Total Frequency (in corpus)",
+      "actions": "Actions",
+      "viewInCooccurrence": "View Co-occurrence"
+    },
+    "statistics": {
+      "title": "Statistical Methods",
+      "configure": "Configure Statistics",
+      "description": "Select and configure statistical association measures",
+      "enabled": "Enabled",
+      "disabled": "Disabled",
+      "threshold": "Threshold",
+      "moveUp": "Move Up",
+      "moveDown": "Move Down",
+      "add": "Add",
+      "remove": "Remove",
+      "reset": "Reset to Defaults",
+      "logdice": "LogDice",
+      "mi": "MI (Mutual Information)",
+      "ll": "LL (Log-Likelihood)",
+      "zscore": "Z-score",
+      "tscore": "T-score",
+      "logratio": "Log Ratio",
+      "mi2": "MI²",
+      "mi3": "MI³",
+      "dice": "Dice Coefficient",
+      "deltap1": "Delta P1 (Node→Coll.)",
+      "deltap2": "Delta P2 (Coll.→Node)",
+      "minsens": "Min. Sensitivity"
+    },
+    "visualization": {
+      "title": "Visualization",
+      "barChart": "Bar Chart",
+      "pieChart": "Pie Chart",
+      "networkGraph": "Collocation Network",
+      "wordCloud": "Word Cloud",
+      "noData": "No Data",
+      "runFirst": "Please run search first",
+      "maxItems": "Max Items",
+      "maxWords": "Max Words",
+      "colorScheme": "Color Scheme",
+      "showPercentage": "Show Percentage",
+      "export": "Export",
+      "scoreMetric": "Score Metric",
+      "networkHelp": "Node sizes represent association strength"
+    }
   },
   "biblio": {
     "title": "Bibliography Visualization",
@@ -2469,6 +2564,7 @@
   "crossLink": {
     "viewInOtherModules": "View in other modules",
     "viewCollocation": "View Collocation",
+    "viewCollocationAnalysis": "View Collocation Analysis",
     "viewWordSketch": "View Word Sketch"
   },
   "syntax": {

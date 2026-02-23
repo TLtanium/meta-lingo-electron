@@ -25,6 +25,7 @@ from routers import usas
 from routers import sketch
 from routers import biblio
 from routers import corpus_resource
+from routers import collocation_analysis
 
 app = FastAPI(
     title="Meta-Lingo API",
@@ -58,6 +59,7 @@ app.include_router(usas.router, tags=["USAS"])
 app.include_router(sketch.router, tags=["Word Sketch"])
 app.include_router(biblio.router, tags=["Bibliographic"])
 app.include_router(corpus_resource.router, prefix="/api/corpus-resource", tags=["Corpus Resource"])
+app.include_router(collocation_analysis.router, prefix="/api/collocation-analysis", tags=["Collocation Analysis"])
 
 
 @app.get("/")

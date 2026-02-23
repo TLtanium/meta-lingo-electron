@@ -59,6 +59,7 @@ import {
   DEFAULT_STATISTIC_THRESHOLDS
 } from '../../../types/keyword'
 import { CorpusResourceCard, CorpusResourceDialog } from '../../../components/CorpusResource'
+import { NumberInput } from '../../../components/common'
 
 import POSFilterPanel from '../POSFilterPanel'
 import StatisticsConfigPanel from './StatisticsConfigPanel'
@@ -453,7 +454,7 @@ export default function KeynessTab() {
 
     return (
       <Paper sx={{ p: 2, mb: 2 }}>
-        <Typography variant="subtitle2" gutterBottom>
+        <Typography variant="subtitle2" sx={{ mb: 1.5 }}>
           {title}
         </Typography>
 
@@ -861,16 +862,19 @@ export default function KeynessTab() {
           
           {useThreshold && (
             <Stack spacing={2}>
-              <TextField
+              <NumberInput
                 size="small"
                 fullWidth
                 label={t('keyword.threshold.minScore', 'Minimum Score')}
-                type="number"
-                value={thresholdConfig.minScore ?? ''}
-                onChange={(e) => setThresholdConfig(prev => ({
+                value={thresholdConfig.minScore ?? 0}
+                onChange={(val) => setThresholdConfig(prev => ({
                   ...prev,
-                  minScore: e.target.value ? parseFloat(e.target.value) : undefined
+                  minScore: val === 0 ? undefined : val
                 }))}
+                min={0}
+                max={1000}
+                step={0.5}
+                defaultValue={0}
                 disabled={!studySelection.corpus}
                 helperText={
                   statistic === 'log_likelihood' || statistic === 'chi_squared'
@@ -881,17 +885,19 @@ export default function KeynessTab() {
                 }
               />
               {(statistic === 'log_likelihood' || statistic === 'chi_squared' || statistic === 'fishers_exact') && (
-                <TextField
+                <NumberInput
                   size="small"
                   fullWidth
                   label={t('keyword.threshold.maxPValue', 'Maximum p-value')}
-                  type="number"
-                  inputProps={{ step: 0.01, min: 0, max: 1 }}
-                  value={thresholdConfig.maxPValue ?? ''}
-                  onChange={(e) => setThresholdConfig(prev => ({
+                  value={thresholdConfig.maxPValue ?? 0.05}
+                  onChange={(val) => setThresholdConfig(prev => ({
                     ...prev,
-                    maxPValue: e.target.value ? parseFloat(e.target.value) : undefined
+                    maxPValue: val
                   }))}
+                  min={0}
+                  max={1}
+                  step={0.01}
+                  defaultValue={0.05}
                   disabled={!studySelection.corpus}
                   helperText={t('keyword.threshold.pValueHelp', 'Standard: 0.05, Strict: 0.01')}
                 />

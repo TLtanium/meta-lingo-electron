@@ -264,7 +264,10 @@ export default function ResultsTable({
           size="small"
           placeholder={isZh ? '搜索词汇...' : 'Search words...'}
           value={tableFilter}
-          onChange={(e) => setTableFilter(e.target.value)}
+          onChange={(e) => {
+            setTableFilter(e.target.value)
+            setPage(0)
+          }}
           sx={{ width: 200 }}
           InputProps={{
             startAdornment: (

@@ -147,10 +147,6 @@ export default function SearchConfigPanel({
               </Typography>
             }
           />
-
-          <Typography variant="caption" color="text.secondary">
-            {t('synonym.search.lowercaseHelp')}
-          </Typography>
         </Stack>
       </AccordionDetails>
     </Accordion>

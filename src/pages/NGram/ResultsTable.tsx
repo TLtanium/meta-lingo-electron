@@ -159,6 +159,7 @@ function NGramRow({ row, isSelected, onSelect, nestMode, corpusId, textIds, sele
               selectionMode={selectionMode}
               selectedTags={selectedTags}
               showCollocation={true}
+              showCollocationAnalysis={false}
               showWordSketch={false}
             />
           </TableCell>
@@ -368,7 +369,10 @@ export default function ResultsTable({
           size="small"
           placeholder={t('wordFrequency.table.filterPlaceholder')}
           value={tableFilter}
-          onChange={(e) => setTableFilter(e.target.value)}
+          onChange={(e) => {
+            setTableFilter(e.target.value)
+            onPaginationChange({ ...paginationConfig, page: 0 })
+          }}
           sx={{ width: 200 }}
           InputProps={{
             startAdornment: (
@@ -482,7 +486,7 @@ export default function ResultsTable({
       {/* Pagination */}
       <TablePagination
         component="div"
-        count={results.length}
+        count={filteredResults.length}
         page={paginationConfig.page}
         rowsPerPage={paginationConfig.rowsPerPage}
         onPageChange={(_, page) => onPaginationChange({ ...paginationConfig, page })}

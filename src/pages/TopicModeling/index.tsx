@@ -95,15 +95,23 @@ export default function TopicModeling() {
   // Right panel tabs
   const [rightTab, setRightTab] = useState(0)
 
+  // Track selection mode from corpus selector
+  const [selectionMode, setSelectionMode] = useState<'all' | 'selected' | 'tags'>('all')
+  const [selectedTags, setSelectedTags] = useState<string[]>([])
+
   // Handle corpus selection change
   const handleCorpusSelectionChange = (
-    newCorpusId: string, 
-    newTextIds: string[], 
+    newCorpusId: string,
+    newTextIds: string[],
     language: string,
-    allTexts: CorpusText[]
+    allTexts: CorpusText[],
+    newSelectionMode: 'all' | 'selected' | 'tags' = 'all',
+    newSelectedTags: string[] = []
   ) => {
     setCorpusId(newCorpusId)
     setTextIds(newTextIds)
+    setSelectionMode(newSelectionMode)
+    setSelectedTags(newSelectedTags)
     setTexts(allTexts)  // Store all texts for dynamic topic date counting
     setCorpusLanguage(language)
     // Reset downstream selections when corpus changes
@@ -289,8 +297,9 @@ export default function TopicModeling() {
                     ollamaLanguage={corpusLanguage === 'chinese' ? 'zh' : 'en'}
                     onTopicsUpdate={handleTopicsUpdate}
                     corpusId={corpusId}
-                    textIds={textIds.length > 0 ? textIds : 'all'}
-                    selectionMode={textIds.length > 0 ? 'selected' : 'all'}
+                    textIds={selectionMode === 'all' ? 'all' : textIds}
+                    selectionMode={selectionMode}
+                    selectedTags={selectedTags}
                   />
                 )}
                 

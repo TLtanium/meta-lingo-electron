@@ -119,6 +119,7 @@ export default function WordSketchTab({ crossLinkParams }: WordSketchTabProps) {
   // Track if cross-link has been processed
   const crossLinkProcessedRef = useRef(false)
   const pendingAutoSearchRef = useRef(false)
+  const handleAnalyzeRef = useRef<() => void>(() => {})
 
   // Load corpora and POS options on mount
   useEffect(() => {
@@ -153,10 +154,10 @@ export default function WordSketchTab({ crossLinkParams }: WordSketchTabProps) {
   useEffect(() => {
     if (pendingAutoSearchRef.current && texts.length > 0 && selectedCorpus && searchWord.trim()) {
       pendingAutoSearchRef.current = false
-      // Small delay to ensure state is settled
+      // Small delay to ensure state is settled, use ref to avoid stale closure
       setTimeout(() => {
-        handleAnalyze()
-      }, 100)
+        handleAnalyzeRef.current()
+      }, 200)
     }
   }, [texts, selectedCorpus, searchWord])
 
@@ -372,6 +373,9 @@ export default function WordSketchTab({ crossLinkParams }: WordSketchTabProps) {
     }
   }
 
+  // Keep ref always pointing to latest handleAnalyze to avoid stale closure in auto-search
+  handleAnalyzeRef.current = handleAnalyze
+
   // Check if analysis can run
   const canAnalyze = selectedCorpus && searchWord.trim() && (
     selectionMode === 'all' || 
@@ -423,7 +427,7 @@ export default function WordSketchTab({ crossLinkParams }: WordSketchTabProps) {
 
         {/* 1. Corpus Selection */}
         <Paper sx={{ p: 2, mb: 2 }}>
-          <Typography variant="subtitle2" gutterBottom>
+          <Typography variant="subtitle2" sx={{ mb: 1.5 }}>
             {t('wordsketch.corpus')}
           </Typography>
 
@@ -606,7 +610,7 @@ export default function WordSketchTab({ crossLinkParams }: WordSketchTabProps) {
 
         {/* 2. Search Configuration */}
         <Paper sx={{ p: 2, mb: 2 }}>
-          <Typography variant="subtitle2" gutterBottom>
+          <Typography variant="subtitle2" sx={{ mb: 1.5 }}>
             {t('wordsketch.searchConfig')}
           </Typography>
 
@@ -775,7 +779,7 @@ export default function WordSketchTab({ crossLinkParams }: WordSketchTabProps) {
                           <CardHeader
                             title={
                               <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-                                {displayName.replace(result.word, `"${result.word}"`)}
+                                {displayName}
                               </Typography>
                             }
                             subheader={
@@ -863,10 +867,13 @@ export default function WordSketchTab({ crossLinkParams }: WordSketchTabProps) {
                                                 selectionMode={selectionMode}
                                                 selectedTags={selectedTags}
                                                 showCollocation={true}
+                                                showCollocationAnalysis={false}
                                                 showWordSketch={false}
                                                 highlightWords={coll?.word || coll?.lemma ? [coll.word || coll.lemma || ''] : undefined}
                                                 contextFilterWords={coll?.word || coll?.lemma ? [coll.word || coll.lemma || ''] : undefined}
                                                 mainWord={result?.word || result?.lemma || ''}
+                                                mainWordLemma={result?.lemma || result?.word || ''}
+                                                collocateLemma={coll?.lemma || coll?.word || ''}
                                                 relationName={relName}
                                                 matchMode="lemma"
                                               />

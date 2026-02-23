@@ -1,6 +1,6 @@
 /**
- * Word Sketch Page
- * Two-tab layout: Word Sketch and Word Sketch Difference
+ * Collocation Analysis Page (搭配分析)
+ * Three-tab layout: Collocation Analysis / Word Sketch / Word Sketch Difference
  */
 
 import { useState, useEffect, useRef } from 'react'
@@ -11,10 +11,12 @@ import {
   Paper,
   TabsActions
 } from '@mui/material'
+import JoinInnerIcon from '@mui/icons-material/JoinInner'
 import BubbleChartIcon from '@mui/icons-material/BubbleChart'
 import CompareArrowsIcon from '@mui/icons-material/CompareArrows'
 import { useTranslation } from 'react-i18next'
 import type { CrossLinkParams } from '../../types'
+import CollocationAnalysisTab from './CollocationAnalysisTab'
 import WordSketchTab from './WordSketchTab'
 import WordSketchDiffTab from './WordSketchDiffTab'
 
@@ -52,7 +54,7 @@ interface WordSketchProps {
 
 export default function WordSketch({ crossLinkParams }: WordSketchProps) {
   const { t } = useTranslation()
-  const [tabIndex, setTabIndex] = useState(0)
+  const [tabIndex, setTabIndex] = useState(crossLinkParams?.targetSubTab ?? 0)
   const tabsActionRef = useRef<TabsActions>(null)
 
   // Force tabs indicator recalculation after mount (fixes positioning issue on cross-link navigation)
@@ -62,6 +64,13 @@ export default function WordSketch({ crossLinkParams }: WordSketchProps) {
     }, 100)
     return () => clearTimeout(timer)
   }, [])
+
+  // Navigate to target sub-tab when crossLinkParams change
+  useEffect(() => {
+    if (crossLinkParams?.targetSubTab !== undefined) {
+      setTabIndex(crossLinkParams.targetSubTab)
+    }
+  }, [crossLinkParams])
 
   const handleTabChange = (_: React.SyntheticEvent, newValue: number) => {
     setTabIndex(newValue)
@@ -77,15 +86,20 @@ export default function WordSketch({ crossLinkParams }: WordSketchProps) {
           action={tabsActionRef}
           sx={{ borderBottom: 1, borderColor: 'divider' }}
         >
-          <Tab 
-            icon={<BubbleChartIcon />} 
-            iconPosition="start" 
-            label={t('wordsketch.wordSketchTab')} 
+          <Tab
+            icon={<JoinInnerIcon />}
+            iconPosition="start"
+            label={t('wordsketch.collocationAnalysisTab')}
           />
-          <Tab 
-            icon={<CompareArrowsIcon />} 
-            iconPosition="start" 
-            label={t('wordsketch.sketchDifferenceTab')} 
+          <Tab
+            icon={<BubbleChartIcon />}
+            iconPosition="start"
+            label={t('wordsketch.wordSketchTab')}
+          />
+          <Tab
+            icon={<CompareArrowsIcon />}
+            iconPosition="start"
+            label={t('wordsketch.sketchDifferenceTab')}
           />
         </Tabs>
       </Paper>
@@ -93,9 +107,12 @@ export default function WordSketch({ crossLinkParams }: WordSketchProps) {
       {/* Tab panels */}
       <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', minHeight: 0 }}>
         <TabPanel value={tabIndex} index={0}>
-          <WordSketchTab crossLinkParams={crossLinkParams} />
+          <CollocationAnalysisTab crossLinkParams={crossLinkParams} />
         </TabPanel>
         <TabPanel value={tabIndex} index={1}>
+          <WordSketchTab crossLinkParams={crossLinkParams} />
+        </TabPanel>
+        <TabPanel value={tabIndex} index={2}>
           <WordSketchDiffTab />
         </TabPanel>
       </Box>

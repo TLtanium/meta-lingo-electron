@@ -315,7 +315,7 @@ export default function NMFPreprocessPanel({
         
         {/* Document Frequency Filter */}
         <Box>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
             {t('topicModeling.nmf.preprocess.dfFilter', 'Document Frequency Filter')}
           </Typography>
           <Stack direction="row" spacing={2}>

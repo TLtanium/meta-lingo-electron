@@ -394,7 +394,10 @@ export default function ResultsTable({
           size="small"
           placeholder={isDomainMode ? t('semantic.table.filterDomainPlaceholder') : t('semantic.table.filterWordPlaceholder')}
           value={tableFilter}
-          onChange={(e) => setTableFilter(e.target.value)}
+          onChange={(e) => {
+            setTableFilter(e.target.value)
+            onPageChange(0)
+          }}
           sx={{ width: 150 }}
           InputProps={{
             startAdornment: (

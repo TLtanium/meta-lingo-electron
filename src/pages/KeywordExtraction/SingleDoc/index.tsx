@@ -339,7 +339,7 @@ export default function SingleDocTab() {
 
         {/* 1. Corpus Selection */}
         <Paper sx={{ p: 2, mb: 2 }}>
-          <Typography variant="subtitle2" gutterBottom>
+          <Typography variant="subtitle2" sx={{ mb: 1.5 }}>
             {t('keyword.corpus.title', 'Corpus Selection')}
           </Typography>
 

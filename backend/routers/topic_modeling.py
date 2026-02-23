@@ -250,11 +250,17 @@ async def create_embedding(request: EmbeddingRequest):
             normalize=request.normalize
         )
         
+        # Save source text_ids (the original selection before chunking) for embedding file matching
+        import json
+        source_text_ids_path = embedding_service.embedding_dir / f"{result['embedding_id']}_source_text_ids.json"
+        with open(source_text_ids_path, 'w', encoding='utf-8') as f:
+            json.dump(sorted(request.text_ids), f)
+
         # Add preprocess stats and chunk info
         result['preprocess_stats'] = preprocess_result.get('stats', {})
         result['chunk_indices'] = preprocess_result.get('chunk_indices', [])
         result['text_ids'] = chunk_text_ids
-        
+
         return result
         
     except HTTPException:

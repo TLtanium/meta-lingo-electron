@@ -408,7 +408,7 @@ export default function AlgorithmConfigPanel({
         />
 
         {/* Algorithm-specific parameters */}
-        <Typography variant="subtitle2" gutterBottom sx={{ mt: 1 }}>
+        <Typography variant="subtitle2" sx={{ mt: 1, mb: 1.5 }}>
           {t('keyword.config.parameters', 'Parameters')}
         </Typography>
         {renderAlgorithmParams()}

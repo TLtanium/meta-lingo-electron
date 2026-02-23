@@ -139,7 +139,7 @@ export default function SearchConfigPanel({
         <Stack spacing={2}>
           {/* Frequency range */}
           <Box>
-            <Typography variant="body2" gutterBottom>
+            <Typography variant="caption" color="text.secondary" sx={{ mb: 1.5, display: 'block' }}>
               {t('ngram.search.frequencyRange')}
             </Typography>
             <Stack direction="row" spacing={2}>
@@ -163,12 +163,10 @@ export default function SearchConfigPanel({
                 step={10}
                 integer
                 defaultValue={0}
+                helperText={maxFreq === null ? t('wordFrequency.search.noLimit') : ''}
                 sx={{ flex: 1 }}
               />
             </Stack>
-            <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
-              {t('ngram.search.maxFrequencyHint')}
-            </Typography>
           </Box>
 
           {/* Minimum word length */}
@@ -291,14 +289,9 @@ export default function SearchConfigPanel({
               />
             }
             label={
-              <Stack>
-                <Typography variant="body2">
-                  {t('ngram.search.lowercase')}
-                </Typography>
-                <Typography variant="caption" color="text.secondary">
-                  {t('ngram.search.lowercaseDesc')}
-                </Typography>
-              </Stack>
+              <Typography variant="body2">
+                {t('ngram.search.lowercase')}
+              </Typography>
             }
           />
         </Stack>

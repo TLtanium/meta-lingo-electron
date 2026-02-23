@@ -226,7 +226,10 @@ export default function ResultsTable({
           size="small"
           placeholder={t('synonym.results.searchPlaceholder')}
           value={searchFilter}
-          onChange={(e) => setSearchFilter(e.target.value)}
+          onChange={(e) => {
+            setSearchFilter(e.target.value)
+            setPage(0)
+          }}
           sx={{ width: 200 }}
           InputProps={{
             startAdornment: (

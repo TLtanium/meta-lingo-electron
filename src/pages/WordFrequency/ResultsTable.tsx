@@ -222,7 +222,10 @@ export default function ResultsTable({
           size="small"
           placeholder={t('wordFrequency.table.filterPlaceholder')}
           value={tableFilter}
-          onChange={(e) => setTableFilter(e.target.value)}
+          onChange={(e) => {
+            setTableFilter(e.target.value)
+            onPaginationChange({ ...paginationConfig, page: 0 })
+          }}
           sx={{ width: 200 }}
           InputProps={{
             startAdornment: (

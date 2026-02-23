@@ -69,6 +69,7 @@ export interface EmbeddingInfo {
   created_at: string
   has_documents: boolean
   timestamp: string
+  source_text_ids?: string[] | null
 }
 
 export interface EmbeddingResult {

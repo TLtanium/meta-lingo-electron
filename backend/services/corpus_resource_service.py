@@ -321,15 +321,15 @@ class CorpusResourceService:
         """
         # Corpus full names
         corpus_names_en = {
-            'bnc': 'British National Corpus',
+            'bnc': 'British National Corpus (BNC 1994)',
             'brown': 'Brown Corpus',
-            'now': 'News on the Web Corpus',
+            'now': 'News on the Web Corpus (2010-2024)',
             'oanc': 'Open American National Corpus'
         }
         corpus_names_zh = {
-            'bnc': '英国国家语料库',
+            'bnc': '英国国家语料库 (BNC 1994)',
             'brown': 'Brown语料库',
-            'now': '网络新闻语料库',
+            'now': '网络新闻语料库 (2010-2024)',
             'oanc': '开放美国国家语料库'
         }
         

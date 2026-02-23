@@ -217,7 +217,18 @@ class TopicEmbeddingService:
             # Check if documents file exists
             docs_path = self.embedding_dir / f"{file_name}_docs.txt"
             has_docs = docs_path.exists()
-            
+
+            # Load source text_ids if available (for embedding file matching)
+            source_text_ids_path = self.embedding_dir / f"{file_name}_source_text_ids.json"
+            source_text_ids = None
+            if source_text_ids_path.exists():
+                try:
+                    import json
+                    with open(source_text_ids_path, 'r', encoding='utf-8') as f:
+                        source_text_ids = json.load(f)
+                except:
+                    pass
+
             # Parse corpus_id and timestamp from filename
             parts = file_name.rsplit('_', 2)
             if len(parts) >= 3:
@@ -226,7 +237,7 @@ class TopicEmbeddingService:
             else:
                 parsed_corpus_id = file_name
                 timestamp_str = ""
-            
+
             embeddings.append({
                 'id': file_name,
                 'corpus_id': parsed_corpus_id,
@@ -235,7 +246,8 @@ class TopicEmbeddingService:
                 'size_mb': round(stat.st_size / (1024 * 1024), 2),
                 'created_at': datetime.fromtimestamp(stat.st_mtime).isoformat(),
                 'has_documents': has_docs,
-                'timestamp': timestamp_str
+                'timestamp': timestamp_str,
+                'source_text_ids': source_text_ids
             })
         
         # Sort by creation time, newest first
@@ -256,22 +268,27 @@ class TopicEmbeddingService:
         embedding_path = self.embedding_dir / f"{embedding_id}.npy"
         documents_path = self.embedding_dir / f"{embedding_id}_docs.txt"
         text_ids_path = self.embedding_dir / f"{embedding_id}_text_ids.json"
-        
+        source_text_ids_path = self.embedding_dir / f"{embedding_id}_source_text_ids.json"
+
         deleted = False
-        
+
         if embedding_path.exists():
             embedding_path.unlink()
             deleted = True
             logger.info(f"Deleted embedding file: {embedding_path}")
-        
+
         if documents_path.exists():
             documents_path.unlink()
             logger.info(f"Deleted documents file: {documents_path}")
-        
+
         if text_ids_path.exists():
             text_ids_path.unlink()
             logger.info(f"Deleted text_ids file: {text_ids_path}")
-        
+
+        if source_text_ids_path.exists():
+            source_text_ids_path.unlink()
+            logger.info(f"Deleted source_text_ids file: {source_text_ids_path}")
+
         return deleted
     
     def rename_embedding(self, embedding_id: str, new_name: str) -> Dict[str, Any]:
@@ -293,29 +310,35 @@ class TopicEmbeddingService:
         embedding_path = self.embedding_dir / f"{embedding_id}.npy"
         documents_path = self.embedding_dir / f"{embedding_id}_docs.txt"
         text_ids_path = self.embedding_dir / f"{embedding_id}_text_ids.json"
-        
+        source_text_ids_path = self.embedding_dir / f"{embedding_id}_source_text_ids.json"
+
         if not embedding_path.exists():
             raise FileNotFoundError(f"Embedding not found: {embedding_id}")
-        
+
         new_embedding_path = self.embedding_dir / f"{new_name}.npy"
         new_documents_path = self.embedding_dir / f"{new_name}_docs.txt"
         new_text_ids_path = self.embedding_dir / f"{new_name}_text_ids.json"
-        
+        new_source_text_ids_path = self.embedding_dir / f"{new_name}_source_text_ids.json"
+
         # Check if new name already exists
         if new_embedding_path.exists():
             raise ValueError(f"Embedding with name '{new_name}' already exists")
-        
+
         # Rename files
         embedding_path.rename(new_embedding_path)
         logger.info(f"Renamed embedding: {embedding_path} -> {new_embedding_path}")
-        
+
         if documents_path.exists():
             documents_path.rename(new_documents_path)
             logger.info(f"Renamed documents: {documents_path} -> {new_documents_path}")
-        
+
         if text_ids_path.exists():
             text_ids_path.rename(new_text_ids_path)
             logger.info(f"Renamed text_ids: {text_ids_path} -> {new_text_ids_path}")
+
+        if source_text_ids_path.exists():
+            source_text_ids_path.rename(new_source_text_ids_path)
+            logger.info(f"Renamed source_text_ids: {source_text_ids_path} -> {new_source_text_ids_path}")
         
         # Get file stats
         stat = new_embedding_path.stat()

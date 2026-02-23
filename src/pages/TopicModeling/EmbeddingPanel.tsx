@@ -3,7 +3,7 @@
  * Execute SBERT embedding and manage embedding files
  */
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import {
   Box,
   Typography,
@@ -62,7 +62,7 @@ export default function EmbeddingPanel({
   corpusLanguage = 'english'
 }: EmbeddingPanelProps) {
   const { t } = useTranslation()
-  const [embeddings, setEmbeddings] = useState<EmbeddingInfo[]>([])
+  const [allEmbeddings, setAllEmbeddings] = useState<EmbeddingInfo[]>([])
   const [loading, setLoading] = useState(false)
   const [creating, setCreating] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -72,6 +72,19 @@ export default function EmbeddingPanel({
   const [renameDialogOpen, setRenameDialogOpen] = useState(false)
   const [embeddingToRename, setEmbeddingToRename] = useState<string | null>(null)
   const [newEmbeddingName, setNewEmbeddingName] = useState('')
+
+  // Filter embeddings to only show those matching current text selection
+  const embeddings = useMemo(() => {
+    if (textIds.length === 0) return allEmbeddings
+    const sortedCurrentIds = [...textIds].sort().join(',')
+    return allEmbeddings.filter(emb => {
+      // Legacy embeddings without source_text_ids: show them (backward compatible)
+      if (!emb.source_text_ids) return true
+      // Match: sorted source_text_ids must equal sorted current textIds
+      const sortedEmbIds = [...emb.source_text_ids].sort().join(',')
+      return sortedEmbIds === sortedCurrentIds
+    })
+  }, [allEmbeddings, textIds])
 
   // Load embeddings and model info
   const loadData = async () => {
@@ -84,9 +97,9 @@ export default function EmbeddingPanel({
       ])
 
       if (embeddingsRes.success && embeddingsRes.data) {
-        setEmbeddings(embeddingsRes.data.embeddings)
+        setAllEmbeddings(embeddingsRes.data.embeddings)
       } else {
-        setEmbeddings([])
+        setAllEmbeddings([])
       }
 
       if (modelInfoRes.success && modelInfoRes.data) {
@@ -106,9 +119,16 @@ export default function EmbeddingPanel({
       onEmbeddingSelect(null)
     }
     // Clear embeddings list first, then reload
-    setEmbeddings([])
+    setAllEmbeddings([])
     loadData()
   }, [corpusId])
+
+  // Reset selection when text selection changes and selected embedding no longer matches
+  useEffect(() => {
+    if (selectedEmbedding && !embeddings.find(e => e.id === selectedEmbedding)) {
+      onEmbeddingSelect(null)
+    }
+  }, [embeddings, selectedEmbedding])
 
   // Create new embedding
   const handleCreateEmbedding = async () => {

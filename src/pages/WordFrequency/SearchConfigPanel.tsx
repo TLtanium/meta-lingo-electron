@@ -152,7 +152,7 @@ export default function SearchConfigPanel({
       
       <AccordionDetails>
         {/* Frequency Range */}
-        <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
+        <Typography variant="caption" color="text.secondary" sx={{ mb: 1.5, display: 'block' }}>
           {t('wordFrequency.search.frequencyRange')}
         </Typography>
         <Stack direction="row" spacing={2} sx={{ mb: 2 }}>
@@ -165,7 +165,7 @@ export default function SearchConfigPanel({
             max={10000}
             integer
             defaultValue={1}
-            sx={{ width: 130 }}
+            sx={{ flex: 1 }}
           />
           <NumberInput
             label={t('wordFrequency.search.maxFreq')}
@@ -177,7 +177,7 @@ export default function SearchConfigPanel({
             integer
             defaultValue={0}
             helperText={maxFreq === null ? t('wordFrequency.search.noLimit') : ''}
-            sx={{ width: 130 }}
+            sx={{ flex: 1 }}
           />
         </Stack>
 

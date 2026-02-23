@@ -192,7 +192,7 @@ export default function StatisticsConfigPanel({
         />
 
         {/* Frequency thresholds */}
-        <Typography variant="subtitle2" gutterBottom sx={{ mt: 1 }}>
+        <Typography variant="subtitle2" sx={{ mt: 1, mb: 1.5 }}>
           {t('keyword.keyness.config.thresholds', 'Frequency Thresholds')}
         </Typography>
         

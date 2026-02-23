@@ -35,8 +35,10 @@ import type { Corpus, CorpusText } from '../../types'
 
 type SelectionMode = 'all' | 'selected' | 'tags'
 
+export type { SelectionMode }
+
 interface TopicCorpusSelectorProps {
-  onSelectionChange: (corpusId: string, textIds: string[], language: string, allTexts: CorpusText[]) => void
+  onSelectionChange: (corpusId: string, textIds: string[], language: string, allTexts: CorpusText[], selectionMode: SelectionMode, selectedTags: string[]) => void
 }
 
 export default function TopicCorpusSelector({ onSelectionChange }: TopicCorpusSelectorProps) {
@@ -182,9 +184,9 @@ export default function TopicCorpusSelector({ onSelectionChange }: TopicCorpusSe
       const textIds = getSelectedTextIds()
       const language = selectedCorpus.language || 'english'
       // Pass all texts for dynamic topic analysis date counting
-      onSelectionChange(selectedCorpus.id, textIds, language, texts)
+      onSelectionChange(selectedCorpus.id, textIds, language, texts, selectionMode, selectedTags)
     } else {
-      onSelectionChange('', [], 'english', [])
+      onSelectionChange('', [], 'english', [], 'all', [])
     }
   }, [selectedCorpus, selectionMode, selectedTextIds, selectedTags, texts])
 
@@ -192,7 +194,7 @@ export default function TopicCorpusSelector({ onSelectionChange }: TopicCorpusSe
 
   return (
     <Paper sx={{ p: 2, mb: 2 }}>
-      <Typography variant="subtitle1" fontWeight={600} gutterBottom>
+      <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 1.5 }}>
         {t('topicModeling.corpus.title')}
       </Typography>
 

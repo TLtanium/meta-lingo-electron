@@ -14,77 +14,87 @@ import {
 } from '@mui/material'
 import MoreVertIcon from '@mui/icons-material/MoreVert'
 import LinkIcon from '@mui/icons-material/Link'
+import JoinInnerIcon from '@mui/icons-material/JoinInner'
 import HubIcon from '@mui/icons-material/Hub'
 import { useTranslation } from 'react-i18next'
 import { useTabStore } from '../../stores/tabStore'
 import type { CrossLinkParams, TabType, MatchMode, SourceModule } from '../../types'
 
 // Mapping of Word Sketch relation names to CQL dependency patterns
-// Format: { relationName: { dep: string[], direction: 'child' | 'parent' } }
-const RELATION_TO_DEP_MAP: Record<string, { deps: string[], direction: 'child' | 'parent' }> = {
-  // VERB relations
-  'object': { deps: ['dobj', 'obj'], direction: 'child' },
-  'subject': { deps: ['nsubj', 'nsubjpass'], direction: 'child' },
-  'modifier': { deps: ['advmod'], direction: 'child' },
-  'and_or': { deps: ['conj'], direction: 'child' },
-  'prepositional_phrases': { deps: ['prep', 'obl'], direction: 'child' },
-  'particles_intransitive': { deps: ['prt', 'compound:prt'], direction: 'child' },
-  'particles_transitive': { deps: ['prt', 'compound:prt'], direction: 'child' },
-  'pronominal_objects': { deps: ['dobj', 'obj'], direction: 'child' },
-  'pronominal_subjects': { deps: ['nsubj'], direction: 'child' },
-  'wh_words': { deps: ['ccomp', 'advcl'], direction: 'child' },
-  'infinitive_objects': { deps: ['xcomp'], direction: 'child' },
-  'ing_objects': { deps: ['xcomp', 'ccomp'], direction: 'child' },
-  'that_clauses': { deps: ['ccomp'], direction: 'child' },
-  'passive_subjects': { deps: ['nsubjpass'], direction: 'child' },
+// Format: { relationName: { deps, direction, collocatePos? } }
+// collocatePos mirrors grammar_patterns.py collocate_pos to ensure CQL frequency matches Word Sketch
+interface RelationDepInfo {
+  deps: string[]
+  direction: 'child' | 'parent'
+  collocatePos?: string  // POS constraint for collocate token (pipe-separated for multi, e.g. "NOUN|PROPN")
+  headPos?: string       // POS constraint for head token (direction='parent' only)
+  bidirectional?: boolean // true for conj relations that match both child and parent directions
+}
+
+const RELATION_TO_DEP_MAP: Record<string, RelationDepInfo> = {
+  // VERB relations (center=VERB)
+  'object': { deps: ['dobj', 'obj'], direction: 'child', collocatePos: 'NOUN|PROPN|PRON' },
+  'subject': { deps: ['nsubj', 'nsubjpass'], direction: 'child', collocatePos: 'NOUN|PROPN|PRON' },
+  'modifier': { deps: ['advmod'], direction: 'child', collocatePos: 'ADV' },
+  'and_or': { deps: ['conj'], direction: 'child', collocatePos: 'VERB', bidirectional: true },
+  'prepositional_phrases': { deps: ['prep', 'obl'], direction: 'child', collocatePos: 'ADP' },
+  'particles_intransitive': { deps: ['prt', 'compound:prt'], direction: 'child', collocatePos: 'PART|ADP' },
+  'particles_transitive': { deps: ['prt', 'compound:prt'], direction: 'child', collocatePos: 'PART|ADP' },
+  'pronominal_objects': { deps: ['dobj', 'obj'], direction: 'child', collocatePos: 'PRON' },
+  'pronominal_subjects': { deps: ['nsubj'], direction: 'child', collocatePos: 'PRON' },
+  'wh_words': { deps: ['ccomp', 'advcl'], direction: 'child', collocatePos: 'SCONJ|ADV|PRON' },
+  'infinitive_objects': { deps: ['xcomp'], direction: 'child', collocatePos: 'VERB' },
+  'ing_objects': { deps: ['xcomp', 'ccomp'], direction: 'child', collocatePos: 'VERB' },
+  'that_clauses': { deps: ['ccomp', 'xcomp'], direction: 'child', collocatePos: 'VERB|NOUN|ADJ' },
+  'passive_subjects': { deps: ['nsubjpass'], direction: 'child', collocatePos: 'NOUN|PROPN|PRON' },
+  'adj_complement': { deps: ['acomp', 'xcomp'], direction: 'child', collocatePos: 'ADJ' },
   'verbs_before': { deps: ['xcomp', 'ccomp'], direction: 'parent' },
-  // NOUN relations (from grammar_patterns.py)
-  'nouns_modified_by': { deps: ['compound'], direction: 'parent' },  // "business model" - model has business as head
-  'verbs_with_as_object': { deps: ['dobj', 'obj'], direction: 'parent' },
-  'verbs_with_as_subject': { deps: ['nsubj', 'nsubjpass'], direction: 'parent' },
-  'noun_and_or': { deps: ['conj'], direction: 'parent' },  // both directions in grammar_patterns
-  'noun_prepositional_phrases': { deps: ['prep', 'nmod'], direction: 'child' },
-  'adjective_predicates': { deps: ['nsubj'], direction: 'parent' },
-  'possessive': { deps: ['poss'], direction: 'parent' },
-  'possessors': { deps: ['poss'], direction: 'child' },
-  'pronominal_possessors': { deps: ['poss'], direction: 'child' },  // "their business" - their.dep="poss", their.head="business"
-  'is_a_noun': { deps: ['attr'], direction: 'parent' },
-  'modifiers_of_noun': { deps: ['amod'], direction: 'child' },
-  'object_of': { deps: ['dobj', 'obj'], direction: 'parent' },
-  'subject_of': { deps: ['nsubj', 'nsubjpass'], direction: 'parent' },
+  // NOUN relations (center=NOUN)
+  'nouns_modified_by': { deps: ['compound'], direction: 'parent', collocatePos: 'NOUN|PROPN' },
+  'verbs_with_as_object': { deps: ['dobj', 'obj'], direction: 'parent', collocatePos: 'VERB' },
+  'verbs_with_as_subject': { deps: ['nsubj', 'nsubjpass'], direction: 'parent', collocatePos: 'VERB' },
+  'noun_and_or': { deps: ['conj'], direction: 'parent', collocatePos: 'NOUN|PROPN', bidirectional: true },
+  'noun_prepositional_phrases': { deps: ['prep', 'nmod'], direction: 'child', collocatePos: 'ADP' },
+  'adjective_predicates': { deps: ['nsubj'], direction: 'parent', headPos: 'ADJ', collocatePos: 'ADJ' },
+  'possessive': { deps: ['poss'], direction: 'parent', collocatePos: 'NOUN|PROPN' },
+  'possessors': { deps: ['poss'], direction: 'child', collocatePos: 'NOUN|PROPN' },
+  'pronominal_possessors': { deps: ['poss'], direction: 'child', collocatePos: 'PRON' },
+  'is_a_noun': { deps: ['attr'], direction: 'parent' },  // No collocatePos: head is verb "be", not noun
+  'modifiers_of_noun': { deps: ['amod'], direction: 'child', collocatePos: 'ADJ' },
+  'object_of': { deps: ['dobj', 'obj'], direction: 'parent', collocatePos: 'VERB' },
+  'subject_of': { deps: ['nsubj', 'nsubjpass'], direction: 'parent', collocatePos: 'VERB' },
+  'verbs_with_particle_object': { deps: ['dobj', 'obj'], direction: 'parent', collocatePos: 'VERB' },
   // Legacy names
   'noun_modifiers': { deps: ['compound', 'nmod'], direction: 'child' },
-  'verb_object_of': { deps: ['dobj', 'obj'], direction: 'parent' },
-  'verb_subject_of': { deps: ['nsubj'], direction: 'parent' },
+  'verb_object_of': { deps: ['dobj', 'obj'], direction: 'parent', collocatePos: 'VERB' },
+  'verb_subject_of': { deps: ['nsubj'], direction: 'parent', collocatePos: 'VERB' },
   'noun_is': { deps: ['nsubj'], direction: 'parent' },
   'noun_is_a': { deps: ['attr', 'nsubj'], direction: 'parent' },
-  'prep_of_noun': { deps: ['prep'], direction: 'child' },
+  'prep_of_noun': { deps: ['prep'], direction: 'child', collocatePos: 'ADP' },
   'noun_in_prep': { deps: ['pobj'], direction: 'parent' },
-  // ADJ relations
-  'adj_subjects': { deps: ['nsubj'], direction: 'child' },
-  'adj_nouns': { deps: ['amod'], direction: 'parent' },
-  'adj_modifiers': { deps: ['advmod'], direction: 'child' },
-  'adj_and_or': { deps: ['conj'], direction: 'child' },
-  'adj_verbs': { deps: ['acomp', 'xcomp'], direction: 'parent' },
+  // ADJ relations (center=ADJ)
+  'adj_subjects': { deps: ['nsubj'], direction: 'child', collocatePos: 'NOUN|PROPN|PRON' },
+  'adj_nouns': { deps: ['amod'], direction: 'parent', collocatePos: 'NOUN|PROPN' },
+  'adj_modifiers': { deps: ['advmod'], direction: 'child', collocatePos: 'ADV' },
+  'adj_and_or': { deps: ['conj'], direction: 'child', collocatePos: 'ADJ', bidirectional: true },
+  'adj_verbs': { deps: ['acomp', 'xcomp'], direction: 'parent', collocatePos: 'VERB' },
   'adj_complements': { deps: ['prep', 'ccomp'], direction: 'child' },
-  // ADV relations
-  'adv_verbs': { deps: ['advmod'], direction: 'parent' },
-  'adv_adjs': { deps: ['advmod'], direction: 'parent' },
-  'adv_advs': { deps: ['advmod'], direction: 'parent' },
-  'adv_and_or': { deps: ['conj'], direction: 'child' },
+  // ADV relations (center=ADV)
+  'adv_verbs': { deps: ['advmod'], direction: 'parent', headPos: 'VERB', collocatePos: 'VERB' },
+  'adv_adjs': { deps: ['advmod'], direction: 'parent', headPos: 'ADJ', collocatePos: 'ADJ' },
+  'adv_advs': { deps: ['advmod'], direction: 'parent', headPos: 'ADV', collocatePos: 'ADV' },
+  'adv_and_or': { deps: ['conj'], direction: 'child', bidirectional: true },
   // Additional ADJ relations (from grammar_patterns.py)
-  'adj_modifies': { deps: ['amod'], direction: 'parent' },
-  'adj_subject': { deps: ['nsubj'], direction: 'child' },
-  'adj_comp_of': { deps: ['acomp', 'xcomp'], direction: 'parent' },
-  'nouns_modified_by_adj': { deps: ['amod'], direction: 'parent' },
-  'verbs_with_adj_complement': { deps: ['acomp', 'xcomp'], direction: 'parent' },
+  'adj_modifies': { deps: ['amod'], direction: 'parent', collocatePos: 'NOUN|PROPN' },
+  'adj_subject': { deps: ['nsubj'], direction: 'child', collocatePos: 'NOUN|PROPN|PRON' },
+  'adj_comp_of': { deps: ['acomp', 'xcomp'], direction: 'parent', collocatePos: 'VERB' },
+  'nouns_modified_by_adj': { deps: ['amod'], direction: 'parent', collocatePos: 'NOUN|PROPN' },
+  'verbs_with_adj_complement': { deps: ['acomp', 'xcomp'], direction: 'parent', collocatePos: 'VERB' },
   // Additional ADV relations (from grammar_patterns.py)
-  'modifiers_of_adv': { deps: ['advmod'], direction: 'child' },
-  'verbs_modified_by_adv': { deps: ['advmod'], direction: 'parent' },
-  'adverbs_modified_by_adv': { deps: ['advmod'], direction: 'parent' },
-  'adjectives_modified_by_adv': { deps: ['advmod'], direction: 'parent' },
-  // Additional NOUN relations
-  'verbs_with_particle_object': { deps: ['dobj', 'obj'], direction: 'parent' },
+  'modifiers_of_adv': { deps: ['advmod'], direction: 'child', collocatePos: 'ADV' },
+  'verbs_modified_by_adv': { deps: ['advmod'], direction: 'parent', headPos: 'VERB', collocatePos: 'VERB' },
+  'adverbs_modified_by_adv': { deps: ['advmod'], direction: 'parent', headPos: 'ADV', collocatePos: 'ADV' },
+  'adjectives_modified_by_adv': { deps: ['advmod'], direction: 'parent', headPos: 'ADJ', collocatePos: 'ADJ' },
 }
 
 /**
@@ -125,34 +135,51 @@ export function generateCQLForRelation(
   // If we have dependency info, use dependency-based matching (no window needed)
   // This matches exactly how Word Sketch finds collocations
   if (relationInfo) {
-    const depCondition = relationInfo.deps.length === 1 
-      ? `dep="${relationInfo.deps[0]}"` 
+    const depCondition = relationInfo.deps.length === 1
+      ? `dep="${relationInfo.deps[0]}"`
       : `dep="${relationInfo.deps.join('|')}"`
-    
+
+    // Handle bidirectional relations (conj: and_or, noun_and_or, adj_and_or, adv_and_or)
+    // SpaCy's conj relation only has one direction per pair, but Word Sketch grammar_patterns
+    // searches both child and parent directions, so CQL needs OR to cover both cases
+    if (relationInfo.bidirectional) {
+      const posCond = relationInfo.collocatePos ? ` & pos="${relationInfo.collocatePos}"` : ''
+      // Direction 1: collocate is child of mainWord
+      const cql1 = `[${attr}="${collocateWord}" & ${depCondition} & head${attr}="${mainWord}"${posCond}]`
+      // Direction 2: mainWord is child of collocate
+      const cql2 = `[${attr}="${mainWord}" & ${depCondition} & head${attr}="${collocateWord}"]`
+      return {
+        cql: `${cql1} | ${cql2}`,
+        kwicKeyword: mainWord,
+        kwicHighlight: collocateWord
+      }
+    }
+
     if (relationInfo.direction === 'parent') {
       // direction='parent': mainWord is DEPENDENT (child), collocate is HEAD (parent)
-      // SpaCy example: "business model" -> business.dep="compound", business.head="model"
-      // CQL matches mainWord (the dependent): [lemma="business" & dep="compound" & headlemma="model"]
-      // KWIC keyword should be mainWord, highlight collocate in context
+      // CQL matches mainWord: [lemma="business" & dep="compound" & headlemma="model"]
+      // collocatePos constrains the HEAD (collocate), so use headpos
+      // headPos is an additional explicit headpos constraint (e.g. adjective_predicates)
+      const headPosVal = relationInfo.headPos || relationInfo.collocatePos
+      const headPosCond = headPosVal ? ` & headpos="${headPosVal}"` : ''
       return {
-        cql: `[${attr}="${mainWord}" & ${depCondition} & head${attr}="${collocateWord}"]`,
+        cql: `[${attr}="${mainWord}" & ${depCondition} & head${attr}="${collocateWord}"${headPosCond}]`,
         kwicKeyword: mainWord,
         kwicHighlight: collocateWord
       }
     } else {
       // direction='child': mainWord is HEAD (parent), collocate is DEPENDENT (child)
-      // SpaCy example: "run quickly" -> quickly.dep="advmod", quickly.head="run"
-      // CQL matches collocate (the dependent): [lemma="quickly" & dep="advmod" & headlemma="run"]
-      // KWIC keyword should still be mainWord, but CQL matches collocate
-      // Need post-processing to swap keyword
+      // CQL matches collocate: [lemma="digital" & dep="amod" & headlemma="technology" & pos="ADJ"]
+      // collocatePos constrains the matched token (the collocate), so use pos
+      const posCond = relationInfo.collocatePos ? ` & pos="${relationInfo.collocatePos}"` : ''
       return {
-        cql: `[${attr}="${collocateWord}" & ${depCondition} & head${attr}="${mainWord}"]`,
+        cql: `[${attr}="${collocateWord}" & ${depCondition} & head${attr}="${mainWord}"${posCond}]`,
         kwicKeyword: mainWord,
         kwicHighlight: collocateWord
       }
     }
   }
-  
+
   // Fallback: simple lemma matching without dependency constraint
   return {
     cql: `[${attr}="${collocateWord}"]`,
@@ -172,9 +199,11 @@ export interface WordActionMenuProps {
   selectionMode: 'all' | 'selected' | 'tags'
   /** Selected tags (when selectionMode is 'tags') */
   selectedTags?: string[]
-  /** Whether to show collocation option */
+  /** Whether to show collocation option (共现关系) */
   showCollocation?: boolean
-  /** Whether to show word sketch option */
+  /** Whether to show collocation analysis option (搭配分析) */
+  showCollocationAnalysis?: boolean
+  /** Whether to show word sketch option (词图分析) */
   showWordSketch?: boolean
   /** Button size */
   size?: 'small' | 'medium'
@@ -186,6 +215,10 @@ export interface WordActionMenuProps {
   contextFilterWords?: string[]
   /** Main word from Word Sketch (for CQL generation) */
   mainWord?: string
+  /** Lemma of the main word (for CQL lemma matching; falls back to mainWord if not provided) */
+  mainWordLemma?: string
+  /** Lemma of the collocate word (for CQL lemma matching; falls back to word if not provided) */
+  collocateLemma?: string
   /** Grammar relation name from Word Sketch */
   relationName?: string
   /** Match mode for CQL query (word or lemma) */
@@ -201,12 +234,15 @@ export default function WordActionMenu({
   selectionMode,
   selectedTags,
   showCollocation = true,
+  showCollocationAnalysis = true,
   showWordSketch = true,
   size = 'small',
   tooltip,
   highlightWords,
   contextFilterWords,
   mainWord,
+  mainWordLemma,
+  collocateLemma,
   relationName,
   matchMode = 'lemma',
   sourceModule
@@ -243,13 +279,17 @@ export default function WordActionMenu({
     let cqlQuery: string | undefined
     let kwicKeyword = mainWord || word
     let kwicHighlight: string | undefined = undefined
-    
+
     // Only set highlight words when coming from Word Sketch (has mainWord and relationName)
     // or when explicitly provided via highlightWords prop
     const isFromWordSketch = !!(mainWord && relationName)
-    
+
     if (isFromWordSketch) {
-      const result = generateCQLForRelation(mainWord, word, relationName, matchMode)
+      // When matchMode='lemma', use actual lemma forms for CQL query so that
+      // lemma="breakthrough" matches SpaCy lemma, not surface form "breakthroughs"
+      const cqlMainWord = (matchMode === 'lemma' ? mainWordLemma : undefined) || mainWord
+      const cqlCollocateWord = (matchMode === 'lemma' ? collocateLemma : undefined) || word
+      const result = generateCQLForRelation(cqlMainWord, cqlCollocateWord, relationName, matchMode)
       cqlQuery = result.cql
       kwicKeyword = result.kwicKeyword
       kwicHighlight = result.kwicHighlight
@@ -297,10 +337,24 @@ export default function WordActionMenu({
     handleClose()
   }
 
+  const handleOpenCollocationAnalysis = (event: React.MouseEvent) => {
+    event.stopPropagation()
+    const crossLinkParams = { ...createCrossLinkParams(), targetSubTab: 0 }
+    const title = `${t('wordsketch.collocationAnalysisTab')} - ${word}`
+    pendingActionRef.current = () => {
+      openTab({
+        type: 'wordsketch' as TabType,
+        title,
+        props: { crossLinkParams }
+      })
+    }
+    handleClose()
+  }
+
   const handleOpenWordSketch = (event: React.MouseEvent) => {
     event.stopPropagation()
     // Store action to execute after menu exit transition completes
-    const crossLinkParams = createCrossLinkParams()
+    const crossLinkParams = { ...createCrossLinkParams(), targetSubTab: 1 }
     const title = `${t('wordsketch.title')} - ${word}`
     pendingActionRef.current = () => {
       openTab({
@@ -314,7 +368,7 @@ export default function WordActionMenu({
   }
 
   // Don't render if no options to show
-  if (!showCollocation && !showWordSketch) {
+  if (!showCollocation && !showCollocationAnalysis && !showWordSketch) {
     return null
   }
 
@@ -355,6 +409,14 @@ export default function WordActionMenu({
               <LinkIcon fontSize="small" />
             </ListItemIcon>
             <ListItemText primary={t('crossLink.viewCollocation')} />
+          </MenuItem>
+        )}
+        {showCollocationAnalysis && (
+          <MenuItem onClick={handleOpenCollocationAnalysis}>
+            <ListItemIcon>
+              <JoinInnerIcon fontSize="small" />
+            </ListItemIcon>
+            <ListItemText primary={t('crossLink.viewCollocationAnalysis')} />
           </MenuItem>
         )}
         {showWordSketch && (

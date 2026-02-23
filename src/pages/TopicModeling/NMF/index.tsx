@@ -74,6 +74,8 @@ export default function NMFTab() {
   const [textIds, setTextIds] = useState<string[]>([])
   const [texts, setTexts] = useState<CorpusText[]>([])
   const [corpusLanguage, setCorpusLanguage] = useState<string>('english')
+  const [selectionMode, setSelectionMode] = useState<'all' | 'selected' | 'tags'>('all')
+  const [selectedTags, setSelectedTags] = useState<string[]>([])
   
   // Preprocess config
   const [preprocessConfig, setPreprocessConfig] = useState<NMFPreprocessConfig>(
@@ -96,12 +98,16 @@ export default function NMFTab() {
     newCorpusId: string,
     newTextIds: string[],
     language: string,
-    allTexts: CorpusText[]
+    allTexts: CorpusText[],
+    newSelectionMode: 'all' | 'selected' | 'tags' = 'all',
+    newSelectedTags: string[] = []
   ) => {
     setCorpusId(newCorpusId)
     setTextIds(newTextIds)
     setTexts(allTexts)
     setCorpusLanguage(language)
+    setSelectionMode(newSelectionMode)
+    setSelectedTags(newSelectedTags)
     
     // Reset result when corpus changes
     if (newCorpusId !== corpusId) {
@@ -232,12 +238,12 @@ export default function NMFTab() {
         {/* Tab Content */}
         <Box sx={{ flex: 1, overflow: 'hidden' }}>
           {rightTab === 0 && (
-            <NMFResultsPanel 
+            <NMFResultsPanel
               result={analysisResult}
               corpusId={corpusId}
-              textIds={textIds}
-              selectionMode="selected"
-              selectedTags={[]}
+              textIds={selectionMode === 'all' ? 'all' : textIds}
+              selectionMode={selectionMode}
+              selectedTags={selectedTags}
               ollamaConnected={ollamaConnected}
               ollamaUrl={ollamaUrl}
               ollamaModel={ollamaModel}

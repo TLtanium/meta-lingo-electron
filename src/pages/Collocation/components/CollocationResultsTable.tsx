@@ -83,48 +83,132 @@ function ExtendedContextRow({
   const [contextLoading, setContextLoading] = useState(false)
   const [contextError, setContextError] = useState<string | null>(null)
 
-  // Highlight collocate words in text (case-insensitive with lemma flexibility)
-  const highlightCollocates = (text: string): string => {
-    if (!highlightWords || highlightWords.length === 0) return text
-    
-    let result = text
-    highlightWords.forEach(word => {
-      const trimmedWord = word?.trim()
-      if (trimmedWord) {
-        // Match word and its inflected forms (e.g., ethic matches ethics, business matches businesses)
-        const escapedWord = trimmedWord.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-        // Match the lemma followed by optional suffix (handles plurals, verb forms, etc.)
-        const regex = new RegExp(`\\b(${escapedWord}\\w*)\\b`, 'gi')
-        result = result.replace(regex, '<span class="collocate-highlight">$1</span>')
+  // Build extended context HTML using precise span-based highlighting from backend
+  // The backend returns collocate_spans (lemma-matched character positions) so we don't need
+  // regex guessing — all highlighting is based on SpaCy metadata.
+  // highlight_start/highlight_end marks the CQL-matched keyword position.
+  // When swap occurred (result.keyword differs from backend keyword), we also mark the center word.
+  const buildExtendedHtml = (
+    text: string,
+    backendHighlightStart: number,
+    backendHighlightEnd: number,
+    backendKeyword: string,
+    collocateSpans?: Array<{ start: number; end: number; text: string }>
+  ): string => {
+    const swappedKeyword = result.keyword
+    // Determine if a keyword swap occurred (collocate analysis mode).
+    // A swap means the backend highlight marks the collocate, not the center keyword.
+    // For multi-word keywords (N-grams), the backend keyword extracted from raw text may
+    // contain punctuation (e.g., "every person, home") while result.keyword built from
+    // token joining has different spacing (e.g., "every person , home"). Normalize by
+    // stripping all non-alphanumeric chars and comparing only word content.
+    const normalizeForCompare = (s: string) => s.toLowerCase().replace(/[^a-z0-9\s]/gi, '').replace(/\s+/g, ' ').trim()
+    const isSwapped = normalizeForCompare(backendKeyword) !== normalizeForCompare(swappedKeyword)
+      // Also check: if one is a substring of the other, it's a partial match, not a true swap
+      && !normalizeForCompare(swappedKeyword).includes(normalizeForCompare(backendKeyword))
+      && !normalizeForCompare(backendKeyword).includes(normalizeForCompare(swappedKeyword))
+
+    // Collect all spans to apply: { start, end, type: 'keyword' | 'collocate' }
+    type Span = { start: number; end: number; type: 'keyword' | 'collocate' }
+    const spans: Span[] = []
+
+    if (!isSwapped) {
+      // No swap: the backend highlight marks the center keyword
+      spans.push({ start: backendHighlightStart, end: backendHighlightEnd, type: 'keyword' })
+    } else {
+      // Swap: CQL-matched token is the collocate, find center keyword by text match
+      // The backend highlight marks the collocate (e.g. "digital"), add it as collocate span
+      spans.push({ start: backendHighlightStart, end: backendHighlightEnd, type: 'collocate' })
+      // Find the swapped keyword (center word like "technologies") near the collocate
+      const escaped = swappedKeyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+      const regex = new RegExp(`\\b${escaped}\\b`, 'gi')
+      let match: RegExpExecArray | null
+      while ((match = regex.exec(text)) !== null) {
+        spans.push({ start: match.index, end: match.index + match[0].length, type: 'keyword' })
       }
+    }
+
+    // Add backend-provided collocate spans (lemma-matched via SpaCy metadata)
+    if (collocateSpans && collocateSpans.length > 0) {
+      for (const span of collocateSpans) {
+        // Don't add if it overlaps with the keyword span
+        const overlapsKeyword = spans.some(
+          s => s.type === 'keyword' && span.start < s.end && span.end > s.start
+        )
+        if (!overlapsKeyword) {
+          spans.push({ start: span.start, end: span.end, type: 'collocate' })
+        }
+      }
+    }
+
+    // Sort spans by start position, then render
+    spans.sort((a, b) => a.start - b.start)
+
+    // Remove overlapping spans (keep earlier/higher priority)
+    const nonOverlapping: Span[] = []
+    for (const span of spans) {
+      const last = nonOverlapping[nonOverlapping.length - 1]
+      if (!last || span.start >= last.end) {
+        nonOverlapping.push(span)
+      }
+    }
+
+    // Build HTML by inserting tags at span boundaries
+    let html = ''
+    let pos = 0
+    for (const span of nonOverlapping) {
+      // Escape text between spans
+      if (span.start > pos) {
+        html += escapeHtml(text.substring(pos, span.start))
+      }
+      const spanText = escapeHtml(text.substring(span.start, span.end))
+      if (span.type === 'keyword') {
+        html += `<mark>${spanText}</mark>`
+      } else {
+        html += `<span class="collocate-highlight">${spanText}</span>`
+      }
+      pos = span.end
+    }
+    if (pos < text.length) {
+      html += escapeHtml(text.substring(pos))
+    }
+
+    return html
+  }
+
+  // Simple HTML escaping for plain text segments
+  const escapeHtml = (s: string): string => {
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  }
+
+  // Fetch extended context from backend with highlight_lemmas for precise span detection
+  const fetchExtendedContext = async (chars: number) => {
+    return await collocationApi.getExtendedContext({
+      corpus_id: corpusId,
+      text_id: result.text_id,
+      position: result.position,
+      context_chars: chars,
+      highlight_lemmas: highlightWords && highlightWords.length > 0 ? highlightWords : undefined,
+      keyword: result.keyword  // Pass full keyword (including multi-word N-grams) for accurate highlighting
     })
-    return result
   }
 
   // Load extended context when opened
   const loadExtendedContext = async () => {
     if (extendedContext) return
-    
+
     setContextLoading(true)
     setContextError(null)
-    
+
     try {
-      const response = await collocationApi.getExtendedContext({
-        corpus_id: corpusId,
-        text_id: result.text_id,
-        position: result.position,
-        context_chars: contextChars
-      })
+      const response = await fetchExtendedContext(contextChars)
 
       if (response.success && response.data?.success) {
-        const { text, highlight_start, highlight_end } = response.data
+        const { text, highlight_start, highlight_end, keyword: backendKeyword, collocate_spans } = response.data
         if (text && highlight_start !== undefined && highlight_end !== undefined) {
-          const before = highlightCollocates(text.substring(0, highlight_start))
-          const keyword = text.substring(highlight_start, highlight_end)
-          const after = highlightCollocates(text.substring(highlight_end))
-          setExtendedContext(`${before}<mark>${keyword}</mark>${after}`)
+          setExtendedContext(buildExtendedHtml(text, highlight_start, highlight_end, backendKeyword || '', collocate_spans || undefined))
         } else {
-          setExtendedContext(highlightCollocates(text || ''))
+          setExtendedContext(escapeHtml(text || ''))
         }
       } else {
         setContextError(response.data?.error || response.error || 'Failed to load context')
@@ -146,24 +230,16 @@ function ExtendedContextRow({
     setContextChars(newChars)
     setExtendedContext(null)
     setContextLoading(true)
-    
+
     try {
-      const response = await collocationApi.getExtendedContext({
-        corpus_id: corpusId,
-        text_id: result.text_id,
-        position: result.position,
-        context_chars: newChars
-      })
+      const response = await fetchExtendedContext(newChars)
 
       if (response.success && response.data?.success) {
-        const { text, highlight_start, highlight_end } = response.data
+        const { text, highlight_start, highlight_end, keyword: backendKeyword, collocate_spans } = response.data
         if (text && highlight_start !== undefined && highlight_end !== undefined) {
-          const before = highlightCollocates(text.substring(0, highlight_start))
-          const keyword = text.substring(highlight_start, highlight_end)
-          const after = highlightCollocates(text.substring(highlight_end))
-          setExtendedContext(`${before}<mark>${keyword}</mark>${after}`)
+          setExtendedContext(buildExtendedHtml(text, highlight_start, highlight_end, backendKeyword || '', collocate_spans || undefined))
         } else {
-          setExtendedContext(highlightCollocates(text || ''))
+          setExtendedContext(escapeHtml(text || ''))
         }
       }
     } catch (err) {
@@ -329,12 +405,12 @@ export default function CollocationResultsTable({
       filtered = filtered.filter(result => {
         // Get tokens for matching based on queryType
         const matchedTokens = result.matched_tokens || []
-        const leftTokens = result.left_context || []
-        const rightTokens = result.right_context || []
-        
-        // Build context tokens based on range
+        const leftTokens = (result.left_context || []).map((t: any) => typeof t === 'string' ? t : t.text)
+        const rightTokens = (result.right_context || []).map((t: any) => typeof t === 'string' ? t : t.text)
+
+        // Build context tokens based on range (text strings for matching)
         let contextTokens: string[] = []
-        
+
         if (filterConfig.rangeType === 'token') {
           const leftStart = Math.max(0, leftTokens.length + filterConfig.rangeStart)
           const left = leftTokens.slice(leftStart)
@@ -345,14 +421,12 @@ export default function CollocationResultsTable({
             ...right
           ]
         } else if (filterConfig.rangeType === 'sentence') {
-          // For sentence range, use full context (simplified)
           contextTokens = [
             ...leftTokens,
             ...(filterConfig.excludeKwic ? [] : [result.keyword]),
             ...rightTokens
           ]
         } else {
-          // Custom range - use full context for now
           contextTokens = [
             ...leftTokens,
             ...(filterConfig.excludeKwic ? [] : [result.keyword]),
@@ -362,13 +436,11 @@ export default function CollocationResultsTable({
 
         // Match based on queryType
         let matches = false
-        
+
         if (filterConfig.queryType === 'simple') {
-          // Simple text match (case-insensitive)
           const contextStr = contextTokens.join(' ').toLowerCase()
           matches = contextStr.includes(query.toLowerCase())
         } else if (filterConfig.queryType === 'word') {
-          // Exact word match
           const queryLower = query.toLowerCase()
           matches = contextTokens.some(token => token.toLowerCase() === queryLower)
         } else if (filterConfig.queryType === 'lemma') {
@@ -430,34 +502,37 @@ export default function CollocationResultsTable({
     setExpandedRowId(expandedRowId === rowId ? null : rowId)
   }
 
-  // Check if a word should be highlighted (case-insensitive match with lemma flexibility)
-  const shouldHighlight = (word: string): boolean => {
+  // Check if a token should be highlighted
+  // highlightWords may contain lemma forms or surface forms from cross-link
+  const shouldHighlightToken = (token: { text: string; lemma?: string }): boolean => {
     if (!highlightWords || highlightWords.length === 0) return false
-    const wordLower = word.trim().toLowerCase()
+    const tokenLemma = (token.lemma || token.text).trim().toLowerCase()
+    const tokenText = token.text.trim().toLowerCase()
     return highlightWords.some(hw => {
       const hwLower = hw.trim().toLowerCase()
-      // Exact match
-      if (wordLower === hwLower) return true
-      // Word starts with highlight word (handles ethic/ethics, business/businesses)
-      // But only if the word is at least as long as highlight word (prevents "the" matching "their")
-      if (wordLower.startsWith(hwLower) && wordLower.length >= hwLower.length) return true
-      // Highlight word starts with word ONLY if it's a valid inflection (word must be most of the highlight word)
-      // e.g., "ethic" (5 chars) vs "ethics" (6 chars) - ethic is 83% of ethics, OK
-      // e.g., "the" (3 chars) vs "their" (5 chars) - the is 60% of their, NOT OK
-      if (hwLower.startsWith(wordLower) && wordLower.length >= hwLower.length * 0.75) return true
-      return false
+      // Match against both lemma and surface form
+      return tokenLemma === hwLower || tokenText === hwLower
     })
   }
 
+  // Helper to get text from a context token (handles both TokenInfo objects and legacy strings)
+  const getTokenText = (token: any): string => {
+    if (typeof token === 'string') return token
+    return token?.text || ''
+  }
+
   // Render colored left context (right-aligned)
-  const renderLeftContext = (context: string[]) => {
-    const words = [...context]
+  const renderLeftContext = (context: any[]) => {
+    const tokens = [...context]
     return (
       <Box sx={{ textAlign: 'right', fontFamily: 'inherit', whiteSpace: 'nowrap' }}>
-        {words.map((word, idx) => {
-          const posFromEnd = words.length - idx
+        {tokens.map((token, idx) => {
+          const text = getTokenText(token)
+          const posFromEnd = tokens.length - idx
           const color = posFromEnd <= 3 ? CONTEXT_COLORS[posFromEnd - 1] : undefined
-          const isHighlighted = shouldHighlight(word)
+          const isHighlighted = typeof token === 'object' && token !== null
+            ? shouldHighlightToken(token)
+            : shouldHighlightToken({ text })
           return (
             <React.Fragment key={idx}>
               <span
@@ -470,9 +545,9 @@ export default function CollocationResultsTable({
                   border: isHighlighted ? '1px solid #ffb74d' : undefined
                 }}
               >
-                {word.trim()}
+                {text.trim()}
               </span>
-              {idx < words.length - 1 ? ' ' : ''}
+              {idx < tokens.length - 1 ? ' ' : ''}
             </React.Fragment>
           )
         })}
@@ -481,13 +556,16 @@ export default function CollocationResultsTable({
   }
 
   // Render colored right context (left-aligned)
-  const renderRightContext = (context: string[]) => {
-    const words = [...context]
+  const renderRightContext = (context: any[]) => {
+    const tokens = [...context]
     return (
       <Box sx={{ textAlign: 'left', fontFamily: 'inherit', whiteSpace: 'nowrap' }}>
-        {words.map((word, idx) => {
+        {tokens.map((token, idx) => {
+          const text = getTokenText(token)
           const color = idx < 3 ? CONTEXT_COLORS[idx] : undefined
-          const isHighlighted = shouldHighlight(word)
+          const isHighlighted = typeof token === 'object' && token !== null
+            ? shouldHighlightToken(token)
+            : shouldHighlightToken({ text })
           return (
             <React.Fragment key={idx}>
               {idx > 0 ? ' ' : ''}
@@ -501,7 +579,7 @@ export default function CollocationResultsTable({
                   border: isHighlighted ? '1px solid #ffb74d' : undefined
                 }}
               >
-                {word.trim()}
+                {text.trim()}
               </span>
             </React.Fragment>
           )
@@ -525,9 +603,9 @@ export default function CollocationResultsTable({
     const rows = results.map((result, idx) => [
       idx + 1,
       result.filename,
-      result.left_context.join(' '),
+      result.left_context.map(t => typeof t === 'string' ? t : t.text).join(' '),
       result.keyword,
-      result.right_context.join(' '),
+      result.right_context.map(t => typeof t === 'string' ? t : t.text).join(' '),
       result.pos || '',
       result.position
     ])

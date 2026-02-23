@@ -824,6 +824,17 @@ class KWICService:
         
         return results
     
+    @staticmethod
+    def _token_info_static(token: Dict[str, Any]) -> Dict[str, Any]:
+        """Extract clean token info dict with annotation fields"""
+        return {
+            'text': token.get('text', ''),
+            'lemma': token.get('lemma', ''),
+            'pos': token.get('pos', ''),
+            'tag': token.get('tag', ''),
+            'dep': token.get('dep', ''),
+        }
+
     def _search_cql(
         self,
         tokens: List[Dict[str, Any]],
@@ -833,25 +844,26 @@ class KWICService:
     ) -> List[Dict[str, Any]]:
         """Search using CQL query - CQL has priority over POS filter"""
         results = []
-        
+
         # Parse CQL query
         parsed = self.cql_engine.parse(cql_query)
-        
+
         # Find matches
         for match in self.cql_engine.find_matches(tokens, parsed, context_size):
             # For CQL, we do NOT apply external POS filter as CQL has its own pos conditions
             # The POS filter in UI should be ignored for CQL mode
-            
+
+            matched_tokens = match['matched_tokens']
             result = {
                 'position': match['position'],
-                'keyword': ' '.join(t.get('text', '') for t in match['matched_tokens']),
-                'left_context': [t.get('text', '') for t in match['left_context']],
-                'right_context': [t.get('text', '') for t in match['right_context']],
-                'matched_tokens': match['matched_tokens'],
-                'pos': match['matched_tokens'][0].get('pos', '') if match['matched_tokens'] else ''
+                'keyword': ' '.join(t.get('text', '') for t in matched_tokens),
+                'left_context': [self._token_info_static(t) for t in match['left_context']],
+                'right_context': [self._token_info_static(t) for t in match['right_context']],
+                'matched_tokens': [self._token_info_static(t) for t in matched_tokens],
+                'pos': matched_tokens[0].get('pos', '') if matched_tokens else ''
             }
             results.append(result)
-        
+
         return results
     
     def _build_result(
@@ -868,10 +880,20 @@ class KWICService:
         # Get matched tokens
         matched_tokens = tokens[match_start:match_end]
         
-        # Get context (exclude punct/space for cleaner display)
+        # Get context tokens with full annotation (exclude space tokens for cleaner display)
         left_context = []
         right_context = []
-        
+
+        # Helper to extract token info for context
+        def _token_info(token: Dict[str, Any]) -> Dict[str, Any]:
+            return {
+                'text': token.get('text', ''),
+                'lemma': token.get('lemma', ''),
+                'pos': token.get('pos', ''),
+                'tag': token.get('tag', ''),
+                'dep': token.get('dep', ''),
+            }
+
         # Left context
         left_start = max(0, match_start - context_size * 2)  # Get more to filter
         for i in range(match_start - 1, left_start - 1, -1):
@@ -879,16 +901,16 @@ class KWICService:
                 break
             token = tokens[i]
             if not token.get('is_space'):
-                left_context.insert(0, token.get('text', ''))
+                left_context.insert(0, _token_info(token))
                 if len(left_context) >= context_size:
                     break
-        
+
         # Right context
         right_end = min(n_tokens, match_end + context_size * 2)
         for i in range(match_end, right_end):
             token = tokens[i]
             if not token.get('is_space'):
-                right_context.append(token.get('text', ''))
+                right_context.append(_token_info(token))
                 if len(right_context) >= context_size:
                     break
         
@@ -968,9 +990,16 @@ class KWICService:
                         idx = int(position[:-1]) - 1
                         context = result.get('left_context', [])
                         if idx < len(context):
-                            # For context positions, we only have text, so attribute is ignored
-                            # (context tokens don't have lemma/pos info stored)
-                            value = context[-(idx + 1)]
+                            token = context[-(idx + 1)]
+                            if isinstance(token, dict):
+                                if attribute == 'pos':
+                                    value = token.get('pos', '')
+                                elif attribute == 'lemma':
+                                    value = token.get('lemma', token.get('text', ''))
+                                else:
+                                    value = token.get('text', '')
+                            else:
+                                value = str(token)
                             if ignore_case:
                                 value = value.lower()
                             if retrograde:
@@ -983,9 +1012,16 @@ class KWICService:
                         idx = int(position[:-1]) - 1
                         context = result.get('right_context', [])
                         if idx < len(context):
-                            # For context positions, we only have text, so attribute is ignored
-                            # (context tokens don't have lemma/pos info stored)
-                            value = context[idx]
+                            token = context[idx]
+                            if isinstance(token, dict):
+                                if attribute == 'pos':
+                                    value = token.get('pos', '')
+                                elif attribute == 'lemma':
+                                    value = token.get('lemma', token.get('text', ''))
+                                else:
+                                    value = token.get('text', '')
+                            else:
+                                value = str(token)
                             if ignore_case:
                                 value = value.lower()
                             if retrograde:
@@ -1046,27 +1082,52 @@ class KWICService:
         corpus_id: str,
         text_id: str,
         position: int,
-        context_chars: int = 200
+        context_chars: int = 200,
+        highlight_lemmas: Optional[List[str]] = None,
+        keyword: Optional[str] = None
     ) -> Dict[str, Any]:
         """
-        Get extended context for a KWIC result
+        Get extended context for a KWIC result.
+
+        Args:
+            keyword: Full keyword text (e.g., multi-word N-gram "of the").
+                     When provided, the highlight span covers all tokens of the keyword
+                     starting from `position`, not just the single token at `position`.
         """
         try:
             text = TextDB.get_by_id(text_id)
             if not text:
                 return {'success': False, 'error': 'Text not found'}
-            
+
             # Load SpaCy annotation to find character position
             spacy_data = self._load_spacy_annotation(text)
             if not spacy_data:
                 return {'success': False, 'error': 'SpaCy annotation not found'}
-            
+
             tokens = self._get_tokens_from_spacy(spacy_data)
             if position >= len(tokens):
                 return {'success': False, 'error': 'Position out of range'}
-            
+
             token = tokens[position]
             keyword_text = token.get('text', '')
+
+            # For multi-word keywords (e.g., N-grams), determine the last token index
+            # so we can highlight the entire phrase, not just the first token.
+            last_keyword_token_idx = position  # default: single token
+            if keyword and ' ' in keyword:
+                # Count how many non-space tokens make up this keyword, walking forward
+                # through the token stream (which may include space/punct tokens in between)
+                keyword_words = keyword.split()
+                n_keyword_words = len(keyword_words)
+                if n_keyword_words > 1:
+                    idx = position
+                    words_matched = 0
+                    while idx < len(tokens) and words_matched < n_keyword_words:
+                        if not tokens[idx].get('is_space'):
+                            words_matched += 1
+                            last_keyword_token_idx = idx
+                        idx += 1
+                    keyword_text = keyword
             
             # Load full text content
             content_path = text.get('content_path')
@@ -1084,14 +1145,19 @@ class KWICService:
             # For standard text format, use stored positions
             if "tokens" in spacy_data:
                 char_start = token.get('start', 0)
-                char_end = token.get('end', char_start + len(keyword_text))
+                if last_keyword_token_idx > position:
+                    # Multi-word keyword: span from first token start to last token end
+                    last_token = tokens[last_keyword_token_idx]
+                    char_end = last_token.get('end', char_start + len(keyword_text))
+                else:
+                    char_end = token.get('end', char_start + len(keyword_text))
             else:
                 # For segments format, reconstruct by finding the keyword
                 occurrence_count = 0
                 for i in range(position):
                     if tokens[i].get('text', '') == keyword_text:
                         occurrence_count += 1
-                
+
                 search_start = 0
                 for _ in range(occurrence_count + 1):
                     found_pos = content.find(keyword_text, search_start)
@@ -1128,7 +1194,31 @@ class KWICService:
                 if keyword_pos != -1:
                     highlight_start = keyword_pos
                     highlight_end = keyword_pos + len(keyword_text)
-            
+
+            # Find collocate spans by lemma matching within the extended context range
+            collocate_spans = None
+            if highlight_lemmas:
+                lemma_set = {l.lower() for l in highlight_lemmas}
+                collocate_spans = []
+                for tk in tokens:
+                    tk_lemma = tk.get('lemma', '').lower()
+                    if tk_lemma not in lemma_set:
+                        continue
+                    tk_start = tk.get('start', -1)
+                    tk_end = tk.get('end', -1)
+                    if tk_start < 0 or tk_end < 0:
+                        continue
+                    # Check if this token falls within the extended context character range
+                    if tk_start >= ext_start and tk_end <= ext_end:
+                        # Convert to relative position within extended_text
+                        rel_start = tk_start - ext_start
+                        rel_end = tk_end - ext_start
+                        collocate_spans.append({
+                            'start': rel_start,
+                            'end': rel_end,
+                            'text': tk.get('text', '')
+                        })
+
             return {
                 'success': True,
                 'text': extended_text,
@@ -1136,7 +1226,8 @@ class KWICService:
                 'highlight_start': highlight_start,
                 'highlight_end': highlight_end,
                 'text_id': text_id,
-                'filename': text.get('filename', 'unknown')
+                'filename': text.get('filename', 'unknown'),
+                'collocate_spans': collocate_spans
             }
             
         except Exception as e:

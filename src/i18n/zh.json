@@ -346,7 +346,7 @@
       "minFreq": "最小频率",
       "maxFreq": "最大频率",
       "noLimit": "不限制",
-      "lowercase": "全部转小写",
+      "lowercase": "转小写",
       "searchTarget": "搜索目标",
       "targetWord": "词形",
       "targetLemma": "词元",
@@ -484,8 +484,7 @@
       "frequencySettings": "频率设置",
       "minFreq": "最小频率",
       "maxResults": "最大结果数",
-      "lowercase": "全转小写",
-      "lowercaseHelp": "合并大小写不同的相同词汇"
+      "lowercase": "转小写"
     },
     "results": {
       "title": "分析结果",
@@ -719,8 +718,7 @@
       "excludeWords": "排除词",
       "excludeWordsDesc": "包含这些词的N-gram将被排除",
       "excludeWordsPlaceholder": "每行一个要排除的词...",
-      "lowercase": "全转小写",
-      "lowercaseDesc": "将所有文本转换为小写后再分析"
+      "lowercase": "转小写"
     },
     "results": {
       "title": "分析结果",
@@ -965,13 +963,14 @@
     }
   },
   "wordsketch": {
-    "title": "词图分析",
-    "description": "词语语法搭配模式分析",
+    "title": "搭配分析",
+    "description": "分析词语搭配关系",
+    "collocationAnalysisTab": "搭配分析",
     "wordSketchTab": "词图分析",
     "sketchDifferenceTab": "词图对比",
     "wordSketch": "词图分析",
     "sketchDifference": "词图对比",
-    "corpus": "语料库选择",
+    "corpus": "语料选择",
     "searchConfig": "搜索配置",
     "searchWord": "搜索词",
     "searchWordPlaceholder": "输入要分析的单词...",
@@ -980,7 +979,7 @@
     "minScore": "最小分数",
     "resultsPerRelation": "每关系显示数",
     "maxResults": "每关系最大结果数",
-    "lowercase": "全转小写",
+    "lowercase": "转小写",
     "useLemma": "使用词元",
     "analyze": "开始分析",
     "results": "分析结果",
@@ -1039,6 +1038,105 @@
       "runDiffFirst": "请先运行词图对比分析以查看可视化结果"
     },
     "analysisResults": "分析结果"
+  },
+  "collocationAnalysis": {
+    "title": "搭配分析",
+    "description": "使用统计方法分析词语搭配关系",
+    "corpus": {
+      "title": "语料选择",
+      "selectAll": "选择全部语料",
+      "selectManually": "手动选择",
+      "selectedCount": "已选语料"
+    },
+    "search": {
+      "title": "检索配置",
+      "matchMode": "搜索模式",
+      "matchModeLemma": "词元",
+      "matchModeWord": "词形",
+      "nodeWord": "搜索词",
+      "nodeWordPlaceholder": "输入要分析的搜索词...",
+      "span": "搭配范围",
+      "spanHelp": "搜索词左右两侧的词语数量",
+      "minFreq": "最小频率",
+      "maxFreq": "最大频率",
+      "lowercase": "转小写",
+      "removeStopwords": "移除停用词",
+      "frequencyRange": "频率范围",
+      "excludeWords": "排除词",
+      "excludeWordsPlaceholder": "输入用逗号分隔的排除词...",
+      "excludeWordsPlaceholderMultiline": "每行一个词\n例如：\nthe\nis\nof",
+      "excludeWordsHelp": "每行一个词"
+    },
+    "posFilter": {
+      "title": "词性筛选"
+    },
+    "analyze": "开始分析",
+    "analyzing": "分析中...",
+    "results": {
+      "title": "分析结果",
+      "totalTokens": "总词数",
+      "uniqueCollocates": "不重复搭配词数",
+      "nodeFrequency": "搜索词频率",
+      "selected": "已选",
+      "filterPlaceholder": "筛选搭配词...",
+      "selectAll": "全选",
+      "copySelected": "复制选中项",
+      "exportCSV": "导出CSV",
+      "noData": "无结果可显示",
+      "runFirst": "配置搜索参数并运行分析以查看结果",
+      "nodeNotFound": "语料库中未找到该搜索词",
+      "rowsPerPage": "每页行数"
+    },
+    "table": {
+      "collocate": "搭配词",
+      "collocationFreq": "搭配频率",
+      "collocationFreqFull": "搭配频率（节点词+搭配词共现频率）",
+      "totalFreq": "总频率",
+      "totalFreqFull": "总频率（搭配词在整个语料库的频率）",
+      "actions": "操作",
+      "viewInCooccurrence": "查看共现关系"
+    },
+    "statistics": {
+      "title": "统计方法",
+      "configure": "配置统计方法",
+      "description": "选择和配置统计关联度量",
+      "enabled": "已启用",
+      "disabled": "已禁用",
+      "threshold": "阈值",
+      "moveUp": "上移",
+      "moveDown": "下移",
+      "add": "添加",
+      "remove": "移除",
+      "reset": "恢复默认",
+      "logdice": "LogDice",
+      "mi": "MI（互信息）",
+      "ll": "LL（对数似然）",
+      "zscore": "Z分数",
+      "tscore": "T分数",
+      "logratio": "对数比",
+      "mi2": "MI²（互信息平方）",
+      "mi3": "MI³（互信息立方）",
+      "dice": "Dice系数",
+      "deltap1": "Delta P1（节点→搭配）",
+      "deltap2": "Delta P2（搭配→节点）",
+      "minsens": "最小敏感度"
+    },
+    "visualization": {
+      "title": "可视化",
+      "barChart": "柱状图",
+      "pieChart": "饼图",
+      "networkGraph": "搭配网络图",
+      "wordCloud": "词云图",
+      "noData": "暂无数据",
+      "runFirst": "请先执行搜索",
+      "maxItems": "最大显示数",
+      "maxWords": "最大词数",
+      "colorScheme": "配色方案",
+      "showPercentage": "显示百分比",
+      "export": "导出",
+      "scoreMetric": "评分指标",
+      "networkHelp": "节点大小代表关联强度"
+    }
   },
   "biblio": {
     "title": "文献可视化",
@@ -2492,6 +2590,7 @@
   "crossLink": {
     "viewInOtherModules": "在其他模块中查看",
     "viewCollocation": "查看共现关系",
+    "viewCollocationAnalysis": "查看搭配分析",
     "viewWordSketch": "查看词图分析"
   },
   "syntax": {

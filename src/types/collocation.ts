@@ -49,8 +49,8 @@ export interface KWICSearchRequest {
 export interface KWICResult {
   position: number
   keyword: string
-  left_context: string[]
-  right_context: string[]
+  left_context: TokenInfo[]
+  right_context: TokenInfo[]
   text_id: string
   filename: string
   corpus_id: string
@@ -86,6 +86,15 @@ export interface ExtendedContextRequest {
   text_id: string
   position: number
   context_chars?: number
+  highlight_lemmas?: string[]  // Lemmas for precise collocate highlighting via SpaCy metadata
+  keyword?: string  // Full keyword text (e.g., multi-word N-gram "of the") for accurate span highlighting
+}
+
+// A character span for collocate highlighting
+export interface HighlightSpan {
+  start: number
+  end: number
+  text: string
 }
 
 // Extended Context Response
@@ -98,6 +107,7 @@ export interface ExtendedContextResponse {
   text_id?: string
   filename?: string
   error?: string
+  collocate_spans?: HighlightSpan[]  // Lemma-matched spans for precise highlighting
 }
 
 // CQL Parse Request

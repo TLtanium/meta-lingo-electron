@@ -317,7 +317,7 @@ export default function LDAPreprocessPanel({
         
         {/* Document Frequency Filter */}
         <Box>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
             {t('topicModeling.lda.preprocess.dfFilter', 'Document Frequency Filter')}
           </Typography>
           <Stack direction="row" spacing={2}>

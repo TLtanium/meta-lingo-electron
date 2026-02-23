@@ -155,12 +155,15 @@ export default function Collocation({ crossLinkParams }: CollocationProps) {
     if (selectedCorpus && searchValue.trim()) {
       setIsSearching(true)
       setError(null)
+      // When CQL swap is needed, request larger context so after re-centering both sides have enough tokens
+      const needsSwap = !!(kwicKeywordLemma && searchMode === 'cql')
+      const requestContextSize = needsSwap ? contextSize * 3 : contextSize
       collocationApi.searchKWIC({
         corpus_id: selectedCorpus.id,
         text_ids: getSelectedTextIds(),
         search_mode: searchMode,
         search_value: searchValue,
-        context_size: contextSize,
+        context_size: requestContextSize,
         lowercase,
         pos_filter: posFilter.selectedPOS.length > 0 ? posFilter : undefined,
         sort_by: newSortBy,
@@ -170,75 +173,82 @@ export default function Collocation({ crossLinkParams }: CollocationProps) {
         if (response.success && response.data) {
           if (response.data.success) {
             let filteredResults = response.data.results
-            
-            // Filter results by context filter words (from Word Sketch cross-link)
+
+            // Post-process CQL results: swap keyword to mainWord using token.lemma
+            // Since we requested larger context (contextSize*3), always trim to contextSize after swap
+            // Filter out results where swap fails (mainWord not in context window)
+            if (needsSwap) {
+              const targetLemma = kwicKeywordLemma.toLowerCase()
+              const cs = contextSize // trim to user-requested context size after swap
+              filteredResults = filteredResults.map((result: KWICResult) => {
+                // Check if keyword is already the target (no swap needed)
+                // Still need to trim context since we requested larger window
+                const matchedLemma = result.matched_tokens?.[0]?.lemma?.toLowerCase()
+                if (matchedLemma === targetLemma) {
+                  return {
+                    ...result,
+                    left_context: (result.left_context || []).slice(-cs),
+                    right_context: (result.right_context || []).slice(0, cs)
+                  }
+                }
+
+                const left = result.left_context || []
+                const right = result.right_context || []
+
+                // Search right context first (closer positions first)
+                const ri = right.findIndex((t: any) => (t.lemma || '').toLowerCase() === targetLemma)
+                if (ri !== -1) {
+                  const newKeyword = typeof right[ri] === 'string' ? right[ri] : (right[ri] as any).text
+                  const newLeft = [...left, ...(result.matched_tokens || [{ text: result.keyword }]), ...right.slice(0, ri)]
+                  const newRight = right.slice(ri + 1)
+                  return {
+                    ...result,
+                    keyword: newKeyword,
+                    left_context: newLeft.slice(-cs),
+                    right_context: newRight.slice(0, cs),
+                    pos: (right[ri] as any).pos || result.pos
+                  }
+                }
+                // Search left context (from end, closest to keyword)
+                for (let i = left.length - 1; i >= 0; i--) {
+                  if (((left[i] as any).lemma || '').toLowerCase() === targetLemma) {
+                    const newKeyword = typeof left[i] === 'string' ? left[i] : (left[i] as any).text
+                    const newLeft = left.slice(0, i)
+                    const newRight = [...left.slice(i + 1), ...(result.matched_tokens || [{ text: result.keyword }]), ...right]
+                    return {
+                      ...result,
+                      keyword: newKeyword,
+                      left_context: newLeft.slice(-cs),
+                      right_context: newRight.slice(0, cs),
+                      pos: (left[i] as any).pos || result.pos
+                    }
+                  }
+                }
+                // Mark as swap-failed (mainWord not found in context)
+                return { ...result, _swapFailed: true }
+              })
+              // Filter out results where swap failed - these have wrong center word
+              filteredResults = filteredResults.filter((r: any) => !r._swapFailed)
+            }
+
+            // Filter results by context filter words using both token.lemma and token.text
             if (contextFilterWords.length > 0) {
               filteredResults = filteredResults.filter((result: KWICResult) => {
-                const leftContext = (result.left_context || []).join(' ').toLowerCase()
-                const rightContext = (result.right_context || []).join(' ').toLowerCase()
-                const fullContext = `${leftContext} ${rightContext}`
-                
-                // Check if any filter word appears in the context
+                const allContext = [...(result.left_context || []), ...(result.right_context || [])]
                 return contextFilterWords.some(word => {
-                  const wordLower = word.toLowerCase()
-                  const regex = new RegExp(`\\b${wordLower}\\b`, 'i')
-                  return regex.test(fullContext)
+                  const wl = word.toLowerCase()
+                  return allContext.some((t: any) => {
+                    const tokenText = (typeof t === 'string' ? t : t.text || '').toLowerCase()
+                    const tokenLemma = (typeof t === 'string' ? t : t.lemma || t.text || '').toLowerCase()
+                    return tokenLemma === wl || tokenText === wl
+                  })
                 })
               })
             }
-            
-            // Process CQL results - swap keyword with main word from context (same as handleSearch)
-            if (kwicKeywordLemma && searchMode === 'cql') {
-              // Helper function to match word forms (handles inflections like business/businesses)
-              const matchesLemma = (word: string, lemma: string): boolean => {
-                const wordLower = word.toLowerCase()
-                const lemmaLower = lemma.toLowerCase()
-                // Exact match
-                if (wordLower === lemmaLower) return true
-                // Word starts with lemma (handles plurals, verb forms: business/businesses, work/working)
-                if (wordLower.startsWith(lemmaLower)) return true
-                // Lemma starts with word (handles cases like "their" matching "they")
-                if (lemmaLower.startsWith(wordLower) && wordLower.length >= 3) return true
-                return false
-              }
-              
-              filteredResults = filteredResults.map((result: KWICResult) => {
-                const leftContext = result.left_context || []
-                const rightContext = result.right_context || []
-                const currentKeyword = result.keyword
-                
-                const leftIndex = leftContext.findIndex((word: string) => 
-                  matchesLemma(word, kwicKeywordLemma)
-                )
-                const rightIndex = rightContext.findIndex((word: string) => 
-                  matchesLemma(word, kwicKeywordLemma)
-                )
-                
-                if (leftIndex !== -1) {
-                  const newKeyword = leftContext[leftIndex]
-                  return {
-                    ...result,
-                    keyword: newKeyword,
-                    left_context: [...leftContext.slice(0, leftIndex), ...leftContext.slice(leftIndex + 1), currentKeyword],
-                    right_context: rightContext,
-                    pos: result.pos
-                  }
-                } else if (rightIndex !== -1) {
-                  const newKeyword = rightContext[rightIndex]
-                  return {
-                    ...result,
-                    keyword: newKeyword,
-                    left_context: leftContext,
-                    right_context: [currentKeyword, ...rightContext.slice(0, rightIndex), ...rightContext.slice(rightIndex + 1)],
-                    pos: result.pos
-                  }
-                }
-                return result
-              })
-            }
-            
+
+            const hasPostFilter = (kwicKeywordLemma && searchMode === 'cql') || contextFilterWords.length > 0
             setResults(filteredResults)
-            setTotalCount(contextFilterWords.length > 0 ? filteredResults.length : response.data.total_count)
+            setTotalCount(hasPostFilter ? filteredResults.length : response.data.total_count)
           } else {
             setError(response.data.error || 'Search failed')
           }
@@ -275,14 +285,17 @@ export default function Collocation({ crossLinkParams }: CollocationProps) {
   const [highlightWords, setHighlightWords] = useState<string[]>([])
   // Context filter words - only show results where context contains these words
   const [contextFilterWords, setContextFilterWords] = useState<string[]>([])
-  // KWIC keyword lemma - for CQL multi-token matches, which token should be the keyword
+  // KWIC keyword lemma - the lemma that should be the KWIC center word (for swap after CQL)
   const [kwicKeywordLemma, setKwicKeywordLemma] = useState<string | undefined>(undefined)
-  
+  // KWIC highlight lemma - the lemma that should be highlighted in context
+  const [kwicHighlightLemma, setKwicHighlightLemma] = useState<string | undefined>(undefined)
+
   // Clear cross-link related state when user manually changes search
   const clearCrossLinkState = () => {
     setHighlightWords([])
     setContextFilterWords([])
     setKwicKeywordLemma(undefined)
+    setKwicHighlightLemma(undefined)
   }
   
   // Handle search value change - clear cross-link state when user manually changes search
@@ -367,11 +380,19 @@ export default function Collocation({ crossLinkParams }: CollocationProps) {
           }
         }
         
-        // Set KWIC keyword lemma for CQL multi-token matches
+        // Set KWIC keyword/highlight lemmas for post-processing CQL results
         if (crossLinkParams.kwicKeywordLemma) {
           setKwicKeywordLemma(crossLinkParams.kwicKeywordLemma)
         }
-        
+        if (crossLinkParams.kwicHighlightLemma) {
+          setKwicHighlightLemma(crossLinkParams.kwicHighlightLemma)
+        }
+
+        // Set context size from collocation analysis span
+        if (crossLinkParams.contextSize && crossLinkParams.contextSize >= 1 && crossLinkParams.contextSize <= 15) {
+          setContextSize(crossLinkParams.contextSize)
+        }
+
         // Enable metaphor highlight by default when cross-linking from Metaphor Analysis
         if (crossLinkParams.sourceModule === 'metaphor') {
           setShowMetaphorHighlight(true)
@@ -524,12 +545,15 @@ export default function Collocation({ crossLinkParams }: CollocationProps) {
     setError(null)
 
     try {
+      // When CQL swap is needed, request larger context so after re-centering both sides have enough tokens
+      const needsSwap = !!(kwicKeywordLemma && searchMode === 'cql')
+      const requestContextSize = needsSwap ? contextSize * 3 : contextSize
       const response = await collocationApi.searchKWIC({
         corpus_id: selectedCorpus.id,
         text_ids: getSelectedTextIds(),
         search_mode: searchMode,
         search_value: searchValue,
-        context_size: contextSize,
+        context_size: requestContextSize,
         lowercase,
         pos_filter: posFilter.selectedPOS.length > 0 ? posFilter : undefined,
         sort_by: sortBy,
@@ -540,95 +564,82 @@ export default function Collocation({ crossLinkParams }: CollocationProps) {
       if (response.success && response.data) {
         if (response.data.success) {
           let filteredResults = response.data.results
-          
-          // Filter results by context filter words (from Word Sketch cross-link)
+
+          // Post-process CQL results: swap keyword to mainWord using token.lemma
+          // Since we requested larger context (contextSize*3), always trim to contextSize after swap
+          // Filter out results where swap fails (mainWord not in context window)
+          if (needsSwap) {
+            const targetLemma = kwicKeywordLemma.toLowerCase()
+            const cs = contextSize // trim to user-requested context size after swap
+            filteredResults = filteredResults.map((result: KWICResult) => {
+              // Check if keyword is already the target (no swap needed)
+              // Still need to trim context since we requested larger window
+              const matchedLemma = result.matched_tokens?.[0]?.lemma?.toLowerCase()
+              if (matchedLemma === targetLemma) {
+                return {
+                  ...result,
+                  left_context: (result.left_context || []).slice(-cs),
+                  right_context: (result.right_context || []).slice(0, cs)
+                }
+              }
+
+              const left = result.left_context || []
+              const right = result.right_context || []
+
+              // Search right context first (closer positions first)
+              const ri = right.findIndex((t: any) => (t.lemma || '').toLowerCase() === targetLemma)
+              if (ri !== -1) {
+                const newKeyword = typeof right[ri] === 'string' ? right[ri] : (right[ri] as any).text
+                const newLeft = [...left, ...(result.matched_tokens || [{ text: result.keyword }]), ...right.slice(0, ri)]
+                const newRight = right.slice(ri + 1)
+                return {
+                  ...result,
+                  keyword: newKeyword,
+                  left_context: newLeft.slice(-cs),
+                  right_context: newRight.slice(0, cs),
+                  pos: (right[ri] as any).pos || result.pos
+                }
+              }
+              // Search left context (from end, closest to keyword)
+              for (let i = left.length - 1; i >= 0; i--) {
+                if (((left[i] as any).lemma || '').toLowerCase() === targetLemma) {
+                  const newKeyword = typeof left[i] === 'string' ? left[i] : (left[i] as any).text
+                  const newLeft = left.slice(0, i)
+                  const newRight = [...left.slice(i + 1), ...(result.matched_tokens || [{ text: result.keyword }]), ...right]
+                  return {
+                    ...result,
+                    keyword: newKeyword,
+                    left_context: newLeft.slice(-cs),
+                    right_context: newRight.slice(0, cs),
+                    pos: (left[i] as any).pos || result.pos
+                  }
+                }
+              }
+              // Mark as swap-failed (mainWord not found in context)
+              return { ...result, _swapFailed: true }
+            })
+            // Filter out results where swap failed - these have wrong center word
+            filteredResults = filteredResults.filter((r: any) => !r._swapFailed)
+          }
+
+          // Filter results by context filter words using both token.lemma and token.text
           if (contextFilterWords.length > 0) {
             filteredResults = filteredResults.filter((result: KWICResult) => {
-              const leftContext = (result.left_context || []).join(' ').toLowerCase()
-              const rightContext = (result.right_context || []).join(' ').toLowerCase()
-              const fullContext = `${leftContext} ${rightContext}`
-              
-              // Check if any filter word appears in the context
+              const allContext = [...(result.left_context || []), ...(result.right_context || [])]
               return contextFilterWords.some(word => {
-                const wordLower = word.toLowerCase()
-                // Match whole word using word boundary check
-                const regex = new RegExp(`\\b${wordLower}\\b`, 'i')
-                return regex.test(fullContext)
+                const wl = word.toLowerCase()
+                return allContext.some((t: any) => {
+                  const tokenText = (typeof t === 'string' ? t : t.text || '').toLowerCase()
+                  const tokenLemma = (typeof t === 'string' ? t : t.lemma || t.text || '').toLowerCase()
+                  return tokenLemma === wl || tokenText === wl
+                })
               })
             })
           }
-          
-          // Process CQL results for Word Sketch cross-link:
-          // The CQL matches the collocate word with dependency constraint (e.g., [lemma="model" & dep="compound" & headlemma="business"])
-          // But we want the main word (business) as KWIC keyword, and collocate (model) highlighted in context
-          // So we need to find kwicKeywordLemma in context and swap it with the matched token
-          if (kwicKeywordLemma && searchMode === 'cql') {
-            // Helper function to match word forms (handles inflections like business/businesses)
-            const matchesLemma = (word: string, lemma: string): boolean => {
-              const wordLower = word.toLowerCase()
-              const lemmaLower = lemma.toLowerCase()
-              // Exact match
-              if (wordLower === lemmaLower) return true
-              // Word starts with lemma (handles plurals, verb forms: business/businesses, work/working)
-              if (wordLower.startsWith(lemmaLower)) return true
-              // Lemma starts with word (handles cases like "their" matching "they")
-              if (lemmaLower.startsWith(wordLower) && wordLower.length >= 3) return true
-              return false
-            }
-            
-            filteredResults = filteredResults.map((result: KWICResult) => {
-              const leftContext = result.left_context || []
-              const rightContext = result.right_context || []
-              const currentKeyword = result.keyword
-              
-              // Find kwicKeywordLemma in left or right context
-              // Use flexible matching to handle word form variations
-              const leftIndex = leftContext.findIndex((word: string) => 
-                matchesLemma(word, kwicKeywordLemma)
-              )
-              const rightIndex = rightContext.findIndex((word: string) => 
-                matchesLemma(word, kwicKeywordLemma)
-              )
-              
-              if (leftIndex !== -1) {
-                // Found in left context - swap with current keyword
-                const newKeyword = leftContext[leftIndex]
-                const newLeftContext = [
-                  ...leftContext.slice(0, leftIndex),
-                  ...leftContext.slice(leftIndex + 1),
-                  currentKeyword  // Move collocate to end of left context (right before new keyword)
-                ]
-                return {
-                  ...result,
-                  keyword: newKeyword,
-                  left_context: newLeftContext,
-                  right_context: rightContext,
-                  pos: result.pos  // Keep original POS
-                }
-              } else if (rightIndex !== -1) {
-                // Found in right context - swap with current keyword
-                const newKeyword = rightContext[rightIndex]
-                const newRightContext = [
-                  currentKeyword,  // Move collocate to start of right context (right after new keyword)
-                  ...rightContext.slice(0, rightIndex),
-                  ...rightContext.slice(rightIndex + 1)
-                ]
-                return {
-                  ...result,
-                  keyword: newKeyword,
-                  left_context: leftContext,
-                  right_context: newRightContext,
-                  pos: result.pos
-                }
-              }
-              
-              // kwicKeywordLemma not found in context - keep as is
-              return result
-            })
-          }
-          
+
+          const hasPostFilter = (kwicKeywordLemma && searchMode === 'cql') || contextFilterWords.length > 0
           setResults(filteredResults)
-          setTotalCount(contextFilterWords.length > 0 ? filteredResults.length : response.data.total_count)
+          setTotalCount(hasPostFilter ? filteredResults.length : response.data.total_count)
         } else {
           setError(response.data.error || 'Search failed')
         }
@@ -685,7 +696,7 @@ export default function Collocation({ crossLinkParams }: CollocationProps) {
 
         {/* 1. Corpus Selection */}
         <Paper sx={{ p: 2, mb: 2 }}>
-          <Typography variant="subtitle2" gutterBottom>
+          <Typography variant="subtitle2" sx={{ mb: 1.5 }}>
             {t('collocation.corpus.title')}
           </Typography>
 

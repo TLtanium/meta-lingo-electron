@@ -461,7 +461,7 @@ export default function WordSketchDiffTab() {
 
         {/* 1. Corpus Selection */}
         <Paper sx={{ p: 2, mb: 2 }}>
-          <Typography variant="subtitle2" gutterBottom>
+          <Typography variant="subtitle2" sx={{ mb: 1.5 }}>
             {t('wordsketch.corpus')}
           </Typography>
 
@@ -567,7 +567,7 @@ export default function WordSketchDiffTab() {
 
         {/* 2. Compare Configuration */}
         <Paper sx={{ p: 2, mb: 2 }}>
-          <Typography variant="subtitle2" gutterBottom>
+          <Typography variant="subtitle2" sx={{ mb: 1.5 }}>
             {t('wordsketch.compareConfig')}
           </Typography>
 
@@ -913,10 +913,13 @@ export default function WordSketchDiffTab() {
                                               selectionMode={selectionMode}
                                               selectedTags={selectedTags}
                                               showCollocation={true}
+                                              showCollocationAnalysis={false}
                                               showWordSketch={false}
                                               highlightWords={[coll.word || coll.lemma]}
                                               contextFilterWords={[coll.word || coll.lemma]}
                                               mainWord={coll.freq1 > 0 ? result.word1 : result.word2}
+                                              mainWordLemma={coll.freq1 > 0 ? result.word1 : result.word2}
+                                              collocateLemma={coll.lemma || coll.word}
                                               relationName={relName}
                                               matchMode="lemma"
                                             />

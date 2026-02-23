@@ -41,7 +41,7 @@ Meta-Lingo provides 12 core functional modules:
 | **N-gram Analysis** | 2-6 gram combination frequency statistics and pattern discovery |
 | **Collocation** | KWIC search, CQL queries, collocation analysis |
 | **Semantic Analysis** | USAS semantic domain classification and statistics |
-| **Word Sketch** | Word Sketch grammatical collocation analysis |
+| **Collocation Analysis** | Collocation analysis (12 statistical measures) and Word Sketch grammatical collocation analysis |
 | **Bibliographic Visualization** | Literature data import and visualization analysis |
 | **Annotation Mode** | Multi-level text annotation and multimodal annotation |
 | **Topic Modeling** | BERTopic, LDA, LSA, NMF topic discovery |
@@ -3900,11 +3900,11 @@ The configured mode will apply to:
 - Visualization charts may be slow when result count is very large
 - View domain words feature requires additional server requests; please be patient
 
-# Word Sketch Analysis
+# Collocation Analysis
 
 ## Overview
 
-The Word Sketch Analysis module is based on SpaCy dependency parsing annotation data, analyzing grammatical collocation patterns of words. The module provides two analysis modes: **Word Sketch** (grammatical collocation analysis for a single word) and **Word Sketch Difference** (collocation comparison analysis for two words), helping researchers deeply understand grammatical behavior and collocation features of words.
+The Collocation Analysis module provides comprehensive collocation analysis tools. The module has three tabs: **Collocation Analysis** (window-based collocation analysis with 12 statistical association measures), **Word Sketch** (grammatical collocation analysis based on dependency parsing for a single word), and **Word Sketch Difference** (collocation comparison analysis for two words), helping researchers deeply understand lexical collocation patterns and grammatical behavior of words.
 
 ## Implementation Principles
 
@@ -3987,13 +3987,65 @@ where $c$ is the collocate, and $w_1$ and $w_2$ are the two compared words.
 
 ## Interface Layout
 
-The Word Sketch Analysis module uses a top-level tab design:
+The Collocation Analysis module uses a top-level tab design:
 
-- **Top-level Tabs**: Switch between "Word Sketch" and "Word Sketch Difference" modes
+- **Top-level Tabs**: Switch between "Collocation Analysis", "Word Sketch", and "Word Sketch Difference" modes
 - **Left Panel** (400px): Configuration panel containing corpus selection, search configuration, etc.
-- **Right Panel** (flexible width): Results display area with two tabs
-  - **Analysis Results**: Displays grammatical relation cards or comparison tables
-  - **Visualization**: Provides network graph visualization
+- **Right Panel** (flexible width): Results display area with sub-tabs
+  - **Analysis Results**: Displays results table or grammatical relation cards
+  - **Visualization**: Provides charts (bar, pie, network, word cloud)
+
+## Collocation Analysis
+
+### Purpose
+
+The Collocation Analysis tab performs window-based collocation analysis for a given node word. It identifies words that frequently co-occur within a specified window (span) around the node word, and ranks them using various statistical association measures.
+
+### Search Configuration
+
+- **Node Word**: The target word to find collocates for
+- **Collocation Span**: Window size (1-15 tokens on each side, default 5)
+- **Min/Max Frequency**: Filter collocates by co-occurrence frequency
+- **Lowercase**: Convert tokens to lowercase before analysis
+- **Remove Stopwords**: Exclude common stopwords from results
+- **Exclude Words**: Custom words to exclude from collocate results
+- **POS Filter**: Filter by part-of-speech tags (keep/remove mode)
+
+### Statistical Measures
+
+The module supports 12 statistical association measures, configurable via the Statistics Method dialog:
+
+| Measure | Range | Description |
+|---------|-------|-------------|
+| **LogDice** | 0-14 | Logarithmic Dice coefficient, unaffected by corpus size |
+| **MI** | -inf to +inf | Mutual Information, favors low-frequency collocates |
+| **LL** | 0 to +inf | Log-Likelihood G² statistic (6.63 = p<0.01) |
+| **Z-score** | -inf to +inf | Standardized deviation (1.96 = p<0.05) |
+| **T-score** | -inf to +inf | Favors high-frequency collocates |
+| **Log Ratio** | -inf to +inf | Log2 of observed/expected probability ratio |
+| **MI²** | -inf to +inf | Less biased toward low-frequency than MI |
+| **MI³** | -inf to +inf | Further reduces low-frequency bias |
+| **Dice** | 0-1 | Harmonic mean of conditional probabilities |
+| **Delta P1** | -1 to 1 | Directional association: node to collocate |
+| **Delta P2** | -1 to 1 | Directional association: collocate to node |
+| **MinSens** | 0-1 | Conservative bidirectional association |
+
+By default, 4 measures are enabled: LogDice, MI, Delta P1, and Delta P2. Users can enable/disable measures, set thresholds, and reorder columns via the Statistics Method dialog.
+
+### Results Table
+
+- **Info Bar**: Shows total tokens, unique collocates, and node frequency
+- **Toolbar**: Statistics method button, search filter, select all, copy, download CSV
+- **Columns**: Collocate | Co-occurrence Freq | Total Freq | [Enabled statistical measures]
+- **Cross-link**: Each row has a link to the Co-occurrence module, auto-syncing the collocation span as context size and highlighting the collocate
+
+### Visualization
+
+Four chart types are available:
+- **Bar Chart**: Horizontal bars showing top collocates by frequency or score
+- **Pie Chart**: Proportional distribution of top collocates
+- **Collocation Network**: D3.js force-directed graph with the node word at center and collocates around it, sized by association score
+- **Word Cloud**: Dual-engine word cloud (D3 or legacy) showing collocates scaled by frequency
 
 ## Word Sketch
 

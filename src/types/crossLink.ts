@@ -9,7 +9,7 @@ export type SelectionMode = 'all' | 'selected' | 'tags'
 export type MatchMode = 'word' | 'lemma'
 
 /** Source module for cross-link */
-export type SourceModule = 'wordFrequency' | 'semantic' | 'metaphor' | 'wordSketch' | 'ngram' | 'keyword' | 'synonym'
+export type SourceModule = 'wordFrequency' | 'semantic' | 'metaphor' | 'wordSketch' | 'ngram' | 'keyword' | 'synonym' | 'collocationAnalysis'
 
 /**
  * Parameters passed when opening a new tab from another module
@@ -53,6 +53,10 @@ export interface CrossLinkParams {
   // Source module identification (2026-01-27)
   /** The module that initiated the cross-link (for default settings) */
   sourceModule?: SourceModule
+  /** Context size for co-occurrence analysis (synced from collocation span) */
+  contextSize?: number
+  /** Target sub-tab index when opening a multi-tab module (e.g., WordSketch tabs 0/1/2) */
+  targetSubTab?: number
 
   // N-gram specific settings (2026-02)
   /** N values to pre-select in N-gram analysis (e.g. [2,3,4] for Bigram/Trigram/4-gram) */
