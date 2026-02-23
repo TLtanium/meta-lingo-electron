@@ -3,7 +3,7 @@
  * Full N-gram analysis with POS filtering, search, multiple N values, and visualizations
  */
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import {
   Box,
   Typography,
@@ -38,11 +38,12 @@ import PlayArrowIcon from '@mui/icons-material/PlayArrow'
 import TableChartIcon from '@mui/icons-material/TableChart'
 import { useTranslation } from 'react-i18next'
 import { corpusApi, analysisApi } from '../../api'
-import type { Corpus, CorpusText } from '../../types'
+import type { Corpus, CorpusText, CrossLinkParams } from '../../types'
 import type { POSTagInfo } from '../../types/wordFrequency'
-import type { 
+import type {
   POSFilterConfig,
   SearchConfig,
+  SearchType,
   NGramConfig,
   NGramResult,
   NGramRequest,
@@ -66,7 +67,11 @@ import VisualizationPanel from './VisualizationPanel'
 
 type SelectionMode = 'all' | 'selected' | 'tags'
 
-export default function NGram() {
+interface NGramProps {
+  crossLinkParams?: CrossLinkParams
+}
+
+export default function NGram({ crossLinkParams }: NGramProps = {}) {
   const { t } = useTranslation()
 
   // Corpus state
@@ -109,11 +114,59 @@ export default function NGram() {
   // Right panel tabs
   const [rightTab, setRightTab] = useState(0)
 
+  // Cross-link processing refs (same pattern as Collocation)
+  const crossLinkProcessedRef = useRef(false)
+  const pendingAutoSearchRef = useRef(false)
+
   // Load corpora and POS tags on mount
   useEffect(() => {
     loadCorpora()
     loadPosTags()
   }, [])
+
+  // Process crossLinkParams when corpora are loaded
+  useEffect(() => {
+    if (crossLinkParams && !crossLinkProcessedRef.current && corpora.length > 0) {
+      const corpus = corpora.find(c => c.id === crossLinkParams.corpusId)
+      if (corpus) {
+        crossLinkProcessedRef.current = true
+        setSelectedCorpus(corpus)
+        setSelectionMode(crossLinkParams.selectionMode || 'all')
+
+        if (crossLinkParams.selectionMode === 'tags' && crossLinkParams.selectedTags) {
+          setSelectedTags(crossLinkParams.selectedTags)
+        } else if (crossLinkParams.selectionMode === 'selected' && Array.isArray(crossLinkParams.textIds)) {
+          setSelectedTextIds(crossLinkParams.textIds)
+        }
+
+        // Set search config: type defaults to 'contains', value = searchWord
+        const resolvedSearchType = (crossLinkParams.ngramSearchType as SearchType | undefined) || 'contains'
+        setSearchConfig({
+          searchType: resolvedSearchType,
+          searchValue: crossLinkParams.searchWord || '',
+          excludeWords: []
+        })
+
+        // Set N values: use provided ngramValues or default [2, 3, 4]
+        const resolvedNValues = crossLinkParams.ngramValues?.length
+          ? crossLinkParams.ngramValues
+          : [2, 3, 4]
+        setNgramConfig(prev => ({ ...prev, nValues: resolvedNValues }))
+
+        if (crossLinkParams.autoSearch) {
+          pendingAutoSearchRef.current = true
+        }
+      }
+    }
+  }, [crossLinkParams, corpora])
+
+  // Auto-search after corpus texts are loaded
+  useEffect(() => {
+    if (pendingAutoSearchRef.current && texts.length > 0 && selectedCorpus) {
+      pendingAutoSearchRef.current = false
+      setTimeout(() => handleAnalyze(), 100)
+    }
+  }, [texts, selectedCorpus])
 
   const loadCorpora = async () => {
     setLoading(true)

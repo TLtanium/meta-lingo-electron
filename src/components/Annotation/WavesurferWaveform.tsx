@@ -1288,9 +1288,6 @@ const WavesurferWaveform = forwardRef<WavesurferWaveformRef, WavesurferWaveformP
           userSelect: drawMode ? 'none' : 'auto'  // 画框模式禁用文本选择
         }}
       >
-        {/* Invisible scroll-width driver: height=0 so no visual blank,
-            but forces horizontal scroll range to containerWidth (for playhead centering headroom) */}
-        <Box sx={{ height: 0, minWidth: containerWidth }} />
         {/* Content container - all overlays inside here */}
         <Box
           sx={{

@@ -308,7 +308,17 @@ export default function AnnotationTable({
     const params = buildCrossLinkParams(menuAnn)
     const title = `${t('ngram.title', 'N-gram分析')} - ${menuAnn.text || menuAnn.label}`
     pendingActionRef.current = () => {
-      openTab({ type: 'ngram' as TabType, title, props: { crossLinkParams: params } })
+      openTab({
+        type: 'ngram' as TabType,
+        title,
+        props: {
+          crossLinkParams: {
+            ...params,
+            ngramValues: [2, 3, 4],        // Bigram, Trigram, 4-gram
+            ngramSearchType: 'contains'    // 包含
+          }
+        }
+      })
     }
     handleMenuClose()
   }
