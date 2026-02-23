@@ -185,6 +185,11 @@ interface MultimodalWorkspaceProps {
   onAudioBoxRemove?: (id: number) => void
   // 导出波形 SVG 的回调（注册导出函数）
   onWaveformExportReady?: (exportFn: () => string | null) => void
+  // Cross-link props (forwarded to AnnotationTable for analysis navigation)
+  corpusId?: string
+  textIds?: string[] | 'all'
+  selectionMode?: 'all' | 'selected' | 'tags'
+  selectedTags?: string[]
 }
 
 // Format time in seconds to MM:SS.ms format
@@ -256,7 +261,11 @@ export default function MultimodalWorkspace({
   savedAudioBoxes = [],
   onAudioBoxAdd,
   onAudioBoxRemove,
-  onWaveformExportReady
+  onWaveformExportReady,
+  corpusId,
+  textIds,
+  selectionMode = 'all',
+  selectedTags
 }: MultimodalWorkspaceProps) {
   // showSpacyAnnotations is no longer used (removed from UI)
   void showSpacyAnnotations
@@ -308,7 +317,30 @@ export default function MultimodalWorkspace({
   const [currentSubtitle, setCurrentSubtitle] = useState('')
   const [highlightedAnnotationId, setHighlightedAnnotationId] = useState<string | null>(null)
   const [highlightedSegmentId, setHighlightedSegmentId] = useState<string | null>(null)
+  const [selectedAnnotationId, setSelectedAnnotationId] = useState<string | null>(null)
   const [bottomTabIndex, setBottomTabIndex] = useState(0)
+
+  // When a text annotation row is selected in the table, scroll to and highlight
+  // the corresponding segment in the TranscriptAnnotator
+  useEffect(() => {
+    if (!selectedAnnotationId) {
+      // Clear segment highlight when no row is selected
+      // (but don't clear if playback-driven highlight is active)
+      return
+    }
+    const ann = annotations.find(a => a.id === selectedAnnotationId)
+    if (!ann) return
+    // Find transcript segment whose cumulative text range contains the annotation's start
+    let offset = 0
+    for (const seg of transcriptSegments) {
+      const segEnd = offset + seg.text.length
+      if (ann.startPosition >= offset && ann.startPosition <= segEnd) {
+        setHighlightedSegmentId(seg.id)
+        return
+      }
+      offset = segEnd + 1  // +1 for implicit newline separator between segments
+    }
+  }, [selectedAnnotationId, annotations, transcriptSegments])
 
   // 注册波形导出函数（音频模式）- 延迟调用避免渲染问题
   const exportRegisteredRef = useRef(false)
@@ -1538,6 +1570,12 @@ export default function MultimodalWorkspace({
               spacyTokens={spacyTokens}
               spacyEntities={spacyEntities}
               showVideoColumns={false}
+              corpusId={corpusId}
+              textIds={textIds}
+              selectionMode={selectionMode}
+              selectedTags={selectedTags}
+              onSelect={(id) => setSelectedAnnotationId(id)}
+              selectedId={selectedAnnotationId}
             />
           )}
 
@@ -1646,6 +1684,12 @@ export default function MultimodalWorkspace({
               spacyTokens={spacyTokens}
               spacyEntities={spacyEntities}
               showVideoColumns={true}
+              corpusId={corpusId}
+              textIds={textIds}
+              selectionMode={selectionMode}
+              selectedTags={selectedTags}
+              onSelect={(id) => setSelectedAnnotationId(id)}
+              selectedId={selectedAnnotationId}
             />
           )}
         </Box>
