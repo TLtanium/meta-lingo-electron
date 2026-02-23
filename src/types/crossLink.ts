@@ -53,6 +53,12 @@ export interface CrossLinkParams {
   // Source module identification (2026-01-27)
   /** The module that initiated the cross-link (for default settings) */
   sourceModule?: SourceModule
+
+  // N-gram specific settings (2026-02)
+  /** N values to pre-select in N-gram analysis (e.g. [2,3,4] for Bigram/Trigram/4-gram) */
+  ngramValues?: number[]
+  /** Search type to pre-select in N-gram analysis (e.g. 'contains') */
+  ngramSearchType?: string
 }
 
 /**
