@@ -1425,6 +1425,9 @@ export default function MultimodalAnnotation() {
                 onAudioBoxAdd={handleAudioBoxAdd}
                 onAudioBoxRemove={handleAudioBoxRemove}
                 onWaveformExportReady={handleWaveformExportReady}
+                corpusId={currentCorpus?.id}
+                textIds="all"
+                selectionMode="all"
               />
             </Box>
           </>

@@ -492,6 +492,17 @@ const TranscriptAnnotator = forwardRef<TranscriptAnnotatorRef, TranscriptAnnotat
     return () => window.removeEventListener('resize', measurePositions)
   }, [annotations, transcriptSegments, annotationsBySegment])
 
+  // Scroll to highlighted segment when it changes (e.g., triggered by row click in AnnotationTable)
+  useEffect(() => {
+    if (!highlightedSegmentId || !containerRef.current) return
+    const el = containerRef.current.querySelector(
+      `[data-segment-id="${highlightedSegmentId}"]`
+    )
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+    }
+  }, [highlightedSegmentId])
+
   // Handle segment click
   const handleSegmentClick = useCallback((segmentId: string | number) => {
     const segIdStr = String(segmentId)

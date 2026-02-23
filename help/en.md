@@ -5137,8 +5137,11 @@ Multimodal annotation uses left-right split layout, similar to text annotation:
 
 - **Left Panel**: Framework selection, framework tree, corpus selection, archive management
 - **Right Panel**:
-  - **Media Player**: Video or audio player
-  - **Transcript Annotation Area**: Display transcript text, support text selection annotation
+  - **Media Player**: Video or audio player (audio mode includes waveform and spectrogram)
+  - **Bottom Three-Tab Panel**:
+    - **Transcript Annotation** (Tab 0, default): Display transcript text with selection annotation; auto-scrolls to highlight current sentence during playback
+    - **Text Annotation List** (Tab 1): Table view of all text annotations, supports cross-link analysis and row-click highlighting
+    - **Audio Box Annotations** / **Video Annotation List** (Tab 2): Audio mode shows drawn box annotations; video mode shows video region annotations
   - **Multi-Track Timeline**: Display YOLO tracks, transcript segments, user annotations, keyframes
 
 ### Media Selection
@@ -5202,6 +5205,7 @@ For English audio with forced alignment data, the system displays an interactive
 - **Waveform Display**: Display complete audio waveform with zoom and scroll support
 - **Word-level Alignment**: Labels showing each word's time position above the waveform
 - **Pitch Curve**: Optional F0 (fundamental frequency) curve overlay
+- **Spectrogram**: Optional frequency spectrogram (horizontal axis = time, vertical axis = frequency), visually representing the audio's spectral characteristics
 - **Zoom Controls**: Buttons or Ctrl+Scroll to zoom, centered on playhead
 
 **Playback Controls**
@@ -5212,7 +5216,7 @@ For English audio with forced alignment data, the system displays an interactive
 
 **Box Drawing Annotation**
 - **Draw Mode**: Click "Draw Box" button to enable drawing mode
-- **Draw Regions**: Drag on waveform to draw annotation boxes
+- **Draw Regions**: Drag on waveform to draw annotation boxes (spanning both waveform and spectrogram areas)
 - **Label Display**: Boxes show current selected label name and color
 - **Time Recording**: Boxes automatically record start and end times
 - **Mode Toggle**: Disable draw mode to click waveform for seeking
@@ -5234,6 +5238,29 @@ Since Wav2Vec2 forced alignment only supports English, Chinese audio:
 - Does not support box drawing annotation
 - Can only be annotated via plain text annotation mode
 - Does not appear in multimodal annotation media selection
+
+### Annotation Table
+
+The "Text Annotation List" and "Video Annotation List" tabs in the bottom panel display all annotations in a table and support the following operations:
+
+#### Action Menu
+
+Each annotation row's action column provides a dropdown menu (click the ⋮ button to expand), containing:
+
+- **Collocation Analysis**: Navigate to the Collocation/Co-occurrence Analysis module with the annotation word as the search term (requires a corpus to be selected)
+- **Word Sketch Analysis**: Navigate to the Word Sketch Analysis module with the annotation word as the search term (requires a corpus to be selected)
+- **N-gram Analysis**: Navigate to the N-gram Analysis module with the annotation word as the search term (requires a corpus to be selected)
+- **Delete Annotation**: Delete this annotation record
+
+> **Tip**: Cross-link functionality requires a corpus to be associated with the current multimodal annotation session. If no corpus is selected, the analysis options will be disabled.
+
+#### Row-Click Highlighting
+
+Clicking any row in the annotation table highlights and scrolls to the corresponding position in the transcript:
+
+- The selected row displays a colored outline matching the annotation color
+- The corresponding transcript sentence is automatically highlighted in the "Transcript Annotation" tab
+- Click the same row again to deselect
 
 ### Multi-Track Timeline
 

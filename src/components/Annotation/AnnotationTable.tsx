@@ -1,18 +1,19 @@
 /**
  * AnnotationTable Component
  * Table view of all annotations with POS and NER columns
- * 
+ *
  * Features:
  * - List all annotations with details
  * - Display POS (Part of Speech) from SpaCy data
  * - Display NER (Named Entity Recognition) from SpaCy data
  * - Edit remark for each annotation
- * - Delete annotations
- * - Highlight annotation on hover
+ * - Delete annotations (via dropdown menu)
+ * - Cross-link to collocation / word sketch / N-gram analysis
+ * - Highlight annotation on hover or click
  * - Auto-width columns based on content
  */
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef } from 'react'
 import {
   Box,
   Table,
@@ -31,12 +32,25 @@ import {
   DialogActions,
   Button,
   Chip,
+  IconButton,
+  Menu,
+  MenuItem,
+  ListItemIcon,
+  ListItemText,
+  Divider,
   useTheme
 } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
 import MoreHorizIcon from '@mui/icons-material/MoreHoriz'
+import MoreVertIcon from '@mui/icons-material/MoreVert'
+import LinkIcon from '@mui/icons-material/Link'
+import HubIcon from '@mui/icons-material/Hub'
+import TableChartIcon from '@mui/icons-material/TableChart'
+import DeleteIcon from '@mui/icons-material/Delete'
 import { useTranslation } from 'react-i18next'
+import { useTabStore } from '../../stores/tabStore'
 import type { Annotation } from '../../types'
+import type { CrossLinkParams, TabType } from '../../types'
 
 // SpaCy data interfaces
 interface SpacyToken {
@@ -64,6 +78,14 @@ interface AnnotationTableProps {
   spacyTokens?: SpacyToken[]
   spacyEntities?: SpacyEntity[]
   showVideoColumns?: boolean  // 是否显示视频相关列（起始帧、总帧数）
+  // Cross-link props
+  corpusId?: string
+  textIds?: string[] | 'all'
+  selectionMode?: 'all' | 'selected' | 'tags'
+  selectedTags?: string[]
+  // Row selection
+  onSelect?: (id: string | null) => void
+  selectedId?: string | null
 }
 
 /**
@@ -72,7 +94,7 @@ interface AnnotationTableProps {
 function findPosForRange(start: number, end: number, tokens: SpacyToken[]): string {
   const matching = tokens.filter(t => t.start >= start && t.end <= end)
   if (matching.length === 0) return '-'
-  
+
   const uniquePos = [...new Set(matching.map(t => t.pos))]
   if (uniquePos.length > 1) return 'Mul'
   return uniquePos[0]
@@ -88,7 +110,7 @@ function findEntityForRange(start: number, end: number, entities: SpacyEntity[])
     (e.start <= start && e.end >= end)
   )
   if (matching.length === 0) return '-'
-  
+
   const uniqueLabels = [...new Set(matching.map(e => e.label))]
   if (uniqueLabels.length > 1) return 'Mul'
   return uniqueLabels[0]
@@ -168,7 +190,13 @@ export default function AnnotationTable({
   highlightedId,
   spacyTokens = [],
   spacyEntities = [],
-  showVideoColumns = false
+  showVideoColumns = false,
+  corpusId,
+  textIds,
+  selectionMode = 'all',
+  selectedTags,
+  onSelect,
+  selectedId
 }: AnnotationTableProps) {
   const { t } = useTranslation()
   const theme = useTheme()
@@ -179,8 +207,15 @@ export default function AnnotationTable({
   const [editingAnnotation, setEditingAnnotation] = useState<Annotation | null>(null)
   const [remarkText, setRemarkText] = useState('')
 
+  // Dropdown action menu state
+  const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null)
+  const [menuAnn, setMenuAnn] = useState<Annotation | null>(null)
+  // Pending action executed after menu exit transition (same pattern as WordActionMenu)
+  const pendingActionRef = useRef<(() => void) | null>(null)
+  const { openTab } = useTabStore()
+
   // 过滤 SpaCy 标注
-  const displayAnnotations = useMemo(() => 
+  const displayAnnotations = useMemo(() =>
     annotations.filter(a => !a.id.startsWith('spacy-')),
     [annotations]
   )
@@ -216,11 +251,83 @@ export default function AnnotationTable({
     onHighlight?.(null)
   }
 
+  const handleRowClick = (id: string) => {
+    onSelect?.(selectedId === id ? null : id)
+  }
+
+  // Dropdown menu handlers
+  const handleMenuOpen = (event: React.MouseEvent<HTMLElement>, ann: Annotation) => {
+    event.stopPropagation()
+    setMenuAnchor(event.currentTarget)
+    setMenuAnn(ann)
+  }
+
+  const handleMenuClose = () => {
+    setMenuAnchor(null)
+  }
+
+  const handleMenuExited = () => {
+    if (pendingActionRef.current) {
+      pendingActionRef.current()
+      pendingActionRef.current = null
+    }
+  }
+
+  const buildCrossLinkParams = (ann: Annotation): CrossLinkParams => ({
+    searchWord: ann.text || ann.label,
+    corpusId: corpusId || '',
+    textIds: textIds || 'all',
+    selectionMode,
+    selectedTags,
+    autoSearch: true,
+    sourceModule: 'metaphor'  // annotation module
+  })
+
+  const handleOpenCollocation = () => {
+    if (!menuAnn) return
+    const params = buildCrossLinkParams(menuAnn)
+    const title = `${t('collocation.title', '搭配分析')} - ${menuAnn.text || menuAnn.label}`
+    pendingActionRef.current = () => {
+      openTab({ type: 'collocation' as TabType, title, props: { crossLinkParams: params } })
+    }
+    handleMenuClose()
+  }
+
+  const handleOpenWordSketch = () => {
+    if (!menuAnn) return
+    const params = buildCrossLinkParams(menuAnn)
+    const title = `${t('wordsketch.title', '词图分析')} - ${menuAnn.text || menuAnn.label}`
+    pendingActionRef.current = () => {
+      openTab({ type: 'wordsketch' as TabType, title, props: { crossLinkParams: params } })
+    }
+    handleMenuClose()
+  }
+
+  const handleOpenNgram = () => {
+    if (!menuAnn) return
+    const params = buildCrossLinkParams(menuAnn)
+    const title = `${t('ngram.title', 'N-gram分析')} - ${menuAnn.text || menuAnn.label}`
+    pendingActionRef.current = () => {
+      openTab({ type: 'ngram' as TabType, title, props: { crossLinkParams: params } })
+    }
+    handleMenuClose()
+  }
+
+  const handleDeleteFromMenu = () => {
+    if (!menuAnn) return
+    const annId = menuAnn.id
+    handleMenuClose()
+    // Execute delete directly (no need to defer)
+    onDelete(annId)
+  }
+
+  const hasCrossLinkProps = !!(corpusId && textIds)
+
   if (displayAnnotations.length === 0) {
     return (
-      <TableContainer 
-        component={Paper} 
-        sx={{ 
+      <TableContainer
+        component={Paper}
+        sx={{
           bgcolor: isDarkMode ? 'rgba(255,255,255,0.02)' : '#FAFAFA',
           border: '1px solid',
           borderColor: isDarkMode ? 'rgba(255,255,255,0.1)' : 'divider',
@@ -263,9 +370,9 @@ export default function AnnotationTable({
 
   return (
     <>
-      <TableContainer 
-        component={Paper} 
-        sx={{ 
+      <TableContainer
+        component={Paper}
+        sx={{
           maxHeight: 300,
           bgcolor: isDarkMode ? 'rgba(255,255,255,0.02)' : '#FAFAFA',
           border: '1px solid',
@@ -296,14 +403,23 @@ export default function AnnotationTable({
             {sorted.map((ann, idx) => (
               <TableRow
                 key={ann.id}
+                onClick={() => handleRowClick(ann.id)}
                 onMouseEnter={() => handleMouseEnter(ann.id)}
                 onMouseLeave={handleMouseLeave}
                 sx={{
-                  backgroundColor: highlightedId === ann.id 
-                    ? `${ann.color}20` 
-                    : 'transparent',
+                  cursor: 'pointer',
+                  backgroundColor: selectedId === ann.id
+                    ? `${ann.color || '#2196F3'}30`
+                    : highlightedId === ann.id
+                      ? `${ann.color}20`
+                      : 'transparent',
+                  outline: selectedId === ann.id
+                    ? `1.5px solid ${ann.color || '#2196F3'}`
+                    : 'none',
                   '&:hover': {
-                    backgroundColor: isDarkMode ? 'rgba(255,255,255,0.03)' : '#f9f9f9'
+                    backgroundColor: selectedId === ann.id
+                      ? `${ann.color || '#2196F3'}40`
+                      : isDarkMode ? 'rgba(255,255,255,0.03)' : '#f9f9f9'
                   }
                 }}
               >
@@ -399,7 +515,7 @@ export default function AnnotationTable({
                   <Tooltip title={ann.remark || '添加备注'}>
                     <Button
                       size="small"
-                      onClick={() => handleOpenRemark(ann)}
+                      onClick={(e) => { e.stopPropagation(); handleOpenRemark(ann) }}
                       sx={{
                         minWidth: 28,
                         height: 28,
@@ -418,31 +534,73 @@ export default function AnnotationTable({
                   </Tooltip>
                 </TableCell>
                 <TableCell sx={bodyCellSx}>
-                  <Button
-                    size="small"
-                    onClick={() => onDelete(ann.id)}
-                    sx={{
-                      minWidth: 'auto',
-                      height: 28,
-                      px: 1.5,
-                      bgcolor: '#ff5252',
-                      color: '#fff',
-                      fontSize: '11px',
-                      borderRadius: '4px',
-                      whiteSpace: 'nowrap',
-                      '&:hover': {
-                        bgcolor: '#ff1744'
-                      }
-                    }}
-                  >
-                    {t('common.delete', '删除')}
-                  </Button>
+                  <Tooltip title={t('annotation.moreActions', '更多操作')}>
+                    <IconButton
+                      size="small"
+                      onClick={(e) => handleMenuOpen(e, ann)}
+                      sx={{
+                        opacity: 0.6,
+                        '&:hover': { opacity: 1 }
+                      }}
+                    >
+                      <MoreVertIcon sx={{ fontSize: 18 }} />
+                    </IconButton>
+                  </Tooltip>
                 </TableCell>
               </TableRow>
             ))}
           </TableBody>
         </Table>
       </TableContainer>
+
+      {/* Dropdown action menu */}
+      <Menu
+        anchorEl={menuAnchor}
+        open={Boolean(menuAnchor)}
+        onClose={handleMenuClose}
+        onClick={(e) => e.stopPropagation()}
+        TransitionProps={{ onExited: handleMenuExited }}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+        transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+      >
+        <MenuItem
+          onClick={handleOpenCollocation}
+          disabled={!hasCrossLinkProps}
+        >
+          <ListItemIcon>
+            <LinkIcon fontSize="small" />
+          </ListItemIcon>
+          <ListItemText primary={t('crossLink.viewCollocation', '搭配分析')} />
+        </MenuItem>
+        <MenuItem
+          onClick={handleOpenWordSketch}
+          disabled={!hasCrossLinkProps}
+        >
+          <ListItemIcon>
+            <HubIcon fontSize="small" />
+          </ListItemIcon>
+          <ListItemText primary={t('crossLink.viewWordSketch', '词图分析')} />
+        </MenuItem>
+        <MenuItem
+          onClick={handleOpenNgram}
+          disabled={!hasCrossLinkProps}
+        >
+          <ListItemIcon>
+            <TableChartIcon fontSize="small" />
+          </ListItemIcon>
+          <ListItemText primary={t('crossLink.viewNgram', 'N-gram分析')} />
+        </MenuItem>
+        <Divider />
+        <MenuItem
+          onClick={handleDeleteFromMenu}
+          sx={{ color: '#f44336' }}
+        >
+          <ListItemIcon>
+            <DeleteIcon fontSize="small" sx={{ color: '#f44336' }} />
+          </ListItemIcon>
+          <ListItemText primary={t('annotation.deleteAnnotation', '删除标注')} />
+        </MenuItem>
+      </Menu>
 
       {/* 备注对话框 */}
       <Dialog
