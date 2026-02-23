@@ -1027,11 +1027,18 @@ export default function MultimodalWorkspace({
     
     // Draw video annotations from annotations prop (for loaded archives)
     // These are stored as single-frame bbox data in the archive
+    // Skip entries already being drawn by savedVideoBoxes (prevents duplicate boxes after save)
     annotations.filter(a => a.type === 'video' && a.bbox).forEach(ann => {
       const startFrame = ann.frameNumber || 0
       const frameCount = ann.frameCount || 1
       const endFrame = startFrame + frameCount - 1
-      
+
+      // Skip if this annotation's frame range is already rendered by savedVideoBoxes
+      const alreadyDrawnBySavedBoxes = savedVideoBoxes.some(
+        (vb: any) => vb.startFrame === startFrame && vb.endFrame === endFrame
+      )
+      if (alreadyDrawnBySavedBoxes) return
+
       // Check if current frame is within this annotation's range
       if (currentFrame >= startFrame && currentFrame <= endFrame) {
         const bbox = ann.bbox as number[]
@@ -1556,6 +1563,7 @@ export default function MultimodalWorkspace({
               clipAnnotation={clipAnnotation}
               searchHighlights={externalSearchHighlights}
               disabled={audioDrawMode || drawMode}
+              selectedAnnotationId={selectedAnnotationId}
             />
           )}
 
@@ -1690,6 +1698,7 @@ export default function MultimodalWorkspace({
               selectedTags={selectedTags}
               onSelect={(id) => setSelectedAnnotationId(id)}
               selectedId={selectedAnnotationId}
+              directDeleteOnly={true}
             />
           )}
         </Box>

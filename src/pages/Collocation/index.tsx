@@ -401,6 +401,11 @@ export default function Collocation({ crossLinkParams }: CollocationProps) {
         if (crossLinkParams.autoSearch) {
           pendingAutoSearchRef.current = true
         }
+
+        // Switch to the specified sub-tab (0=results, 1=visualization)
+        if (crossLinkParams.targetSubTab !== undefined) {
+          setRightTab(crossLinkParams.targetSubTab)
+        }
       }
     }
   }, [crossLinkParams, corpora])

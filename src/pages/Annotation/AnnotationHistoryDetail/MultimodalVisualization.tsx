@@ -270,10 +270,29 @@ export default function MultimodalVisualization({
   // 绘制散点图 + CLIP 折线背景
   const drawScatterChart = useCallback(() => {
     if (!svgRef.current) return
-    
+
     const svg = d3.select(svgRef.current)
     svg.selectAll('*').remove()
-    
+
+    // Show empty state when no YOLO/manual data and no CLIP data
+    if (scatterData.length === 0 && !hasClipData) {
+      const w = 600, h = 300
+      svg.attr('viewBox', `0 0 ${w} ${h}`).attr('width', '100%').attr('height', '100%')
+      svg.append('text')
+        .attr('x', w / 2).attr('y', h / 2 - 16)
+        .attr('text-anchor', 'middle')
+        .attr('fill', themeColors.noDataText)
+        .attr('font-size', 15)
+        .text(t('annotation.noVideoAnnotations', '暂无视频标注数据'))
+      svg.append('text')
+        .attr('x', w / 2).attr('y', h / 2 + 14)
+        .attr('text-anchor', 'middle')
+        .attr('fill', themeColors.noDataText)
+        .attr('font-size', 12)
+        .text(t('annotation.addVideoBoxesToSeeTimeline', '在视频上绘制标注框后此处将显示时间线'))
+      return
+    }
+
     const width = 900
     // 计算 CLIP 标签数量以确定底部图例高度
     const clipLabels = hasClipData && clipData 
@@ -936,9 +955,9 @@ export default function MultimodalVisualization({
       .attr('transform', labelTransform)
       .attr('text-anchor', 'middle')
       .attr('dominant-baseline', 'middle')
-      .attr('fill', themeColors.text)
+      .attr('fill', 'white')
       .attr('font-size', 9)
-      .attr('font-weight', 500)
+      .attr('font-weight', 600)
       .attr('pointer-events', 'none')
       .attr('fill-opacity', d => labelVisible(d) ? 1 : 0)
       .text(d => {
@@ -1096,11 +1115,30 @@ export default function MultimodalVisualization({
   
   // 绘制热图（只包含 YOLO + 手动标注）
   const drawHeatmapChart = useCallback(() => {
-    if (!svgRef.current || heatmapData.data.length === 0) return
-    
+    if (!svgRef.current) return
+
     const svg = d3.select(svgRef.current)
     svg.selectAll('*').remove()
-    
+
+    // Show empty state when no annotation data
+    if (heatmapData.data.length === 0) {
+      const w = 600, h = 300
+      svg.attr('viewBox', `0 0 ${w} ${h}`).attr('width', '100%').attr('height', '100%')
+      svg.append('text')
+        .attr('x', w / 2).attr('y', h / 2 - 16)
+        .attr('text-anchor', 'middle')
+        .attr('fill', themeColors.noDataText)
+        .attr('font-size', 15)
+        .text(t('annotation.noVideoAnnotations', '暂无视频标注数据'))
+      svg.append('text')
+        .attr('x', w / 2).attr('y', h / 2 + 14)
+        .attr('text-anchor', 'middle')
+        .attr('fill', themeColors.noDataText)
+        .attr('font-size', 12)
+        .text(t('annotation.addVideoBoxesToSeeHeatmap', '在视频上绘制标注框后此处将显示热图'))
+      return
+    }
+
     const width = 800
     const height = Math.max(400, heatmapData.labels.length * 35 + 120)
     const margin = { top: 50, right: 100, left: 180, bottom: 100 }
