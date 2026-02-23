@@ -47,6 +47,7 @@ import LinkIcon from '@mui/icons-material/Link'
 import HubIcon from '@mui/icons-material/Hub'
 import TableChartIcon from '@mui/icons-material/TableChart'
 import DeleteIcon from '@mui/icons-material/Delete'
+import CloseIcon from '@mui/icons-material/Close'
 import { useTranslation } from 'react-i18next'
 import { useTabStore } from '../../stores/tabStore'
 import type { Annotation } from '../../types'
@@ -86,6 +87,8 @@ interface AnnotationTableProps {
   // Row selection
   onSelect?: (id: string | null) => void
   selectedId?: string | null
+  /** When true, show a direct X delete button instead of MoreVert dropdown menu */
+  directDeleteOnly?: boolean
 }
 
 /**
@@ -196,7 +199,8 @@ export default function AnnotationTable({
   selectionMode = 'all',
   selectedTags,
   onSelect,
-  selectedId
+  selectedId,
+  directDeleteOnly = false
 }: AnnotationTableProps) {
   const { t } = useTranslation()
   const theme = useTheme()
@@ -288,7 +292,7 @@ export default function AnnotationTable({
     const params = buildCrossLinkParams(menuAnn)
     const title = `${t('collocation.title', '搭配分析')} - ${menuAnn.text || menuAnn.label}`
     pendingActionRef.current = () => {
-      openTab({ type: 'collocation' as TabType, title, props: { crossLinkParams: params } })
+      openTab({ type: 'collocation' as TabType, title, props: { crossLinkParams: { ...params, targetSubTab: 0 } } })
     }
     handleMenuClose()
   }
@@ -296,9 +300,10 @@ export default function AnnotationTable({
   const handleOpenWordSketch = () => {
     if (!menuAnn) return
     const params = buildCrossLinkParams(menuAnn)
-    const title = `${t('wordsketch.title', '词图分析')} - ${menuAnn.text || menuAnn.label}`
+    // Word Sketch links to the visualization sub-tab (rightTab=1) of the Collocation Analysis module
+    const title = `${t('collocation.title', '搭配分析')} - ${menuAnn.text || menuAnn.label}`
     pendingActionRef.current = () => {
-      openTab({ type: 'wordsketch' as TabType, title, props: { crossLinkParams: params } })
+      openTab({ type: 'collocation' as TabType, title, props: { crossLinkParams: { ...params, targetSubTab: 1 } } })
     }
     handleMenuClose()
   }
@@ -544,18 +549,31 @@ export default function AnnotationTable({
                   </Tooltip>
                 </TableCell>
                 <TableCell sx={bodyCellSx}>
-                  <Tooltip title={t('annotation.moreActions', '更多操作')}>
-                    <IconButton
-                      size="small"
-                      onClick={(e) => handleMenuOpen(e, ann)}
-                      sx={{
-                        opacity: 0.6,
-                        '&:hover': { opacity: 1 }
-                      }}
-                    >
-                      <MoreVertIcon sx={{ fontSize: 18 }} />
-                    </IconButton>
-                  </Tooltip>
+                  {directDeleteOnly ? (
+                    <Tooltip title={t('common.delete', '删除')}>
+                      <IconButton
+                        size="small"
+                        color="error"
+                        onClick={(e) => { e.stopPropagation(); onDelete(ann.id) }}
+                        sx={{ opacity: 0.7, '&:hover': { opacity: 1 } }}
+                      >
+                        <CloseIcon sx={{ fontSize: 16 }} />
+                      </IconButton>
+                    </Tooltip>
+                  ) : (
+                    <Tooltip title={t('annotation.moreActions', '更多操作')}>
+                      <IconButton
+                        size="small"
+                        onClick={(e) => handleMenuOpen(e, ann)}
+                        sx={{
+                          opacity: 0.6,
+                          '&:hover': { opacity: 1 }
+                        }}
+                      >
+                        <MoreVertIcon sx={{ fontSize: 18 }} />
+                      </IconButton>
+                    </Tooltip>
+                  )}
                 </TableCell>
               </TableRow>
             ))}

@@ -50,6 +50,7 @@ interface TranscriptAnnotatorProps {
   clipAnnotation?: ClipAnnotationData | null  // Optional CLIP annotation data
   searchHighlights?: SearchHighlight[]  // 搜索高亮
   disabled?: boolean  // 禁用标注功能（例如音频画框模式时）
+  selectedAnnotationId?: string | null  // 当前选中的标注ID（来自标注列表），用于双圈阴影+上浮高亮
 }
 
 // Format time in MM:SS format
@@ -201,7 +202,8 @@ const TranscriptAnnotator = forwardRef<TranscriptAnnotatorRef, TranscriptAnnotat
   clipAnnotation,
   language = 'english',
   searchHighlights = [],
-  disabled = false
+  disabled = false,
+  selectedAnnotationId = null
 }, ref) => {
   const theme = useTheme()
   const isDarkMode = theme.palette.mode === 'dark'
@@ -935,7 +937,8 @@ const TranscriptAnnotator = forwardRef<TranscriptAnnotatorRef, TranscriptAnnotat
                         >
                           {layerAnnotations.map(ann => {
                             const pos = segPositions.get(ann.id)
-                            
+                            const isSelectedBlock = ann.id === selectedAnnotationId
+
                             return (
                               <Box
                                 key={ann.id}
@@ -955,15 +958,21 @@ const TranscriptAnnotator = forwardRef<TranscriptAnnotatorRef, TranscriptAnnotat
                                   textOverflow: 'ellipsis',
                                   whiteSpace: 'nowrap',
                                   px: '2px',
-                                  boxShadow: '0 1px 2px rgba(0,0,0,0.3)',
+                                  boxShadow: isSelectedBlock
+                                    ? `0 0 0 2px white, 0 0 0 4px ${ann.color || '#2196F3'}, 0 3px 8px rgba(0,0,0,0.3)`
+                                    : '0 1px 2px rgba(0,0,0,0.3)',
                                   bgcolor: ann.color || '#2196F3',
                                   opacity: pos ? 1 : 0,
                                   left: pos?.left ?? 0,
                                   width: pos?.width ?? 'auto',
-                                  transition: 'transform 0.1s, box-shadow 0.1s, opacity 0.2s',
+                                  transform: isSelectedBlock ? 'translateY(-2px) scaleY(1.1)' : undefined,
+                                  zIndex: isSelectedBlock ? 15 : undefined,
+                                  transition: 'transform 0.15s, box-shadow 0.15s, opacity 0.2s',
                                   '&:hover': {
-                                    transform: 'translateY(-1px)',
-                                    boxShadow: '0 2px 4px rgba(0,0,0,0.4)',
+                                    transform: isSelectedBlock ? 'translateY(-3px) scaleY(1.1)' : 'translateY(-1px)',
+                                    boxShadow: isSelectedBlock
+                                      ? `0 0 0 2px white, 0 0 0 4px ${ann.color || '#2196F3'}, 0 5px 12px rgba(0,0,0,0.4)`
+                                      : '0 2px 4px rgba(0,0,0,0.4)',
                                     zIndex: 10
                                   }
                                 }}

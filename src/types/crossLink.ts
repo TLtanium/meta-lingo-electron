@@ -59,6 +59,8 @@ export interface CrossLinkParams {
   ngramValues?: number[]
   /** Search type to pre-select in N-gram analysis (e.g. 'contains') */
   ngramSearchType?: string
+  /** Target sub-tab index within the opened module (e.g. for Collocation: 0=results, 1=visualization) */
+  targetSubTab?: number
 }
 
 /**
