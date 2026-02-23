@@ -59,6 +59,10 @@ const CLIP_LINE_COLORS = [
 const YOLO_PALETTE = ['#93c5fd', '#60a5fa', '#3b82f6', '#2563eb', '#1d4ed8', '#1e40af']
 const MANUAL_PALETTE = ['#fca5a5', '#f87171', '#ef4444', '#dc2626', '#b91c1c', '#991b1b']
 
+// 文本标注颜色（绿色系）
+const TEXT_COLOR = '#10b981'
+const TEXT_PALETTE = ['#6ee7b7', '#34d399', '#10b981', '#059669', '#047857', '#065f46']
+
 type ChartType = 'scatter' | 'sunburst' | 'heatmap'
 
 export default function MultimodalVisualization({ 
@@ -245,8 +249,22 @@ export default function MultimodalVisualization({
     return { labels: allLabels, timeSlots, data }
   }, [scatterData])
   
+  // 文本标注标签统计（排除视频标注和 SpaCy 标注）
+  const textAnnotationStats = useMemo(() => {
+    const counts: Record<string, number> = {}
+    annotations.forEach(ann => {
+      if (ann.type !== 'video' && !ann.id.startsWith('spacy-')) {
+        counts[ann.label] = (counts[ann.label] || 0) + 1
+      }
+    })
+    return Object.entries(counts)
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value)
+  }, [annotations])
+
   const hasYoloData = yoloStats.length > 0
   const hasManualData = manualStats.length > 0
+  const hasTextData = textAnnotationStats.length > 0
   const hasClipData = !!clipData && clipData.frameData.length > 0
   
   // 绘制散点图 + CLIP 折线背景
@@ -726,19 +744,26 @@ export default function MultimodalVisualization({
       color: YOLO_PALETTE[Math.min(i, YOLO_PALETTE.length - 1)],
       group: 'YOLO'
     }))
-    
+
     const manualChildren: HierarchyNode[] = manualStats.map((item, i) => ({
       name: item.name,
       value: item.value,
       color: MANUAL_PALETTE[Math.min(i, MANUAL_PALETTE.length - 1)],
       group: t('annotation.manualAnnotation', '手动标注')
     }))
-    
+
+    const textChildren: HierarchyNode[] = textAnnotationStats.map((item, i) => ({
+      name: item.name,
+      value: item.value,
+      color: TEXT_PALETTE[Math.min(i, TEXT_PALETTE.length - 1)],
+      group: t('annotation.textAnnotations', '文本标注')
+    }))
+
     const hierarchyData: HierarchyNode = {
       name: t('annotation.totalAnnotations', '总标注'),
       children: []
     }
-    
+
     if (hasYoloData && yoloChildren.length > 0) {
       hierarchyData.children!.push({
         name: 'YOLO',
@@ -746,12 +771,20 @@ export default function MultimodalVisualization({
         color: YOLO_COLOR
       })
     }
-    
+
     if (hasManualData && manualChildren.length > 0) {
       hierarchyData.children!.push({
         name: t('annotation.manualAnnotation', '手动标注'),
         children: manualChildren,
         color: MANUAL_COLOR
+      })
+    }
+
+    if (hasTextData && textChildren.length > 0) {
+      hierarchyData.children!.push({
+        name: t('annotation.textAnnotations', '文本标注'),
+        children: textChildren,
+        color: TEXT_COLOR
       })
     }
     
@@ -800,19 +833,26 @@ export default function MultimodalVisualization({
       .attr('transform', `translate(${centerX}, ${centerY})`)
     
     // 获取节点颜色
+    const textGroupName = t('annotation.textAnnotations', '文本标注')
+    const manualGroupName = t('annotation.manualAnnotation', '手动标注')
     const getNodeColor = (d: d3.HierarchyRectangularNode<HierarchyNode>): string => {
       if (d.data.color) return d.data.color
       if (d.depth === 1) {
-        return d.data.name === 'YOLO' ? YOLO_COLOR : MANUAL_COLOR
+        if (d.data.name === 'YOLO') return YOLO_COLOR
+        if (d.data.name === textGroupName) return TEXT_COLOR
+        return MANUAL_COLOR
       }
       const parent = d.parent
+      const idx = parent && parent.children ? parent.children.indexOf(d) : 0
       if (parent && parent.data.name === 'YOLO') {
-        const idx = parent.children ? parent.children.indexOf(d) : 0
         return YOLO_PALETTE[Math.min(idx, YOLO_PALETTE.length - 1)]
       }
-      const idx = parent && parent.children ? parent.children.indexOf(d) : 0
+      if (parent && parent.data.name === textGroupName) {
+        return TEXT_PALETTE[Math.min(idx, TEXT_PALETTE.length - 1)]
+      }
       return MANUAL_PALETTE[Math.min(idx, MANUAL_PALETTE.length - 1)]
     }
+    void manualGroupName // suppress lint
     
     // 当前聚焦的节点
     let currentFocus = root as NodeWithTarget
@@ -1016,7 +1056,8 @@ export default function MultimodalVisualization({
     
     const groups = [
       ...(hasYoloData ? [{ name: 'YOLO', color: YOLO_COLOR, count: yoloStats.reduce((sum, s) => sum + s.value, 0) }] : []),
-      ...(hasManualData ? [{ name: t('annotation.manualAnnotation', '手动标注'), color: MANUAL_COLOR, count: manualStats.reduce((sum, s) => sum + s.value, 0) }] : [])
+      ...(hasManualData ? [{ name: t('annotation.manualAnnotation', '手动标注'), color: MANUAL_COLOR, count: manualStats.reduce((sum, s) => sum + s.value, 0) }] : []),
+      ...(hasTextData ? [{ name: t('annotation.textAnnotations', '文本标注'), color: TEXT_COLOR, count: textAnnotationStats.reduce((sum, s) => sum + s.value, 0) }] : [])
     ]
     
     groups.forEach((group, i) => {
@@ -1051,7 +1092,7 @@ export default function MultimodalVisualization({
       .text(t('annotation.sunburstChart', '标注分布太阳图'))
     
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [yoloStats, manualStats, hasYoloData, hasManualData, t, isDarkMode])
+  }, [yoloStats, manualStats, textAnnotationStats, hasYoloData, hasManualData, hasTextData, t, isDarkMode])
   
   // 绘制热图（只包含 YOLO + 手动标注）
   const drawHeatmapChart = useCallback(() => {
@@ -1367,7 +1408,7 @@ export default function MultimodalVisualization({
     }
   }
   
-  const hasData = totalYoloCount > 0 || totalManualCount > 0 || totalClipFrames > 0
+  const hasData = totalYoloCount > 0 || totalManualCount > 0 || totalClipFrames > 0 || hasTextData
   
   if (!hasData) {
     return (
@@ -1529,9 +1570,14 @@ export default function MultimodalVisualization({
               </Typography>
             </Stack>
           )}
-          <Typography variant="body2" color="text.secondary">
-            {t('annotation.transcriptAnnotation', '转录标注')}: <strong>{annotations.filter(a => a.type !== 'video').length}</strong>
-          </Typography>
+          {hasTextData && (
+            <Stack direction="row" spacing={0.5} alignItems="center">
+              <Box sx={{ width: 12, height: 12, borderRadius: '50%', bgcolor: TEXT_COLOR }} />
+              <Typography variant="body2" color="text.secondary">
+                {t('annotation.textAnnotations', '文本标注')}: <strong>{textAnnotationStats.reduce((s, a) => s + a.value, 0)}</strong>
+              </Typography>
+            </Stack>
+          )}
         </Stack>
       </Box>
     </Box>

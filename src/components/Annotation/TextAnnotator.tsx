@@ -38,11 +38,15 @@ interface TextAnnotatorProps {
   sentences?: SpacySentence[]
   // 搜索高亮相关
   searchHighlights?: SearchHighlight[]
+  // 选中标注 ID（来自表格行点击，用于定位高亮）
+  selectedAnnotationId?: string | null
 }
 
 // 导出 ref 类型
 export interface TextAnnotatorRef {
   getContainer: () => HTMLDivElement | null
+  /** 滚动到指定标注并在视图内居中 */
+  scrollToAnnotation: (id: string) => void
 }
 
 // 常见缩写列表（与后端保持一致）
@@ -487,7 +491,8 @@ const TextAnnotator = forwardRef<TextAnnotatorRef, TextAnnotatorProps>(({
   onAnnotationRemove,
   readOnly = false,
   sentences: externalSentences,
-  searchHighlights = []
+  searchHighlights = [],
+  selectedAnnotationId = null
 }, ref) => {
   const { t } = useTranslation()
   const theme = useTheme()
@@ -498,7 +503,17 @@ const TextAnnotator = forwardRef<TextAnnotatorRef, TextAnnotatorProps>(({
 
   // 暴露 ref 方法
   useImperativeHandle(ref, () => ({
-    getContainer: () => containerRef.current
+    getContainer: () => containerRef.current,
+    scrollToAnnotation: (id: string) => {
+      if (!containerRef.current) return
+      // 找到标注块所在的句子行，滚动到该行
+      const annEl = containerRef.current.querySelector(`[data-annotation-id="${CSS.escape(id)}"]`) as HTMLElement
+      if (annEl) {
+        const sentenceRow = annEl.closest('[data-sentence-idx]') as HTMLElement
+        const target = sentenceRow || annEl
+        target.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+      }
+    }
   }))
 
   // 获取句子（SpaCy 或 fallback）- 动态重新对齐索引
@@ -929,11 +944,13 @@ const TextAnnotator = forwardRef<TextAnnotatorRef, TextAnnotatorProps>(({
                           {layerAnnotations.map(ann => {
                             const pos = sentPositions.get(ann.id)
                             const isSpacy = ann.id.startsWith('spacy-')
-                            
+                            const isSelected = !isSpacy && ann.id === selectedAnnotationId
+
                             return (
                               <Box
                                 key={ann.id}
                                 className="annotation-block"
+                                data-annotation-id={ann.id}
                                 onClick={(e) => handleBlockClick(ann, e)}
                                 sx={{
                                   position: 'absolute',
@@ -950,20 +967,26 @@ const TextAnnotator = forwardRef<TextAnnotatorRef, TextAnnotatorProps>(({
                                   textOverflow: 'ellipsis',
                                   whiteSpace: 'nowrap',
                                   px: '2px',
-                                  boxShadow: '0 1px 2px rgba(0,0,0,0.15)',
+                                  boxShadow: isSelected
+                                    ? `0 0 0 2px white, 0 0 0 4px ${ann.color || '#2196F3'}, 0 3px 8px rgba(0,0,0,0.3)`
+                                    : '0 1px 2px rgba(0,0,0,0.15)',
                                   bgcolor: ann.color || '#2196F3',
                                   opacity: isSpacy ? 0.6 : (pos ? 1 : 0),
                                   left: pos?.left ?? 0,
                                   width: pos?.width ?? 'auto',
-                                  transition: 'transform 0.1s, box-shadow 0.1s, opacity 0.2s',
+                                  zIndex: isSelected ? 15 : undefined,
+                                  transform: isSelected ? 'translateY(-2px) scaleY(1.1)' : undefined,
+                                  transition: 'transform 0.15s, box-shadow 0.15s, opacity 0.2s',
                                   '&:hover': readOnly || isSpacy ? {} : {
-                                    transform: 'translateY(-1px)',
-                                    boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+                                    transform: isSelected ? 'translateY(-2px) scaleY(1.1)' : 'translateY(-1px)',
+                                    boxShadow: isSelected
+                                      ? `0 0 0 2px white, 0 0 0 4px ${ann.color || '#2196F3'}, 0 4px 10px rgba(0,0,0,0.35)`
+                                      : '0 2px 4px rgba(0,0,0,0.2)',
                                     zIndex: 10
                                   }
                                 }}
-                                title={isSpacy 
-                                  ? `${ann.label}: ${ann.text} (SpaCy)` 
+                                title={isSpacy
+                                  ? `${ann.label}: ${ann.text} (SpaCy)`
                                   : `${ann.label}: ${ann.text}`
                                 }
                               >

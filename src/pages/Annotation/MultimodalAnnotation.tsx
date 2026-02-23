@@ -110,7 +110,9 @@ interface ClipAnnotationData {
 
 export default function MultimodalAnnotation() {
   const { t } = useTranslation()
-  const { corpora, currentCorpus, setCurrentCorpus, setCorpora } = useCorpusStore()
+  const { corpora, setCorpora } = useCorpusStore()
+  // 使用本地状态存储当前语料库，避免与纯文本标注页共享 currentCorpus 导致互相干扰
+  const [currentCorpus, setCurrentCorpus] = useState<Corpus | null>(null)
 
   // Framework state
   const [frameworks, setFrameworks] = useState<FrameworkCategory[]>([])
