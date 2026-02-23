@@ -104,7 +104,7 @@ function TabContent({ tab }: { tab: TabType }) {
     case 'keyword':
       return <KeywordExtraction />
     case 'ngram':
-      return <NGram />
+      return <NGram crossLinkParams={crossLinkParams} />
     case 'collocation':
       return <Collocation crossLinkParams={crossLinkParams} />
     case 'semantic':

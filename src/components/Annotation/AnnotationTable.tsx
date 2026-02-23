@@ -300,10 +300,9 @@ export default function AnnotationTable({
   const handleOpenWordSketch = () => {
     if (!menuAnn) return
     const params = buildCrossLinkParams(menuAnn)
-    // Word Sketch links to the visualization sub-tab (rightTab=1) of the Collocation Analysis module
-    const title = `${t('collocation.title', '搭配分析')} - ${menuAnn.text || menuAnn.label}`
+    const title = `${t('wordsketch.title', '词图分析')} - ${menuAnn.text || menuAnn.label}`
     pendingActionRef.current = () => {
-      openTab({ type: 'collocation' as TabType, title, props: { crossLinkParams: { ...params, targetSubTab: 1 } } })
+      openTab({ type: 'wordsketch' as TabType, title, props: { crossLinkParams: params } })
     }
     handleMenuClose()
   }
@@ -354,23 +353,23 @@ export default function AnnotationTable({
             <TableRow>
               <TableCell sx={headerCellSx}>#</TableCell>
               <TableCell sx={headerCellSx}>{t('annotation.label', '标签')}</TableCell>
-              <TableCell sx={headerCellSx}>{t('annotation.text', '文本')}</TableCell>
+              {!directDeleteOnly && <TableCell sx={headerCellSx}>{t('annotation.text', '文本')}</TableCell>}
               {showVideoColumns && (
                 <>
                   <TableCell sx={headerCellSx}>起始帧</TableCell>
                   <TableCell sx={headerCellSx}>总帧数</TableCell>
                 </>
               )}
-              <TableCell sx={headerCellSx}>{t('annotation.pos', '词性')}</TableCell>
-              <TableCell sx={headerCellSx}>{t('annotation.ner', '命名实体')}</TableCell>
-              <TableCell sx={headerCellSx}>{t('annotation.position', '位置')}</TableCell>
+              {!directDeleteOnly && <TableCell sx={headerCellSx}>{t('annotation.pos', '词性')}</TableCell>}
+              {!directDeleteOnly && <TableCell sx={headerCellSx}>{t('annotation.ner', '命名实体')}</TableCell>}
+              {!directDeleteOnly && <TableCell sx={headerCellSx}>{t('annotation.position', '位置')}</TableCell>}
               <TableCell sx={headerCellSx}>{t('annotation.remark', '备注')}</TableCell>
               <TableCell sx={headerCellSx}>{t('annotation.action', '操作')}</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             <TableRow>
-              <TableCell colSpan={showVideoColumns ? 10 : 8} sx={{ textAlign: 'center', color: 'text.secondary', py: 3 }}>
+              <TableCell colSpan={directDeleteOnly ? (showVideoColumns ? 6 : 4) : (showVideoColumns ? 10 : 8)} sx={{ textAlign: 'center', color: 'text.secondary', py: 3 }}>
                 {t('annotation.noAnnotations', '暂无标注，选中文本进行标注')}
               </TableCell>
             </TableRow>
@@ -400,16 +399,16 @@ export default function AnnotationTable({
             <TableRow>
               <TableCell sx={headerCellSx}>#</TableCell>
               <TableCell sx={headerCellSx}>{t('annotation.label', '标签')}</TableCell>
-              <TableCell sx={headerCellSx}>{t('annotation.text', '文本')}</TableCell>
+              {!directDeleteOnly && <TableCell sx={headerCellSx}>{t('annotation.text', '文本')}</TableCell>}
               {showVideoColumns && (
                 <>
                   <TableCell sx={headerCellSx}>起始帧</TableCell>
                   <TableCell sx={headerCellSx}>总帧数</TableCell>
                 </>
               )}
-              <TableCell sx={headerCellSx}>{t('annotation.pos', '词性')}</TableCell>
-              <TableCell sx={headerCellSx}>{t('annotation.ner', '命名实体')}</TableCell>
-              <TableCell sx={headerCellSx}>{t('annotation.position', '位置')}</TableCell>
+              {!directDeleteOnly && <TableCell sx={headerCellSx}>{t('annotation.pos', '词性')}</TableCell>}
+              {!directDeleteOnly && <TableCell sx={headerCellSx}>{t('annotation.ner', '命名实体')}</TableCell>}
+              {!directDeleteOnly && <TableCell sx={headerCellSx}>{t('annotation.position', '位置')}</TableCell>}
               <TableCell sx={headerCellSx}>{t('annotation.remark', '备注')}</TableCell>
               <TableCell sx={headerCellSx}>{t('annotation.action', '操作')}</TableCell>
             </TableRow>
@@ -458,21 +457,23 @@ export default function AnnotationTable({
                     {ann.label}
                   </Box>
                 </TableCell>
-                <TableCell sx={{ ...bodyCellSx, maxWidth: 200 }}>
-                  <Typography
-                    variant="body2"
-                    sx={{
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
-                      fontSize: '12px',
-                      display: 'block'
-                    }}
-                    title={ann.type === 'video' ? `[${ann.label}]` : ann.text}
-                  >
-                    {ann.type === 'video' ? `[${ann.label}]` : ann.text}
-                  </Typography>
-                </TableCell>
+                {!directDeleteOnly && (
+                  <TableCell sx={{ ...bodyCellSx, maxWidth: 200 }}>
+                    <Typography
+                      variant="body2"
+                      sx={{
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                        fontSize: '12px',
+                        display: 'block'
+                      }}
+                      title={ann.type === 'video' ? `[${ann.label}]` : ann.text}
+                    >
+                      {ann.type === 'video' ? `[${ann.label}]` : ann.text}
+                    </Typography>
+                  </TableCell>
+                )}
                 {showVideoColumns && (
                   <>
                     <TableCell sx={bodyCellSx}>
@@ -483,49 +484,55 @@ export default function AnnotationTable({
                     </TableCell>
                   </>
                 )}
-                <TableCell sx={bodyCellSx}>
-                  {ann.pos && ann.pos !== '-' ? (
-                    <Tooltip title={ann.pos === 'Mul' ? 'Multiple POS tags' : ann.pos}>
-                      <Chip
-                        label={ann.pos}
-                        size="small"
-                        sx={{
-                          height: 20,
-                          fontSize: '10px',
-                          bgcolor: `${getPosColor(ann.pos)}20`,
-                          color: getPosColor(ann.pos),
-                          fontWeight: 500,
-                          '& .MuiChip-label': { px: 1 }
-                        }}
-                      />
-                    </Tooltip>
-                  ) : (
-                    <Typography variant="caption" color="text.disabled">-</Typography>
-                  )}
-                </TableCell>
-                <TableCell sx={bodyCellSx}>
-                  {ann.entity && ann.entity !== '-' ? (
-                    <Tooltip title={ann.entity === 'Mul' ? 'Multiple entities' : ann.entity}>
-                      <Chip
-                        label={ann.entity}
-                        size="small"
-                        sx={{
-                          height: 20,
-                          fontSize: '10px',
-                          bgcolor: `${getEntityColor(ann.entity)}20`,
-                          color: getEntityColor(ann.entity),
-                          fontWeight: 500,
-                          '& .MuiChip-label': { px: 1 }
-                        }}
-                      />
-                    </Tooltip>
-                  ) : (
-                    <Typography variant="caption" color="text.disabled">-</Typography>
-                  )}
-                </TableCell>
-                <TableCell sx={bodyCellSx}>
-                  {ann.startPosition}
-                </TableCell>
+                {!directDeleteOnly && (
+                  <TableCell sx={bodyCellSx}>
+                    {ann.pos && ann.pos !== '-' ? (
+                      <Tooltip title={ann.pos === 'Mul' ? 'Multiple POS tags' : ann.pos}>
+                        <Chip
+                          label={ann.pos}
+                          size="small"
+                          sx={{
+                            height: 20,
+                            fontSize: '10px',
+                            bgcolor: `${getPosColor(ann.pos)}20`,
+                            color: getPosColor(ann.pos),
+                            fontWeight: 500,
+                            '& .MuiChip-label': { px: 1 }
+                          }}
+                        />
+                      </Tooltip>
+                    ) : (
+                      <Typography variant="caption" color="text.disabled">-</Typography>
+                    )}
+                  </TableCell>
+                )}
+                {!directDeleteOnly && (
+                  <TableCell sx={bodyCellSx}>
+                    {ann.entity && ann.entity !== '-' ? (
+                      <Tooltip title={ann.entity === 'Mul' ? 'Multiple entities' : ann.entity}>
+                        <Chip
+                          label={ann.entity}
+                          size="small"
+                          sx={{
+                            height: 20,
+                            fontSize: '10px',
+                            bgcolor: `${getEntityColor(ann.entity)}20`,
+                            color: getEntityColor(ann.entity),
+                            fontWeight: 500,
+                            '& .MuiChip-label': { px: 1 }
+                          }}
+                        />
+                      </Tooltip>
+                    ) : (
+                      <Typography variant="caption" color="text.disabled">-</Typography>
+                    )}
+                  </TableCell>
+                )}
+                {!directDeleteOnly && (
+                  <TableCell sx={bodyCellSx}>
+                    {ann.startPosition}
+                  </TableCell>
+                )}
                 <TableCell sx={bodyCellSx}>
                   <Tooltip title={ann.remark || '添加备注'}>
                     <Button
