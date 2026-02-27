@@ -155,7 +155,7 @@ For English audio, the system automatically performs after Whisper transcription
 - **TorchCrepe Pitch Extraction**: Extract fundamental frequency (F0) data using `full.pth` model
 - These data are used for waveform visualization in multimodal annotation
 
-> **Note**: Chinese audio does not support forced alignment and pitch extraction. Chinese audio can only be annotated in plain text annotation mode.
+> **Note**: Chinese audio does not support forced alignment and pitch extraction. Chinese audio can only be annotated in Text Annotation mode.
 
 #### YOLO Object Detection
 
@@ -748,7 +748,7 @@ Export buttons are located on the right side of the chart settings bar.
 
 ## Overview
 
-The Synonym Analysis module is based on the NLTK WordNet dictionary and automatically identifies synonym relationships for words in your corpus. This module helps you discover semantic associations between words, understand vocabulary semantic networks, and supports multiple visualization methods.
+The Synonym Analysis module (also called Word Family) is based on the NLTK WordNet dictionary and automatically identifies synonym relationships for words in your corpus. It supports the same **corpus/library** unified selector as Word Frequency and other modules; results **only include synonyms that actually appear in the selected corpus** (intersection with dictionary synonymy), making it easier to find substitution patterns and semantic associations. It offers network and tree visualizations and cross-module links (co-occurrence, collocation analysis, word sketch, N-gram, semantic domain analysis, etc.).
 
 ## Analysis Principles
 
@@ -773,8 +773,8 @@ The Synonym Analysis module uses the following technical components:
 3. **Lemma Extraction**: Extract all lemmas from each synset as synonyms
 
 4. **Corpus Filtering**: **Only retain synonyms that actually appear in the current corpus**
-   - This means analysis results show only words existing in your corpus
-   - Useful for discovering vocabulary substitution patterns and semantic associations in your corpus
+   - This filtering is applied automatically by the backend before returning results (intersection with dictionary synonymy)
+   - Analysis results show only words present in the corpus, useful for substitution patterns and semantic associations
 
 ### Important Notes
 
@@ -792,37 +792,18 @@ The Synonym Analysis module uses the following technical components:
 
 The Synonym Analysis module uses a left-right split layout:
 
-- **Left Panel** (400px): Configuration panel containing corpus selection, POS filtering, search configuration, etc.
-- **Right Panel** (flexible width): Results display area with two tabs
-  - **Results Table**: Displays synonym analysis results
-  - **Visualization**: Provides three visualization methods: network graph, tree view, and list view
+- **Left Panel** (about 400px): Configuration panel with corpus/library selection, POS filtering, search configuration, etc.
+- **Right Panel** (flexible width): Results area with two tabs
+  - **Results Table**: Displays synonym analysis results (word, lemma, POS, frequency, synonym list, synsets, etc.)
+  - **Visualization**: **Network graph** and **Tree view** only (list view has been removed)
 
 ## Corpus Selection
 
-### Selecting a Corpus
+Synonym Analysis uses the same **corpus/library** unified selector as Word Frequency and other modules:
 
-1. Select the target corpus from the dropdown menu at the top of the left panel
-2. The system displays the number of texts in the corpus
-3. After selecting a corpus, the system automatically loads all texts in that corpus
-
-### Text Selection Modes
-
-The system provides three text selection modes, same as the Word Frequency Analysis module:
-
-#### All Texts
-- Select "All Texts" mode
-- Analysis will include all texts in the corpus
-
-#### Filter by Tags
-- Select "Filter by Tags" mode
-- Select one or more tags from the dropdown menu
-- The system filters all texts containing these tags
-
-#### Manual Selection
-- Select "Manual Selection" mode
-- Use the search box to search texts by filename
-- Check the texts you want to analyze in the text list
-- Supports "Select All" and "Clear All" quick actions
+- **Corpus mode**: After choosing a corpus, you can use "All texts", "Filter by tags", or "Manual selection" for a subset of texts.
+- **Library mode**: After choosing a literature library, you can use "All", keyword filter, or manually select entries; analysis uses the abstract texts in the library’s shadow corpus.
+- When opening the module via a cross-link from another module, the target corpus/library selection is restored (including library ID and selection mode).
 
 ## POS Filtering
 
@@ -886,28 +867,25 @@ The top of the table displays statistical summary:
 
 | Column | Description |
 |--------|-------------|
-| Word | Word in the corpus |
+| Word | Word form in the corpus |
+| Lemma | Lemma of the word |
+| POS | Part of speech of the word in the corpus |
 | Frequency | Occurrence count of the word in the corpus |
-| POS Tags | POS tags of the word in the corpus (may have multiple) |
-| Synonym Count | Total number of synonyms found |
-| Synonyms | Synonym list (first 5, click to expand for all) |
-| Actions | Quick action menu (if enabled) |
+| Synonym Count | Total number of synonyms found (only those present in the corpus) |
+| Synonyms | Synonym list (first few shown; click to expand for all) |
+| Actions | Cross-module link menu (co-occurrence, collocation analysis, word sketch, N-gram, semantic domain, etc.) |
 
 ### Expanded Row Details
 
-Click the expand button on the left side of a table row to view detailed synset information:
+Click the expand button on the left of a table row to view **all synonyms** and **synset details**:
 
 #### All Synonyms Summary
-- Displays all synonyms of the word (deduplicated)
-- Shown as tags for easy browsing
+- Displays all synonyms of the word (deduplicated) as tags
 
 #### Synset Details
-Each synset contains:
-- **Synset Name**: Synset identifier in WordNet
-- **POS**: POS tag of the synset
-- **Definition**: Semantic definition of the synset
-- **Examples**: Usage examples (if available)
-- **Synonym List**: All synonyms in the synset
+- Details are shown **per synonym**: each heading is the synonym itself, with the definition of that sense (when used as a synonym of the current word).
+- The layout no longer uses synset names (e.g. occupation.n.01) as main headings, so words that do not appear in the corpus are not emphasized.
+- Each synonym card offers the same **cross-module link** menu as the word column, so you can jump from a synonym to word frequency, co-occurrence, collocation analysis, and other modules.
 
 ### Sorting
 
@@ -944,22 +922,21 @@ The table toolbar provides the following actions:
 
 ### Cross-module Links
 
-If cross-module linking is enabled, the table displays an "Actions" column providing:
+The table "Actions" column provides a word action menu to jump to:
 
-- **Collocation Analysis**: Jump to Collocation Analysis module to analyze co-occurrence relationships
-- **Word Sketch**: Jump to Word Sketch module to view grammatical patterns
+- **Word Frequency**, **Co-occurrence**, **Collocation Analysis**, **Word Sketch**, **N-gram Analysis**, **Semantic Domain Analysis**, and related modules, using the current word as the search term.
+- In library mode, the library ID and selection mode are passed so the target page can restore the same corpus/library selection.
 
 ## Visualization
 
-The Visualization panel provides three view types to help you intuitively understand synonym relationships.
+The Visualization panel provides **network graph** and **tree view** only (list view has been removed) to help you understand synonym relationships.
 
 ### View Type Switching
 
-Switch view types via top tabs:
+Switch via the top tabs:
 
-- **Network Graph**: Force-directed graph showing word-synonym relationship networks
+- **Network Graph**: Force-directed graph showing word–synonym relationship networks
 - **Tree View**: Tree structure showing hierarchical synonym relationships
-- **List View**: List format displaying all words and their synonyms
 
 ### Network Graph
 
@@ -986,7 +963,7 @@ The network graph uses a force-directed layout to show associations between word
 #### Node Types
 
 - **Word Nodes** (larger circles): Words in the corpus, darker color
-- **Synonym Nodes** (smaller circles): Synonyms from WordNet, lighter color
+- **Synonym Nodes** (smaller circles): Synonyms from WordNet that also appear in the corpus, lighter color
 
 ### Tree View
 
@@ -1009,28 +986,7 @@ The tree view displays synonym relationships in a hierarchical structure, from r
 - **Root Node**: Root node of all synonyms
 - **Word Nodes**: Words in the corpus (shows frequency)
 - **Synset Nodes**: WordNet synsets
-- **Synonym Nodes**: Specific synonyms
-
-### List View
-
-The list view displays all words and their synonyms in card format, suitable for quick browsing.
-
-#### Configuration Options
-
-- **Max Display Count**: Set the number of words to display (default: 200, range: 5-1000)
-
-#### Display Content
-
-Each card displays:
-- **Word Name**: Word in the corpus
-- **Frequency**: Occurrence count
-- **Synonym Count**: Total number of synonyms found
-- **Synonym List**: First 15 synonyms (shown as tags)
-- **Definition**: Semantic definition of the first synset (if available)
-
-#### Interactive Features
-
-- **Click Card**: Click card to jump to results table and select the word
+- **Synonym Nodes**: Specific synonyms (all present in the corpus)
 
 ### Export Features
 
@@ -1039,11 +995,7 @@ All views support export:
 - **Export SVG**: Export as vector format, suitable for printing and editing
 - **Export PNG**: Export as bitmap format, suitable for inserting into documents
 
-Export buttons are located on the right side of the view settings bar.
-
-**Note**:
-- Network and tree views export all visible content
-- List view export includes all list items (may require scrolling to view)
+Export buttons are on the right side of the view settings bar. Network and tree views export all visible content.
 
 ## Usage Tips
 
@@ -1053,8 +1005,8 @@ Export buttons are located on the right side of the view settings bar.
 2. **Filter Texts**: Use tags or manual selection to focus on target texts
 3. **Set POS**: Select relevant parts of speech based on research questions (or use auto mode)
 4. **Configure Search**: Use search query and frequency settings to precisely locate target words
-5. **View Results**: View detailed data in the table, expand rows to view synset details
-6. **Visualize Analysis**: Use network graph or tree view to discover semantic association patterns
+5. **View Results**: View detailed data in the table; expand rows to see per-synonym definitions and cross-module links
+6. **Visualize Analysis**: Use the network graph or tree view to discover semantic association patterns (only these two views are available)
 7. **Export Data**: Export results for further analysis
 
 ### Common Analysis Scenarios
@@ -1290,7 +1242,18 @@ After configuration, click the "Extract Keywords" button to start analysis.
 
 ## Keyness Comparison
 
-Keyness comparison identifies words that are significantly overused or underused in the study corpus by comparing it against a reference corpus.
+Keyness comparison identifies words or patterns that are significantly overused or underused in the study corpus by comparing it against a reference corpus.
+
+The module supports **three comparison modes**:
+
+- **Word Form**: compare surface word forms as they appear in the text (e.g., `books` vs. `book`)
+- **Lemma**: compare lemmas (base forms), merging different inflected forms of the same lemma
+- **Semantic Domain (USAS)**: compare USAS semantic domains instead of individual words. In this mode:
+  - USAS codes are normalized by **ignoring only the `_MWE` suffix** (e.g., `A1.5.1_MWE` is treated as `A1.5.1`)
+  - Other suffixes such as `+`, gender or other markers are preserved (e.g., `N3.8+` remains distinct from `N3.8`)
+  - The **“Keyword” column shows the USAS code**, while hovering displays the full domain name (e.g., `Business: Generally`)
+  - The search box filters by **domain name** rather than code
+  - The word cloud and charts also use **semantic domain names** as labels
 
 ### Corpus Selection
 
@@ -1324,25 +1287,78 @@ The system includes multiple pre-processed corpus frequency datasets that can be
 **Corpus Resource Selection Dialog**:
 
 - **Search Function**: Enter keywords to search corpus names
-- **Corpus Type Filter**: Filter by corpus type (BNC, Brown, NOW, OANC)
+- **Corpus Type Filter**: Filter by corpus type (e.g., BNC 1994, BNC 2014, Brown, NOW, OANC, COCA, COHA, GloWbE)
 - **Tag Filter**: Filter by tags, supports multiple selection (e.g., news, fiction, spoken)
-- **Resource Card**: Displays corpus name, word count, file size, and other information
+- **Resource Card**: Displays corpus name, word count (based on the sum of `freq` in CSV), file size, and other information
 - **Single Selection**: Select one corpus, then the dialog closes and updates the display
 
-**Available Corpus Resources**:
+**Available Corpus Resources (Examples)**:
 
-| Corpus | Description | Tags |
-|--------|-------------|------|
-| BNC | British National Corpus | spoken, written, various domains |
+The system includes multiple pre-processed corpus resources. BNC is split into **BNC 1994** and **BNC 2014**, and several other corpora are available:
+
+| Corpus | Description | Example Tags |
+|--------|-------------|--------------|
+| BNC 1994 | British National Corpus 1994 | spoken, written, applied_science, arts, etc. |
+| BNC 2014 | British National Corpus 2014 (spoken only) | spoken, contemporary British English |
 | Brown | Brown Corpus | news, fiction, academic, etc. |
 | NOW | News on the Web | news (by country) |
 | OANC | Open American National Corpus | various text genres |
+| COCA | Corpus of Contemporary American English | spoken, fiction, magazine, news, academic |
+| COHA | Corpus of Historical American English | historical American English by period |
+| GloWbE | Global Web-based English | English by country/region |
+
+**Note:** BNC 2014 contains spoken data only.
 
 **Usage Tips**:
 - Study corpus should be your target corpus of interest
 - Reference corpus should be a representative baseline corpus (e.g., general corpus)
 - Both corpora should use the same language
 - Using corpus resources allows quick comparison without importing reference corpora
+
+#### USAS Annotation for Reference Corpus Resources
+
+All built-in corpus resources (e.g. BNC, COCA, OANC, GloWbE) use USAS semantic domain data annotated by Meta-Lingo’s built-in **PyMUSAS neural model**. The framework is developed by UCREL at Lancaster University and supports multilingual semantic tagging. Full documentation and evaluation data: [PyMUSAS documentation](https://ucrel.github.io/pymusas/). The pre-trained model used in Meta-Lingo is **ucrelnlp/PyMUSAS-Neural-Multilingual-Base-BEM** ([HuggingFace](https://huggingface.co/ucrelnlp/PyMUSAS-Neural-Multilingual-Base-BEM)), suitable for multilingual use.
+
+**Model sizes (from PyMUSAS official site)**:
+
+| Language/Type | HuggingFace Model ID | Parameters (M) | Disk (MB) |
+|---------------|----------------------|----------------|-----------|
+| English Small | PyMUSAS-Neural-English-Small-BEM | 17 | 60 |
+| English Base | PyMUSAS-Neural-English-Base-BEM | 68 | 242 |
+| Multilingual Small | PyMUSAS-Neural-Multilingual-Small-BEM | 140 | 501 |
+| **Multilingual Base** | **PyMUSAS-Neural-Multilingual-Base-BEM** | **307** | **1,060** |
+
+Meta-Lingo’s built-in reference corpus resources use the **Multilingual Base** model (307M parameters) in the table above.
+
+**307M Multilingual model architecture (from HuggingFace model card)**:
+
+| Metric | 307M Multilingual |
+|--------|-------------------|
+| Layers | 22 |
+| Hidden Size | 768 |
+| Intermediate Size | 1,152 |
+| Attention Heads | 12 |
+| Total Parameters | 307M |
+| Non-embedding Parameters | 110M |
+| Max Sequence Length | 8,192 |
+| Vocabulary Size | 256,000 |
+| Tokenizer | Gemma 2 |
+
+**Training data**: A subset of [ucrelnlp/English-USAS-Mosaico](https://huggingface.co/datasets/ucrelnlp/English-USAS-Mosaico)—1,083 English Wikipedia articles, ~444,880 sentences, ~6.6M tokens, with ~5.3M silver-labelled tokens from the English rule-based USAS tagger.
+
+**Evaluation accuracy (Top-1 / Top-5, from PyMUSAS site and HuggingFace model card)**:
+
+Evaluation uses Top-N accuracy: correct if the gold tag appears in the tagger’s top N predictions. Datasets are human-annotated USAS in multiple languages; see the paper *Creating a Hybrid Rule and Neural Network Based Semantic Tagger using Silver Standard Data* (arXiv:2601.09648) and [ucrelnlp/USAS-WSD](https://huggingface.co/datasets/ucrelnlp/USAS-WSD).
+
+| Dataset (Language) | 307M Multilingual Top-1 | 307M Multilingual Top-5 |
+|--------------------|--------------------------|--------------------------|
+| English | 70.2 | 90.1 |
+| Chinese | 47.9 | 70.4 |
+| Finnish | 25.9 | 42.4 |
+| Irish | 35.6 | 51.6 |
+| Welsh | 42.0 | 56.4 |
+
+**Recommendation**: For keyness comparison (especially in semantic domain mode), set **USAS tagging mode** in Application Settings to **Neural** or **Hybrid** so that your study corpus uses the same annotation strategy as the built-in reference resources, for more comparable results.
 
 ### POS Filtering
 
@@ -2552,6 +2568,8 @@ Use CQL (Corpus Query Language) for advanced queries with complex syntax and sem
 - `[pos="NOUN"]`: Match POS (Universal POS)
 - `[tag="NN"]`: Match fine-grained POS (Penn Treebank)
 - `[dep="nsubj"]`: Match dependency relation
+- `[usas="A1"]`: Match USAS semantic domain (**contains**: tags whose normalized form starts with "A1", e.g. A1, A1.5, A1.5+; _MWE suffix is ignored, so A1.5.1_MWE and A1.5.1 both count as A1.5.1)
+- `[usas=="N3.8+"]`: **Exact** match semantic domain (only N3.8+, including N3.8+_MWE)
 
 **Operators**:
 - `&`: AND
@@ -3052,46 +3070,51 @@ Uses the HiTZ pre-trained model for metaphor judgment:
   - LABEL_0 / LABEL_1 -> Metaphor
   - LABEL_2 -> Non-metaphor (pending)
 
-#### Step 4: IDRRP Model Secondary Detection
+#### Step 4: Clause Model Secondary Detection (Hybrid)
 
-Addresses the HiTZ model's limitations on function words with the IDRRP model (fine-tuned specifically for IN, DT, RB, RP POS tags):
+Addresses the HiTZ model's limitations on function words with a clause-level DeBERTa model, trained specifically on SpaCy clauses and focused on IN, DT, RB, RP POS tags:
 
 **Trigger Conditions**:
-- Step 3 judged as non-metaphor
+- Step 3 judged as non-metaphor by HiTZ
 - POS is IN (preposition), DT (determiner), RB (adverb), or RP (particle)
 
-**IDRRP Model**:
-- **Model Name**: deberta-v3-large-metaphor-in-dt-rb-rp
+**Clause Model**:
+- **Model Name**: deberta-v3-large-clause-metaphor
 - **Base Architecture**: microsoft/deberta-v3-large
 - **Target POS**: IN, DT, RB, RP
-- **Judgment Threshold**: P(metaphor) >= 0.4
-- **Source**: [HuggingFace - tommyleo2077/deberta-v3-large-metaphor-in-dt-rb-rp](https://huggingface.co/tommyleo2077/deberta-v3-large-metaphor-in-dt-rb-rp)
+- **Judgment Threshold**: P(LABEL_1) >= 0.5
+- **Source**: [HuggingFace - tommyleo2077/deberta-v3-large-clause-metaphor](https://huggingface.co/tommyleo2077/deberta-v3-large-clause-metaphor)
 
 ### Detection Reliability
 
-Evaluation results based on VUA corpus test set (10 files, 23,588 words):
+Evaluation results based on VUA corpus test set (10 files, 23,588 words; alphabetic tokens only):
 
 #### Overall Performance Comparison
 
-| Approach | F1 Score | Precision | Recall |
-|----------|----------|-----------|--------|
-| HiTZ Single Model | 60.6% | 89.90% | 45.67% |
-| **Hybrid Approach** | **78.7%** | 76.86% | **80.53%** |
-| **Improvement** | **+18.1%** | -13.04% | **+34.86%** |
+| Approach | F1 | Precision | Recall | Accuracy |
+|----------|-----|-----------|--------|----------|
+| HiTZ Single Model | 60.6% | 89.90% | 45.67% | 93.56% |
+| Clause Single Model | 75.2% | 80.04% | 70.86% | 94.93% |
+| **Hybrid Approach** | **84.8%** | 89.59% | **80.53%** | **96.88%** |
+| **vs. HiTZ** | **+24.2%** | -0.31% | **+34.86%** | +3.32% |
 
 #### Analysis by POS
 
-| Evaluation Scope | F1 Score | Precision | Recall |
-|-----------------|----------|-----------|--------|
-| HiTZ on IN/DT/RB/RP | 9.0% | 93.22% | 4.74% |
-| IDRRP on IN/DT/RB/RP | **72.1%** | 65.45% | 80.17% |
-| HiTZ on other POS | 84.5% | 89.74% | 79.76% |
+| Evaluation Scope | Precision | Recall | F1 |
+|------------------|-----------|--------|-----|
+| HiTZ on IN/DT/RB/RP (four function-word POS) | 100.00% | 4.25% | **8.2%** |
+| Clause on IN/DT/RB/RP | 89.55% | 81.93% | **85.6%** |
+| **Hybrid on IN/DT/RB/RP** | 89.67% | 83.08% | **86.3%** |
+| HiTZ on other POS (non–function words) | 89.51% | 78.51% | **83.7%** |
+| Hybrid on other POS | 89.51% | 78.51% | **83.7%** |
 
 #### Key Findings
 
-1. **HiTZ Model Limitations**: F1 of only 9.0% on prepositions, determiners, adverbs, and particles
-2. **Hybrid Approach Advantages**: The IDRRP model improves F1 for these POS to 72.1%
-3. **Overall Improvement**: Hybrid approach outperforms single model on all 10 test files
+1. **HiTZ limitations**: On the four function-word POS (IN/DT/RB/RP), F1 is only **8.2%** and recall is very low (4.25%); on non–function words it performs well (F1≈83.7%).
+2. **Clause model**: Targets IN/DT/RB/RP; F1 on these POS reaches **85.6%**, and single-model overall F1 **75.2%**.
+3. **Hybrid advantages**: Non–function words use HiTZ; function words use Clause when HiTZ predicts non-metaphor. Overall F1 rises from 60.6% (HiTZ) to **84.8%**, function-word F1 to **86.3%**, with non–function-word F1 unchanged at 83.7%.
+4. **Across text types**: On all 10 test files (news, academic, fiction, spoken), hybrid F1 is consistently better than HiTZ or Clause alone.
+5. **Inference speed**: About **7.22 s/1k tokens** on M3 Pro (MPS), suitable for offline annotation and analysis.
 
 ### Interface Layout
 
@@ -3531,12 +3554,22 @@ In "By Domain" mode, click the "View Words" button (info icon) in a table row to
 - Can jump to other analysis modules (collocation analysis, word sketch)
 - Displays total word count for that semantic domain
 
+#### Cross-domain Link (three-dot menu) in By Domain mode
+
+In "By Domain" mode, each row has a **three-dot menu** next to "View Words":
+
+- **View Concordance**: Opens the Collocation tab and runs a CQL query by **semantic domain** (match mode "contains"; _MWE suffix is ignored), so you can view co-occurrence for all vocabulary in that domain.
+
 #### Cross-module Links
 
 In "By Word" mode, the table displays an "Actions" column providing:
 
 - **Collocation Analysis**: Jump to Collocation Analysis module to analyze co-occurrence relationships
 - **Word Sketch**: Jump to Word Sketch module to view grammatical patterns
+- **N-gram**: Jump to N-gram analysis
+- **Semantic Domain**: Jump to Semantic Domain Analysis (By Domain mode, search type "contains", search value = current word)
+
+Word frequency, synonym analysis, keyword extraction (single-doc and keyness), collocation, collocation analysis (collocation / word graph / word graph contrast), topic modeling (BERTopic/LDA/LSA/NMF), and annotation mode word menus also offer a **Semantic Domain** link with the same configuration.
 
 #### Export
 
@@ -3553,14 +3586,15 @@ Click the "Export" button at the top of the table to export results as CSV file:
 
 ### Visualization
 
-The Visualization panel provides two chart types to help you intuitively understand semantic domain distribution.
+The Visualization panel provides bar chart, pie chart, and **word cloud**. Bar and pie charts use **semantic domain names** (e.g. "Business: Generally") for labels, with MWE merged.
 
 #### Chart Type Switching
 
 Switch chart types via top tabs:
 
-- **Bar Chart**: Suitable for displaying top N high-frequency semantic domains
-- **Pie Chart**: Suitable for displaying semantic domain proportion distribution
+- **Bar Chart**: Top N semantic domains by frequency (labels = domain names)
+- **Pie Chart**: Semantic domain proportion (labels = domain names)
+- **Word Cloud**: Generated by **domain name** frequency; dual-engine design as in Word Frequency (D3.js default / legacy engine; legacy supports mask and bar style; two export buttons and divider).
 
 #### Bar Chart
 
@@ -3569,15 +3603,10 @@ Switch chart types via top tabs:
 - **Color Scheme**: Select color theme for bars (blue, green, purple, orange, red)
 - **Show Percentage**: Whether to display percentage labels on bars
 
-**Interactive Features**:
+**Chart Features**:
+- Axes and labels use **semantic domain names** (e.g. "Business: Generally"), not codes; MWE is merged with the base domain
 - Click bars to jump to results table (if click callback is enabled)
 - Chart height automatically adjusts based on display count
-
-**Chart Features**:
-- X-axis: Semantic domain code or name
-- Y-axis: Frequency or percentage
-- Bar color: Displayed according to color scheme
-- Labels: Display frequency or percentage (if enabled)
 
 #### Pie Chart
 
@@ -3587,14 +3616,19 @@ Switch chart types via top tabs:
 - **Show Percentage**: Whether to display percentage labels on pie slices
 
 **Chart Features**:
-- Uses donut chart design
-- Displays legend for easy identification
+- Donut chart; legend and labels use **semantic domain names**; MWE merged
 - Click slices to jump to results table (if click callback is enabled)
-- Colors automatically assigned according to color scheme
+
+#### Word Cloud
+
+- Regardless of result mode (By Domain or By Word), the word cloud is generated from **domain name** frequencies
+- Dual engine: D3.js default / legacy; legacy supports mask and bar style
+- Two export buttons (Export SVG, Export PNG) and divider, same as Word Frequency word cloud
+- Legacy engine does not support SVG export
 
 #### Export Features
 
-All charts support export:
+All charts support export (word cloud legacy supports PNG only):
 
 - **Export SVG**: Export as vector format, suitable for printing and editing
 - **Export PNG**: Export as bitmap format, suitable for inserting into documents
@@ -4026,11 +4060,11 @@ The module supports 12 statistical association measures, configurable via the St
 | **MI²** | -inf to +inf | Less biased toward low-frequency than MI |
 | **MI³** | -inf to +inf | Further reduces low-frequency bias |
 | **Dice** | 0-1 | Harmonic mean of conditional probabilities |
-| **Delta P1** | -1 to 1 | Directional association: node to collocate |
-| **Delta P2** | -1 to 1 | Directional association: collocate to node |
-| **MinSens** | 0-1 | Conservative bidirectional association |
+| **Delta P1** | -1 to 1 | Directional association: node to collocate (negative = repulsion) |
+| **Delta P2** | -1 to 1 | Directional association: collocate to node (negative = repulsion) |
+| **MinSens** | -1 to 1 | Minimum of ΔP1 and ΔP2; conservative bidirectional association |
 
-By default, 4 measures are enabled: LogDice, MI, Delta P1, and Delta P2. Users can enable/disable measures, set thresholds, and reorder columns via the Statistics Method dialog.
+Negative Delta P means the collocate appears less often near the node than in the corpus overall (repulsion). By default, 4 measures are enabled: LogDice, MI, Delta P1, and Delta P2. Users can enable/disable measures, set thresholds, and reorder columns via the Statistics Method dialog.
 
 ### Results Table
 
@@ -4044,7 +4078,7 @@ By default, 4 measures are enabled: LogDice, MI, Delta P1, and Delta P2. Users c
 Four chart types are available:
 - **Bar Chart**: Horizontal bars showing top collocates by frequency or score
 - **Pie Chart**: Proportional distribution of top collocates
-- **Collocation Network**: D3.js force-directed graph with the node word at center and collocates around it, sized by association score
+- **Collocation Network**: D3.js force-directed graph with the node word at center and collocates around it, sized by association score. **Expand**: click a collocate of the center word to expand and show that collocate's collocates (second-level nodes); max display count limits both the center's collocates and each expanded node's collocates; only one level of expand is supported; shared collocates across multiple expanded nodes are merged and linked in the graph.
 - **Word Cloud**: Dual-engine word cloud (D3 or legacy) showing collocates scaled by frequency
 
 ## Word Sketch
@@ -4211,13 +4245,10 @@ Same as Word Sketch mode, supports three text selection modes.
 
 ### Search Configuration
 
-#### Word 1 and Word 2
+#### Input Mode: Word Form / Lemma
 
-Enter the two words to compare in "Word 1" and "Word 2" input boxes:
-
-- Supports entering word form or lemma
-- System automatically matches based on POS filter
-- Both words should have the same POS for effective comparison
+- **Word Form mode**: Enter the two word forms to compare in "Word 1" and "Word 2" input boxes, then run analysis; any word forms are supported.
+- **Lemma mode**: Enter one **lemma** (e.g. go) in the "Lemma" input box; "Word 1" and "Word 2" become two dropdowns listing all word forms of that lemma in the corpus (e.g. go, goes, went, gone). Select two different forms to compare (collocation differences between forms of the same lemma). The two dropdowns are mutually exclusive: the form selected in Word 1 is hidden in Word 2 to avoid comparing the same form. Lemma mode accepts only lemma input: if you enter a word form (e.g. goes) that is not a lemma in the corpus, both dropdowns will have no options and be disabled.
 
 #### POS Filter
 
@@ -4560,6 +4591,8 @@ In the "Library Detail" tab:
     - **View Details**: Click row or view button to view entry details
     - **Delete**: Delete a single entry
 
+- **Re-annotation**: Header buttons provide SpaCy, USAS, and MIPVU re-annotation. These use the same backend as Corpus Management; MIPVU is the HiTZ + Clause hybrid pipeline and is English-only.
+
 ## Uploading Literature
 
 ### Upload Process
@@ -4576,6 +4609,8 @@ In the "Library Detail" tab:
    - Number of successfully added entries
    - Number of skipped entries (if any)
    - Parse errors (if any)
+
+**Abstract annotation pipeline**: Each entry with an abstract is written to the shadow corpus and runs the same pipeline as Corpus Management: SpaCy → USAS → MIPVU. MIPVU uses the same hybrid pipeline (HiTZ + Clause model) as in corpus management, with overall and POS-grouped statistics (IN/DT/RB/RP/other).
 
 ### File Formats
 
@@ -4938,17 +4973,17 @@ All visualization charts support export:
 
 ## Overview
 
-The Annotation Mode module is used for framework-based annotation of text and multimedia content. The module supports two annotation modes: **Text Annotation** and **Multimodal Annotation** (video/audio), helping researchers systematically annotate and analyze corpus data.
+The Annotation Mode module is a core feature of Meta-Lingo for framework-based annotation of text and multimedia content. It supports **Text Annotation** (plain text) and **Multimodal Annotation** (video/audio), and provides annotation history, framework management, and inter-coder reliability analysis to help researchers systematically annotate and analyze corpus data.
 
 ## Interface Layout
 
 The Annotation Mode module uses a top-level tab design:
 
-- **Text Annotation**: Annotate plain text
-- **Multimodal Annotation**: Annotate video and audio
-- **Annotation History**: View and manage saved annotation archives
-- **Framework Manager**: Create and manage annotation frameworks
-- **Inter-Coder Reliability**: Calculate annotation consistency between multiple coders
+- **Text Annotation**: Sentence splitting and text-selection annotation with framework tree, syntax visualization, and auto-annotation (MIPVU metaphor, Theme–Rheme)
+- **Multimodal Annotation**: Video and audio annotation with Whisper transcription, waveform/box drawing, YOLO and CLIP overlays
+- **Annotation History**: View and manage saved annotation archives, including details and delete
+- **Framework Manager**: Create and manage annotation frameworks, with import/export and D3.js framework tree visualization
+- **Inter-Coder Reliability**: Calculate annotation consistency between coders (Kappa, Alpha, etc.), with standard-answer and KWIC support
 
 ## Text Annotation
 
@@ -5057,6 +5092,12 @@ Annotation table displays detailed information of all annotations:
   - **Highlight Display**: When hovering over table row, corresponding annotation is highlighted in text
   - **Edit Remark**: Click remark column to edit remark information
   - **Delete Annotation**: Click delete button to delete annotation
+  - **Row-Click Positioning**: Clicking a table row scrolls the corresponding sentence in the text to the **center** of the view for quick navigation
+  - **Action Column (Cross-Links)**: Each row has a ⋮ menu with four cross-module links:
+    - **View Co-occurrence**: Open the Co-occurrence (KWIC/CQL) page with the annotation word as search term
+    - **View Collocation Analysis**: Open the "Collocation Analysis" sub-tab of the Collocation module on the home page
+    - **View Word Sketch**: Open the "Word Sketch" sub-tab of the Collocation module on the home page
+    - **N-gram Analysis**: Open the N-gram analysis page with N values 2/3/4, search type "contains", and minimum frequency 1
 
 ### Syntax Visualization
 
@@ -5155,7 +5196,7 @@ In "Archives" section of left panel:
 - **View Archives**: Display all annotation archives for current corpus
 - **Load Archive**: Click archive name to load archive
 - **Rename Archive**: Click edit icon to rename archive
-- **Delete Archive**: Click delete icon to delete archive
+- **Delete Archive**: Click delete icon to delete archive. Deletion **does not require a corpus to be currently selected**; the system uses the archive’s own corpus information for the delete request, so archives can be deleted even when no corpus is loaded.
 
 Archive information includes:
 - Text name
@@ -5185,7 +5226,7 @@ System supports exporting annotation results as images:
 
 ### Interface Layout
 
-Multimodal annotation uses left-right split layout, similar to text annotation:
+Multimodal annotation uses a left-right split layout, similar to text annotation:
 
 - **Left Panel**: Framework selection, framework tree, corpus selection, archive management
 - **Right Panel**:
@@ -5247,7 +5288,7 @@ If video has completed YOLO detection:
 
 ### Audio Annotation
 
-> **Important**: Audio waveform annotation is only available for English audio. Chinese audio can only be annotated in plain text annotation mode.
+> **Important**: Audio waveform annotation is only available for English audio. Chinese audio can only be annotated in Text Annotation mode.
 
 #### English Audio Waveform Annotation
 
@@ -5278,7 +5319,7 @@ For English audio with forced alignment data, the system displays an interactive
 #### Transcript Annotation
 
 - **Transcript Display**: Display audio transcript text (if available)
-- **Text Selection Annotation**: Same as text annotation, supports text selection annotation
+- **Text Selection Annotation**: Same as Text Annotation, supports text selection annotation
 - **Time Alignment**: Annotations aligned with audio time
 - **Current Sentence Highlighting**: Auto-highlight currently playing sentence
 - **Click to Seek**: Click transcript sentences to jump to corresponding time
@@ -5288,30 +5329,30 @@ For English audio with forced alignment data, the system displays an interactive
 Since Wav2Vec2 forced alignment only supports English, Chinese audio:
 - Does not display waveform visualization interface
 - Does not support box drawing annotation
-- Can only be annotated via plain text annotation mode
+- Can only be annotated via Text Annotation mode
 - Does not appear in multimodal annotation media selection
 
 ### Annotation Table
 
-The "Text Annotation List" and "Video Annotation List" tabs in the bottom panel display all annotations in a table and support the following operations:
+The "Text Annotation List" and "Video Annotation List" tabs in the bottom panel display all annotations in a table, consistent with the text annotation table, and support the following operations:
 
-#### Action Menu
+#### Action Menu (Cross-Links)
 
-Each annotation row's action column provides a dropdown menu (click the ⋮ button to expand), containing:
+Each annotation row's action column provides a dropdown menu (click the ⋮ button to expand), with four cross-module links (same as the text annotation table):
 
-- **Collocation Analysis**: Navigate to the Collocation/Co-occurrence Analysis module with the annotation word as the search term (requires a corpus to be selected)
-- **Word Sketch Analysis**: Navigate to the Word Sketch Analysis module with the annotation word as the search term (requires a corpus to be selected)
-- **N-gram Analysis**: Navigate to the N-gram Analysis module with the annotation word as the search term (requires a corpus to be selected)
-- **Delete Annotation**: Delete this annotation record
+- **View Co-occurrence**: Open the Co-occurrence (KWIC/CQL) page with the annotation word as search term
+- **View Collocation Analysis**: Open the "Collocation Analysis" sub-tab (targetSubTab: 0) of the Collocation module on the home page
+- **View Word Sketch**: Open the "Word Sketch" sub-tab (targetSubTab: 1) of the Collocation module on the home page
+- **N-gram Analysis**: Open the N-gram analysis page with N values 2/3/4, search type "contains", and minimum frequency 1
 
-> **Tip**: Cross-link functionality requires a corpus to be associated with the current multimodal annotation session. If no corpus is selected, the analysis options will be disabled.
+You can also **Delete Annotation** to remove the record. Cross-links require a corpus to be selected; if none is selected, the analysis options are disabled.
 
-#### Row-Click Highlighting
+#### Row-Click Positioning
 
-Clicking any row in the annotation table highlights and scrolls to the corresponding position in the transcript:
+Clicking any row in the annotation table scrolls the corresponding transcript sentence to the **center** of the view and highlights it:
 
 - The selected row displays a colored outline matching the annotation color
-- The corresponding transcript sentence is automatically highlighted in the "Transcript Annotation" tab
+- The corresponding transcript sentence in the "Transcript Annotation" tab is scrolled to the center of the container so the target is not pushed off-screen
 - Click the same row again to deselect
 
 ### Multi-Track Timeline
@@ -5379,7 +5420,7 @@ Framework Manager page is used to create and manage annotation frameworks:
 
 The Inter-Coder Reliability module is used to calculate annotation consistency between multiple coders, an essential tool for evaluating annotation quality in content analysis and qualitative research.
 
-> **Important Restriction**: Inter-coder reliability analysis only supports **plain text annotation archives**. Video and audio annotation archives are not supported.
+> **Important Restriction**: Inter-coder reliability analysis only supports **text annotation archives**. Video and audio annotation archives are not supported.
 
 ### Interface Layout
 
@@ -5397,7 +5438,7 @@ The Inter-Coder Reliability module uses a multi-panel layout:
 2. Select annotation archives to analyze (multiple selection supported)
 3. System will automatically load archive contents
 
-> **Note**: The archive list is automatically filtered to show only plain text annotation archives. Video and audio annotation archives will not appear in the list.
+> **Note**: The archive list is automatically filtered to show only text annotation archives. Video and audio annotation archives will not appear in the list.
 
 #### Upload Local Files
 
@@ -6228,12 +6269,23 @@ LDA preprocessing panel is used to configure text preprocessing options:
   - **SpaCy Universal POS**: NOUN, VERB, ADJ, ADV, etc.
   - Supports multiple selection
 
+#### N-gram Mode
+
+- **N-gram mode**: When enabled, token sequences are converted to N-grams before stopword and POS filtering; the model then uses N-grams as units instead of single words.
+- **Select N value(s) (multi-select)**: Options from Bigram(2) through 6-gram; at least one must be selected.
+- **Preprocessing order**: Text cleaning and remove punctuation (if checked) → **N-gram building** (if enabled) → **remove stopwords** (drop any n-gram containing a stopword) → **POS filter** (drop any n-gram containing a token with filtered POS) → min length/lowercase/lemmatization. E.g. "The research of climate change" yields 2-grams first, then after stopword filter may yield `climate_change` etc.
+
 #### Other Preprocessing Options
 
 - **Remove Stopwords**: Whether to remove stopwords
 - **Lemmatization**: Whether to perform lemmatization
 - **Lowercase**: Whether to convert to lowercase
 - **Min Word Length**: Set minimum word length
+
+#### Topic Keyword Cross-links
+
+- **Normal mode**: The topic keyword action menu offers links to Collocation Analysis, Co-occurrence, Word Sketch, and N-gram Analysis.
+- **N-gram mode**: Only the Co-occurrence link is offered.
 
 #### Preprocessing Preview
 
@@ -6386,7 +6438,7 @@ Same as other analysis modules, supports three text selection modes.
 
 ### Preprocessing Configuration
 
-LSA preprocessing configuration is the same as LDA, including language-aware preprocessing, POS filtering, etc.
+LSA preprocessing configuration is the same as LDA, including N-gram mode, language-aware preprocessing, POS filtering, etc.; punctuation is always removed in preprocessing.
 
 ### LSA Parameter Configuration
 
@@ -6477,7 +6529,7 @@ Same as other analysis modules, supports three text selection modes.
 
 ### Preprocessing Configuration
 
-NMF preprocessing configuration is the same as LDA, including language-aware preprocessing, POS filtering, etc.
+NMF preprocessing configuration is the same as LDA, including N-gram mode, language-aware preprocessing, POS filtering, etc.; punctuation is always removed in preprocessing.
 
 ### NMF Parameter Configuration
 

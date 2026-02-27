@@ -179,6 +179,7 @@ class KeynessRequest(BaseModel):
     stopwords_config: Optional[StopwordsConfig] = None
     language: str = "english"
     threshold_config: Optional[ThresholdConfig] = None
+    comparison_mode: str = "word"  # word, lemma, domain
 
 
 class KeynessResourceRequest(BaseModel):
@@ -193,6 +194,7 @@ class KeynessResourceRequest(BaseModel):
     stopwords_config: Optional[StopwordsConfig] = None
     language: str = "english"
     threshold_config: Optional[ThresholdConfig] = None
+    comparison_mode: str = "word"  # word, lemma, domain
 
 
 class KeynessKeywordResult(BaseModel):
@@ -208,6 +210,9 @@ class KeynessKeywordResult(BaseModel):
     significance: str
     direction: str
     rank: int
+    # Optional semantic domain metadata (for comparison_mode='domain')
+    domain_code: Optional[str] = None
+    domain_name: Optional[str] = None
 
 
 class KeynessResponse(BaseModel):
@@ -624,6 +629,14 @@ class MetaphorSourceResult(BaseModel):
     percentage: float
 
 
+class MetaphorPOSGroupStats(BaseModel):
+    """Statistics for a specific POS group (e.g. IN/DT/RB/RP/OTHER)"""
+    total_tokens: int
+    metaphor_tokens: int
+    literal_tokens: int
+    metaphor_rate: float
+
+
 class MetaphorStatistics(BaseModel):
     """Metaphor analysis statistics"""
     total_tokens: int
@@ -631,6 +644,8 @@ class MetaphorStatistics(BaseModel):
     literal_tokens: int
     metaphor_rate: float
     source_distribution: Dict[str, int]
+    # Optional statistics grouped by POS (ALL/IN/DT/RB/RP/OTHER)
+    pos_group_stats: Optional[Dict[str, MetaphorPOSGroupStats]] = None
 
 
 class MetaphorAnalysisResponse(BaseModel):
@@ -826,7 +841,8 @@ async def keyword_keyness(request: KeynessRequest):
         lowercase=request.lowercase,
         stopwords_config=stopwords_config,
         language=language,
-        threshold_config=threshold_config
+        threshold_config=threshold_config,
+        comparison_mode=request.comparison_mode
     )
     
     return KeynessResponse(**result)
@@ -872,7 +888,8 @@ async def keyword_keyness_resource(request: KeynessResourceRequest):
         lowercase=request.lowercase,
         stopwords_config=stopwords_config,
         language=language,
-        threshold_config=threshold_config
+        threshold_config=threshold_config,
+        comparison_mode=request.comparison_mode
     )
     
     return KeynessResponse(**result)

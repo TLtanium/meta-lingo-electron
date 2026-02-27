@@ -59,6 +59,8 @@ interface ResultsTableProps {
   textIds?: string[] | 'all'
   selectionMode?: SelectionMode
   selectedTags?: string[]
+  libraryId?: string
+  selectedEntryIds?: string[]
 }
 
 // Row component for expandable nested N-grams
@@ -72,9 +74,11 @@ interface NGramRowProps {
   textIds?: string[] | 'all'
   selectionMode?: SelectionMode
   selectedTags?: string[]
+  libraryId?: string
+  selectedEntryIds?: string[]
 }
 
-function NGramRow({ row, isSelected, onSelect, nestMode, corpusId, textIds, selectionMode = 'all', selectedTags }: NGramRowProps) {
+function NGramRow({ row, isSelected, onSelect, nestMode, corpusId, textIds, selectionMode = 'all', selectedTags, libraryId, selectedEntryIds }: NGramRowProps) {
   const [open, setOpen] = useState(false)
   const hasNested = nestMode && row.nested && row.nested.length > 0
 
@@ -158,9 +162,13 @@ function NGramRow({ row, isSelected, onSelect, nestMode, corpusId, textIds, sele
               textIds={textIds || 'all'}
               selectionMode={selectionMode}
               selectedTags={selectedTags}
+              libraryId={libraryId}
+              selectedEntryIds={selectedEntryIds}
               showCollocation={true}
               showCollocationAnalysis={false}
               showWordSketch={false}
+              showNgram={false}
+              showSemanticDomain={false}
             />
           </TableCell>
         )}
@@ -229,7 +237,9 @@ export default function ResultsTable({
   corpusId,
   textIds,
   selectionMode = 'all',
-  selectedTags
+  selectedTags,
+  libraryId,
+  selectedEntryIds
 }: ResultsTableProps) {
   const { t } = useTranslation()
   const [tableFilter, setTableFilter] = useState('')
@@ -477,6 +487,8 @@ export default function ResultsTable({
                 textIds={textIds}
                 selectionMode={selectionMode}
                 selectedTags={selectedTags}
+                libraryId={libraryId}
+                selectedEntryIds={selectedEntryIds}
               />
             ))}
           </TableBody>

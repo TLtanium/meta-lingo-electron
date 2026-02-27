@@ -45,11 +45,28 @@ function formatWordCount(count: number): string {
 }
 
 // Color mapping for different corpus types
+// Keys correspond to CorpusResource.prefix values (see backend CorpusResourceService)
 const CORPUS_COLORS: Record<string, string> = {
-  bnc: '#1976d2',    // Blue
-  brown: '#7b1fa2',  // Purple
-  now: '#388e3c',    // Green
-  oanc: '#f57c00'    // Orange
+  // Legacy / generic
+  bnc: '#1976d2',      // Blue
+  brown: '#7b1fa2',    // Purple
+  now: '#388e3c',      // Green
+  oanc: '#f57c00',     // Orange
+  // BNC variants
+  bnc1994: '#1976d2',  // Blue
+  bnc2014: '#1565c0',  // Darker blue
+  // COCA / COHA
+  coca: '#00897b',     // Teal
+  coha: '#00695c',     // Dark teal
+  // Web-based corpora
+  glowbe: '#6d4c41',   // Brown
+  // Other large corpora
+  coronavirus: '#c2185b', // Pink
+  iweb: '#5d4037',     // Brownish
+  movies: '#ff7043',   // Deep orange
+  soap: '#8e24aa',     // Purple
+  tv: '#7b1fa2',       // Purple (align with Brown)
+  wikipedia: '#0097a7' // Cyan
 }
 
 export const CorpusResourceCard: React.FC<CorpusResourceCardProps> = ({

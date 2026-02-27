@@ -36,9 +36,11 @@ import {
   TableBody,
   TableRow,
   TableCell,
-  TableContainer
+  TableContainer,
+  TableSortLabel
 } from '@mui/material'
 import { useTranslation } from 'react-i18next'
+import NumberInput from '../Common/NumberInput'
 import PlayArrowIcon from '@mui/icons-material/PlayArrow'
 import PauseIcon from '@mui/icons-material/Pause'
 import SkipPreviousIcon from '@mui/icons-material/SkipPrevious'
@@ -319,6 +321,44 @@ export default function MultimodalWorkspace({
   const [highlightedSegmentId, setHighlightedSegmentId] = useState<string | null>(null)
   const [selectedAnnotationId, setSelectedAnnotationId] = useState<string | null>(null)
   const [bottomTabIndex, setBottomTabIndex] = useState(0)
+  // 音频标注列表表头排序
+  type AudioTableOrderBy = 'label' | 'startTime' | 'endTime' | 'duration'
+  const [audioTableOrderBy, setAudioTableOrderBy] = useState<AudioTableOrderBy>('startTime')
+  const [audioTableOrder, setAudioTableOrder] = useState<'asc' | 'desc'>('asc')
+  const handleAudioTableSort = (property: AudioTableOrderBy) => {
+    const isAsc = audioTableOrderBy === property && audioTableOrder === 'asc'
+    setAudioTableOrder(isAsc ? 'desc' : 'asc')
+    setAudioTableOrderBy(property)
+  }
+  const sortedAudioBoxes = useMemo(() => {
+    return [...savedAudioBoxes].sort((a, b) => {
+      let aVal: string | number
+      let bVal: string | number
+      switch (audioTableOrderBy) {
+        case 'label':
+          aVal = (a.label || '').toLowerCase()
+          bVal = (b.label || '').toLowerCase()
+          break
+        case 'startTime':
+          aVal = a.startTime
+          bVal = b.startTime
+          break
+        case 'endTime':
+          aVal = a.endTime
+          bVal = b.endTime
+          break
+        case 'duration':
+          aVal = a.endTime - a.startTime
+          bVal = b.endTime - b.startTime
+          break
+        default:
+          return 0
+      }
+      if (aVal === bVal) return 0
+      const cmp = typeof aVal === 'string' ? (aVal < bVal ? -1 : 1) : (aVal < bVal ? -1 : 1)
+      return audioTableOrder === 'asc' ? cmp : -cmp
+    })
+  }, [savedAudioBoxes, audioTableOrderBy, audioTableOrder])
 
   // When a text annotation row is selected in the table, scroll to and highlight
   // the corresponding segment in the TranscriptAnnotator
@@ -698,7 +738,7 @@ export default function MultimodalWorkspace({
   // Confirm box selection (确认框选)
   const confirmBox = useCallback(() => {
     if (!currentBox) {
-      showFrameMsg('请先在视频上画框', 'error')
+      showFrameMsg(t('annotation.drawOnVideoFirst'), 'error')
       return
     }
 
@@ -733,7 +773,7 @@ export default function MultimodalWorkspace({
   // Track to previous frame (追踪到上一帧) - only for adjusting end position
   const trackToPrevFrame = useCallback(() => {
     if (!currentBox) {
-      showFrameMsg('请先在视频上画框', 'error')
+      showFrameMsg(t('annotation.drawOnVideoFirst'), 'error')
       return
     }
 
@@ -752,7 +792,7 @@ export default function MultimodalWorkspace({
     const startFrame = keyframeSequence[0].frameNumber
     
     if (targetFrame < startFrame) {
-      showFrameMsg('不能早于起始帧', 'error')
+      showFrameMsg(t('annotation.cannotBeforeStartFrame'), 'error')
       return
     }
 
@@ -776,7 +816,7 @@ export default function MultimodalWorkspace({
   // Track to next frame (追踪到下一帧)
   const trackToNextFrame = useCallback(() => {
     if (!currentBox) {
-      showFrameMsg('请先在视频上画框', 'error')
+      showFrameMsg(t('annotation.drawOnVideoFirst'), 'error')
       return
     }
 
@@ -1079,11 +1119,11 @@ export default function MultimodalWorkspace({
       {/* Info Bar */}
       <Paper sx={{ p: 1.5, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
         <Stack direction="row" spacing={2} alignItems="center">
-          <Typography variant="body2"><strong>时长:</strong> {formatTime(duration)}</Typography>
-          <Typography variant="body2"><strong>帧:</strong> {currentFrame} / {totalFrames}</Typography>
+          <Typography variant="body2"><strong>{t('annotation.durationLabel')}:</strong> {formatTime(duration)}</Typography>
+          <Typography variant="body2"><strong>{t('annotation.frameLabel')}:</strong> {currentFrame} / {totalFrames}</Typography>
           {videoWidth > 0 && (
             <Typography variant="body2" color="text.secondary">
-              {videoWidth}x{videoHeight}
+              {t('annotation.resolutionFormat', { width: videoWidth, height: videoHeight })}
             </Typography>
           )}
         </Stack>
@@ -1223,22 +1263,22 @@ export default function MultimodalWorkspace({
           {/* Playback Controls */}
           <Paper variant="outlined" sx={{ p: 1, mt: 1 }}>
             <Stack direction="row" alignItems="center" spacing={1} flexWrap="wrap">
-              <Tooltip title="后退5秒"><IconButton onClick={skipBackward} size="small"><Replay5Icon /></IconButton></Tooltip>
-              <Tooltip title="上一帧"><IconButton onClick={prevFrame} size="small"><SkipPreviousIcon /></IconButton></Tooltip>
-              <Tooltip title={isPlaying ? '暂停' : '播放'}>
+              <Tooltip title={t('annotation.skipBack5s')}><IconButton onClick={skipBackward} size="small"><Replay5Icon /></IconButton></Tooltip>
+              <Tooltip title={t('annotation.prevFrame')}><IconButton onClick={prevFrame} size="small"><SkipPreviousIcon /></IconButton></Tooltip>
+              <Tooltip title={isPlaying ? t('annotation.pause') : t('annotation.play')}>
                 <IconButton onClick={handlePlayPause} color="primary" size="large">
                   {isPlaying ? <PauseIcon /> : <PlayArrowIcon />}
                 </IconButton>
               </Tooltip>
-              <Tooltip title="下一帧"><IconButton onClick={nextFrame} size="small"><SkipNextIcon /></IconButton></Tooltip>
-              <Tooltip title="前进5秒"><IconButton onClick={skipForward} size="small"><Forward5Icon /></IconButton></Tooltip>
+              <Tooltip title={t('annotation.nextFrame')}><IconButton onClick={nextFrame} size="small"><SkipNextIcon /></IconButton></Tooltip>
+              <Tooltip title={t('annotation.forward5s')}><IconButton onClick={skipForward} size="small"><Forward5Icon /></IconButton></Tooltip>
               
               <Typography variant="body2" sx={{ fontFamily: 'monospace', minWidth: 120 }}>
                 {formatTime(currentTime)} / {formatTime(duration)}
               </Typography>
               
               <Typography variant="caption" color="text.secondary">
-                帧: {currentFrame}/{totalFrames}
+                {t('annotation.frameLabel')}: {currentFrame}/{totalFrames}
               </Typography>
             </Stack>
           </Paper>
@@ -1248,7 +1288,7 @@ export default function MultimodalWorkspace({
             <Stack direction="row" alignItems="center" spacing={1} flexWrap="wrap">
               <FormControlLabel
                 control={<Checkbox checked={showYolo} onChange={(e) => setShowYolo(e.target.checked)} size="small" />}
-                label={<Typography variant="body2">显示YOLO检测</Typography>}
+                label={<Typography variant="body2">{t('annotation.showYoloDetection')}</Typography>}
               />
               <Button
                 variant={drawMode ? 'contained' : 'outlined'}
@@ -1257,7 +1297,7 @@ export default function MultimodalWorkspace({
                 onClick={toggleDrawMode}
                 color={drawMode ? 'primary' : 'inherit'}
               >
-                {drawMode ? '画框中...' : '开启画框'}
+                {drawMode ? t('annotation.drawModeOn') : t('annotation.drawModeOff')}
               </Button>
               
               <Box sx={{ 
@@ -1269,7 +1309,7 @@ export default function MultimodalWorkspace({
               }}>
                 {currentBox 
                   ? `[${currentBox.label}] X1=${Math.round(currentBox.x1)}, Y1=${Math.round(currentBox.y1)}, X2=${Math.round(currentBox.x2)}, Y2=${Math.round(currentBox.y2)}`
-                  : '未画框'
+                  : t('annotation.noBoxDrawn')
                 }
               </Box>
             </Stack>
@@ -1278,13 +1318,15 @@ export default function MultimodalWorkspace({
           {/* Frame Tracking Controls */}
           <Paper variant="outlined" sx={{ p: 1, mt: 1 }}>
             <Stack direction="row" alignItems="center" spacing={1} flexWrap="wrap">
-              <Typography variant="body2" color="text.secondary">帧间隔:</Typography>
-              <TextField
-                type="number"
+              <NumberInput
+                label={t('annotation.frameInterval')}
                 value={frameInterval}
-                onChange={(e) => setFrameInterval(Math.max(1, Math.min(30, parseInt(e.target.value) || 5)))}
+                onChange={setFrameInterval}
+                min={1}
+                max={30}
+                integer
                 size="small"
-                inputProps={{ min: 1, max: 30, style: { width: 50 } }}
+                sx={{ width: 120 }}
               />
               
               <Button 
@@ -1292,25 +1334,25 @@ export default function MultimodalWorkspace({
                 variant="outlined" 
                 onClick={trackToPrevFrame} 
                 disabled={!currentBox || !canGoPrevFrame}
-                title="回退到上一个关键帧位置"
+                title={t('annotation.goToPrevFrameTitle')}
               >
-                上一帧
+                {t('annotation.prevFrame')}
               </Button>
               <Button 
                 size="small" 
                 variant="outlined" 
                 onClick={trackToNextFrame} 
                 disabled={!currentBox}
-                title="前进到下一帧并保存当前位置"
+                title={t('annotation.goToNextFrameTitle')}
               >
-                下一帧
+                {t('annotation.nextFrame')}
               </Button>
               
               <Button size="small" variant="contained" startIcon={<CheckIcon />} onClick={confirmBox} disabled={!currentBox}>
-                确认框选
+                {t('annotation.confirmBox')}
               </Button>
               <Button size="small" variant="outlined" startIcon={<ClearIcon />} onClick={clearBox}>
-                清除
+                {t('annotation.clear')}
               </Button>
               <Button 
                 size="small" 
@@ -1319,15 +1361,15 @@ export default function MultimodalWorkspace({
                 startIcon={<SaveIcon />}
                 onClick={saveKeyframeSequence}
                 disabled={keyframeSequence.length === 0 && !currentBox}
-                title="保存序列并自动补全中间帧"
+                title={t('annotation.saveSequenceTitle')}
               >
-                保存序列 ({keyframeSequence.length})
+                {t('annotation.saveSequence')} ({keyframeSequence.length})
               </Button>
               
               {/* Sequence status */}
               {keyframeSequence.length > 0 && (
                 <Typography variant="caption" sx={{ color: 'success.main', fontWeight: 600 }}>
-                  起始帧: {keyframeSequence[0].frameNumber} | 当前: {currentFrame}
+                  {t('annotation.sequenceStatus', { start: keyframeSequence[0].frameNumber, current: currentFrame })}
                 </Typography>
               )}
             </Stack>
@@ -1623,22 +1665,38 @@ export default function MultimodalWorkspace({
                   <TableHead>
                     <TableRow>
                       <TableCell sx={headerCellSx}>#</TableCell>
-                      <TableCell sx={headerCellSx}>{t('annotation.label', '标签')}</TableCell>
-                      <TableCell sx={headerCellSx}>{t('annotation.startTime', '开始')}</TableCell>
-                      <TableCell sx={headerCellSx}>{t('annotation.endTime', '结束')}</TableCell>
-                      <TableCell sx={headerCellSx}>{t('annotation.duration', '时长')}</TableCell>
+                      <TableCell sx={headerCellSx} sortDirection={audioTableOrderBy === 'label' ? audioTableOrder : false}>
+                        <TableSortLabel active={audioTableOrderBy === 'label'} direction={audioTableOrderBy === 'label' ? audioTableOrder : 'asc'} onClick={() => handleAudioTableSort('label')}>
+                          {t('annotation.label', '标签')}
+                        </TableSortLabel>
+                      </TableCell>
+                      <TableCell sx={headerCellSx} sortDirection={audioTableOrderBy === 'startTime' ? audioTableOrder : false}>
+                        <TableSortLabel active={audioTableOrderBy === 'startTime'} direction={audioTableOrderBy === 'startTime' ? audioTableOrder : 'asc'} onClick={() => handleAudioTableSort('startTime')}>
+                          {t('annotation.startTime', '开始')}
+                        </TableSortLabel>
+                      </TableCell>
+                      <TableCell sx={headerCellSx} sortDirection={audioTableOrderBy === 'endTime' ? audioTableOrder : false}>
+                        <TableSortLabel active={audioTableOrderBy === 'endTime'} direction={audioTableOrderBy === 'endTime' ? audioTableOrder : 'asc'} onClick={() => handleAudioTableSort('endTime')}>
+                          {t('annotation.endTime', '结束')}
+                        </TableSortLabel>
+                      </TableCell>
+                      <TableCell sx={headerCellSx} sortDirection={audioTableOrderBy === 'duration' ? audioTableOrder : false}>
+                        <TableSortLabel active={audioTableOrderBy === 'duration'} direction={audioTableOrderBy === 'duration' ? audioTableOrder : 'asc'} onClick={() => handleAudioTableSort('duration')}>
+                          {t('annotation.duration', '时长')}
+                        </TableSortLabel>
+                      </TableCell>
                       <TableCell sx={headerCellSx}>{t('annotation.action', '操作')}</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {savedAudioBoxes.length === 0 ? (
+                    {sortedAudioBoxes.length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={6} sx={{ textAlign: 'center', color: 'text.secondary', py: 3, fontSize: '12px' }}>
                           {t('annotation.noAudioBoxes', '暂无音频画框标注。使用画框工具在波形上绘制标注框。')}
                         </TableCell>
                       </TableRow>
                     ) : (
-                      savedAudioBoxes.map((box, idx) => (
+                      sortedAudioBoxes.map((box, idx) => (
                         <TableRow key={box.id} hover>
                           <TableCell sx={{ ...bodyCellSx, color: 'text.secondary' }}>{idx + 1}</TableCell>
                           <TableCell sx={bodyCellSx}>

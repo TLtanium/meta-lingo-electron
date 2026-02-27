@@ -46,12 +46,20 @@ class CorpusService:
     def create_corpus(self, data: CorpusCreate) -> Dict[str, Any]:
         """Create a new corpus"""
         try:
+            # Prefer DB check so that name is reserved even if orphan folder remains after a failed delete
+            if CorpusDB.get_by_name(data.name):
+                return {"success": False, "error": f"Corpus '{data.name}' already exists"}
+
             corpus_id = str(uuid.uuid4())
-            
-            # Create corpus directory
             corpus_dir = CORPORA_DIR / data.name
             if corpus_dir.exists():
-                return {"success": False, "error": f"Corpus '{data.name}' already exists"}
+                # Orphan folder (e.g. delete_corpus removed DB but dir deletion failed); remove and recreate
+                try:
+                    shutil.rmtree(corpus_dir, ignore_errors=True)
+                except Exception as e:
+                    logger.warning(f"Removing orphan corpus dir {corpus_dir}: {e}")
+                if corpus_dir.exists():
+                    return {"success": False, "error": f"Corpus '{data.name}' already exists (directory in use)"}
             
             corpus_dir.mkdir(parents=True)
             (corpus_dir / "files").mkdir()
@@ -144,7 +152,10 @@ class CorpusService:
             return {"success": False, "error": str(e)}
     
     def delete_corpus(self, corpus_id: str) -> Dict[str, Any]:
-        """Delete corpus and all its related files including annotations and embeddings"""
+        """Delete corpus and all its related files including annotations and embeddings.
+        Database record is removed first so the corpus name can be reused even if
+        file deletion fails (e.g. files in use during upload).
+        """
         try:
             corpus = CorpusDB.get_by_id(corpus_id)
             if not corpus:
@@ -152,51 +163,63 @@ class CorpusService:
             
             corpus_name = corpus['name']
             deleted_items = []
-            
+
+            # 1. Delete from database first so the name is freed for reuse (avoids residue
+            #    when dir deletion fails e.g. during upload or locked files)
+            CorpusDB.delete(corpus_id)
+            deleted_items.append("Database record")
+
             # Use onexc handler to ignore FileNotFoundError (macOS AppleDouble race condition)
             def rmtree_onexc(func, path, exc):
-                """Handle errors during rmtree - ignore FileNotFoundError for race conditions"""
                 if isinstance(exc, FileNotFoundError):
-                    # File was already deleted (e.g., macOS AppleDouble metadata files)
                     pass
                 else:
                     raise exc
-            
-            # 1. Delete main corpus directory
-            corpus_dir = CORPORA_DIR / corpus_name
-            if corpus_dir.exists():
-                shutil.rmtree(corpus_dir, onexc=rmtree_onexc)
-                deleted_items.append(f"Corpus directory: {corpus_dir}")
-            
-            # 2. Delete annotations directory for this corpus
-            corpus_annotations_dir = ANNOTATIONS_DIR / corpus_name
-            if corpus_annotations_dir.exists():
-                shutil.rmtree(corpus_annotations_dir, onexc=rmtree_onexc)
-                deleted_items.append(f"Annotations: {corpus_annotations_dir}")
-            
-            # 3. Delete topic modeling embeddings for this corpus
-            embeddings_dir = Path("./data/topic_modeling/embeddings")
-            if embeddings_dir.exists():
-                for emb_file in embeddings_dir.glob(f"{corpus_id}_*.npz"):
-                    emb_file.unlink()
-                    deleted_items.append(f"Embedding: {emb_file.name}")
-                for doc_file in embeddings_dir.glob(f"{corpus_id}_*.json"):
-                    doc_file.unlink()
-                    deleted_items.append(f"Embedding docs: {doc_file.name}")
-            
-            # 4. Delete topic modeling results for this corpus
-            results_dir = Path("./data/topic_modeling/results")
-            if results_dir.exists():
-                for result_file in results_dir.glob(f"{corpus_id}_*.json"):
-                    result_file.unlink()
-                    deleted_items.append(f"Topic result: {result_file.name}")
-            
-            # 5. Delete from database (this will also delete related texts via cascade)
-            CorpusDB.delete(corpus_id)
-            
+
+            # 2. Delete main corpus directory (best-effort; do not fail the request)
+            try:
+                corpus_dir = CORPORA_DIR / corpus_name
+                if corpus_dir.exists():
+                    shutil.rmtree(corpus_dir, onexc=rmtree_onexc)
+                    deleted_items.append(f"Corpus directory: {corpus_dir}")
+            except Exception as e:
+                logger.warning(f"Could not remove corpus directory for '{corpus_name}': {e}")
+
+            # 3. Delete annotations directory for this corpus
+            try:
+                corpus_annotations_dir = ANNOTATIONS_DIR / corpus_name
+                if corpus_annotations_dir.exists():
+                    shutil.rmtree(corpus_annotations_dir, onexc=rmtree_onexc)
+                    deleted_items.append(f"Annotations: {corpus_annotations_dir}")
+            except Exception as e:
+                logger.warning(f"Could not remove annotations directory for '{corpus_name}': {e}")
+
+            # 4. Delete topic modeling embeddings for this corpus
+            try:
+                embeddings_dir = Path("./data/topic_modeling/embeddings")
+                if embeddings_dir.exists():
+                    for emb_file in embeddings_dir.glob(f"{corpus_id}_*.npz"):
+                        emb_file.unlink()
+                        deleted_items.append(f"Embedding: {emb_file.name}")
+                    for doc_file in embeddings_dir.glob(f"{corpus_id}_*.json"):
+                        doc_file.unlink()
+                        deleted_items.append(f"Embedding docs: {doc_file.name}")
+            except Exception as e:
+                logger.warning(f"Could not remove some embeddings for corpus {corpus_id}: {e}")
+
+            # 5. Delete topic modeling results for this corpus
+            try:
+                results_dir = Path("./data/topic_modeling/results")
+                if results_dir.exists():
+                    for result_file in results_dir.glob(f"{corpus_id}_*.json"):
+                        result_file.unlink()
+                        deleted_items.append(f"Topic result: {result_file.name}")
+            except Exception as e:
+                logger.warning(f"Could not remove some topic results for corpus {corpus_id}: {e}")
+
             logger.info(f"Deleted corpus '{corpus_name}' and {len(deleted_items)} related items")
             return {
-                "success": True, 
+                "success": True,
                 "message": f"Corpus '{corpus_name}' deleted successfully",
                 "deleted_items": deleted_items
             }

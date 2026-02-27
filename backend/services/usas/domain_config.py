@@ -8,7 +8,7 @@ import sys
 import re
 import logging
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Set, Tuple
 
 # Import config for path resolution
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
@@ -134,6 +134,25 @@ TEXT_TYPE_NAME_TO_CODE = {
 
 # Global domain dictionary (populated from file)
 USAS_DOMAINS: Dict[str, str] = {}
+# Bases that have no exact key in the file, only suffixed keys (e.g. A1.8 from A1.8+, A1.8-). Populated when file is parsed.
+USAS_BASES_ONLY_SUFFIXED: Set[str] = set()
+
+
+def _normalize_file_key_to_base(code: str) -> str:
+    """
+    Normalize a USAS domain code from usas_semantic_domains.txt to its base form
+    (strip _MWE and suffixes). Used to detect bases that have only suffixed entries.
+    """
+    if not code or not code.strip():
+        return ''
+    s = code.strip()
+    s = s.replace('_MWE', '')
+    if '/' in s:
+        s = s.split('/')[0].strip()
+    s = re.sub(r'[a-z]+$', '', s)
+    s = re.sub(r'[-+\/%@]+$', '', s)
+    s = re.sub(r'\[[^\]]*\]$', '', s)
+    return s.strip()
 
 
 def parse_usas_domains_file(file_path: Optional[str] = None) -> Dict[str, str]:
@@ -146,7 +165,7 @@ def parse_usas_domains_file(file_path: Optional[str] = None) -> Dict[str, str]:
     Returns:
         Dictionary mapping domain codes to descriptions
     """
-    global USAS_DOMAINS
+    global USAS_DOMAINS, USAS_BASES_ONLY_SUFFIXED
     
     if file_path is None:
         # In packaged mode, look in _MEIPASS; in dev mode, use project root
@@ -173,14 +192,58 @@ def parse_usas_domains_file(file_path: Optional[str] = None) -> Dict[str, str]:
                     domains[code] = description
         
         USAS_DOMAINS = domains
-        logger.info(f"Loaded {len(domains)} USAS semantic domains from {file_path}")
+        # Bases that appear only as suffixed keys (no exact base key in file), e.g. A1.8 from A1.8+/A1.8-
+        all_bases = {_normalize_file_key_to_base(c) for c in domains if _normalize_file_key_to_base(c)}
+        USAS_BASES_ONLY_SUFFIXED = {b for b in all_bases if b not in domains}
+        logger.info(f"Loaded {len(domains)} USAS semantic domains from {file_path}; {len(USAS_BASES_ONLY_SUFFIXED)} bases with only suffixed entries")
         
     except FileNotFoundError:
         logger.warning(f"USAS domains file not found: {file_path}")
+        USAS_BASES_ONLY_SUFFIXED = set()
     except Exception as e:
         logger.error(f"Error parsing USAS domains file: {e}")
+        USAS_BASES_ONLY_SUFFIXED = set()
     
     return domains
+
+
+# Suffixes to strip for description lookup only (gender, idiom, rarity, template)
+# Order matters: try longer suffixes first (e.g. mf before m/f)
+_DESCRIPTION_STRIP_SUFFIXES = ('_MWE', '[i]', 'mf', 'm', 'f', 'n', 'c', 'i', '%', '@')
+
+
+def _code_for_lookup(code: str) -> str:
+    """Reduce code for USAS_DOMAINS lookup: strip MWE then polarity then other suffixes."""
+    c = code.replace('_MWE', '') if '_MWE' in code else code
+    c = c.rstrip('+-')
+    for suf in _DESCRIPTION_STRIP_SUFFIXES:
+        if suf != '_MWE' and c.endswith(suf):
+            c = c[:-len(suf)]
+            break
+    return c
+
+
+def get_aggregated_domain_description(base: str) -> str:
+    """
+    Fixed mapping for keyness aggregated-by-base display name.
+    - Bases that have only suffixed entries in usas_semantic_domains.txt (e.g. A1.8):
+      return concatenated descriptions ("Inclusion / Exclusion", "Constraint / No constraint").
+    - All other bases: return the base's own name from the file (e.g. A1.5.1 -> "Using").
+    """
+    if not USAS_DOMAINS:
+        parse_usas_domains_file()
+    if base in USAS_BASES_ONLY_SUFFIXED:
+        descriptions = []
+        seen = set()
+        for code, desc in USAS_DOMAINS.items():
+            if _normalize_file_key_to_base(code) != base:
+                continue
+            if desc and desc not in seen:
+                seen.add(desc)
+                descriptions.append(desc)
+        if descriptions:
+            return ' / '.join(descriptions)
+    return USAS_DOMAINS.get(base, '') or get_domain_description(base)
 
 
 def get_domain_description(code: str) -> str:
@@ -188,26 +251,29 @@ def get_domain_description(code: str) -> str:
     Get description for a semantic domain code
     
     Args:
-        code: Domain code like 'A1.1.1' or 'I1.1+'
+        code: Domain code like 'A1.1.1', 'I1.1+', 'S2mf', 'A1.5.1_MWE'
         
     Returns:
         Domain description or empty string if not found
     """
-    # Handle MWE format (e.g., 'I1.1_MWE')
-    if '_MWE' in code:
-        base_code = code.replace('_MWE', '')
-        return USAS_DOMAINS.get(base_code, '')
-    
-    # Handle polarity markers (+/-)
-    clean_code = code.rstrip('+-')
-    
     # Try exact match first
     if code in USAS_DOMAINS:
         return USAS_DOMAINS[code]
     
-    # Try without polarity
-    if clean_code in USAS_DOMAINS:
-        return USAS_DOMAINS[clean_code]
+    # Try without _MWE
+    base = code.replace('_MWE', '') if '_MWE' in code else code
+    if base in USAS_DOMAINS:
+        return USAS_DOMAINS[base]
+    
+    # Try without polarity +/-
+    clean = base.rstrip('+-')
+    if clean in USAS_DOMAINS:
+        return USAS_DOMAINS[clean]
+    
+    # Try stripping gender/idiom/rarity suffixes (e.g. S2mf -> S2)
+    lookup = _code_for_lookup(code)
+    if lookup in USAS_DOMAINS:
+        return USAS_DOMAINS[lookup]
     
     return ''
 

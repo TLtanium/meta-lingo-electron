@@ -185,7 +185,7 @@ export default function AudioVisualization({
 
   }, [chartType, hasSpectrogram, hasFormants, acousticData, duration, zoom])
 
-  // 绘制柱状图 (音频画框 + 文本标注)
+  // 绘制柱状图：音频画框与文本标注左右分布，与太阳图同尺寸减少留白
   const drawBarChart = useCallback(() => {
     const hasAudio = labelStats.length > 0
     const hasText = textAnnotationStats.length > 0
@@ -194,173 +194,26 @@ export default function AudioVisualization({
     const svg = d3.select(chartSvgRef.current)
     svg.selectAll('*').remove()
 
-    // Merge audio and text stats into unified dataset
-    const audioData = labelStats.map((d, i) => ({
-      name: d.name,
-      value: d.value,
-      color: d.color,
-      totalDuration: d.totalDuration,
-      seriesType: 'audio' as const
-    }))
-    const textData = textAnnotationStats.map((d, i) => ({
-      name: d.name,
-      value: d.value,
-      color: TEXT_PALETTE[Math.min(i, TEXT_PALETTE.length - 1)],
-      totalDuration: undefined as number | undefined,
-      seriesType: 'text' as const
-    }))
-    const allData = [...audioData, ...textData]
-    const totalAnnotations = audioBoxes.length + textAnnotations.filter(a => !a.id.startsWith('spacy-')).length
+    const totalHeight = 520
+    const sectionGap = 24
+    const sectionTitleHeight = 28
+    const margin = { top: 12, right: 20, left: 42, bottom: 72 }
+    const leftPadding = 44
+    const sectionWidth = 338
+    const totalWidth = leftPadding + sectionWidth + sectionGap + sectionWidth
+    const chartHeight = totalHeight - 24 - sectionTitleHeight
+    const innerWidth = sectionWidth - margin.left - margin.right
+    const innerHeight = chartHeight - margin.top - margin.bottom
 
-    const width = 700
-    const height = 420
-    const margin = { top: 40, right: 30, left: 60, bottom: 110 }
-    const innerWidth = width - margin.left - margin.right
-    const innerHeight = height - margin.top - margin.bottom
-
-    svg.attr('viewBox', `0 0 ${width} ${height}`)
+    svg.attr('viewBox', `0 0 ${totalWidth} ${totalHeight}`)
        .attr('width', '100%')
        .attr('height', '100%')
 
-    const g = svg.append('g')
-      .attr('transform', `translate(${margin.left}, ${margin.top})`)
+    const axisColor = isDarkMode ? '#888' : '#555'
+    const gridColor = isDarkMode ? '#444' : '#e5e5e5'
 
-    // 比例尺
-    const xScale = d3.scaleBand()
-      .domain(allData.map(d => d.name))
-      .range([0, innerWidth])
-      .padding(0.3)
-
-    const yScale = d3.scaleLinear()
-      .domain([0, Math.max(...allData.map(d => d.value)) * 1.15])
-      .range([innerHeight, 0])
-
-    // 网格线
-    g.append('g')
-      .attr('class', 'grid')
-      .call(d3.axisLeft(yScale)
-        .ticks(5)
-        .tickSize(-innerWidth)
-        .tickFormat(() => ''))
-      .selectAll('line')
-      .attr('stroke', '#e5e5e5')
-      .attr('stroke-dasharray', '3,3')
-    g.selectAll('.grid .domain').remove()
-
-    // X轴
-    const xAxis = g.append('g')
-      .attr('transform', `translate(0, ${innerHeight})`)
-      .call(d3.axisBottom(xScale))
-
-    xAxis.selectAll('text')
-      .attr('transform', 'rotate(-45)')
-      .attr('text-anchor', 'end')
-      .attr('dx', '-0.5em')
-      .attr('dy', '0.5em')
-      .attr('font-size', 11)
-      .attr('fill', '#555')
-      .each(function(d) {
-        const text = d3.select(this)
-        const lbl = d as string
-        if (lbl.length > 12) text.text(lbl.slice(0, 12) + '...')
-      })
-
-    xAxis.selectAll('line, path').attr('stroke', '#ccc')
-
-    // Y轴
-    const yAxis = g.append('g')
-      .call(d3.axisLeft(yScale).ticks(5))
-
-    yAxis.selectAll('text').attr('font-size', 11).attr('fill', '#555')
-    yAxis.selectAll('line, path').attr('stroke', '#ccc')
-
-    // Y轴标签
-    g.append('text')
-      .attr('transform', 'rotate(-90)')
-      .attr('x', -innerHeight / 2)
-      .attr('y', -45)
-      .attr('text-anchor', 'middle')
-      .attr('fill', themeColors.subText)
-      .attr('font-size', 12)
-      .text(t('annotation.count', '数量'))
-
-    // 绘制条形
-    g.selectAll('.bar')
-      .data(allData)
-      .join('rect')
-      .attr('class', 'bar')
-      .attr('x', d => xScale(d.name) || 0)
-      .attr('y', d => yScale(d.value))
-      .attr('width', xScale.bandwidth())
-      .attr('height', d => innerHeight - yScale(d.value))
-      .attr('fill', d => d.color)
-      .attr('rx', 4)
-      .attr('ry', 4)
-      .style('cursor', 'pointer')
-      .on('mouseover', function(event, d) {
-        d3.select(this)
-          .attr('opacity', 0.8)
-          .attr('stroke', themeColors.text)
-          .attr('stroke-width', 2)
-
-        if (tooltipRef.current) {
-          const seriesLabel = d.seriesType === 'audio'
-            ? t('annotation.audioBoxes', '音频画框')
-            : t('annotation.textAnnotations', '文本标注')
-          const pct = totalAnnotations > 0 ? (d.value / totalAnnotations * 100).toFixed(1) : '0.0'
-          const durStr = d.totalDuration !== undefined
-            ? `<div>${t('annotation.totalDuration', '总时长')}: <strong>${d.totalDuration.toFixed(2)}s</strong></div>`
-            : ''
-          tooltipRef.current.innerHTML = `
-            <div style="font-weight:600;color:${d.color};margin-bottom:4px;border-bottom:2px solid ${d.color};padding-bottom:4px">
-              ${d.name}
-            </div>
-            <div style="color:${themeColors.subText};font-size:11px;margin-bottom:4px">${seriesLabel}</div>
-            <div>${t('annotation.count', '数量')}: <strong>${d.value}</strong></div>
-            <div>${t('annotation.percentage', '占比')}: <strong>${pct}%</strong></div>
-            ${durStr}
-          `
-          tooltipRef.current.style.display = 'block'
-          tooltipRef.current.style.left = `${event.pageX + 15}px`
-          tooltipRef.current.style.top = `${event.pageY + 15}px`
-        }
-      })
-      .on('mouseout', function() {
-        d3.select(this).attr('opacity', 1).attr('stroke', 'none')
-        if (tooltipRef.current) tooltipRef.current.style.display = 'none'
-      })
-
-    // 数值标签
-    g.selectAll('.value-label')
-      .data(allData)
-      .join('text')
-      .attr('class', 'value-label')
-      .attr('x', d => (xScale(d.name) || 0) + xScale.bandwidth() / 2)
-      .attr('y', d => yScale(d.value) - 6)
-      .attr('text-anchor', 'middle')
-      .attr('fill', themeColors.text)
-      .attr('font-size', 11)
-      .attr('font-weight', 600)
-      .text(d => d.value)
-
-    // 图例（右侧）
-    const legendItems = [
-      ...(hasAudio ? [{ color: AUDIO_COLOR, name: t('annotation.audioBoxes', '音频画框') }] : []),
-      ...(hasText ? [{ color: TEXT_ANN_COLOR, name: t('annotation.textAnnotations', '文本标注') }] : [])
-    ]
-    const legendX = width - margin.right - 120
-    legendItems.forEach((item, i) => {
-      const ly = margin.top + i * 22
-      svg.append('rect').attr('x', legendX).attr('y', ly).attr('width', 14).attr('height', 14)
-        .attr('rx', 3).attr('fill', item.color)
-      svg.append('text').attr('x', legendX + 20).attr('y', ly + 11)
-        .attr('fill', themeColors.text).attr('font-size', 11).attr('font-weight', 500)
-        .text(item.name)
-    })
-
-    // 标题
     svg.append('text')
-      .attr('x', width / 2)
+      .attr('x', totalWidth / 2)
       .attr('y', 20)
       .attr('text-anchor', 'middle')
       .attr('fill', themeColors.text)
@@ -368,6 +221,122 @@ export default function AudioVisualization({
       .attr('font-weight', 600)
       .text(t('annotation.audioLabelStatistics', '标注统计'))
 
+    const drawOneSection = (
+      xOffset: number,
+      data: { name: string; value: number; color: string; totalDuration?: number }[],
+      sectionTitle: string,
+      seriesType: 'audio' | 'text'
+    ) => {
+      const maxVal = Math.max(...data.map(d => d.value), 1)
+      const yScale = d3.scaleLinear()
+        .domain([0, maxVal * 1.15])
+        .range([innerHeight, 0])
+      const xScale = d3.scaleBand()
+        .domain(data.map(d => d.name))
+        .range([0, innerWidth])
+        .padding(0.3)
+
+      const g = svg.append('g')
+        .attr('transform', `translate(${xOffset}, ${24 + sectionTitleHeight + margin.top})`)
+
+      g.append('text')
+        .attr('x', margin.left)
+        .attr('y', -margin.top - 4)
+        .attr('fill', themeColors.subText)
+        .attr('font-size', 12)
+        .attr('font-weight', 600)
+        .text(sectionTitle)
+
+      g.append('g')
+        .attr('class', 'grid')
+        .call(d3.axisLeft(yScale).ticks(5).tickSize(-innerWidth).tickFormat(() => ''))
+        .selectAll('line').attr('stroke', gridColor).attr('stroke-dasharray', '3,3')
+      g.selectAll('.grid .domain').remove()
+
+      const xAxis = g.append('g').attr('transform', `translate(0, ${innerHeight})`)
+        .call(d3.axisBottom(xScale))
+      xAxis.selectAll('text')
+        .attr('transform', 'rotate(-45)').attr('text-anchor', 'end').attr('dx', '-0.5em').attr('dy', '0.5em')
+        .attr('font-size', 11).attr('fill', axisColor)
+        .each(function(d) {
+          const lbl = (d as string).length > 12 ? (d as string).slice(0, 12) + '...' : d
+          d3.select(this).text(lbl)
+        })
+      xAxis.selectAll('line, path').attr('stroke', axisColor)
+
+      g.append('g').call(d3.axisLeft(yScale).ticks(5))
+        .selectAll('text').attr('font-size', 11).attr('fill', axisColor)
+      g.selectAll('.tick line, .domain').attr('stroke', axisColor)
+
+      const totalN = seriesType === 'audio' ? audioBoxes.length : textAnnotations.filter(a => !a.id.startsWith('spacy-')).length
+      g.selectAll('.bar')
+        .data(data)
+        .join('rect')
+        .attr('class', 'bar')
+        .attr('x', d => xScale(d.name) || 0)
+        .attr('y', d => yScale(d.value))
+        .attr('width', xScale.bandwidth())
+        .attr('height', d => innerHeight - yScale(d.value))
+        .attr('fill', d => d.color)
+        .attr('rx', 4)
+        .attr('ry', 4)
+        .style('cursor', 'pointer')
+        .on('mouseover', function(event, d) {
+          d3.select(this).attr('opacity', 0.8).attr('stroke', themeColors.text).attr('stroke-width', 2)
+          if (tooltipRef.current) {
+            const pct = totalN > 0 ? (d.value / totalN * 100).toFixed(1) : '0.0'
+            const durStr = d.totalDuration !== undefined
+              ? `<div>${t('annotation.totalDuration', '总时长')}: <strong>${d.totalDuration.toFixed(2)}s</strong></div>`
+              : ''
+            tooltipRef.current.innerHTML = `
+              <div style="font-weight:600;color:${d.color};margin-bottom:4px;border-bottom:2px solid ${d.color};padding-bottom:4px">${d.name}</div>
+              <div style="color:${themeColors.subText};font-size:11px;margin-bottom:4px">${sectionTitle}</div>
+              <div>${t('annotation.count', '数量')}: <strong>${d.value}</strong></div>
+              <div>${t('annotation.percentage', '占比')}: <strong>${pct}%</strong></div>${durStr}
+            `
+            tooltipRef.current.style.display = 'block'
+            tooltipRef.current.style.left = `${event.pageX + 15}px`
+            tooltipRef.current.style.top = `${event.pageY + 15}px`
+          }
+        })
+        .on('mouseout', function() {
+          d3.select(this).attr('opacity', 1).attr('stroke', 'none')
+          if (tooltipRef.current) tooltipRef.current.style.display = 'none'
+        })
+
+      g.selectAll('.value-label')
+        .data(data)
+        .join('text')
+        .attr('class', 'value-label')
+        .attr('x', d => (xScale(d.name) || 0) + xScale.bandwidth() / 2)
+        .attr('y', d => yScale(d.value) - 6)
+        .attr('text-anchor', 'middle')
+        .attr('fill', themeColors.text)
+        .attr('font-size', 11)
+        .attr('font-weight', 600)
+        .text(d => d.value)
+    }
+
+    if (hasAudio) {
+      drawOneSection(
+        leftPadding,
+        labelStats.map(d => ({ name: d.name, value: d.value, color: d.color, totalDuration: d.totalDuration })),
+        t('annotation.audioBoxes', '音频画框'),
+        'audio'
+      )
+    }
+    if (hasText) {
+      drawOneSection(
+        hasAudio ? leftPadding + sectionWidth + sectionGap : leftPadding,
+        textAnnotationStats.map((d, i) => ({
+          name: d.name,
+          value: d.value,
+          color: TEXT_PALETTE[Math.min(i, TEXT_PALETTE.length - 1)]
+        })),
+        t('annotation.textAnnotations', '文本标注'),
+        'text'
+      )
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [labelStats, textAnnotationStats, audioBoxes.length, textAnnotations, t, isDarkMode])
   
@@ -1045,17 +1014,18 @@ export default function AudioVisualization({
                 border: 1,
                 borderColor: 'divider',
                 borderRadius: 2,
-                maxHeight: 560,
-                overflow: 'auto'
+                maxHeight: 640,
+                overflow: 'auto',
+                mt: 2
               }}
             >
-              <Box sx={{ p: 2, width: '100%', display: 'flex', justifyContent: 'center' }}>
+              <Box sx={{ p: 2, pt: 3, width: '100%', display: 'flex', justifyContent: 'center' }}>
                 <svg
                   ref={chartSvgRef}
                   style={{
                     width: '100%',
                     maxWidth: 700,
-                    height: chartType === 'bar' ? 400 : 520
+                    height: chartType === 'bar' ? 560 : 520
                   }}
                 />
               </Box>

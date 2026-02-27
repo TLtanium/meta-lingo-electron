@@ -51,11 +51,28 @@ interface CorpusResourceDialogProps {
 }
 
 // Color mapping for corpus type chips
+// Keys correspond to CorpusResource.prefix values (see backend CorpusResourceService)
 const CORPUS_COLORS: Record<string, string> = {
+  // Legacy / generic
   bnc: '#1976d2',
   brown: '#7b1fa2',
   now: '#388e3c',
-  oanc: '#f57c00'
+  oanc: '#f57c00',
+  // BNC variants
+  bnc1994: '#1976d2',   // Blue
+  bnc2014: '#1565c0',   // Darker blue
+  // COCA / COHA
+  coca: '#00897b',      // Teal
+  coha: '#00695c',      // Dark teal
+  // Web-based corpora
+  glowbe: '#6d4c41',    // Brown
+  // Other large corpora
+  coronavirus: '#c2185b', // Pink
+  iweb: '#5d4037',      // Brownish
+  movies: '#ff7043',    // Deep orange
+  soap: '#8e24aa',      // Purple
+  tv: '#7b1fa2',        // Purple (align with Brown)
+  wikipedia: '#0097a7'  // Cyan
 }
 
 export const CorpusResourceDialog: React.FC<CorpusResourceDialogProps> = ({
@@ -263,23 +280,26 @@ export const CorpusResourceDialog: React.FC<CorpusResourceDialogProps> = ({
             color={selectedPrefix === '' ? 'primary' : 'default'}
             onClick={() => setSelectedPrefix('')}
           />
-          {prefixes.map(prefix => (
-            <Chip
-              key={prefix}
-              label={prefix.toUpperCase()}
-              size="small"
-              variant={selectedPrefix === prefix ? 'filled' : 'outlined'}
-              onClick={() => setSelectedPrefix(selectedPrefix === prefix ? '' : prefix)}
-              sx={{
-                bgcolor: selectedPrefix === prefix ? CORPUS_COLORS[prefix] : 'transparent',
-                borderColor: CORPUS_COLORS[prefix],
-                color: selectedPrefix === prefix ? 'white' : CORPUS_COLORS[prefix],
-                '&:hover': {
-                  bgcolor: selectedPrefix === prefix ? CORPUS_COLORS[prefix] : `${CORPUS_COLORS[prefix]}15`
-                }
-              }}
-            />
-          ))}
+          {prefixes.map(prefix => {
+            const color = CORPUS_COLORS[prefix] || theme.palette.text.secondary
+            return (
+              <Chip
+                key={prefix}
+                label={prefix.toUpperCase()}
+                size="small"
+                variant={selectedPrefix === prefix ? 'filled' : 'outlined'}
+                onClick={() => setSelectedPrefix(selectedPrefix === prefix ? '' : prefix)}
+                sx={{
+                  bgcolor: selectedPrefix === prefix ? color : 'transparent',
+                  borderColor: color,
+                  color: selectedPrefix === prefix ? 'white' : color,
+                  '&:hover': {
+                    bgcolor: selectedPrefix === prefix ? color : `${color}15`
+                  }
+                }}
+              />
+            )
+          })}
         </Stack>
 
         {/* Advanced filters toggle */}

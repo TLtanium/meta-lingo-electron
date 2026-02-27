@@ -49,7 +49,7 @@ export interface CorpusResource {
   tags_en: string[]       // e.g., ['BNC', 'commerce', 'finance']
   tags_zh: string[]       // e.g., ['BNC', '商业', '金融']
   file_size: number       // File size in bytes
-  word_count: number      // Number of unique words
+  word_count: number      // Number of words (tokens, sum of freq)
   description_en: string
   description_zh: string
 }
@@ -140,6 +140,11 @@ export type KeynessStatistic =
   | 'simple_keyness'    // Simple frequency ratio
   | 'fishers_exact'     // Fisher's Exact Test
 
+export type ComparisonMode =
+  | 'word'              // Compare by surface word form
+  | 'lemma'             // Compare by lemma (base form)
+  | 'domain'            // Compare by USAS semantic domain
+
 export interface KeynessConfig {
   statistic: KeynessStatistic
   minFreqStudy: number      // Minimum frequency in study corpus
@@ -161,6 +166,7 @@ export interface KeynessRequest {
   stopwords_config?: StopwordsConfig
   language?: string
   threshold_config?: ThresholdConfig
+  comparison_mode?: ComparisonMode
 }
 
 export interface KeynessResourceRequest {
@@ -174,6 +180,7 @@ export interface KeynessResourceRequest {
   stopwords_config?: StopwordsConfig
   language?: string
   threshold_config?: ThresholdConfig
+  comparison_mode?: ComparisonMode
 }
 
 export interface KeynessKeyword {
@@ -188,6 +195,9 @@ export interface KeynessKeyword {
   significance: string      // Significance level ('***', '**', '*', '')
   direction: 'positive' | 'negative'  // Over/under-represented
   rank: number
+  // Optional semantic domain metadata when comparison_mode === 'domain'
+  domain_code?: string
+  domain_name?: string
 }
 
 export interface KeynessResponse {

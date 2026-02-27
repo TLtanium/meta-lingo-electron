@@ -3,7 +3,7 @@
  * Main Word Sketch analysis component with three-column layout
  */
 
-import { useState, useEffect, useMemo, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import {
   Box,
   Typography,
@@ -18,15 +18,7 @@ import {
   InputLabel,
   Select,
   MenuItem,
-  Divider,
-  RadioGroup,
-  Radio,
-  FormControlLabel,
-  Checkbox,
   InputAdornment,
-  CircularProgress,
-  OutlinedInput,
-  ListItemText,
   Tabs,
   Tab,
   Grid,
@@ -41,7 +33,6 @@ import {
   TableHead,
   TableRow,
   Tooltip,
-  SelectChangeEvent,
   useTheme
 } from '@mui/material'
 import SearchIcon from '@mui/icons-material/Search'
@@ -51,8 +42,8 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import ExpandLessIcon from '@mui/icons-material/ExpandLess'
 import { useTranslation } from 'react-i18next'
 import i18n from '../../i18n'
-import { corpusApi, sketchApi } from '../../api'
-import type { Corpus, CorpusText, CrossLinkParams } from '../../types'
+import { sketchApi } from '../../api'
+import type { CrossLinkParams } from '../../types'
 import type { 
   WordSketchResult, 
   RelationData, 
@@ -62,8 +53,9 @@ import type {
 import NumberInput from '../../components/Common/NumberInput'
 import { WordActionMenu } from '../../components/Common'
 import SketchVisualization from './components/SketchVisualization'
-
-type SelectionMode = 'all' | 'selected' | 'tags'
+import AnalysisAIAssistant from '../../components/AnalysisAIAssistant'
+import CorpusOrLibrarySelector, { type CorpusOrLibrarySelection } from '../../components/Corpus/CorpusOrLibrarySelector'
+import { useSettingsStore } from '../../stores/settingsStore'
 
 // Search types
 const SEARCH_TYPES = [
@@ -83,17 +75,10 @@ export default function WordSketchTab({ crossLinkParams }: WordSketchTabProps) {
   const { t } = useTranslation()
   const theme = useTheme()
   const isDarkMode = theme.palette.mode === 'dark'
+  const { ollamaConnected, openaiApiEnabled } = useSettingsStore()
 
-  // Corpus state
-  const [corpora, setCorpora] = useState<Corpus[]>([])
-  const [selectedCorpus, setSelectedCorpus] = useState<Corpus | null>(null)
-  const [texts, setTexts] = useState<CorpusText[]>([])
-  const [selectedTextIds, setSelectedTextIds] = useState<string[]>([])
-  const [selectedTags, setSelectedTags] = useState<string[]>([])
-  const [selectionMode, setSelectionMode] = useState<SelectionMode>('all')
-  const [textSearch, setTextSearch] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [loadingTexts, setLoadingTexts] = useState(false)
+  // Data source: corpus or library (unified selector)
+  const [corpusSelection, setCorpusSelection] = useState<CorpusOrLibrarySelection | null>(null)
 
   // Search state
   const [searchWord, setSearchWord] = useState('')
@@ -121,59 +106,52 @@ export default function WordSketchTab({ crossLinkParams }: WordSketchTabProps) {
   const pendingAutoSearchRef = useRef(false)
   const handleAnalyzeRef = useRef<() => void>(() => {})
 
-  // Load corpora and POS options on mount
+  // Handle cross-link params - set up selection and search word
   useEffect(() => {
-    loadCorpora()
+    if (crossLinkParams && !crossLinkProcessedRef.current) {
+      crossLinkProcessedRef.current = true
+      setCorpusSelection({
+        corpusId: crossLinkParams.corpusId,
+        textIds: Array.isArray(crossLinkParams.textIds) ? crossLinkParams.textIds : 'all',
+        dataSource: crossLinkParams.libraryId ? 'library' : 'corpus',
+        selectionMode: (crossLinkParams.selectionMode as 'all' | 'tags' | 'selected') ?? 'all',
+        selectedTags: crossLinkParams.selectedTags ?? [],
+        ...(crossLinkParams.libraryId && { libraryId: crossLinkParams.libraryId }),
+        ...(crossLinkParams.selectedEntryIds?.length && { selectedEntryIds: crossLinkParams.selectedEntryIds }),
+        language: 'english'
+      })
+      if (crossLinkParams.searchWord) setSearchWord(crossLinkParams.searchWord)
+      if (crossLinkParams.autoSearch) pendingAutoSearchRef.current = true
+    }
+  }, [crossLinkParams])
+
+  // External selection for selector sync when opened via cross-link (including library)
+  const externalSelection = useMemo((): CorpusOrLibrarySelection | null => {
+    if (!crossLinkParams?.corpusId) return null
+    return {
+      corpusId: crossLinkParams.corpusId,
+      textIds: Array.isArray(crossLinkParams.textIds) ? crossLinkParams.textIds : 'all',
+      language: 'english',
+      dataSource: crossLinkParams.libraryId ? 'library' : 'corpus',
+      selectionMode: (crossLinkParams.selectionMode as 'all' | 'tags' | 'selected') ?? 'all',
+      selectedTags: crossLinkParams.selectedTags ?? [],
+      ...(crossLinkParams.libraryId && { libraryId: crossLinkParams.libraryId }),
+      ...(crossLinkParams.selectedEntryIds?.length && { selectedEntryIds: crossLinkParams.selectedEntryIds })
+    }
+  }, [crossLinkParams])
+
+  // Auto-search when selection is ready and auto-search is pending
+  useEffect(() => {
+    if (pendingAutoSearchRef.current && corpusSelection && searchWord.trim()) {
+      pendingAutoSearchRef.current = false
+      setTimeout(() => handleAnalyzeRef.current(), 200)
+    }
+  }, [corpusSelection, searchWord])
+
+  // Load POS options on mount
+  useEffect(() => {
     loadPosOptions()
   }, [])
-
-  // Handle cross-link params - set up corpus and search word
-  useEffect(() => {
-    if (crossLinkParams && !crossLinkProcessedRef.current && corpora.length > 0) {
-      const corpus = corpora.find(c => c.id === crossLinkParams.corpusId)
-      if (corpus) {
-        crossLinkProcessedRef.current = true
-        setSelectedCorpus(corpus)
-        setSearchWord(crossLinkParams.searchWord)
-        setSelectionMode(crossLinkParams.selectionMode)
-        
-        if (crossLinkParams.selectionMode === 'tags' && crossLinkParams.selectedTags) {
-          setSelectedTags(crossLinkParams.selectedTags)
-        } else if (crossLinkParams.selectionMode === 'selected' && Array.isArray(crossLinkParams.textIds)) {
-          setSelectedTextIds(crossLinkParams.textIds)
-        }
-        
-        if (crossLinkParams.autoSearch) {
-          pendingAutoSearchRef.current = true
-        }
-      }
-    }
-  }, [crossLinkParams, corpora])
-
-  // Auto-search when texts are loaded and auto-search is pending
-  useEffect(() => {
-    if (pendingAutoSearchRef.current && texts.length > 0 && selectedCorpus && searchWord.trim()) {
-      pendingAutoSearchRef.current = false
-      // Small delay to ensure state is settled, use ref to avoid stale closure
-      setTimeout(() => {
-        handleAnalyzeRef.current()
-      }, 200)
-    }
-  }, [texts, selectedCorpus, searchWord])
-
-  const loadCorpora = async () => {
-    setLoading(true)
-    try {
-      const response = await corpusApi.listCorpora()
-      if (response.success && response.data) {
-        setCorpora(response.data)
-      }
-    } catch (err) {
-      console.error('Failed to load corpora:', err)
-    } finally {
-      setLoading(false)
-    }
-  }
 
   const loadPosOptions = async () => {
     try {
@@ -183,7 +161,6 @@ export default function WordSketchTab({ crossLinkParams }: WordSketchTabProps) {
       }
     } catch (err) {
       console.error('Failed to load POS options:', err)
-      // Default options
       setPosOptions([
         { value: 'auto', label_en: 'Auto', label_zh: '自动' },
         { value: 'adjective', label_en: 'Adjective', label_zh: '形容词' },
@@ -193,102 +170,6 @@ export default function WordSketchTab({ crossLinkParams }: WordSketchTabProps) {
         { value: 'pronoun', label_en: 'Pronoun', label_zh: '代词' }
       ])
     }
-  }
-
-  // Load texts when corpus changes
-  useEffect(() => {
-    if (selectedCorpus) {
-      loadTexts(selectedCorpus.id)
-    } else {
-      setTexts([])
-      setSelectedTextIds([])
-      setSelectedTags([])
-    }
-  }, [selectedCorpus])
-
-  // Get all available tags from texts
-  const allTags = useMemo(() => {
-    const tagSet = new Set<string>()
-    texts.forEach(text => text.tags.forEach(tag => tagSet.add(tag)))
-    return Array.from(tagSet).sort()
-  }, [texts])
-
-  const loadTexts = async (corpusId: string) => {
-    setLoadingTexts(true)
-    try {
-      const response = await corpusApi.getTexts(corpusId)
-      if (response.success && response.data) {
-        setTexts(response.data)
-      }
-    } catch (err) {
-      console.error('Failed to load texts:', err)
-    } finally {
-      setLoadingTexts(false)
-    }
-  }
-
-  // Filter texts based on search and tags
-  const filteredTexts = useMemo(() => {
-    let result = texts
-    
-    if (textSearch) {
-      const query = textSearch.toLowerCase()
-      result = result.filter(t => 
-        t.filename.toLowerCase().includes(query) ||
-        t.originalFilename?.toLowerCase().includes(query)
-      )
-    }
-    
-    if (selectionMode === 'tags' && selectedTags.length > 0) {
-      result = result.filter(t => 
-        selectedTags.some(tag => t.tags.includes(tag))
-      )
-    }
-    
-    return result
-  }, [texts, textSearch, selectionMode, selectedTags])
-
-  // Get selected text IDs based on mode
-  const getSelectedTextIds = (): string[] | 'all' => {
-    switch (selectionMode) {
-      case 'all':
-        return 'all'
-      case 'selected':
-        return selectedTextIds
-      case 'tags':
-        return filteredTexts.map(t => t.id)
-      default:
-        return []
-    }
-  }
-
-  // Handle corpus change
-  const handleCorpusChange = (event: SelectChangeEvent<string>) => {
-    const corpus = corpora.find(c => c.id === event.target.value)
-    setSelectedCorpus(corpus || null)
-    setSelectionMode('all')
-    setSelectedTextIds([])
-    setSelectedTags([])
-    setResult(null)
-    setError(null)
-  }
-
-  // Handle text selection toggle
-  const handleTextToggle = (textId: string) => {
-    setSelectedTextIds(prev => 
-      prev.includes(textId) 
-        ? prev.filter(id => id !== textId)
-        : [...prev, textId]
-    )
-  }
-
-  // Handle select all / deselect all
-  const handleSelectAll = () => {
-    setSelectedTextIds(filteredTexts.map(t => t.id))
-  }
-
-  const handleDeselectAll = () => {
-    setSelectedTextIds([])
   }
 
   // Toggle relation expansion
@@ -338,15 +219,15 @@ export default function WordSketchTab({ crossLinkParams }: WordSketchTabProps) {
 
   // Run analysis
   const handleAnalyze = async () => {
-    if (!selectedCorpus || !searchWord.trim()) return
+    if (!corpusSelection || !searchWord.trim()) return
 
     setIsLoading(true)
     setError(null)
 
     try {
       const response = await sketchApi.generateWordSketch({
-        corpus_id: selectedCorpus.id,
-        text_ids: getSelectedTextIds(),
+        corpus_id: corpusSelection.corpusId,
+        text_ids: corpusSelection.textIds,
         word: searchWord.trim(),
         pos: posFilter,
         min_frequency: minFrequency,
@@ -377,16 +258,7 @@ export default function WordSketchTab({ crossLinkParams }: WordSketchTabProps) {
   handleAnalyzeRef.current = handleAnalyze
 
   // Check if analysis can run
-  const canAnalyze = selectedCorpus && searchWord.trim() && (
-    selectionMode === 'all' || 
-    (selectionMode === 'tags' && selectedTags.length > 0 && filteredTexts.length > 0) ||
-    (selectionMode === 'selected' && selectedTextIds.length > 0)
-  )
-
-  const selectedCount = (() => {
-    const ids = getSelectedTextIds()
-    return ids === 'all' ? texts.length : ids.length
-  })()
+  const canAnalyze = !!corpusSelection && !!searchWord.trim()
 
   // Get display name for relation (with safe fallback)
   const getRelationDisplay = (rel: RelationData) => {
@@ -408,205 +280,44 @@ export default function WordSketchTab({ crossLinkParams }: WordSketchTabProps) {
         display: 'flex',
         flexDirection: 'column'
       }}>
-        <Typography variant="h6" gutterBottom>
-          {t('wordsketch.wordSketch')}
-        </Typography>
+        <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
+          <Typography variant="h6">
+            {t('wordsketch.wordSketch')}
+          </Typography>
+          <AnalysisAIAssistant
+            enabled={ollamaConnected || openaiApiEnabled}
+            moduleLabel={t('wordsketch.wordSketch')}
+            getContext={() => {
+              const hint = t('aiAssistant.wordSketchContextHint')
+              const corpusInfo = corpusSelection ? `Corpus: ${corpusSelection.dataSource === 'corpus' ? 'corpus' : 'library'}, ${corpusSelection.textIds === 'all' ? 'all' : corpusSelection.textIds.length} texts` : 'Corpus: (none)'
+              const params = `searchWord=${searchWord}, minFrequency=${minFrequency}, resultsPerRelation=${resultsPerRelation}`
+              if (!result) return `${hint}\n\n${corpusInfo}\n${params}\n${t('aiAssistant.noAnalysisResult')}`
+              const relSummary = (result.relations || []).slice(0, 15).map((r: any) => `${r.relation_name}: ${(r.collocates || []).slice(0, 5).map((c: any) => c.word || c).join(', ')}`).join('\n')
+              const view = rightTab === 0 ? `Word Sketch for "${result.word}":\n${relSummary}` : `Visualization for "${result.word}". Relations:\n${relSummary}`
+              return `${hint}\n\n${corpusInfo}\n${params}\n${view}`
+            }}
+          />
+        </Stack>
 
         {/* Info chips */}
         <Stack direction="row" spacing={1} mb={2} flexWrap="wrap">
           <Chip label="SpaCy" size="small" color="primary" variant="outlined" />
           <Chip label="logDice" size="small" color="secondary" variant="outlined" />
-          {selectedCorpus?.language && (
+          {corpusSelection?.language && (
             <Chip 
-              label={`${t('corpus.language')}: ${selectedCorpus.language}`}
+              label={`${t('corpus.language')}: ${corpusSelection.language}`}
               size="small" 
               variant="outlined"
             />
           )}
         </Stack>
 
-        {/* 1. Corpus Selection */}
-        <Paper sx={{ p: 2, mb: 2 }}>
-          <Typography variant="subtitle2" sx={{ mb: 1.5 }}>
-            {t('wordsketch.corpus')}
-          </Typography>
-
-          <Stack spacing={2}>
-            <FormControl fullWidth size="small">
-              <InputLabel>{t('corpus.selectCorpus')}</InputLabel>
-              <Select
-                value={selectedCorpus?.id || ''}
-                onChange={handleCorpusChange}
-                label={t('corpus.selectCorpus')}
-                disabled={loading}
-              >
-                {corpora.map(corpus => (
-                  <MenuItem key={corpus.id} value={corpus.id}>
-                    <Stack direction="row" spacing={1} alignItems="center">
-                      <Typography>{corpus.name}</Typography>
-                      <Chip label={`${corpus.textCount} ${t('corpus.textsCount')}`} size="small" />
-                    </Stack>
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-
-            {selectedCorpus && (
-              <>
-                <Divider />
-
-                {/* Selection mode */}
-                <RadioGroup
-                  value={selectionMode}
-                  onChange={(e) => setSelectionMode(e.target.value as SelectionMode)}
-                >
-                  <FormControlLabel 
-                    value="all" 
-                    control={<Radio size="small" />} 
-                    label={
-                      <Typography variant="body2">
-                        {t('wordFrequency.corpus.selectAll')} ({texts.length} {t('corpus.textsCount')})
-                      </Typography>
-                    }
-                  />
-                  <FormControlLabel 
-                    value="tags" 
-                    control={<Radio size="small" />} 
-                    label={
-                      <Typography variant="body2">
-                        {t('topicModeling.corpus.selectByTags')}
-                      </Typography>
-                    }
-                  />
-                  <FormControlLabel 
-                    value="selected" 
-                    control={<Radio size="small" />} 
-                    label={
-                      <Typography variant="body2">
-                        {t('wordFrequency.corpus.selectManually')}
-                      </Typography>
-                    }
-                  />
-                </RadioGroup>
-
-                {/* Tag selection (when mode is 'tags') */}
-                {selectionMode === 'tags' && (
-                  <FormControl size="small" fullWidth>
-                    <InputLabel>{t('corpus.filterByTags')}</InputLabel>
-                    <Select
-                      multiple
-                      value={selectedTags}
-                      onChange={(e) => setSelectedTags(e.target.value as string[])}
-                      input={<OutlinedInput label={t('corpus.filterByTags')} />}
-                      renderValue={(selected) => (
-                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                          {selected.map((tag) => (
-                            <Chip key={tag} label={tag} size="small" />
-                          ))}
-                        </Box>
-                      )}
-                    >
-                      {allTags.map((tag) => (
-                        <MenuItem key={tag} value={tag}>
-                          <Checkbox checked={selectedTags.includes(tag)} size="small" />
-                          <ListItemText primary={tag} />
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                )}
-
-                {/* Manual selection */}
-                {selectionMode === 'selected' && (
-                  <>
-                    <TextField
-                      size="small"
-                      placeholder={t('common.search')}
-                      value={textSearch}
-                      onChange={(e) => setTextSearch(e.target.value)}
-                      InputProps={{
-                        startAdornment: (
-                          <InputAdornment position="start">
-                            <SearchIcon fontSize="small" />
-                          </InputAdornment>
-                        )
-                      }}
-                      fullWidth
-                    />
-
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <Typography variant="body2" color="text.secondary">
-                        {selectedTextIds.length} / {filteredTexts.length} {t('common.selected')}
-                      </Typography>
-                      <Stack direction="row" spacing={1}>
-                        <Button size="small" onClick={handleSelectAll}>
-                          {t('common.selectAll')}
-                        </Button>
-                        <Button size="small" onClick={handleDeselectAll}>
-                          {t('common.clearAll')}
-                        </Button>
-                      </Stack>
-                    </Box>
-
-                    <Box sx={{ 
-                      maxHeight: 120, 
-                      overflow: 'auto', 
-                      border: 1, 
-                      borderColor: 'divider', 
-                      borderRadius: 1 
-                    }}>
-                      {loadingTexts ? (
-                        <Box sx={{ display: 'flex', justifyContent: 'center', p: 2 }}>
-                          <CircularProgress size={24} />
-                        </Box>
-                      ) : filteredTexts.length === 0 ? (
-                        <Typography variant="body2" color="text.secondary" sx={{ p: 2, textAlign: 'center' }}>
-                          {t('common.noData')}
-                        </Typography>
-                      ) : (
-                        filteredTexts.map(text => (
-                          <FormControlLabel
-                            key={text.id}
-                            control={
-                              <Checkbox
-                                checked={selectedTextIds.includes(text.id)}
-                                onChange={() => handleTextToggle(text.id)}
-                                size="small"
-                              />
-                            }
-                            label={
-                              <Typography variant="body2" noWrap sx={{ maxWidth: 200 }}>
-                                {text.filename}
-                              </Typography>
-                            }
-                            sx={{ 
-                              display: 'flex', 
-                              width: '100%', 
-                              m: 0, 
-                              px: 1,
-                              '&:hover': { bgcolor: 'action.hover' }
-                            }}
-                          />
-                        ))
-                      )}
-                    </Box>
-                  </>
-                )}
-
-                {/* Selection summary */}
-                <Alert 
-                  severity={selectedCount > 0 ? 'success' : 'warning'} 
-                  icon={false}
-                  sx={{ py: 0.5 }}
-                >
-                  <Typography variant="body2">
-                    {t('wordFrequency.corpus.selectedCount')}: <strong>{selectedCount}</strong> {t('corpus.textsCount')}
-                  </Typography>
-                </Alert>
-              </>
-            )}
-          </Stack>
-        </Paper>
+        {/* 1. Corpus / Library Selection */}
+        <CorpusOrLibrarySelector
+          sectionTitle={t('wordsketch.corpus')}
+          onSelectionChange={setCorpusSelection}
+          externalSelection={externalSelection}
+        />
 
         {/* 2. Search Configuration */}
         <Paper sx={{ p: 2, mb: 2 }}>
@@ -824,7 +535,7 @@ export default function WordSketchTab({ crossLinkParams }: WordSketchTabProps) {
                                         <TableCell sx={{ bgcolor: (theme) => theme.palette.mode === 'dark' ? 'grey.800' : 'grey.100' }}>{t('wordsketch.collocate')}</TableCell>
                                         <TableCell align="right" sx={{ bgcolor: (theme) => theme.palette.mode === 'dark' ? 'grey.800' : 'grey.100' }}>{t('wordsketch.freq')}</TableCell>
                                         <TableCell align="right" sx={{ bgcolor: (theme) => theme.palette.mode === 'dark' ? 'grey.800' : 'grey.100' }}>{t('wordsketch.score')}</TableCell>
-                                        {selectedCorpus && (
+                                        {corpusSelection && (
                                           <TableCell align="center" sx={{ bgcolor: (theme) => theme.palette.mode === 'dark' ? 'grey.800' : 'grey.100', width: 40 }}></TableCell>
                                         )}
                                       </TableRow>
@@ -858,14 +569,16 @@ export default function WordSketchTab({ crossLinkParams }: WordSketchTabProps) {
                                               {(coll?.score || 0).toFixed(2)}
                                             </Typography>
                                           </TableCell>
-                                          {selectedCorpus && (
+                                          {corpusSelection && (
                                             <TableCell align="center" sx={{ p: 0.5 }}>
                                               <WordActionMenu
                                                 word={coll?.word || coll?.lemma || ''}
-                                                corpusId={selectedCorpus.id}
-                                                textIds={getSelectedTextIds()}
-                                                selectionMode={selectionMode}
-                                                selectedTags={selectedTags}
+                                                corpusId={corpusSelection.corpusId}
+                                                textIds={corpusSelection.textIds}
+                                                selectionMode={corpusSelection.selectionMode === 'keywords' ? 'tags' : (corpusSelection.selectionMode ?? 'all')}
+                                                selectedTags={corpusSelection.selectedKeywords ?? corpusSelection.selectedTags ?? []}
+                                                libraryId={corpusSelection?.dataSource === 'library' ? corpusSelection.libraryId : undefined}
+                                                selectedEntryIds={corpusSelection?.dataSource === 'library' && corpusSelection?.selectionMode === 'selected' ? corpusSelection?.selectedEntryIds : undefined}
                                                 showCollocation={true}
                                                 showCollocationAnalysis={false}
                                                 showWordSketch={false}

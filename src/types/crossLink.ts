@@ -25,6 +25,10 @@ export interface CrossLinkParams {
   selectionMode: SelectionMode
   /** Selected tags (when selectionMode is 'tags') */
   selectedTags?: string[]
+  /** When linking from library mode, the library id so target can sync selector */
+  libraryId?: string
+  /** When library + manual selection, entry IDs so target can restore exact selection without depending on first page of entries */
+  selectedEntryIds?: string[]
   /** Whether to automatically trigger search on load */
   autoSearch?: boolean
   /** Words to highlight in context (e.g., collocate words from Word Sketch) */
@@ -65,6 +69,20 @@ export interface CrossLinkParams {
   ngramSearchType?: string
   /** Target sub-tab index within the opened module (e.g. for Collocation: 0=results, 1=visualization) */
   targetSubTab?: number
+
+  // Semantic domain → Collocation (2026-02)
+  /** Semantic domain code (normalized, no _MWE) when linking from semantic domain row */
+  semanticDomain?: string
+  /** Match mode for semantic domain in CQL: exact or contains */
+  semanticDomainMatch?: 'exact' | 'contains'
+
+  // Other modules → Semantic domain analysis (2026-02)
+  /** Open semantic in "by domain" mode with search */
+  semanticResultMode?: 'domain'
+  /** Search type in semantic (e.g. 'contains') */
+  semanticSearchType?: string
+  /** Search value (linked word) for semantic analysis */
+  semanticSearchValue?: string
 }
 
 /**

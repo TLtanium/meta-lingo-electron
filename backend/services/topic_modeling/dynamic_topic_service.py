@@ -253,6 +253,102 @@ class DynamicTopicService:
         
         return timestamps_int, timestamps_display, stats
     
+    def get_timestamps_from_biblio(
+        self,
+        library_id: str,
+        text_ids: List[str],
+        date_format: str = 'year_only'
+    ) -> Tuple[List[int], List[str], Dict[str, Any]]:
+        """
+        Extract timestamps from biblio entry year (for library mode).
+        Maps each text_id to its entry's year via biblio_entry_abstracts + biblio_entries.
+        
+        Args:
+            library_id: Biblio library identifier
+            text_ids: List of text identifiers (in document order)
+            date_format: 'year_only' or 'full_date'
+            
+        Returns:
+            Tuple of (timestamps_int, timestamps_display, stats)
+        """
+        timestamps_int = []
+        timestamps_display = []
+        stats = {
+            'total': len(text_ids),
+            'with_date': 0,
+            'without_date': 0,
+            'parse_errors': 0,
+            'date_range': None
+        }
+        
+        try:
+            db_path = self.data_dir / "database.sqlite"
+            if not db_path.exists():
+                logger.error("Database not found")
+                return timestamps_int, timestamps_display, stats
+            
+            import sqlite3
+            conn = sqlite3.connect(str(db_path))
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            
+            # Build text_id -> year map for this library
+            # biblio_entry_abstracts links entry_id to text_id; biblio_entries has year
+            text_to_year: Dict[str, Optional[int]] = {}
+            if text_ids:
+                placeholders = ','.join('?' * len(text_ids))
+                cursor.execute(
+                    """SELECT bea.text_id, be.year
+                       FROM biblio_entry_abstracts bea
+                       JOIN biblio_entries be ON bea.entry_id = be.id
+                       WHERE be.library_id = ? AND bea.text_id IN ({})""".format(placeholders),
+                    [library_id] + list(text_ids)
+                )
+                for row in cursor.fetchall():
+                    text_to_year[row['text_id']] = row['year'] if row['year'] is not None else None
+            
+            min_date = None
+            max_date = None
+            
+            for text_id in text_ids:
+                year = text_to_year.get(text_id) if text_id in text_to_year else None
+                if year is not None:
+                    # Year-only: use Jan 1 of that year
+                    date_str = str(year)
+                    timestamp = self.smart_parse_timestamp(date_str)
+                    if timestamp is not None:
+                        timestamps_int.append(timestamp)
+                        display = self.format_timestamp_for_display(timestamp, date_format)
+                        timestamps_display.append(display)
+                        stats['with_date'] += 1
+                        if min_date is None or timestamp < min_date:
+                            min_date = timestamp
+                        if max_date is None or timestamp > max_date:
+                            max_date = timestamp
+                    else:
+                        stats['parse_errors'] += 1
+                        timestamps_int.append(0)
+                        timestamps_display.append('')
+                else:
+                    stats['without_date'] += 1
+                    timestamps_int.append(0)
+                    timestamps_display.append('')
+            
+            conn.close()
+            
+            if min_date is not None and max_date is not None:
+                stats['date_range'] = {
+                    'min': self.format_timestamp_for_display(min_date, 'full_date'),
+                    'max': self.format_timestamp_for_display(max_date, 'full_date')
+                }
+            
+            logger.info(f"Extracted timestamps from biblio: {stats['with_date']}/{stats['total']} texts have year")
+            
+        except Exception as e:
+            logger.error(f"Error extracting timestamps from biblio: {e}")
+        
+        return timestamps_int, timestamps_display, stats
+    
     def get_timestamps_for_chunks(
         self,
         corpus_id: str,

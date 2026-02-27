@@ -16,28 +16,15 @@ import {
   Chip,
   Alert,
   LinearProgress,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  SelectChangeEvent,
-  RadioGroup,
-  Radio,
-  FormControlLabel,
-  TextField,
-  InputAdornment,
-  Checkbox,
   CircularProgress,
-  OutlinedInput,
-  ListItemText,
   TabsActions
 } from '@mui/material'
 import SearchIcon from '@mui/icons-material/Search'
 import PlayArrowIcon from '@mui/icons-material/PlayArrow'
 import FormatQuoteIcon from '@mui/icons-material/FormatQuote'
 import { useTranslation } from 'react-i18next'
-import { corpusApi, collocationApi } from '../../api'
-import type { Corpus, CorpusText, CrossLinkParams } from '../../types'
+import { collocationApi } from '../../api'
+import type { CrossLinkParams } from '../../types'
 import type {
   POSFilterConfig,
   SearchMode,
@@ -55,6 +42,9 @@ import CollocationPOSFilter from './components/CollocationPOSFilter'
 import CollocationSearchPanel from './components/CollocationSearchPanel'
 import CollocationResultsTable from './components/CollocationResultsTable'
 import CollocationVisualization from './components/CollocationVisualization'
+import AnalysisAIAssistant from '../../components/AnalysisAIAssistant'
+import CorpusOrLibrarySelector, { type CorpusOrLibrarySelection } from '../../components/Corpus/CorpusOrLibrarySelector'
+import { useSettingsStore } from '../../stores/settingsStore'
 
 type SelectionMode = 'all' | 'selected' | 'tags'
 
@@ -64,17 +54,10 @@ interface CollocationProps {
 
 export default function Collocation({ crossLinkParams }: CollocationProps) {
   const { t } = useTranslation()
+  const { ollamaConnected, openaiApiEnabled } = useSettingsStore()
 
-  // Corpus state
-  const [corpora, setCorpora] = useState<Corpus[]>([])
-  const [selectedCorpus, setSelectedCorpus] = useState<Corpus | null>(null)
-  const [texts, setTexts] = useState<CorpusText[]>([])
-  const [selectedTextIds, setSelectedTextIds] = useState<string[]>([])
-  const [selectedTags, setSelectedTags] = useState<string[]>([])
-  const [selectionMode, setSelectionMode] = useState<SelectionMode>('all')
-  const [textSearch, setTextSearch] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [loadingTexts, setLoadingTexts] = useState(false)
+  // Data source: corpus or library (unified selector)
+  const [corpusSelection, setCorpusSelection] = useState<CorpusOrLibrarySelection | null>(null)
 
   // POS tags
   const [posTags, setPosTags] = useState<POSTagInfo[]>([])
@@ -152,15 +135,15 @@ export default function Collocation({ crossLinkParams }: CollocationProps) {
     setSortDescending(newSortDescending)
     saveSortSettings(newSortBy, newSortLevels, newSortDescending)
     // Use the new values directly in search
-    if (selectedCorpus && searchValue.trim()) {
+    if (corpusSelection && searchValue.trim()) {
       setIsSearching(true)
       setError(null)
       // When CQL swap is needed, request larger context so after re-centering both sides have enough tokens
       const needsSwap = !!(kwicKeywordLemma && searchMode === 'cql')
       const requestContextSize = needsSwap ? contextSize * 3 : contextSize
       collocationApi.searchKWIC({
-        corpus_id: selectedCorpus.id,
-        text_ids: getSelectedTextIds(),
+        corpus_id: corpusSelection.corpusId,
+        text_ids: corpusSelection.textIds,
         search_mode: searchMode,
         search_value: searchValue,
         context_size: requestContextSize,
@@ -280,6 +263,7 @@ export default function Collocation({ crossLinkParams }: CollocationProps) {
   // Track if cross-link has been processed
   const crossLinkProcessedRef = useRef(false)
   const pendingAutoSearchRef = useRef(false)
+  const handleSearchRef = useRef<() => void>(() => {})
 
   // Highlight words from cross-link (e.g., main word from Word Sketch)
   const [highlightWords, setHighlightWords] = useState<string[]>([])
@@ -307,9 +291,8 @@ export default function Collocation({ crossLinkParams }: CollocationProps) {
     setSearchValue(value)
   }
 
-  // Load corpora and POS tags on mount
+  // Load POS tags on mount
   useEffect(() => {
-    loadCorpora()
     loadPosTags()
   }, [])
 
@@ -339,101 +322,78 @@ export default function Collocation({ crossLinkParams }: CollocationProps) {
     return () => timers.forEach(clearTimeout)
   }, [])
 
-  // Handle cross-link params - set up corpus and search word
+  // Handle cross-link params - set search word and options (user selects corpus in selector)
   useEffect(() => {
-    if (crossLinkParams && !crossLinkProcessedRef.current && corpora.length > 0) {
-      const corpus = corpora.find(c => c.id === crossLinkParams.corpusId)
-      if (corpus) {
-        crossLinkProcessedRef.current = true
-        setSelectedCorpus(corpus)
-        setSelectionMode(crossLinkParams.selectionMode)
-        
-        if (crossLinkParams.selectionMode === 'tags' && crossLinkParams.selectedTags) {
-          setSelectedTags(crossLinkParams.selectedTags)
-        } else if (crossLinkParams.selectionMode === 'selected' && Array.isArray(crossLinkParams.textIds)) {
-          setSelectedTextIds(crossLinkParams.textIds)
-        }
-        
-        // Handle CQL query from Word Sketch cross-link
-        if (crossLinkParams.cqlQuery && crossLinkParams.forceSearchMode === 'cql') {
-          // Use CQL mode with the generated query
-          setSearchMode('cql')
-          setSearchValue(crossLinkParams.cqlQuery)
-        } else {
-          // Use simple search with the search word
-          setSearchValue(crossLinkParams.searchWord)
-        }
-        
-        // Set highlight words from cross-link (e.g., collocate from Word Sketch)
-        if (crossLinkParams.highlightWords && crossLinkParams.highlightWords.length > 0) {
-          setHighlightWords(crossLinkParams.highlightWords)
-        }
-        
-        // Set context filter words - only show results where context contains these words
-        // Note: When using CQL with dependency constraints, we don't need context filtering
-        // as the CQL already ensures the grammatical relationship
-        if (crossLinkParams.contextFilterWords && crossLinkParams.contextFilterWords.length > 0 && !crossLinkParams.cqlQuery) {
-          setContextFilterWords(crossLinkParams.contextFilterWords)
-          // Also use them as highlight words if not already set
-          if (!crossLinkParams.highlightWords || crossLinkParams.highlightWords.length === 0) {
-            setHighlightWords(crossLinkParams.contextFilterWords)
-          }
-        }
-        
-        // Set KWIC keyword/highlight lemmas for post-processing CQL results
-        if (crossLinkParams.kwicKeywordLemma) {
-          setKwicKeywordLemma(crossLinkParams.kwicKeywordLemma)
-        }
-        if (crossLinkParams.kwicHighlightLemma) {
-          setKwicHighlightLemma(crossLinkParams.kwicHighlightLemma)
-        }
-
-        // Set context size from collocation analysis span
-        if (crossLinkParams.contextSize && crossLinkParams.contextSize >= 1 && crossLinkParams.contextSize <= 15) {
-          setContextSize(crossLinkParams.contextSize)
-        }
-
-        // Enable metaphor highlight by default when cross-linking from Metaphor Analysis
-        if (crossLinkParams.sourceModule === 'metaphor') {
-          setShowMetaphorHighlight(true)
-        }
-        
-        if (crossLinkParams.autoSearch) {
-          pendingAutoSearchRef.current = true
-        }
-
-        // Switch to the specified sub-tab (0=results, 1=visualization)
-        if (crossLinkParams.targetSubTab !== undefined) {
-          setRightTab(crossLinkParams.targetSubTab)
-        }
+    if (!crossLinkParams) return
+    // Sync corpus/library selection from cross-link so selector shows same source (corpus or library). Same pattern as Word Frequency.
+    const sel: CorpusOrLibrarySelection = {
+      corpusId: crossLinkParams.corpusId ?? '',
+      textIds: Array.isArray(crossLinkParams.textIds) ? crossLinkParams.textIds : 'all',
+      language: 'english',
+      dataSource: crossLinkParams.libraryId ? 'library' : 'corpus',
+      selectionMode: (crossLinkParams.selectionMode as 'all' | 'tags' | 'selected') ?? 'all',
+      selectedTags: crossLinkParams.selectedTags ?? [],
+      ...(crossLinkParams.libraryId && { libraryId: crossLinkParams.libraryId }),
+      ...(crossLinkParams.selectedEntryIds?.length && { selectedEntryIds: crossLinkParams.selectedEntryIds })
+    }
+    setCorpusSelection(sel)
+    if (crossLinkParams.semanticDomain) {
+      const match = crossLinkParams.semanticDomainMatch || 'contains'
+      const domain = crossLinkParams.semanticDomain
+      const cql = match === 'exact' ? `[usas=="${domain}"]` : `[usas="${domain}"]`
+      setSearchMode('cql')
+      setSearchValue(cql)
+    } else if (crossLinkParams.cqlQuery && crossLinkParams.forceSearchMode === 'cql') {
+      setSearchMode('cql')
+      setSearchValue(crossLinkParams.cqlQuery)
+    } else if (crossLinkParams.searchWord) {
+      setSearchValue(crossLinkParams.searchWord)
+    }
+    if (crossLinkParams.highlightWords && crossLinkParams.highlightWords.length > 0) {
+      setHighlightWords(crossLinkParams.highlightWords)
+    }
+    if (crossLinkParams.contextFilterWords && crossLinkParams.contextFilterWords.length > 0 && !crossLinkParams.cqlQuery) {
+      setContextFilterWords(crossLinkParams.contextFilterWords)
+      if (!crossLinkParams.highlightWords || crossLinkParams.highlightWords.length === 0) {
+        setHighlightWords(crossLinkParams.contextFilterWords)
       }
     }
-  }, [crossLinkParams, corpora])
+    if (crossLinkParams.kwicKeywordLemma) setKwicKeywordLemma(crossLinkParams.kwicKeywordLemma)
+    if (crossLinkParams.kwicHighlightLemma) setKwicHighlightLemma(crossLinkParams.kwicHighlightLemma)
+    if (crossLinkParams.contextSize != null && crossLinkParams.contextSize >= 1 && crossLinkParams.contextSize <= 15) {
+      setContextSize(crossLinkParams.contextSize)
+    }
+    if (crossLinkParams.sourceModule === 'metaphor') setShowMetaphorHighlight(true)
+    if (crossLinkParams.targetSubTab !== undefined) setRightTab(crossLinkParams.targetSubTab)
+    if (crossLinkParams.autoSearch) pendingAutoSearchRef.current = true
+  }, [crossLinkParams])
 
-  // Auto-search when texts are loaded and auto-search is pending
+  // Auto-search when opened via cross-link and selection + search value are ready
   useEffect(() => {
-    if (pendingAutoSearchRef.current && texts.length > 0 && selectedCorpus && searchValue.trim()) {
+    if (pendingAutoSearchRef.current && corpusSelection && searchValue.trim()) {
       pendingAutoSearchRef.current = false
-      // Small delay to ensure state is settled
-      setTimeout(() => {
-        handleSearch()
-      }, 100)
+      setTimeout(() => handleSearchRef.current(), 200)
     }
-  }, [texts, selectedCorpus, searchValue])
+  }, [corpusSelection, searchValue])
 
-  const loadCorpora = async () => {
-    setLoading(true)
-    try {
-      const response = await corpusApi.listCorpora()
-      if (response.success && response.data) {
-        setCorpora(response.data)
-      }
-    } catch (err) {
-      console.error('Failed to load corpora:', err)
-    } finally {
-      setLoading(false)
+  // Build external selection for selector so it can sync UI when opened via cross-link.
+  // When in library mode, allow building when only libraryId is present so selector can sync and emit real corpus_id.
+  const externalSelection = useMemo((): CorpusOrLibrarySelection | null => {
+    if (!crossLinkParams) return null
+    const hasCorpus = Boolean(crossLinkParams.corpusId)
+    const hasLibrary = Boolean(crossLinkParams.libraryId)
+    if (!hasCorpus && !hasLibrary) return null
+    return {
+      corpusId: crossLinkParams.corpusId ?? '',
+      textIds: Array.isArray(crossLinkParams.textIds) ? crossLinkParams.textIds : 'all',
+      language: 'english',
+      dataSource: hasLibrary ? 'library' : 'corpus',
+      selectionMode: (crossLinkParams.selectionMode as 'all' | 'tags' | 'selected') ?? 'all',
+      selectedTags: crossLinkParams.selectedTags ?? [],
+      ...(hasLibrary && { libraryId: crossLinkParams.libraryId }),
+      ...(crossLinkParams.selectedEntryIds?.length && { selectedEntryIds: crossLinkParams.selectedEntryIds })
     }
-  }
+  }, [crossLinkParams])
 
   const loadPosTags = async () => {
     try {
@@ -446,105 +406,9 @@ export default function Collocation({ crossLinkParams }: CollocationProps) {
     }
   }
 
-  // Load texts when corpus changes
-  useEffect(() => {
-    if (selectedCorpus) {
-      loadTexts(selectedCorpus.id)
-    } else {
-      setTexts([])
-      setSelectedTextIds([])
-      setSelectedTags([])
-    }
-  }, [selectedCorpus])
-
-  // Get all available tags from texts
-  const allTags = useMemo(() => {
-    const tagSet = new Set<string>()
-    texts.forEach(text => text.tags.forEach(tag => tagSet.add(tag)))
-    return Array.from(tagSet).sort()
-  }, [texts])
-
-  const loadTexts = async (corpusId: string) => {
-    setLoadingTexts(true)
-    try {
-      const response = await corpusApi.getTexts(corpusId)
-      if (response.success && response.data) {
-        setTexts(response.data)
-      }
-    } catch (err) {
-      console.error('Failed to load texts:', err)
-    } finally {
-      setLoadingTexts(false)
-    }
-  }
-
-  // Filter texts based on search and tags
-  const filteredTexts = useMemo(() => {
-    let result = texts
-    
-    if (textSearch) {
-      const query = textSearch.toLowerCase()
-      result = result.filter(t =>
-        t.filename.toLowerCase().includes(query) ||
-        t.originalFilename?.toLowerCase().includes(query)
-      )
-    }
-    
-    if (selectionMode === 'tags' && selectedTags.length > 0) {
-      result = result.filter(t => 
-        selectedTags.some(tag => t.tags.includes(tag))
-      )
-    }
-    
-    return result
-  }, [texts, textSearch, selectionMode, selectedTags])
-
-  // Get selected text IDs based on mode
-  const getSelectedTextIds = (): string[] | 'all' => {
-    switch (selectionMode) {
-      case 'all':
-        return 'all'
-      case 'selected':
-        return selectedTextIds
-      case 'tags':
-        return filteredTexts.map(t => t.id)
-      default:
-        return []
-    }
-  }
-
-  // Handle corpus change
-  const handleCorpusChange = (event: SelectChangeEvent<string>) => {
-    const corpus = corpora.find(c => c.id === event.target.value)
-    setSelectedCorpus(corpus || null)
-    setSelectionMode('all')
-    setSelectedTextIds([])
-    setSelectedTags([])
-    setResults([])
-    setError(null)
-  }
-
-  // Handle text selection toggle
-  const handleTextToggle = (textId: string) => {
-    setSelectedTextIds(prev =>
-      prev.includes(textId)
-        ? prev.filter(id => id !== textId)
-        : [...prev, textId]
-    )
-  }
-
-  // Handle select all / deselect all
-  const handleSelectAll = () => {
-    setSelectedTextIds(filteredTexts.map(t => t.id))
-  }
-
-  const handleDeselectAll = () => {
-    setSelectedTextIds([])
-  }
-
   // Run search
   const handleSearch = async () => {
-    if (!selectedCorpus || !searchValue.trim()) return
+    if (!corpusSelection || !searchValue.trim()) return
 
     setIsSearching(true)
     setError(null)
@@ -554,8 +418,8 @@ export default function Collocation({ crossLinkParams }: CollocationProps) {
       const needsSwap = !!(kwicKeywordLemma && searchMode === 'cql')
       const requestContextSize = needsSwap ? contextSize * 3 : contextSize
       const response = await collocationApi.searchKWIC({
-        corpus_id: selectedCorpus.id,
-        text_ids: getSelectedTextIds(),
+        corpus_id: corpusSelection.corpusId,
+        text_ids: corpusSelection.textIds,
         search_mode: searchMode,
         search_value: searchValue,
         context_size: requestContextSize,
@@ -657,18 +521,17 @@ export default function Collocation({ crossLinkParams }: CollocationProps) {
       setIsSearching(false)
     }
   }
+  handleSearchRef.current = handleSearch
 
   // Check if search can run
-  const canSearch = selectedCorpus && searchValue.trim() && (
-    selectionMode === 'all' || 
-    (selectionMode === 'tags' && selectedTags.length > 0 && filteredTexts.length > 0) ||
-    (selectionMode === 'selected' && selectedTextIds.length > 0)
+  const canSearch = corpusSelection !== null && searchValue.trim() && (
+    corpusSelection.textIds === 'all' ||
+    (Array.isArray(corpusSelection.textIds) && corpusSelection.textIds.length > 0)
   )
 
-  const selectedCount = (() => {
-    const ids = getSelectedTextIds()
-    return ids === 'all' ? texts.length : ids.length
-  })()
+  const selectedCount = corpusSelection
+    ? (corpusSelection.textIds === 'all' ? 0 : corpusSelection.textIds.length)
+    : 0
 
   return (
     <Box sx={{ display: 'flex', height: '100%' }}>
@@ -682,212 +545,55 @@ export default function Collocation({ crossLinkParams }: CollocationProps) {
         display: 'flex',
         flexDirection: 'column'
       }}>
-        <Typography variant="h6" sx={{ mb: 1 }}>
-          {t('collocation.title')}
-        </Typography>
+        <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
+          <Typography variant="h6">
+            {t('collocation.title')}
+          </Typography>
+          <AnalysisAIAssistant
+            enabled={ollamaConnected || openaiApiEnabled}
+            moduleLabel={t('collocation.title')}
+            getContext={() => {
+              const hint = t('aiAssistant.collocationContextHint')
+              const corpusInfo = corpusSelection ? `Corpus: ${corpusSelection.dataSource === 'corpus' ? 'corpus' : 'library'}, ${corpusSelection.textIds === 'all' ? 'all' : corpusSelection.textIds.length} texts` : 'Corpus: (none)'
+              const params = `searchMode=${searchMode}, searchValue=${searchValue}, contextSize=${contextSize}, lowercase=${lowercase}`
+              if (results.length === 0) return `${hint}\n\n${corpusInfo}\n${params}\n${t('aiAssistant.noAnalysisResult')}`
+              const slice = results.slice(0, 25)
+              const leftStr = (r: KWICResult) => (r.left_context || []).map((t: { text?: string }) => t?.text ?? '').join(' ').trim()
+              const rightStr = (r: KWICResult) => (r.right_context || []).map((t: { text?: string }) => t?.text ?? '').join(' ').trim()
+              const lines = slice.map((r: KWICResult, i: number) => `${i + 1}. ${leftStr(r)} [${r.keyword ?? ''}] ${rightStr(r)}`).join('\n')
+              const vizSample = results.slice(0, 15).map((r: KWICResult, i: number) => `${i + 1}. ${leftStr(r)} [${r.keyword ?? ''}] ${rightStr(r)}`).join('\n')
+              const view = rightTab === 0 ? `KWIC results (rows 1-${slice.length}):\n${lines}` : `Visualization (KWIC). Sample 15:\n${vizSample}`
+              return `${hint}\n\n${corpusInfo}\n${params}\n${view}`
+            }}
+          />
+        </Stack>
 
         {/* Info chips */}
         <Stack direction="row" spacing={1} mb={2} flexWrap="wrap">
           <Chip label="SpaCy" size="small" color="primary" variant="outlined" />
           <Chip label="KWIC" size="small" variant="outlined" />
-          {selectedCorpus?.language && (
-            <Chip
-              label={`${t('corpus.language')}: ${selectedCorpus.language}`}
+          {corpusSelection?.language && (
+            <Chip 
+              label={`${t('corpus.language')}: ${corpusSelection.language}`}
               size="small"
               variant="outlined"
             />
           )}
         </Stack>
 
-        {/* 1. Corpus Selection */}
-        <Paper sx={{ p: 2, mb: 2 }}>
-          <Typography variant="subtitle2" sx={{ mb: 1.5 }}>
-            {t('collocation.corpus.title')}
-          </Typography>
-
-          <Stack spacing={2}>
-            <FormControl fullWidth size="small">
-              <InputLabel>{t('corpus.selectCorpus')}</InputLabel>
-              <Select
-                value={selectedCorpus?.id || ''}
-                onChange={handleCorpusChange}
-                label={t('corpus.selectCorpus')}
-                disabled={loading}
-              >
-                {corpora.map(corpus => (
-                  <MenuItem key={corpus.id} value={corpus.id}>
-                    <Stack direction="row" spacing={1} alignItems="center">
-                      <Typography>{corpus.name}</Typography>
-                      <Chip label={`${corpus.textCount} ${t('corpus.textsCount')}`} size="small" />
-                    </Stack>
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-
-            {selectedCorpus && (
-              <>
-                <Divider />
-
-                {/* Selection mode */}
-                <RadioGroup
-                  value={selectionMode}
-                  onChange={(e) => setSelectionMode(e.target.value as SelectionMode)}
-                >
-                  <FormControlLabel
-                    value="all"
-                    control={<Radio size="small" />}
-                    label={
-                      <Typography variant="body2">
-                        {t('collocation.corpus.selectAll')} ({texts.length} {t('corpus.textsCount')})
-                      </Typography>
-                    }
-                  />
-                  <FormControlLabel
-                    value="tags"
-                    control={<Radio size="small" />}
-                    label={
-                      <Typography variant="body2">
-                        {t('topicModeling.corpus.selectByTags')}
-                      </Typography>
-                    }
-                  />
-                  <FormControlLabel
-                    value="selected"
-                    control={<Radio size="small" />}
-                    label={
-                      <Typography variant="body2">
-                        {t('collocation.corpus.selectManually')}
-                      </Typography>
-                    }
-                  />
-                </RadioGroup>
-
-                {/* Tag selection (when mode is 'tags') */}
-                {selectionMode === 'tags' && (
-                  <FormControl size="small" fullWidth>
-                    <InputLabel>{t('corpus.filterByTags')}</InputLabel>
-                    <Select
-                      multiple
-                      value={selectedTags}
-                      onChange={(e) => setSelectedTags(e.target.value as string[])}
-                      input={<OutlinedInput label={t('corpus.filterByTags')} />}
-                      renderValue={(selected) => (
-                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                          {selected.map((tag) => (
-                            <Chip key={tag} label={tag} size="small" />
-                          ))}
-                        </Box>
-                      )}
-                    >
-                      {allTags.map((tag) => (
-                        <MenuItem key={tag} value={tag}>
-                          <Checkbox checked={selectedTags.includes(tag)} size="small" />
-                          <ListItemText primary={tag} />
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                )}
-
-                {/* Manual selection */}
-                {selectionMode === 'selected' && (
-                  <>
-                    <TextField
-                      size="small"
-                      placeholder={t('common.search')}
-                      value={textSearch}
-                      onChange={(e) => setTextSearch(e.target.value)}
-                      InputProps={{
-                        startAdornment: (
-                          <InputAdornment position="start">
-                            <SearchIcon fontSize="small" />
-                          </InputAdornment>
-                        )
-                      }}
-                      fullWidth
-                    />
-
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <Typography variant="body2" color="text.secondary">
-                        {selectedTextIds.length} / {filteredTexts.length} {t('common.selected')}
-                      </Typography>
-                      <Stack direction="row" spacing={1}>
-                        <Button size="small" onClick={handleSelectAll}>
-                          {t('common.selectAll')}
-                        </Button>
-                        <Button size="small" onClick={handleDeselectAll}>
-                          {t('common.clearAll')}
-                        </Button>
-                      </Stack>
-                    </Box>
-
-                    <Box sx={{
-                      maxHeight: 120,
-                      overflow: 'auto',
-                      border: 1,
-                      borderColor: 'divider',
-                      borderRadius: 1
-                    }}>
-                      {loadingTexts ? (
-                        <Box sx={{ display: 'flex', justifyContent: 'center', p: 2 }}>
-                          <CircularProgress size={24} />
-                        </Box>
-                      ) : filteredTexts.length === 0 ? (
-                        <Typography variant="body2" color="text.secondary" sx={{ p: 2, textAlign: 'center' }}>
-                          {t('common.noData')}
-                        </Typography>
-                      ) : (
-                        filteredTexts.map(text => (
-                          <FormControlLabel
-                            key={text.id}
-                            control={
-                              <Checkbox
-                                checked={selectedTextIds.includes(text.id)}
-                                onChange={() => handleTextToggle(text.id)}
-                                size="small"
-                              />
-                            }
-                            label={
-                              <Typography variant="body2" noWrap sx={{ maxWidth: 200 }}>
-                                {text.filename}
-                              </Typography>
-                            }
-                            sx={{
-                              display: 'flex',
-                              width: '100%',
-                              m: 0,
-                              px: 1,
-                              '&:hover': { bgcolor: 'action.hover' }
-                            }}
-                          />
-                        ))
-                      )}
-                    </Box>
-                  </>
-                )}
-
-                {/* Selection summary */}
-                <Alert
-                  severity={selectedCount > 0 ? 'success' : 'warning'}
-                  icon={false}
-                  sx={{ py: 0.5 }}
-                >
-                  <Typography variant="body2">
-                    {t('collocation.corpus.selectedCount')}: <strong>{selectedCount}</strong> {t('corpus.textsCount')}
-                  </Typography>
-                </Alert>
-              </>
-            )}
-          </Stack>
-        </Paper>
+        {/* 1. Corpus / Library Selection */}
+        <CorpusOrLibrarySelector
+          sectionTitle={t('collocation.corpus.title')}
+          onSelectionChange={setCorpusSelection}
+          externalSelection={externalSelection}
+        />
 
         {/* 2. POS Filter Panel (above search config) */}
         <CollocationPOSFilter
           config={posFilter}
           onChange={setPosFilter}
           posTags={posTags}
-          disabled={!selectedCorpus}
+          disabled={!corpusSelection}
         />
 
         {/* 3. Search Panel */}
@@ -900,7 +606,7 @@ export default function Collocation({ crossLinkParams }: CollocationProps) {
           onSearchValueChange={handleSearchValueChange}
           onContextSizeChange={setContextSize}
           onLowercaseChange={setLowercase}
-          disabled={!selectedCorpus}
+          disabled={!corpusSelection}
         />
 
         {/* 4. Search Button */}
@@ -942,7 +648,7 @@ export default function Collocation({ crossLinkParams }: CollocationProps) {
               <CollocationResultsTable
                 results={results}
                 totalCount={totalCount}
-                corpusId={selectedCorpus?.id || ''}
+                corpusId={corpusSelection?.corpusId || ''}
                 isLoading={isSearching}
                 sortBy={sortBy}
                 sortLevels={sortLevels}
@@ -978,7 +684,7 @@ export default function Collocation({ crossLinkParams }: CollocationProps) {
           ) : (
             <CollocationVisualization
               results={results}
-              corpusId={selectedCorpus?.id || ''}
+              corpusId={corpusSelection?.corpusId || ''}
             />
           )}
         </Box>

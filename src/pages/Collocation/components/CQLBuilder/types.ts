@@ -3,8 +3,8 @@
  * TypeScript type definitions for CQL visual builder
  */
 
-// Token attributes - basic and head-based for dependency constraints
-export type TokenAttribute = 'word' | 'lemma' | 'pos' | 'tag' | 'dep' | 'headword' | 'headlemma' | 'headpos' | 'headdep'
+// Token attributes - basic, head-based, and semantic domain (usas)
+export type TokenAttribute = 'word' | 'lemma' | 'pos' | 'tag' | 'dep' | 'headword' | 'headlemma' | 'headpos' | 'headdep' | 'usas'
 
 // Comparison operators
 export type ComparisonOperator = '=' | '!=' | '==' | '!=='

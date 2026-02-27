@@ -464,6 +464,32 @@ class SketchService:
             'results': results
         }
 
+    def get_lemma_forms(
+        self,
+        lemma: str,
+        corpus_spacy_data: List[Dict[str, Any]]
+    ) -> List[str]:
+        """
+        Return all distinct word forms that have the given lemma in the corpus.
+        Used for Word Sketch Difference lemma mode: user enters a lemma and picks
+        two different word forms to compare.
+        If the input is not a lemma present in the corpus (e.g. user typed "goes"),
+        returns empty list.
+        """
+        lemma_lower = (lemma or '').strip().lower()
+        if not lemma_lower:
+            return []
+        # Collect distinct forms; deduplicate by lowercase so the dropdown is case-insensitive
+        forms_lower: set = set()
+        for spacy_data in corpus_spacy_data:
+            for token in spacy_data.get('tokens', []):
+                t_lemma = (token.get('lemma') or '').strip().lower()
+                if t_lemma == lemma_lower:
+                    text = (token.get('text') or '').strip()
+                    if text:
+                        forms_lower.add(text.lower())
+        return sorted(forms_lower)
+
 
 # Singleton instance
 _sketch_service: Optional[SketchService] = None

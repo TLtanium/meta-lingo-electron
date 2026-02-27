@@ -18,15 +18,7 @@ import {
   InputLabel,
   Select,
   MenuItem,
-  Divider,
-  RadioGroup,
-  Radio,
-  FormControlLabel,
-  Checkbox,
   InputAdornment,
-  CircularProgress,
-  OutlinedInput,
-  ListItemText,
   Grid,
   Card,
   CardContent,
@@ -39,19 +31,16 @@ import {
   TableHead,
   TableRow,
   Tooltip,
-  SelectChangeEvent,
   Tabs,
   Tab
 } from '@mui/material'
-import SearchIcon from '@mui/icons-material/Search'
 import PlayArrowIcon from '@mui/icons-material/PlayArrow'
 import CompareArrowsIcon from '@mui/icons-material/CompareArrows'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import ExpandLessIcon from '@mui/icons-material/ExpandLess'
 import { useTranslation } from 'react-i18next'
 import i18n from '../../i18n'
-import { corpusApi, sketchApi } from '../../api'
-import type { Corpus, CorpusText } from '../../types'
+import { sketchApi } from '../../api'
 import type { 
   SketchDifferenceResult, 
   RelationData, 
@@ -61,8 +50,10 @@ import type {
 import NumberInput from '../../components/Common/NumberInput'
 import { WordActionMenu } from '../../components/Common'
 import DiffVisualization from './components/DiffVisualization'
-
-type SelectionMode = 'all' | 'selected' | 'tags'
+import AnalysisAIAssistant from '../../components/AnalysisAIAssistant'
+import CorpusOrLibrarySelector, { type CorpusOrLibrarySelection } from '../../components/Corpus/CorpusOrLibrarySelector'
+import { useSettingsStore } from '../../stores/settingsStore'
+import type { CrossLinkParams } from '../../types/crossLink'
 
 // Interface for merged collocations (must be outside component)
 interface MergedCollocation {
@@ -76,21 +67,22 @@ interface MergedCollocation {
   scoreDiff: number
 }
 
-export default function WordSketchDiffTab() {
-  const { t } = useTranslation()
+interface WordSketchDiffTabProps {
+  crossLinkParams?: CrossLinkParams
+}
 
-  // Corpus state
-  const [corpora, setCorpora] = useState<Corpus[]>([])
-  const [selectedCorpus, setSelectedCorpus] = useState<Corpus | null>(null)
-  const [texts, setTexts] = useState<CorpusText[]>([])
-  const [selectedTextIds, setSelectedTextIds] = useState<string[]>([])
-  const [selectedTags, setSelectedTags] = useState<string[]>([])
-  const [selectionMode, setSelectionMode] = useState<SelectionMode>('all')
-  const [textSearch, setTextSearch] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [loadingTexts, setLoadingTexts] = useState(false)
+export default function WordSketchDiffTab({ crossLinkParams }: WordSketchDiffTabProps = {}) {
+  const { t } = useTranslation()
+  const { ollamaConnected, openaiApiEnabled } = useSettingsStore()
+
+  // Data source: corpus or library (unified selector)
+  const [corpusSelection, setCorpusSelection] = useState<CorpusOrLibrarySelection | null>(null)
 
   // Search state
+  const [diffInputMode, setDiffInputMode] = useState<'word_form' | 'lemma'>('word_form')
+  const [lemmaInput, setLemmaInput] = useState('')
+  const [lemmaForms, setLemmaForms] = useState<string[]>([])
+  const [loadingLemmaForms, setLoadingLemmaForms] = useState(false)
   const [word1, setWord1] = useState('')
   const [word2, setWord2] = useState('')
   const [posFilter, setPosFilter] = useState('auto')
@@ -112,25 +104,40 @@ export default function WordSketchDiffTab() {
   // Visualization state
   const [selectedVisualizationRelation, setSelectedVisualizationRelation] = useState('all')
 
-  // Load corpora and POS options on mount
+  // Sync corpus/library selection from cross-link so selector shows same source
   useEffect(() => {
-    loadCorpora()
+    if (!crossLinkParams?.corpusId) return
+    setCorpusSelection({
+      corpusId: crossLinkParams.corpusId,
+      textIds: Array.isArray(crossLinkParams.textIds) ? crossLinkParams.textIds : 'all',
+      language: 'english',
+      dataSource: crossLinkParams.libraryId ? 'library' : 'corpus',
+      selectionMode: (crossLinkParams.selectionMode as 'all' | 'tags' | 'selected') ?? 'all',
+      selectedTags: crossLinkParams.selectedTags ?? [],
+      ...(crossLinkParams.libraryId && { libraryId: crossLinkParams.libraryId }),
+      ...(crossLinkParams.selectedEntryIds?.length && { selectedEntryIds: crossLinkParams.selectedEntryIds })
+    })
+  }, [crossLinkParams])
+
+  // External selection for selector sync when opened via cross-link (including library)
+  const externalSelection = useMemo((): CorpusOrLibrarySelection | null => {
+    if (!crossLinkParams?.corpusId) return null
+    return {
+      corpusId: crossLinkParams.corpusId,
+      textIds: Array.isArray(crossLinkParams.textIds) ? crossLinkParams.textIds : 'all',
+      language: 'english',
+      dataSource: crossLinkParams.libraryId ? 'library' : 'corpus',
+      selectionMode: (crossLinkParams.selectionMode as 'all' | 'tags' | 'selected') ?? 'all',
+      selectedTags: crossLinkParams.selectedTags ?? [],
+      ...(crossLinkParams.libraryId && { libraryId: crossLinkParams.libraryId }),
+      ...(crossLinkParams.selectedEntryIds?.length && { selectedEntryIds: crossLinkParams.selectedEntryIds })
+    }
+  }, [crossLinkParams])
+
+  // Load POS options on mount
+  useEffect(() => {
     loadPosOptions()
   }, [])
-
-  const loadCorpora = async () => {
-    setLoading(true)
-    try {
-      const response = await corpusApi.listCorpora()
-      if (response.success && response.data) {
-        setCorpora(response.data)
-      }
-    } catch (err) {
-      console.error('Failed to load corpora:', err)
-    } finally {
-      setLoading(false)
-    }
-  }
 
   const loadPosOptions = async () => {
     try {
@@ -151,92 +158,36 @@ export default function WordSketchDiffTab() {
     }
   }
 
-  // Load texts when corpus changes
+  // Fetch lemma forms when in lemma mode and corpus + lemma input are set
   useEffect(() => {
-    if (selectedCorpus) {
-      loadTexts(selectedCorpus.id)
-    } else {
-      setTexts([])
-      setSelectedTextIds([])
-      setSelectedTags([])
-    }
-  }, [selectedCorpus])
-
-  // Get all available tags from texts
-  const allTags = useMemo(() => {
-    const tagSet = new Set<string>()
-    texts.forEach(text => text.tags.forEach(tag => tagSet.add(tag)))
-    return Array.from(tagSet).sort()
-  }, [texts])
-
-  const loadTexts = async (corpusId: string) => {
-    setLoadingTexts(true)
-    try {
-      const response = await corpusApi.getTexts(corpusId)
-      if (response.success && response.data) {
-        setTexts(response.data)
+    if (diffInputMode !== 'lemma' || !corpusSelection || !lemmaInput.trim()) {
+      setLemmaForms([])
+      if (diffInputMode === 'lemma') {
+        setWord1('')
+        setWord2('')
       }
-    } catch (err) {
-      console.error('Failed to load texts:', err)
-    } finally {
-      setLoadingTexts(false)
+      return
     }
-  }
-
-  // Filter texts based on search and tags
-  const filteredTexts = useMemo(() => {
-    let result = texts
-    
-    if (textSearch) {
-      const query = textSearch.toLowerCase()
-      result = result.filter(t => 
-        t.filename.toLowerCase().includes(query) ||
-        t.originalFilename?.toLowerCase().includes(query)
-      )
+    const textIds = corpusSelection.textIds
+    if (textIds !== 'all' && (!Array.isArray(textIds) || textIds.length === 0)) {
+      setLemmaForms([])
+      return
     }
-    
-    if (selectionMode === 'tags' && selectedTags.length > 0) {
-      result = result.filter(t => 
-        selectedTags.some(tag => t.tags.includes(tag))
-      )
-    }
-    
-    return result
-  }, [texts, textSearch, selectionMode, selectedTags])
-
-  // Get selected text IDs based on mode
-  const getSelectedTextIds = (): string[] | 'all' => {
-    switch (selectionMode) {
-      case 'all':
-        return 'all'
-      case 'selected':
-        return selectedTextIds
-      case 'tags':
-        return filteredTexts.map(t => t.id)
-      default:
-        return []
-    }
-  }
-
-  // Handle corpus change
-  const handleCorpusChange = (event: SelectChangeEvent<string>) => {
-    const corpus = corpora.find(c => c.id === event.target.value)
-    setSelectedCorpus(corpus || null)
-    setSelectionMode('all')
-    setSelectedTextIds([])
-    setSelectedTags([])
-    setResult(null)
-    setError(null)
-  }
-
-  // Handle text selection toggle
-  const handleTextToggle = (textId: string) => {
-    setSelectedTextIds(prev => 
-      prev.includes(textId) 
-        ? prev.filter(id => id !== textId)
-        : [...prev, textId]
-    )
-  }
+    let cancelled = false
+    setLoadingLemmaForms(true)
+    sketchApi.getLemmaForms(corpusSelection.corpusId, textIds, lemmaInput.trim())
+      .then((forms) => {
+        if (!cancelled) {
+          const list = forms ?? []
+          setLemmaForms(list)
+          setWord1(prev => (list.length && list.includes(prev)) ? prev : '')
+          setWord2(prev => (list.length && list.includes(prev)) ? prev : '')
+        }
+      })
+      .catch(() => { if (!cancelled) setLemmaForms([]) })
+      .finally(() => { if (!cancelled) setLoadingLemmaForms(false) })
+    return () => { cancelled = true }
+  }, [diffInputMode, corpusSelection, lemmaInput])
 
   // Toggle relation expansion
   const toggleRelation = (relationName: string) => {
@@ -253,15 +204,15 @@ export default function WordSketchDiffTab() {
 
   // Run analysis
   const handleAnalyze = async () => {
-    if (!selectedCorpus || !word1.trim() || !word2.trim()) return
+    if (!corpusSelection || !word1.trim() || !word2.trim()) return
 
     setIsLoading(true)
     setError(null)
 
     try {
       const response = await sketchApi.generateDifference({
-        corpus_id: selectedCorpus.id,
-        text_ids: getSelectedTextIds(),
+        corpus_id: corpusSelection.corpusId,
+        text_ids: corpusSelection.textIds,
         word1: word1.trim(),
         word2: word2.trim(),
         pos: posFilter,
@@ -298,16 +249,11 @@ export default function WordSketchDiffTab() {
   }
 
   // Check if analysis can run
-  const canAnalyze = selectedCorpus && word1.trim() && word2.trim() && (
-    selectionMode === 'all' || 
-    (selectionMode === 'tags' && selectedTags.length > 0 && filteredTexts.length > 0) ||
-    (selectionMode === 'selected' && selectedTextIds.length > 0)
+  const canAnalyze = !!corpusSelection && (
+    diffInputMode === 'word_form'
+      ? (word1.trim() && word2.trim())
+      : (lemmaInput.trim() && lemmaForms.length > 0 && word1 && word2 && word1 !== word2)
   )
-
-  const selectedCount = (() => {
-    const ids = getSelectedTextIds()
-    return ids === 'all' ? texts.length : ids.length
-  })()
 
   // Get display name for relation (with safe fallback)
   const getRelationDisplay = (rel: RelationData) => {
@@ -449,9 +395,25 @@ export default function WordSketchDiffTab() {
         display: 'flex',
         flexDirection: 'column'
       }}>
-        <Typography variant="h6" gutterBottom>
-          {t('wordsketch.sketchDifference')}
-        </Typography>
+        <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
+          <Typography variant="h6">
+            {t('wordsketch.sketchDifference')}
+          </Typography>
+          <AnalysisAIAssistant
+            enabled={ollamaConnected || openaiApiEnabled}
+            moduleLabel={t('wordsketch.sketchDifference')}
+            getContext={() => {
+              const hint = t('aiAssistant.wordSketchDiffContextHint')
+              const corpusInfo = corpusSelection ? `Corpus: ${corpusSelection.dataSource === 'corpus' ? 'corpus' : 'library'}, ${corpusSelection.textIds === 'all' ? 'all' : corpusSelection.textIds.length} texts` : 'Corpus: (none)'
+              const params = `word1=${word1}, word2=${word2}, minFrequency=${minFrequency}`
+              if (!result) return `${hint}\n\n${corpusInfo}\n${params}\n${t('aiAssistant.noAnalysisResult')}`
+              const common = result.summary?.common_relations ?? 0
+              const relLines = (result.relations || []).slice(0, 12).map((r: any) => `- ${r.relation_name}: ${(r.word1_collocates || []).slice(0, 3).map((c: any) => c.word || c).join(', ')} | ${(r.word2_collocates || []).slice(0, 3).map((c: any) => c.word || c).join(', ')}`).join('\n')
+              const view = `Sketch diff: "${result.word1}" vs "${result.word2}", ${common} common relations\n${relLines}`
+              return `${hint}\n\n${corpusInfo}\n${params}\n${view}`
+            }}
+          />
+        </Stack>
 
         {/* Info chips */}
         <Stack direction="row" spacing={1} mb={2} flexWrap="wrap">
@@ -459,111 +421,12 @@ export default function WordSketchDiffTab() {
           <Chip label="logDice" size="small" color="secondary" variant="outlined" />
         </Stack>
 
-        {/* 1. Corpus Selection */}
-        <Paper sx={{ p: 2, mb: 2 }}>
-          <Typography variant="subtitle2" sx={{ mb: 1.5 }}>
-            {t('wordsketch.corpus')}
-          </Typography>
-
-          <Stack spacing={2}>
-            <FormControl fullWidth size="small">
-              <InputLabel>{t('corpus.selectCorpus')}</InputLabel>
-              <Select
-                value={selectedCorpus?.id || ''}
-                onChange={handleCorpusChange}
-                label={t('corpus.selectCorpus')}
-                disabled={loading}
-              >
-                {corpora.map(corpus => (
-                  <MenuItem key={corpus.id} value={corpus.id}>
-                    <Stack direction="row" spacing={1} alignItems="center">
-                      <Typography>{corpus.name}</Typography>
-                      <Chip label={`${corpus.textCount} ${t('corpus.textsCount')}`} size="small" />
-                    </Stack>
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-
-            {selectedCorpus && (
-              <>
-                <Divider />
-
-                {/* Selection mode */}
-                <RadioGroup
-                  value={selectionMode}
-                  onChange={(e) => setSelectionMode(e.target.value as SelectionMode)}
-                >
-                  <FormControlLabel 
-                    value="all" 
-                    control={<Radio size="small" />} 
-                    label={
-                      <Typography variant="body2">
-                        {t('wordFrequency.corpus.selectAll')} ({texts.length} {t('corpus.textsCount')})
-                      </Typography>
-                    }
-                  />
-                  <FormControlLabel 
-                    value="tags" 
-                    control={<Radio size="small" />} 
-                    label={
-                      <Typography variant="body2">
-                        {t('topicModeling.corpus.selectByTags')}
-                      </Typography>
-                    }
-                  />
-                  <FormControlLabel 
-                    value="selected" 
-                    control={<Radio size="small" />} 
-                    label={
-                      <Typography variant="body2">
-                        {t('wordFrequency.corpus.selectManually')}
-                      </Typography>
-                    }
-                  />
-                </RadioGroup>
-
-                {/* Tag selection */}
-                {selectionMode === 'tags' && (
-                  <FormControl size="small" fullWidth>
-                    <InputLabel>{t('corpus.filterByTags')}</InputLabel>
-                    <Select
-                      multiple
-                      value={selectedTags}
-                      onChange={(e) => setSelectedTags(e.target.value as string[])}
-                      input={<OutlinedInput label={t('corpus.filterByTags')} />}
-                      renderValue={(selected) => (
-                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                          {selected.map((tag) => (
-                            <Chip key={tag} label={tag} size="small" />
-                          ))}
-                        </Box>
-                      )}
-                    >
-                      {allTags.map((tag) => (
-                        <MenuItem key={tag} value={tag}>
-                          <Checkbox checked={selectedTags.includes(tag)} size="small" />
-                          <ListItemText primary={tag} />
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                )}
-
-                {/* Selection summary */}
-                <Alert 
-                  severity={selectedCount > 0 ? 'success' : 'warning'} 
-                  icon={false}
-                  sx={{ py: 0.5 }}
-                >
-                  <Typography variant="body2">
-                    {t('wordFrequency.corpus.selectedCount')}: <strong>{selectedCount}</strong> {t('corpus.textsCount')}
-                  </Typography>
-                </Alert>
-              </>
-            )}
-          </Stack>
-        </Paper>
+        {/* 1. Corpus / Library Selection */}
+        <CorpusOrLibrarySelector
+          sectionTitle={t('wordsketch.corpus')}
+          onSelectionChange={setCorpusSelection}
+          externalSelection={externalSelection}
+        />
 
         {/* 2. Compare Configuration */}
         <Paper sx={{ p: 2, mb: 2 }}>
@@ -572,49 +435,111 @@ export default function WordSketchDiffTab() {
           </Typography>
 
           <Stack spacing={2}>
-            {/* Word 1 input */}
-            <TextField
-              label={t('wordsketch.word1')}
-              value={word1}
-              onChange={(e) => setWord1(e.target.value)}
-              fullWidth
-              size="small"
-              placeholder={t('wordsketch.word1Placeholder')}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <Box sx={{ 
-                      width: 8, 
-                      height: 8, 
-                      borderRadius: '50%', 
-                      bgcolor: 'primary.main' 
-                    }} />
-                  </InputAdornment>
-                )
-              }}
-            />
+            {/* Input mode: 词形 vs 词元 */}
+            <FormControl fullWidth size="small" variant="outlined">
+              <InputLabel>{t('wordsketch.diffInputMode')}</InputLabel>
+              <Select
+                value={diffInputMode}
+                onChange={(e) => {
+                  const mode = e.target.value as 'word_form' | 'lemma'
+                  setDiffInputMode(mode)
+                  if (mode === 'lemma') {
+                    setWord1('')
+                    setWord2('')
+                    setLemmaForms([])
+                  }
+                }}
+                label={t('wordsketch.diffInputMode')}
+                MenuProps={{ disableScrollLock: true, PaperProps: { sx: { zIndex: 9999 } } }}
+              >
+                <MenuItem value="word_form">{t('wordsketch.diffInputModeWordForm')}</MenuItem>
+                <MenuItem value="lemma">{t('wordsketch.diffInputModeLemma')}</MenuItem>
+              </Select>
+            </FormControl>
 
-            {/* Word 2 input */}
-            <TextField
-              label={t('wordsketch.word2')}
-              value={word2}
-              onChange={(e) => setWord2(e.target.value)}
-              fullWidth
-              size="small"
-              placeholder={t('wordsketch.word2Placeholder')}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <Box sx={{ 
-                      width: 8, 
-                      height: 8, 
-                      borderRadius: '50%', 
-                      bgcolor: 'error.main' 
-                    }} />
-                  </InputAdornment>
-                )
-              }}
-            />
+            {diffInputMode === 'word_form' ? (
+              <>
+                {/* Word 1 input */}
+                <TextField
+                  label={t('wordsketch.word1')}
+                  value={word1}
+                  onChange={(e) => setWord1(e.target.value)}
+                  fullWidth
+                  size="small"
+                  placeholder={t('wordsketch.word1Placeholder')}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: 'primary.main' }} />
+                      </InputAdornment>
+                    )
+                  }}
+                />
+                {/* Word 2 input */}
+                <TextField
+                  label={t('wordsketch.word2')}
+                  value={word2}
+                  onChange={(e) => setWord2(e.target.value)}
+                  fullWidth
+                  size="small"
+                  placeholder={t('wordsketch.word2Placeholder')}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: 'error.main' }} />
+                      </InputAdornment>
+                    )
+                  }}
+                />
+              </>
+            ) : (
+              <Stack spacing={2} sx={{ position: 'relative', zIndex: 0 }}>
+                {/* Lemma mode: one lemma input, two dropdowns; isolate so focus/overlap work */}
+                <TextField
+                  label={t('wordsketch.lemmaInputLabel')}
+                  value={lemmaInput}
+                  onChange={(e) => setLemmaInput(e.target.value)}
+                  fullWidth
+                  size="small"
+                  placeholder={t('wordsketch.lemmaPlaceholder')}
+                  disabled={!corpusSelection}
+                  helperText={lemmaInput.trim() && !loadingLemmaForms && lemmaForms.length === 0 ? t('wordsketch.noFormsForLemma') : undefined}
+                  inputProps={{ 'aria-label': t('wordsketch.lemmaInputLabel') }}
+                />
+                <FormControl fullWidth size="small" disabled={lemmaForms.length === 0} variant="outlined">
+                  <InputLabel id="wordsketch-diff-word1-label" shrink>{t('wordsketch.word1')}</InputLabel>
+                  <Select
+                    labelId="wordsketch-diff-word1-label"
+                    value={word1}
+                    onChange={(e) => setWord1(e.target.value)}
+                    label={t('wordsketch.word1')}
+                    displayEmpty
+                    renderValue={(v) => v || t('wordsketch.selectWord1')}
+                    MenuProps={{ disableScrollLock: true, PaperProps: { sx: { zIndex: 9999 } } }}
+                  >
+                    {lemmaForms.filter(f => f !== word2).map((form) => (
+                      <MenuItem key={form} value={form}>{form}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+                <FormControl fullWidth size="small" disabled={lemmaForms.length === 0} variant="outlined">
+                  <InputLabel id="wordsketch-diff-word2-label" shrink>{t('wordsketch.word2')}</InputLabel>
+                  <Select
+                    labelId="wordsketch-diff-word2-label"
+                    value={word2}
+                    onChange={(e) => setWord2(e.target.value)}
+                    label={t('wordsketch.word2')}
+                    displayEmpty
+                    renderValue={(v) => v || t('wordsketch.selectWord2')}
+                    MenuProps={{ disableScrollLock: true, PaperProps: { sx: { zIndex: 9999 } } }}
+                  >
+                    {lemmaForms.filter(f => f !== word1).map((form) => (
+                      <MenuItem key={form} value={form}>{form}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Stack>
+            )}
 
             {/* POS filter */}
             <FormControl fullWidth size="small">
@@ -644,7 +569,7 @@ export default function WordSketchDiffTab() {
               fullWidth
             />
 
-            {/* Compare mode */}
+            {/* Compare mode: how collocates are matched when comparing (not how the two target words are chosen) */}
             <FormControl fullWidth size="small">
               <InputLabel>{t('wordsketch.compareMode')}</InputLabel>
               <Select
@@ -655,6 +580,9 @@ export default function WordSketchDiffTab() {
                 <MenuItem value="lemmas">{t('wordsketch.lemmas')}</MenuItem>
                 <MenuItem value="word_form">{t('wordsketch.wordForm')}</MenuItem>
               </Select>
+              <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
+                {t('wordsketch.compareModeHelp')}
+              </Typography>
             </FormControl>
           </Stack>
         </Paper>
@@ -849,7 +777,7 @@ export default function WordSketchDiffTab() {
                                       <TableCell align="right" sx={{ fontWeight: 600, py: 0.5, color: '#c62828' }}>
                                         {t('wordsketch.score2')}
                                       </TableCell>
-                                      {selectedCorpus && (
+                                      {corpusSelection && (
                                         <TableCell align="center" sx={{ fontWeight: 600, py: 0.5, width: 40 }}></TableCell>
                                       )}
                                     </TableRow>
@@ -904,14 +832,16 @@ export default function WordSketchDiffTab() {
                                             {coll.score2 > 0 ? coll.score2.toFixed(1) : '-'}
                                           </Typography>
                                         </TableCell>
-                                        {selectedCorpus && (
+                                        {corpusSelection && (
                                           <TableCell align="center" sx={{ p: 0.5 }}>
                                             <WordActionMenu
                                               word={coll.word || coll.lemma}
-                                              corpusId={selectedCorpus.id}
-                                              textIds={getSelectedTextIds()}
-                                              selectionMode={selectionMode}
-                                              selectedTags={selectedTags}
+                                              corpusId={corpusSelection.corpusId}
+                                              textIds={corpusSelection.textIds}
+                                              selectionMode={corpusSelection.selectionMode === 'keywords' ? 'tags' : (corpusSelection.selectionMode ?? 'all')}
+                                              selectedTags={corpusSelection.selectedKeywords ?? corpusSelection.selectedTags ?? []}
+                                              libraryId={corpusSelection?.dataSource === 'library' ? corpusSelection.libraryId : undefined}
+                                              selectedEntryIds={corpusSelection?.dataSource === 'library' && corpusSelection?.selectionMode === 'selected' ? corpusSelection?.selectedEntryIds : undefined}
                                               showCollocation={true}
                                               showCollocationAnalysis={false}
                                               showWordSketch={false}
@@ -929,7 +859,7 @@ export default function WordSketchDiffTab() {
                                     ))}
                                     {mergedCollocations.length === 0 && (
                                       <TableRow>
-                                        <TableCell colSpan={selectedCorpus ? 6 : 5} align="center">
+                                        <TableCell colSpan={corpusSelection ? 6 : 5} align="center">
                                           <Typography variant="body2" color="text.secondary">
                                             {t('common.noData')}
                                           </Typography>

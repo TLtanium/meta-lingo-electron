@@ -28,8 +28,8 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import TuneIcon from '@mui/icons-material/Tune'
 import AutoGraphIcon from '@mui/icons-material/AutoGraph'
 import { useTranslation } from 'react-i18next'
-import type { NMFPreprocessConfig, NMFConfig, NMFResult, NMFOptimizeResult } from '../../../types/topicModeling'
-import { analyzeNMF, optimizeNMFTopics } from '../../../api/topicModeling'
+import type { NMFPreprocessConfig, NMFConfig, NMFResult, NMFDynamicConfig, NMFDynamicResult, NMFOptimizeResult } from '../../../types/topicModeling'
+import { topicModelingApi } from '../../../api'
 import ReconstructionErrorDialog from './ReconstructionErrorDialog'
 
 interface NMFParameterPanelProps {
@@ -39,8 +39,10 @@ interface NMFParameterPanelProps {
   preprocessConfig: NMFPreprocessConfig
   config: NMFConfig
   onConfigChange: (config: NMFConfig) => void
+  dynamicConfig?: NMFDynamicConfig
+  textDates?: Record<string, string>
   onAnalysisStart: () => void
-  onAnalysisComplete: (result: NMFResult) => void
+  onAnalysisComplete: (result: NMFResult | NMFDynamicResult) => void
   onOptimizeComplete: (result: NMFOptimizeResult) => void
   disabled?: boolean
 }
@@ -52,6 +54,8 @@ export default function NMFParameterPanel({
   preprocessConfig,
   config,
   onConfigChange,
+  dynamicConfig,
+  textDates,
   onAnalysisStart,
   onAnalysisComplete,
   onOptimizeComplete,
@@ -88,17 +92,28 @@ export default function NMFParameterPanel({
     onAnalysisStart()
     
     try {
-      const response = await analyzeNMF(
-        corpusId,
-        textIds,
-        language,
-        preprocessConfig,
-        config
-      )
+      const useDynamic = dynamicConfig?.enabled && textDates && Object.keys(textDates).length > 0
+      const response = useDynamic
+        ? await topicModelingApi.analyzeNMFDynamic(
+            corpusId,
+            textIds,
+            language,
+            preprocessConfig,
+            config,
+            dynamicConfig,
+            textDates
+          )
+        : await topicModelingApi.analyzeNMF(
+            corpusId,
+            textIds,
+            language,
+            preprocessConfig,
+            config
+          )
       
       if (response.success && response.data) {
         if (response.data.success) {
-          onAnalysisComplete(response.data)
+          onAnalysisComplete(response.data as NMFResult | NMFDynamicResult)
         } else {
           setError(response.data.error || 'Analysis failed')
         }
@@ -125,7 +140,7 @@ export default function NMFParameterPanel({
     onAnalysisStart()
     
     try {
-      const response = await optimizeNMFTopics(
+      const response = await topicModelingApi.optimizeNMFTopics(
         corpusId,
         textIds,
         language,

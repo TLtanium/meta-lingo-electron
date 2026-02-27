@@ -34,6 +34,7 @@ import {
   DEPENDENCY_RELATIONS,
   generateId 
 } from './constants'
+import { usasApi, flattenUsasDomains } from '../../../../api/usas'
 
 export default function TokenEditor({
   element,
@@ -43,6 +44,16 @@ export default function TokenEditor({
 }: TokenEditorProps) {
   const { i18n } = useTranslation()
   const isZh = i18n.language === 'zh'
+
+  // USAS domain options for usas attribute (loaded once)
+  const [usasOptions, setUsasOptions] = useState<{ value: string; label: string }[]>([])
+  useEffect(() => {
+    let cancelled = false
+    usasApi.getDomains().then((data) => {
+      if (!cancelled) setUsasOptions(flattenUsasDomains(data))
+    }).catch(() => { /* ignore */ })
+    return () => { cancelled = true }
+  }, [])
 
   // Initialize condition groups from element
   const [conditionGroups, setConditionGroups] = useState<ConditionGroup[]>(() => {
@@ -81,6 +92,8 @@ export default function TokenEditor({
           value: rel.value,
           label: `${rel.value} - ${isZh ? rel.label.zh : rel.label.en}`
         }))
+      case 'usas':
+        return usasOptions
       default:
         return []
     }
@@ -88,7 +101,7 @@ export default function TokenEditor({
   
   // Check if attribute needs autocomplete suggestions
   const needsSuggestions = (attr: TokenAttribute): boolean => {
-    return ['pos', 'tag', 'dep', 'headpos', 'headdep'].includes(attr)
+    return ['pos', 'tag', 'dep', 'headpos', 'headdep', 'usas'].includes(attr)
   }
 
   // Update condition in group

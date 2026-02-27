@@ -177,7 +177,22 @@ export const initialSemanticAnalysisState: SemanticAnalysisState = {
 
 // ==================== Visualization Types ====================
 
-export type ChartType = 'bar' | 'pie' | 'treemap'
+export type ChartType = 'bar' | 'pie' | 'treemap' | 'wordcloud'
+
+// Word cloud config (aligned with wordFrequency types for dual-engine)
+export type SemanticWordCloudEngine = 'd3' | 'legacy'
+export type SemanticWordCloudStyle = 'default' | 'mask' | 'imageColor'
+export type SemanticWordCloudColormap = 'viridis' | 'inferno' | 'plasma' | 'autumn' | 'winter' | 'rainbow' | 'ocean' | 'forest' | 'sunset'
+
+export interface SemanticWordCloudConfig {
+  engine?: SemanticWordCloudEngine
+  style: SemanticWordCloudStyle
+  maxWords: number
+  useAllWords?: boolean
+  colormap: SemanticWordCloudColormap
+  maskImage?: string | null
+  maskImageFile?: File | null
+}
 
 export interface VisualizationConfig {
   chartType: ChartType
@@ -185,6 +200,9 @@ export interface VisualizationConfig {
   showLabels: boolean
   showPercentage: boolean
   colorScheme?: string
+  wordCloudEngine?: SemanticWordCloudEngine
+  wordCloudConfig?: SemanticWordCloudConfig
+  legacyWordCloudConfig?: SemanticWordCloudConfig
 }
 
 export const defaultVisualizationConfig: VisualizationConfig = {

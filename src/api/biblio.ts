@@ -72,11 +72,18 @@ export async function uploadRefworksFile(
 
 // ==================== Entry Management ====================
 
+export type BiblioEntrySortColumn = 'title' | 'year' | 'journal' | 'citation_count'
+export type BiblioEntrySortDir = 'asc' | 'desc'
+
 export interface ListEntriesParams {
   libraryId: string
   page?: number
   pageSize?: number
   filters?: BiblioFilter
+  titleSearch?: string
+  orderBy?: BiblioEntrySortColumn
+  orderDir?: BiblioEntrySortDir
+  includeStatus?: boolean
 }
 
 export async function listEntries(params: ListEntriesParams): Promise<ApiResponse<BiblioEntryListResponse>> {
@@ -84,6 +91,10 @@ export async function listEntries(params: ListEntriesParams): Promise<ApiRespons
   
   if (params.page) queryParams.append('page', params.page.toString())
   if (params.pageSize) queryParams.append('page_size', params.pageSize.toString())
+  if (params.titleSearch) queryParams.append('title_search', params.titleSearch)
+  if (params.orderBy) queryParams.append('order_by', params.orderBy)
+  if (params.orderDir) queryParams.append('order_dir', params.orderDir)
+  if (params.includeStatus !== false) queryParams.append('include_status', 'true')
   
   if (params.filters) {
     if (params.filters.year_start) queryParams.append('year_start', params.filters.year_start.toString())

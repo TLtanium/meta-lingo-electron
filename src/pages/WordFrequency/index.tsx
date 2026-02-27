@@ -10,33 +10,17 @@ import {
   LinearProgress,
   Tabs,
   Tab,
-  Divider,
   Stack,
   Chip,
   Button,
-  Paper,
   Alert,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  RadioGroup,
-  Radio,
-  FormControlLabel,
-  TextField,
-  InputAdornment,
-  Checkbox,
-  CircularProgress,
-  SelectChangeEvent,
-  OutlinedInput,
-  ListItemText
+  CircularProgress
 } from '@mui/material'
-import SearchIcon from '@mui/icons-material/Search'
 import PlayArrowIcon from '@mui/icons-material/PlayArrow'
 import TableChartIcon from '@mui/icons-material/TableChart'
 import { useTranslation } from 'react-i18next'
-import { corpusApi, analysisApi } from '../../api'
-import type { Corpus, CorpusText } from '../../types'
+import { useTabStore } from '../../stores/tabStore'
+import { analysisApi } from '../../api'
 import type { 
   POSFilterConfig,
   SearchConfig,
@@ -58,22 +42,22 @@ import POSFilterPanel from './POSFilterPanel'
 import SearchConfigPanel from './SearchConfigPanel'
 import ResultsTable from './ResultsTable'
 import VisualizationPanel from './VisualizationPanel'
+import AnalysisAIAssistant from '../../components/AnalysisAIAssistant'
+import CorpusOrLibrarySelector, { type CorpusOrLibrarySelection } from '../../components/Corpus/CorpusOrLibrarySelector'
+import { useSettingsStore } from '../../stores/settingsStore'
+import type { CrossLinkParams } from '../../types/crossLink'
 
-type SelectionMode = 'all' | 'selected' | 'tags'
+interface WordFrequencyProps {
+  crossLinkParams?: CrossLinkParams
+}
 
-export default function WordFrequency() {
+export default function WordFrequency({ crossLinkParams }: WordFrequencyProps = {}) {
   const { t } = useTranslation()
+  const { openTab } = useTabStore()
+  const { ollamaConnected, openaiApiEnabled } = useSettingsStore()
 
-  // Corpus state
-  const [corpora, setCorpora] = useState<Corpus[]>([])
-  const [selectedCorpus, setSelectedCorpus] = useState<Corpus | null>(null)
-  const [texts, setTexts] = useState<CorpusText[]>([])
-  const [selectedTextIds, setSelectedTextIds] = useState<string[]>([])
-  const [selectedTags, setSelectedTags] = useState<string[]>([])
-  const [selectionMode, setSelectionMode] = useState<SelectionMode>('all')
-  const [textSearch, setTextSearch] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [loadingTexts, setLoadingTexts] = useState(false)
+  // Data source: corpus or library (unified selector)
+  const [corpusSelection, setCorpusSelection] = useState<CorpusOrLibrarySelection | null>(null)
 
   // POS tags
   const [posTags, setPosTags] = useState<POSTagInfo[]>([])
@@ -103,25 +87,24 @@ export default function WordFrequency() {
   // Right panel tabs
   const [rightTab, setRightTab] = useState(0)
 
-  // Load corpora and POS tags on mount
+  const externalSelection = useMemo((): CorpusOrLibrarySelection | null => {
+    if (!crossLinkParams?.corpusId) return null
+    return {
+      corpusId: crossLinkParams.corpusId,
+      textIds: Array.isArray(crossLinkParams.textIds) ? crossLinkParams.textIds : 'all',
+      language: 'english',
+      dataSource: crossLinkParams.libraryId ? 'library' : 'corpus',
+      selectionMode: (crossLinkParams.selectionMode as 'all' | 'tags' | 'selected') ?? 'all',
+      selectedTags: crossLinkParams.selectedTags ?? [],
+      ...(crossLinkParams.libraryId && { libraryId: crossLinkParams.libraryId }),
+      ...(crossLinkParams.selectedEntryIds?.length && { selectedEntryIds: crossLinkParams.selectedEntryIds })
+    }
+  }, [crossLinkParams])
+
+  // Load POS tags on mount
   useEffect(() => {
-    loadCorpora()
     loadPosTags()
   }, [])
-
-  const loadCorpora = async () => {
-    setLoading(true)
-    try {
-      const response = await corpusApi.listCorpora()
-      if (response.success && response.data) {
-        setCorpora(response.data)
-      }
-    } catch (err) {
-      console.error('Failed to load corpora:', err)
-    } finally {
-      setLoading(false)
-    }
-  }
 
   const loadPosTags = async () => {
     try {
@@ -154,105 +137,9 @@ export default function WordFrequency() {
     }
   }
 
-  // Load texts when corpus changes
-  useEffect(() => {
-    if (selectedCorpus) {
-      loadTexts(selectedCorpus.id)
-    } else {
-      setTexts([])
-      setSelectedTextIds([])
-      setSelectedTags([])
-    }
-  }, [selectedCorpus])
-
-  // Get all available tags from texts
-  const allTags = useMemo(() => {
-    const tagSet = new Set<string>()
-    texts.forEach(text => text.tags.forEach(tag => tagSet.add(tag)))
-    return Array.from(tagSet).sort()
-  }, [texts])
-
-  const loadTexts = async (corpusId: string) => {
-    setLoadingTexts(true)
-    try {
-      const response = await corpusApi.getTexts(corpusId)
-      if (response.success && response.data) {
-        setTexts(response.data)
-      }
-    } catch (err) {
-      console.error('Failed to load texts:', err)
-    } finally {
-      setLoadingTexts(false)
-    }
-  }
-
-  // Filter texts based on search and tags
-  const filteredTexts = useMemo(() => {
-    let result = texts
-    
-    if (textSearch) {
-      const query = textSearch.toLowerCase()
-      result = result.filter(t => 
-        t.filename.toLowerCase().includes(query) ||
-        t.originalFilename?.toLowerCase().includes(query)
-      )
-    }
-    
-    if (selectionMode === 'tags' && selectedTags.length > 0) {
-      result = result.filter(t => 
-        selectedTags.some(tag => t.tags.includes(tag))
-      )
-    }
-    
-    return result
-  }, [texts, textSearch, selectionMode, selectedTags])
-
-  // Get selected text IDs based on mode
-  const getSelectedTextIds = (): string[] | 'all' => {
-    switch (selectionMode) {
-      case 'all':
-        return 'all'
-      case 'selected':
-        return selectedTextIds
-      case 'tags':
-        return filteredTexts.map(t => t.id)
-      default:
-        return []
-    }
-  }
-
-  // Handle corpus change
-  const handleCorpusChange = (event: SelectChangeEvent<string>) => {
-    const corpus = corpora.find(c => c.id === event.target.value)
-    setSelectedCorpus(corpus || null)
-    setSelectionMode('all')
-    setSelectedTextIds([])
-    setSelectedTags([])
-    setResults([])
-    setError(null)
-  }
-
-  // Handle text selection toggle
-  const handleTextToggle = (textId: string) => {
-    setSelectedTextIds(prev => 
-      prev.includes(textId) 
-        ? prev.filter(id => id !== textId)
-        : [...prev, textId]
-    )
-  }
-
-  // Handle select all / deselect all
-  const handleSelectAll = () => {
-    setSelectedTextIds(filteredTexts.map(t => t.id))
-  }
-
-  const handleDeselectAll = () => {
-    setSelectedTextIds([])
-  }
-
   // Run analysis
   const handleAnalyze = async () => {
-    if (!selectedCorpus) return
+    if (!corpusSelection) return
 
     setIsLoading(true)
     setError(null)
@@ -260,8 +147,8 @@ export default function WordFrequency() {
     try {
       // Always pass search_config to include searchTarget (word/lemma)
       const request: WordFrequencyRequest = {
-        corpus_id: selectedCorpus.id,
-        text_ids: getSelectedTextIds(),
+        corpus_id: corpusSelection.corpusId,
+        text_ids: corpusSelection.textIds,
         pos_filter: posFilter.selectedPOS.length > 0 ? posFilter : undefined,
         search_config: searchConfig,
         min_freq: minFreq,
@@ -270,12 +157,21 @@ export default function WordFrequency() {
       }
 
       const response = await analysisApi.wordFrequency(request)
-      
+
       if (response.success && response.data) {
         if (response.data.success) {
-          setResults(response.data.results)
-          setTotalTokens(response.data.total_tokens)
-          setUniqueWords(response.data.unique_words)
+          // Normalize results for table and charts (ensure array and shape)
+          const rawResults = response.data.results
+          const resultsList = Array.isArray(rawResults) ? rawResults : []
+          const normalizedResults: WordFrequencyResult[] = resultsList.map((r: any, idx: number) => ({
+            word: r?.word ?? r?.token ?? String(r?.word ?? r?.token ?? ''),
+            frequency: typeof r?.frequency === 'number' ? r.frequency : Number(r?.count ?? r?.frequency ?? 0),
+            percentage: typeof r?.percentage === 'number' ? r.percentage : (r?.percentage ?? 0),
+            rank: typeof r?.rank === 'number' ? r.rank : (idx + 1)
+          }))
+          setResults(normalizedResults)
+          setTotalTokens(response.data.total_tokens ?? 0)
+          setUniqueWords(response.data.unique_words ?? 0)
           setSelectedWords([])
           // Reset pagination
           setPaginationConfig({ ...paginationConfig, page: 0 })
@@ -292,17 +188,15 @@ export default function WordFrequency() {
     }
   }
 
-  // Check if analysis can run
-  const canAnalyze = selectedCorpus && (
-    selectionMode === 'all' || 
-    (selectionMode === 'tags' && selectedTags.length > 0 && filteredTexts.length > 0) ||
-    (selectionMode === 'selected' && selectedTextIds.length > 0)
+  // Check if analysis can run (require at least one text when textIds is an array)
+  const canAnalyze = corpusSelection !== null && (
+    corpusSelection.textIds === 'all' ||
+    (Array.isArray(corpusSelection.textIds) && corpusSelection.textIds.length > 0)
   )
 
-  const selectedCount = (() => {
-    const ids = getSelectedTextIds()
-    return ids === 'all' ? texts.length : ids.length
-  })()
+  const selectedCount = corpusSelection
+    ? (corpusSelection.textIds === 'all' ? 0 : corpusSelection.textIds.length)
+    : 0
 
   return (
     <Box sx={{ display: 'flex', height: '100%' }}>
@@ -316,204 +210,57 @@ export default function WordFrequency() {
         display: 'flex',
         flexDirection: 'column'
       }}>
-        <Typography variant="h6" gutterBottom>
-          {t('wordFrequency.title')}
-        </Typography>
+        <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
+          <Typography variant="h6">
+            {t('wordFrequency.title')}
+          </Typography>
+          <AnalysisAIAssistant
+            enabled={ollamaConnected || openaiApiEnabled}
+            moduleLabel={t('wordFrequency.title')}
+            getContext={() => {
+              const hint = t('aiAssistant.wordFrequencyContextHint')
+              const corpusInfo = corpusSelection
+                ? `${t('wordFrequency.corpus.title')}: ${corpusSelection.dataSource === 'corpus' ? 'corpus' : 'library'}, ${corpusSelection.textIds === 'all' ? 'all' : corpusSelection.textIds.length} ${t('corpus.textsCount')}`
+                : t('wordFrequency.corpus.title') + ': (none)'
+              const params = `minFreq=${minFreq}, maxFreq=${maxFreq ?? 'null'}, lowercase=${lowercase}`
+              const stats = `totalTokens=${totalTokens}, uniqueWords=${uniqueWords}`
+              if (results.length === 0) {
+                return `${hint}\n\n${corpusInfo}\n${params}\n${t('aiAssistant.noAnalysisResult')}`
+              }
+              if (rightTab === 0) {
+                const page = Math.max(0, Number(paginationConfig.page) || 0)
+                const pageSize = Math.max(1, Number(paginationConfig.rowsPerPage) || 25)
+                const start = page * pageSize
+                const slice = results.slice(start, start + pageSize)
+                const header = `序号\t${t('wordFrequency.table.word')}\t${t('wordFrequency.table.frequency')}\t${t('wordFrequency.table.percentage')}\t${t('wordFrequency.table.rank')}`
+                const tableLines = slice.map((r, i) => `${start + i + 1}\t${r.word}\t${r.frequency}\t${r.percentage?.toFixed(4) ?? ''}\t${r.rank ?? ''}`).join('\n')
+                return `${hint}\n\n${corpusInfo}\n${params}\n${stats}\n${t('wordFrequency.results.title')} (rows ${start + 1}-${start + slice.length}, total ${results.length}):\n${header}\n${tableLines}`
+              }
+              const chartLabel = vizConfig.chartType === 'bar' ? 'bar' : vizConfig.chartType === 'pie' ? 'pie' : 'wordcloud'
+              const top = results.slice(0, 50).map(r => `${r.word}\t${r.frequency}`).join('\n')
+              return `${hint}\n\n${corpusInfo}\n${params}\n${stats}\n${t('wordFrequency.visualization.title')}: ${chartLabel}. Top 50:\n${t('wordFrequency.table.word')}\t${t('wordFrequency.table.frequency')}\n${top}`
+            }}
+          />
+        </Stack>
 
         {/* Info chips */}
         <Stack direction="row" spacing={1} mb={2} flexWrap="wrap">
           <Chip label="SpaCy" size="small" color="primary" variant="outlined" />
-          {selectedCorpus?.language && (
+          {corpusSelection?.language && (
             <Chip 
-              label={`${t('corpus.language')}: ${selectedCorpus.language}`}
+              label={`${t('corpus.language')}: ${corpusSelection.language}`}
               size="small" 
               variant="outlined"
             />
           )}
         </Stack>
 
-        {/* 1. Corpus Selection */}
-        <Paper sx={{ p: 2, mb: 2 }}>
-          <Typography variant="subtitle2" sx={{ mb: 1.5 }}>
-            {t('wordFrequency.corpus.title')}
-          </Typography>
-
-          <Stack spacing={2}>
-            <FormControl fullWidth size="small">
-              <InputLabel>{t('corpus.selectCorpus')}</InputLabel>
-              <Select
-                value={selectedCorpus?.id || ''}
-                onChange={handleCorpusChange}
-                label={t('corpus.selectCorpus')}
-                disabled={loading}
-              >
-                {corpora.map(corpus => (
-                  <MenuItem key={corpus.id} value={corpus.id}>
-                    <Stack direction="row" spacing={1} alignItems="center">
-                      <Typography>{corpus.name}</Typography>
-                      <Chip label={`${corpus.textCount} ${t('corpus.textsCount')}`} size="small" />
-                    </Stack>
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-
-            {selectedCorpus && (
-              <>
-                <Divider />
-
-                {/* Selection mode */}
-                <RadioGroup
-                  value={selectionMode}
-                  onChange={(e) => setSelectionMode(e.target.value as SelectionMode)}
-                >
-                  <FormControlLabel 
-                    value="all" 
-                    control={<Radio size="small" />} 
-                    label={
-                      <Typography variant="body2">
-                        {t('wordFrequency.corpus.selectAll')} ({texts.length} {t('corpus.textsCount')})
-                      </Typography>
-                    }
-                  />
-                  <FormControlLabel 
-                    value="tags" 
-                    control={<Radio size="small" />} 
-                    label={
-                      <Typography variant="body2">
-                        {t('topicModeling.corpus.selectByTags')}
-                      </Typography>
-                    }
-                  />
-                  <FormControlLabel 
-                    value="selected" 
-                    control={<Radio size="small" />} 
-                    label={
-                      <Typography variant="body2">
-                        {t('wordFrequency.corpus.selectManually')}
-                      </Typography>
-                    }
-                  />
-                </RadioGroup>
-
-                {/* Tag selection (when mode is 'tags') */}
-                {selectionMode === 'tags' && (
-                  <FormControl size="small" fullWidth>
-                    <InputLabel>{t('corpus.filterByTags')}</InputLabel>
-                    <Select
-                      multiple
-                      value={selectedTags}
-                      onChange={(e) => setSelectedTags(e.target.value as string[])}
-                      input={<OutlinedInput label={t('corpus.filterByTags')} />}
-                      renderValue={(selected) => (
-                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                          {selected.map((tag) => (
-                            <Chip key={tag} label={tag} size="small" />
-                          ))}
-                        </Box>
-                      )}
-                    >
-                      {allTags.map((tag) => (
-                        <MenuItem key={tag} value={tag}>
-                          <Checkbox checked={selectedTags.includes(tag)} size="small" />
-                          <ListItemText primary={tag} />
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                )}
-
-                {/* Manual selection */}
-                {selectionMode === 'selected' && (
-                  <>
-                    <TextField
-                      size="small"
-                      placeholder={t('common.search')}
-                      value={textSearch}
-                      onChange={(e) => setTextSearch(e.target.value)}
-                      InputProps={{
-                        startAdornment: (
-                          <InputAdornment position="start">
-                            <SearchIcon fontSize="small" />
-                          </InputAdornment>
-                        )
-                      }}
-                      fullWidth
-                    />
-
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <Typography variant="body2" color="text.secondary">
-                        {selectedTextIds.length} / {filteredTexts.length} {t('common.selected')}
-                      </Typography>
-                      <Stack direction="row" spacing={1}>
-                        <Button size="small" onClick={handleSelectAll}>
-                          {t('common.selectAll')}
-                        </Button>
-                        <Button size="small" onClick={handleDeselectAll}>
-                          {t('common.clearAll')}
-                        </Button>
-                      </Stack>
-                    </Box>
-
-                    <Box sx={{ 
-                      maxHeight: 150, 
-                      overflow: 'auto', 
-                      border: 1, 
-                      borderColor: 'divider', 
-                      borderRadius: 1 
-                    }}>
-                      {loadingTexts ? (
-                        <Box sx={{ display: 'flex', justifyContent: 'center', p: 2 }}>
-                          <CircularProgress size={24} />
-                        </Box>
-                      ) : filteredTexts.length === 0 ? (
-                        <Typography variant="body2" color="text.secondary" sx={{ p: 2, textAlign: 'center' }}>
-                          {t('common.noData')}
-                        </Typography>
-                      ) : (
-                        filteredTexts.map(text => (
-                          <FormControlLabel
-                            key={text.id}
-                            control={
-                              <Checkbox
-                                checked={selectedTextIds.includes(text.id)}
-                                onChange={() => handleTextToggle(text.id)}
-                                size="small"
-                              />
-                            }
-                            label={
-                              <Typography variant="body2" noWrap sx={{ maxWidth: 200 }}>
-                                {text.filename}
-                              </Typography>
-                            }
-                            sx={{ 
-                              display: 'flex', 
-                              width: '100%', 
-                              m: 0, 
-                              px: 1,
-                              '&:hover': { bgcolor: 'action.hover' }
-                            }}
-                          />
-                        ))
-                      )}
-                    </Box>
-                  </>
-                )}
-
-                {/* Selection summary */}
-                <Alert 
-                  severity={selectedCount > 0 ? 'success' : 'warning'} 
-                  icon={false}
-                  sx={{ py: 0.5 }}
-                >
-                  <Typography variant="body2">
-                    {t('wordFrequency.corpus.selectedCount')}: <strong>{selectedCount}</strong> {t('corpus.textsCount')}
-                  </Typography>
-                </Alert>
-              </>
-            )}
-          </Stack>
-        </Paper>
+        {/* 1. Corpus / Library Selection */}
+        <CorpusOrLibrarySelector
+          sectionTitle={t('wordFrequency.corpus.title')}
+          onSelectionChange={setCorpusSelection}
+          externalSelection={externalSelection}
+        />
 
         {/* 2. POS Filter Panel */}
         <Box sx={{ mb: 2 }}>
@@ -521,7 +268,7 @@ export default function WordFrequency() {
             config={posFilter}
             onChange={setPosFilter}
             posTags={posTags}
-            disabled={!selectedCorpus}
+            disabled={!corpusSelection}
           />
         </Box>
 
@@ -536,8 +283,8 @@ export default function WordFrequency() {
             onMinFreqChange={setMinFreq}
             onMaxFreqChange={setMaxFreq}
             onLowercaseChange={setLowercase}
-            disabled={!selectedCorpus}
-            corpusLanguage={selectedCorpus?.language || 'english'}
+            disabled={!corpusSelection}
+            corpusLanguage={corpusSelection?.language || 'english'}
           />
         </Box>
 
@@ -587,10 +334,12 @@ export default function WordFrequency() {
                 onPaginationChange={setPaginationConfig}
                 onSelectionChange={setSelectedWords}
                 isLoading={isLoading}
-                corpusId={selectedCorpus?.id}
-                textIds={getSelectedTextIds()}
-                selectionMode={selectionMode}
-                selectedTags={selectedTags}
+                corpusId={corpusSelection?.corpusId}
+                textIds={corpusSelection?.textIds}
+                selectionMode={corpusSelection?.selectionMode === 'keywords' ? 'tags' : (corpusSelection?.selectionMode ?? 'all')}
+                selectedTags={corpusSelection?.selectedKeywords ?? corpusSelection?.selectedTags ?? []}
+                libraryId={corpusSelection?.dataSource === 'library' ? corpusSelection.libraryId : undefined}
+                selectedEntryIds={corpusSelection?.dataSource === 'library' && corpusSelection?.selectionMode === 'selected' ? corpusSelection?.selectedEntryIds : undefined}
               />
             ) : (
               <Box sx={{ 
@@ -616,14 +365,24 @@ export default function WordFrequency() {
               data={results}
               config={vizConfig}
               onConfigChange={setVizConfig}
-              onWordClick={(word) => {
-                // Add word to selection
-                if (!selectedWords.includes(word)) {
-                  setSelectedWords([...selectedWords, word])
-                }
-                // Switch to results tab
-                setRightTab(0)
-              }}
+              onWordClick={corpusSelection ? (word) => {
+                openTab({
+                  type: 'collocation',
+                  title: `${t('collocation.title')} - ${word}`,
+                  props: {
+                    crossLinkParams: {
+                      searchWord: word,
+                      corpusId: corpusSelection.corpusId,
+                      textIds: corpusSelection.textIds,
+                      selectionMode: corpusSelection.selectionMode === 'keywords' ? 'tags' : corpusSelection.selectionMode,
+                      selectedTags: corpusSelection.selectedKeywords ?? corpusSelection.selectedTags ?? [],
+                      ...(corpusSelection.libraryId && { libraryId: corpusSelection.libraryId }),
+                      ...(corpusSelection.libraryId && corpusSelection.selectionMode === 'selected' && corpusSelection.selectedEntryIds?.length && { selectedEntryIds: corpusSelection.selectedEntryIds }),
+                      autoSearch: true
+                    }
+                  }
+                })
+              } : undefined}
             />
           )}
         </Box>

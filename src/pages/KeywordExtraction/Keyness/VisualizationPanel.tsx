@@ -28,7 +28,7 @@ import SaveAltIcon from '@mui/icons-material/SaveAlt'
 import ImageIcon from '@mui/icons-material/Image'
 import { useTranslation } from 'react-i18next'
 import { NumberInput } from '../../../components/common'
-import type { KeynessKeyword, KeywordChartType } from '../../../types/keyword'
+import type { KeynessKeyword, KeywordChartType, ComparisonMode } from '../../../types/keyword'
 
 import BarChart from '../components/BarChart'
 import PieChart from '../components/PieChart'
@@ -53,7 +53,8 @@ const WORDCLOUD_COLORMAPS = [
 
 export default function VisualizationPanel({
   data,
-  onKeywordClick
+  onKeywordClick,
+  comparisonMode = 'word'
 }: VisualizationPanelProps) {
   const { t } = useTranslation()
   const [activeTab, setActiveTab] = useState<KeywordChartType>('bar')
@@ -197,7 +198,9 @@ export default function VisualizationPanel({
   const chartData = data
     .filter(d => positiveOnly ? d.direction === 'positive' : true)
     .map(d => ({
-      word: d.keyword,
+      word: comparisonMode === 'domain'
+        ? ((d as any).domain_name || d.keyword)
+        : d.keyword,
       frequency: d.study_freq,
       score: Math.abs(d.score),
       percentage: Math.abs(d.score)

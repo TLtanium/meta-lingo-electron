@@ -6,8 +6,9 @@ as well as visualization data generation.
 """
 
 import uuid
+from pathlib import Path
 from typing import Optional, List
-from fastapi import APIRouter, HTTPException, UploadFile, File, Form, Query
+from fastapi import APIRouter, HTTPException, UploadFile, File, Form, Query, BackgroundTasks
 from pydantic import BaseModel
 
 from models import (
@@ -28,12 +29,17 @@ from models import (
     BiblioStatistics,
     FilterOptions
 )
+from models.database import TextDB, TaskDB, BiblioEntryAbstractsDB, CorpusDB
 
 from services.biblio import (
     parse_refworks_file,
     validate_source_type,
     generate_visualization
 )
+
+import sys
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from config import CORPORA_DIR
 
 router = APIRouter(prefix="/api/biblio", tags=["Bibliographic"])
 
@@ -52,7 +58,7 @@ async def list_libraries():
 
 @router.post("/libraries", response_model=BiblioLibrary)
 async def create_library(request: BiblioLibraryCreate):
-    """Create a new bibliographic library"""
+    """Create a new bibliographic library (and its shadow corpus for abstract processing)"""
     # Check for duplicate name
     existing = BiblioLibraryDB.get_by_name(request.name)
     if existing:
@@ -62,7 +68,8 @@ async def create_library(request: BiblioLibraryCreate):
         "id": str(uuid.uuid4()),
         "name": request.name,
         "source_type": request.source_type.value,
-        "description": request.description
+        "description": request.description,
+        "language": (request.language or "english").lower()
     }
     
     library = BiblioLibraryDB.create(library_data)
@@ -106,24 +113,42 @@ async def delete_library(library_id: str):
 
 # ==================== File Upload ====================
 
+def _sanitize_biblio_filename(filename: str) -> str:
+    """Sanitize filename for abstract text (avoid path traversal)"""
+    safe = filename.replace(" ", "_")
+    for char in ['<', '>', ':', '"', '/', '\\', '|', '?', '*']:
+        safe = safe.replace(char, '_')
+    return safe or "abstract"
+
+
 @router.post("/libraries/{library_id}/upload")
 async def upload_refworks_file(
     library_id: str,
+    background_tasks: BackgroundTasks,
     file: UploadFile = File(...)
 ):
     """
-    Upload and parse a Refworks file into the library
-    
-    Validates that file format matches library source type (WOS/CNKI)
+    Upload and parse a Refworks file into the library.
+    Validates format (CNKI/WOS), inserts entries, then for each entry with an abstract
+    creates a text in the shadow corpus and runs the same pipeline as corpus plain text
+    (SpaCy -> USAS -> MIPVU). MIPVU uses the same hybrid pipeline as corpus management
+    (HiTZ + Clause model, pos_group_stats). Returns entry/task mapping for progress polling.
     """
     library = BiblioLibraryDB.get_by_id(library_id)
     if not library:
         raise HTTPException(status_code=404, detail="Library not found")
     
+    corpus_id = library.get("corpus_id")
+    if not corpus_id:
+        raise HTTPException(status_code=500, detail="Library shadow corpus not found")
+    
+    corpus = CorpusDB.get_by_id(corpus_id)
+    if not corpus:
+        raise HTTPException(status_code=500, detail="Shadow corpus not found")
+    
     # Read file content
     try:
         content = await file.read()
-        # Try different encodings
         for encoding in ['utf-8', 'gbk', 'gb2312', 'latin-1']:
             try:
                 text_content = content.decode(encoding)
@@ -148,44 +173,113 @@ async def upload_refworks_file(
     
     if not entries:
         raise HTTPException(
-            status_code=400, 
+            status_code=400,
             detail=f"No valid entries found in file. Errors: {'; '.join(parse_errors[:5])}"
         )
+
+    MAX_ENTRIES_PER_UPLOAD = 100
+    if len(entries) > MAX_ENTRIES_PER_UPLOAD:
+        raise HTTPException(
+            status_code=400,
+            detail=f"REFWORKS_MAX_ENTRIES_100",
+        )
     
-    # Add library_id to entries
     for entry in entries:
         entry['library_id'] = library_id
     
-    # Insert entries
     added_count = BiblioEntryDB.create_batch(entries)
-    
-    # Update library entry count
     BiblioLibraryDB.update_entry_count(library_id)
+    
+    # Process abstracts: create text in shadow corpus and run SpaCy/USAS/MIPVU
+    from routers.corpus import process_text_spacy_sync, create_progress_queue
+    
+    corpus_name = corpus['name']
+    corpus_dir = CORPORA_DIR / corpus_name
+    files_dir = corpus_dir / "files"
+    files_dir.mkdir(parents=True, exist_ok=True)
+    language = library.get('language') or 'english'
+    
+    entry_tasks = []
+    for entry in entries:
+        abstract = entry.get('abstract') if isinstance(entry.get('abstract'), str) else None
+        if not (abstract and abstract.strip()):
+            continue
+        entry_id = entry['id']
+        safe_name = _sanitize_biblio_filename(entry_id) + ".txt"
+        save_path = files_dir / safe_name
+        if save_path.exists():
+            base = save_path.stem
+            idx = 1
+            while save_path.exists():
+                save_path = files_dir / f"{base}_{idx}.txt"
+                idx += 1
+        save_path.write_text(abstract.strip(), encoding='utf-8')
+        
+        text_id = str(uuid.uuid4())
+        text_data = {
+            'id': text_id,
+            'corpus_id': corpus_id,
+            'filename': save_path.name,
+            'original_filename': save_path.name,
+            'content_path': str(save_path),
+            'media_type': 'text',
+            'tags': [],
+            'metadata': {},
+            'word_count': len(abstract.split())
+        }
+        TextDB.create(text_data)
+        BiblioEntryAbstractsDB.create(entry_id, text_id)
+        
+        task_id = str(uuid.uuid4())
+        TaskDB.create({
+            'id': task_id,
+            'corpus_id': corpus_id,
+            'text_id': text_id,
+            'task_type': 'spacy_annotation',
+            'status': 'pending',
+            'message': f"SpaCy annotation for abstract..."
+        })
+        create_progress_queue(task_id)
+        background_tasks.add_task(
+            process_text_spacy_sync,
+            task_id,
+            text_id,
+            str(save_path),
+            str(files_dir),
+            language,
+            None
+        )
+        entry_tasks.append({"entry_id": entry_id, "text_id": text_id, "task_id": task_id})
     
     return {
         "success": True,
         "entries_added": added_count,
         "entries_skipped": len(entries) - added_count,
-        "errors": parse_errors[:10]  # Return first 10 errors
+        "errors": parse_errors[:10],
+        "entry_tasks": entry_tasks
     }
 
 
 # ==================== Entry Management ====================
 
-@router.get("/libraries/{library_id}/entries", response_model=BiblioEntryListResponse)
+@router.get("/libraries/{library_id}/entries")
 async def list_entries(
     library_id: str,
     page: int = Query(1, ge=1),
-    page_size: int = Query(50, ge=1, le=200),
+    page_size: int = Query(50, ge=1, le=500),
     year_start: Optional[int] = None,
     year_end: Optional[int] = None,
     author: Optional[str] = None,
     institution: Optional[str] = None,
     keyword: Optional[str] = None,
     journal: Optional[str] = None,
-    doc_type: Optional[str] = None
+    doc_type: Optional[str] = None,
+    title_search: Optional[str] = None,
+    order_by: Optional[str] = Query(None, description="Sort column: title, year, journal, citation_count"),
+    order_dir: Optional[str] = Query(None, description="Sort direction: asc, desc"),
+    include_status: bool = Query(True, description="Include text_id and task status per entry")
 ):
-    """Get entries in a library with optional filters"""
+    """Get entries in a library with optional filters. When include_status=True, each entry includes text_id, task_id, task_status, progress for abstract processing."""
     library = BiblioLibraryDB.get_by_id(library_id)
     if not library:
         raise HTTPException(status_code=404, detail="Library not found")
@@ -205,13 +299,62 @@ async def list_entries(
         filters['journal'] = journal
     if doc_type:
         filters['doc_type'] = doc_type
+    if title_search:
+        filters['title_search'] = title_search
     
     result = BiblioEntryDB.list_by_library(
         library_id,
         filters=filters if filters else None,
         page=page,
-        page_size=page_size
+        page_size=page_size,
+        order_by=order_by,
+        order_dir=order_dir
     )
+    
+    if include_status and result['entries']:
+        entry_ids = [e['id'] for e in result['entries']]
+        from models.database import get_db_readonly
+        text_ids = {}
+        with get_db_readonly() as conn:
+            cursor = conn.cursor()
+            for eid in entry_ids:
+                cursor.execute("SELECT text_id FROM biblio_entry_abstracts WHERE entry_id = ?", (eid,))
+                row = cursor.fetchone()
+                if row:
+                    text_ids[eid] = row[0]
+        text_id_list = list(text_ids.values())
+        tasks_by_text = {}
+        if text_id_list:
+            with get_db_readonly() as conn:
+                cursor = conn.cursor()
+                for tid in text_id_list:
+                    cursor.execute(
+                        """SELECT id, status, progress, message FROM processing_tasks 
+                           WHERE text_id = ? ORDER BY created_at DESC LIMIT 1""",
+                        (tid,)
+                    )
+                    row = cursor.fetchone()
+                    if row:
+                        tasks_by_text[tid] = {"task_id": row[0], "status": row[1], "progress": row[2] or 0, "message": row[3]}
+        for entry in result['entries']:
+            entry['text_id'] = text_ids.get(entry['id'])
+            if entry.get('text_id'):
+                t = tasks_by_text.get(entry['text_id'], {})
+                entry['task_id'] = t.get('task_id')
+                entry['task_status'] = t.get('status')
+                entry['task_progress'] = t.get('progress', 0)
+                entry['task_message'] = t.get('message')
+            else:
+                entry['task_id'] = None
+                entry['task_status'] = None
+                entry['task_progress'] = None
+                entry['task_message'] = None
+    
+    if include_status:
+        # Total count of entries (with same filters) still being processed (SpaCy/USAS/MIPVU)
+        result['processing_count'] = BiblioEntryDB.count_processing_entries(
+            library_id, filters if filters else None
+        )
     
     return result
 

@@ -3,45 +3,34 @@
  * Compare study corpus against reference corpus using various statistical methods
  */
 
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import {
   Box,
   Typography,
   LinearProgress,
   Tabs,
   Tab,
-  Divider,
   Stack,
   Chip,
   Button,
   Paper,
   Alert,
+  FormControlLabel,
+  TextField,
+  Switch,
+  Tooltip,
   FormControl,
   InputLabel,
   Select,
-  MenuItem,
-  RadioGroup,
-  Radio,
-  FormControlLabel,
-  TextField,
-  InputAdornment,
-  Checkbox,
-  CircularProgress,
-  SelectChangeEvent,
-  OutlinedInput,
-  ListItemText,
-  Switch,
-  Tooltip
+  MenuItem
 } from '@mui/material'
-import SearchIcon from '@mui/icons-material/Search'
 import PlayArrowIcon from '@mui/icons-material/PlayArrow'
 import TableChartIcon from '@mui/icons-material/TableChart'
 import CompareArrowsIcon from '@mui/icons-material/CompareArrows'
 import StorageIcon from '@mui/icons-material/Storage'
 import { useTranslation } from 'react-i18next'
-import { corpusApi } from '../../../api'
+import { useTabStore } from '../../../stores/tabStore'
 import { keywordApi, corpusResourceApi } from '../../../api/analysis'
-import type { Corpus, CorpusText } from '../../../types'
 import type { 
   POSFilterConfig,
   POSTagInfo,
@@ -50,7 +39,8 @@ import type {
   KeynessConfig,
   StopwordsConfig,
   ThresholdConfig,
-  CorpusResource
+  CorpusResource,
+  ComparisonMode
 } from '../../../types/keyword'
 import {
   DEFAULT_KEYNESS_CONFIG,
@@ -60,55 +50,29 @@ import {
 } from '../../../types/keyword'
 import { CorpusResourceCard, CorpusResourceDialog } from '../../../components/CorpusResource'
 import { NumberInput } from '../../../components/common'
+import CorpusOrLibrarySelector, { type CorpusOrLibrarySelection } from '../../../components/Corpus/CorpusOrLibrarySelector'
 
 import POSFilterPanel from '../POSFilterPanel'
 import StatisticsConfigPanel from './StatisticsConfigPanel'
 import ResultsTable from './ResultsTable'
 import VisualizationPanel from './VisualizationPanel'
+import AnalysisAIAssistant from '../../../components/AnalysisAIAssistant'
+import { useSettingsStore } from '../../../stores/settingsStore'
+import type { CrossLinkParams } from '../../../types/crossLink'
 
-type SelectionMode = 'all' | 'selected' | 'tags'
-
-interface CorpusSelection {
-  corpus: Corpus | null
-  mode: SelectionMode
-  textIds: string[]
-  tags: string[]
-  texts: CorpusText[]
-  allTags: string[]
+interface KeynessTabProps {
+  crossLinkParams?: CrossLinkParams
 }
 
-export default function KeynessTab() {
-  const { t } = useTranslation()
+export default function KeynessTab({ crossLinkParams }: KeynessTabProps = {}) {
+  const { t, i18n } = useTranslation()
+  const { openTab } = useTabStore()
+  const { ollamaConnected, openaiApiEnabled } = useSettingsStore()
 
-  // Corpora list
-  const [corpora, setCorpora] = useState<Corpus[]>([])
-  const [loading, setLoading] = useState(false)
-
-  // Study corpus selection
-  const [studySelection, setStudySelection] = useState<CorpusSelection>({
-    corpus: null,
-    mode: 'all',
-    textIds: [],
-    tags: [],
-    texts: [],
-    allTags: []
-  })
-
-  // Reference corpus selection
-  const [refSelection, setRefSelection] = useState<CorpusSelection>({
-    corpus: null,
-    mode: 'all',
-    textIds: [],
-    tags: [],
-    texts: [],
-    allTags: []
-  })
-
-  // Text search states
-  const [studyTextSearch, setStudyTextSearch] = useState('')
-  const [refTextSearch, setRefTextSearch] = useState('')
-  const [loadingStudyTexts, setLoadingStudyTexts] = useState(false)
-  const [loadingRefTexts, setLoadingRefTexts] = useState(false)
+  // Study corpus/library (unified selector)
+  const [studySelection, setStudySelection] = useState<CorpusOrLibrarySelection | null>(null)
+  // Reference corpus/library (unified selector; only when not using corpus resource)
+  const [refSelection, setRefSelection] = useState<CorpusOrLibrarySelection | null>(null)
 
   // POS tags
   const [posTags, setPosTags] = useState<POSTagInfo[]>([])
@@ -120,6 +84,7 @@ export default function KeynessTab() {
   // Statistics config
   const [statistic, setStatistic] = useState<KeynessStatistic>('log_likelihood')
   const [keynessConfig, setKeynessConfig] = useState<KeynessConfig>(DEFAULT_KEYNESS_CONFIG)
+  const [comparisonMode, setComparisonMode] = useState<ComparisonMode>('word')
   
   // Stopwords config
   const [stopwordsConfig, setStopwordsConfig] = useState<StopwordsConfig>(DEFAULT_STOPWORDS_CONFIG)
@@ -145,9 +110,38 @@ export default function KeynessTab() {
   // Right panel tabs
   const [rightTab, setRightTab] = useState(0)
 
-  // Load corpora and POS tags on mount
+  // Sync study corpus/library selection from cross-link so selector shows same source
   useEffect(() => {
-    loadCorpora()
+    if (!crossLinkParams?.corpusId) return
+    setStudySelection({
+      corpusId: crossLinkParams.corpusId,
+      textIds: Array.isArray(crossLinkParams.textIds) ? crossLinkParams.textIds : 'all',
+      language: 'english',
+      dataSource: crossLinkParams.libraryId ? 'library' : 'corpus',
+      selectionMode: (crossLinkParams.selectionMode as 'all' | 'tags' | 'selected') ?? 'all',
+      selectedTags: crossLinkParams.selectedTags ?? [],
+      ...(crossLinkParams.libraryId && { libraryId: crossLinkParams.libraryId }),
+      ...(crossLinkParams.selectedEntryIds?.length && { selectedEntryIds: crossLinkParams.selectedEntryIds })
+    })
+  }, [crossLinkParams])
+
+  // External selection for study selector when opened via cross-link (including library)
+  const studyExternalSelection = useMemo((): CorpusOrLibrarySelection | null => {
+    if (!crossLinkParams?.corpusId) return null
+    return {
+      corpusId: crossLinkParams.corpusId,
+      textIds: Array.isArray(crossLinkParams.textIds) ? crossLinkParams.textIds : 'all',
+      language: 'english',
+      dataSource: crossLinkParams.libraryId ? 'library' : 'corpus',
+      selectionMode: (crossLinkParams.selectionMode as 'all' | 'tags' | 'selected') ?? 'all',
+      selectedTags: crossLinkParams.selectedTags ?? [],
+      ...(crossLinkParams.libraryId && { libraryId: crossLinkParams.libraryId }),
+      ...(crossLinkParams.selectedEntryIds?.length && { selectedEntryIds: crossLinkParams.selectedEntryIds })
+    }
+  }, [crossLinkParams])
+
+  // Load POS tags and default resource on mount
+  useEffect(() => {
     loadPosTags()
     loadDefaultResource()
   }, [])
@@ -165,33 +159,54 @@ export default function KeynessTab() {
     }
   }, [statistic, useThreshold])
 
-  const loadCorpora = async () => {
-    setLoading(true)
-    try {
-      const response = await corpusApi.listCorpora()
-      if (response.success && response.data) {
-        setCorpora(response.data)
-      }
-    } catch (err) {
-      console.error('Failed to load corpora:', err)
-    } finally {
-      setLoading(false)
-    }
+  const loadPosTags = async () => {
+    setPosTags([
+      { tag: 'ADJ', description_en: 'Adjective', description_zh: '形容词' },
+      { tag: 'ADP', description_en: 'Adposition', description_zh: '介词' },
+      { tag: 'ADV', description_en: 'Adverb', description_zh: '副词' },
+      { tag: 'AUX', description_en: 'Auxiliary verb', description_zh: '助动词' },
+      { tag: 'CCONJ', description_en: 'Coordinating conjunction', description_zh: '并列连词' },
+      { tag: 'DET', description_en: 'Determiner', description_zh: '限定词' },
+      { tag: 'INTJ', description_en: 'Interjection', description_zh: '感叹词' },
+      { tag: 'NOUN', description_en: 'Noun', description_zh: '名词' },
+      { tag: 'NUM', description_en: 'Numeral', description_zh: '数词' },
+      { tag: 'PART', description_en: 'Particle', description_zh: '助词' },
+      { tag: 'PRON', description_en: 'Pronoun', description_zh: '代词' },
+      { tag: 'PROPN', description_en: 'Proper noun', description_zh: '专有名词' },
+      { tag: 'PUNCT', description_en: 'Punctuation', description_zh: '标点' },
+      { tag: 'SCONJ', description_en: 'Subordinating conjunction', description_zh: '从属连词' },
+      { tag: 'SYM', description_en: 'Symbol', description_zh: '符号' },
+      { tag: 'VERB', description_en: 'Verb', description_zh: '动词' },
+      { tag: 'X', description_en: 'Other', description_zh: '其他' }
+    ])
   }
 
   const loadDefaultResource = async () => {
     try {
-      const response = await corpusResourceApi.get('oanc_total')
-      // response.data is CorpusResourceDetailResponse { success, data }
-      if (response.success && response.data && response.data.success && response.data.data) {
-        setSelectedResource(response.data.data)
+      const lang = (i18n.language === 'zh' ? 'zh' : 'en') as 'en' | 'zh'
+
+      // Try preferred default: OANC total, if available
+      try {
+        const response = await corpusResourceApi.get('oanc_total', lang)
+        if (response.success && response.data && response.data.success && response.data.data) {
+          setSelectedResource(response.data.data)
+          return
+        }
+      } catch {
+        // Ignore and fall back to list
+      }
+
+      // Fallback: pick the first available corpus resource from the list
+      const listRes = await corpusResourceApi.list(lang)
+      if (listRes.success && listRes.data && listRes.data.success && listRes.data.data?.length) {
+        setSelectedResource(listRes.data.data[0])
       }
     } catch (err) {
       console.error('Failed to load default resource:', err)
     }
   }
   
-  // Handle exclude words text change (parse on blur)
+  // Handle exclude words
   const handleExcludeWordsBlur = useCallback(() => {
     const words = excludeWordsText
       .split(/[\n,;]/)
@@ -228,178 +243,57 @@ export default function KeynessTab() {
     setResourceDialogOpen(false)
   }, [])
 
-  const loadPosTags = async () => {
-    setPosTags([
-      { tag: 'ADJ', description_en: 'Adjective', description_zh: '形容词' },
-      { tag: 'ADP', description_en: 'Adposition', description_zh: '介词' },
-      { tag: 'ADV', description_en: 'Adverb', description_zh: '副词' },
-      { tag: 'AUX', description_en: 'Auxiliary verb', description_zh: '助动词' },
-      { tag: 'CCONJ', description_en: 'Coordinating conjunction', description_zh: '并列连词' },
-      { tag: 'DET', description_en: 'Determiner', description_zh: '限定词' },
-      { tag: 'INTJ', description_en: 'Interjection', description_zh: '感叹词' },
-      { tag: 'NOUN', description_en: 'Noun', description_zh: '名词' },
-      { tag: 'NUM', description_en: 'Numeral', description_zh: '数词' },
-      { tag: 'PART', description_en: 'Particle', description_zh: '助词' },
-      { tag: 'PRON', description_en: 'Pronoun', description_zh: '代词' },
-      { tag: 'PROPN', description_en: 'Proper noun', description_zh: '专有名词' },
-      { tag: 'PUNCT', description_en: 'Punctuation', description_zh: '标点' },
-      { tag: 'SCONJ', description_en: 'Subordinating conjunction', description_zh: '从属连词' },
-      { tag: 'SYM', description_en: 'Symbol', description_zh: '符号' },
-      { tag: 'VERB', description_en: 'Verb', description_zh: '动词' },
-      { tag: 'X', description_en: 'Other', description_zh: '其他' }
-    ])
-  }
-
-  // Load texts for a corpus
-  const loadTexts = async (corpusId: string, isStudy: boolean) => {
-    if (isStudy) setLoadingStudyTexts(true)
-    else setLoadingRefTexts(true)
-    
-    try {
-      const response = await corpusApi.getTexts(corpusId)
-      if (response.success && response.data) {
-        const texts = response.data
-        const tagSet = new Set<string>()
-        texts.forEach(text => text.tags.forEach(tag => tagSet.add(tag)))
-        const allTags = Array.from(tagSet).sort()
-        
-        if (isStudy) {
-          setStudySelection(prev => ({ ...prev, texts, allTags }))
-        } else {
-          setRefSelection(prev => ({ ...prev, texts, allTags }))
-        }
-      }
-    } catch (err) {
-      console.error('Failed to load texts:', err)
-    } finally {
-      if (isStudy) setLoadingStudyTexts(false)
-      else setLoadingRefTexts(false)
-    }
-  }
-
-  // Handle corpus change
-  const handleCorpusChange = (event: SelectChangeEvent<string>, isStudy: boolean) => {
-    const corpus = corpora.find(c => c.id === event.target.value) || null
-    const selection = isStudy ? studySelection : refSelection
-    const setSelection = isStudy ? setStudySelection : setRefSelection
-    
-    setSelection({
-      corpus,
-      mode: 'all',
-      textIds: [],
-      tags: [],
-      texts: [],
-      allTags: []
-    })
-    
-    if (corpus) {
-      loadTexts(corpus.id, isStudy)
-    }
-    
-    setResults([])
-    setError(null)
-  }
-
-  // Get selected text IDs based on mode
-  const getSelectedTextIds = (selection: CorpusSelection, filteredTexts: CorpusText[]): string[] | 'all' => {
-    switch (selection.mode) {
-      case 'all':
-        return 'all'
-      case 'selected':
-        return selection.textIds
-      case 'tags':
-        return filteredTexts.map(t => t.id)
-      default:
-        return []
-    }
-  }
-
-  // Filter texts based on search and tags
-  const getFilteredTexts = (selection: CorpusSelection, search: string) => {
-    let result = selection.texts
-    
-    if (search) {
-      const query = search.toLowerCase()
-      result = result.filter(t => 
-        t.filename.toLowerCase().includes(query) ||
-        t.originalFilename?.toLowerCase().includes(query)
-      )
-    }
-    
-    if (selection.mode === 'tags' && selection.tags.length > 0) {
-      result = result.filter(t => 
-        selection.tags.some(tag => t.tags.includes(tag))
-      )
-    }
-    
-    return result
-  }
-
-  const filteredStudyTexts = useMemo(() => 
-    getFilteredTexts(studySelection, studyTextSearch), 
-    [studySelection, studyTextSearch]
-  )
-  
-  const filteredRefTexts = useMemo(() => 
-    getFilteredTexts(refSelection, refTextSearch), 
-    [refSelection, refTextSearch]
-  )
-
   // Run analysis
   const handleAnalyze = async () => {
-    if (!studySelection.corpus) return
-    
-    // Require either reference corpus or corpus resource
-    if (!useCorpusResource && !refSelection.corpus) return
+    if (!studySelection) return
+    if (!useCorpusResource && !refSelection) return
     if (useCorpusResource && !selectedResource) return
 
     setIsLoading(true)
     setError(null)
 
     try {
-      // Build stopwords config (only pass if enabled or has exclude words)
-      const hasStopwordsConfig = stopwordsConfig.removeStopwords || stopwordsConfig.excludeWords.length > 0
-      
-      // Build threshold config (only pass if enabled)
+      const hasStopwordsConfig = stopwordsConfig.removeStopwords || (stopwordsConfig.excludeWords?.length ?? 0) > 0
       const hasThresholdConfig = useThreshold && (thresholdConfig.minScore !== undefined || thresholdConfig.maxPValue !== undefined)
-      
+      const language = studySelection.language || 'english'
+
       let response
-      
+
       if (useCorpusResource && selectedResource) {
-        // Use corpus resource as reference
         response = await keywordApi.keynessWithResource({
-          study_corpus_id: studySelection.corpus.id,
-          study_text_ids: getSelectedTextIds(studySelection, filteredStudyTexts),
+          study_corpus_id: studySelection.corpusId,
+          study_text_ids: studySelection.textIds,
           resource_id: selectedResource.id,
           statistic,
           config: keynessConfig,
           pos_filter: posFilter.selectedPOS.length > 0 ? posFilter : undefined,
           lowercase,
           stopwords_config: hasStopwordsConfig ? stopwordsConfig : undefined,
-          language: studySelection.corpus.language || 'english',
-          threshold_config: hasThresholdConfig ? thresholdConfig : undefined
+          language,
+          threshold_config: hasThresholdConfig ? thresholdConfig : undefined,
+          comparison_mode: comparisonMode
         })
-      } else if (refSelection.corpus) {
-        // Use traditional corpus as reference
+      } else if (refSelection) {
         response = await keywordApi.keyness({
-          study_corpus_id: studySelection.corpus.id,
-          study_text_ids: getSelectedTextIds(studySelection, filteredStudyTexts),
-          reference_corpus_id: refSelection.corpus.id,
-          reference_text_ids: getSelectedTextIds(refSelection, filteredRefTexts),
+          study_corpus_id: studySelection.corpusId,
+          study_text_ids: studySelection.textIds,
+          reference_corpus_id: refSelection.corpusId,
+          reference_text_ids: refSelection.textIds,
           statistic,
           config: keynessConfig,
           pos_filter: posFilter.selectedPOS.length > 0 ? posFilter : undefined,
           lowercase,
           stopwords_config: hasStopwordsConfig ? stopwordsConfig : undefined,
-          language: studySelection.corpus.language || 'english',
-          threshold_config: hasThresholdConfig ? thresholdConfig : undefined
+          language,
+          threshold_config: hasThresholdConfig ? thresholdConfig : undefined,
+          comparison_mode: comparisonMode
         })
       } else {
         setError('No reference corpus selected')
         setIsLoading(false)
         return
       }
-      
+
       if (response.success && response.data) {
         if (response.data.success) {
           setResults(response.data.results)
@@ -419,241 +313,9 @@ export default function KeynessTab() {
     }
   }
 
-  // Check if analysis can run
-  const studyReady = studySelection.corpus && (
-    studySelection.mode === 'all' || 
-    (studySelection.mode === 'tags' && studySelection.tags.length > 0) ||
-    (studySelection.mode === 'selected' && studySelection.textIds.length > 0)
+  const canAnalyze = studySelection !== null && (
+    useCorpusResource ? selectedResource !== null : refSelection !== null
   )
-  
-  const refReady = useCorpusResource 
-    ? selectedResource !== null
-    : refSelection.corpus && (
-        refSelection.mode === 'all' || 
-        (refSelection.mode === 'tags' && refSelection.tags.length > 0) ||
-        (refSelection.mode === 'selected' && refSelection.textIds.length > 0)
-      )
-  
-  const canAnalyze = studyReady && refReady
-
-  // Render corpus selector
-  const renderCorpusSelector = (
-    selection: CorpusSelection,
-    setSelection: React.Dispatch<React.SetStateAction<CorpusSelection>>,
-    filteredTexts: CorpusText[],
-    textSearch: string,
-    setTextSearch: React.Dispatch<React.SetStateAction<string>>,
-    loadingTexts: boolean,
-    isStudy: boolean,
-    title: string
-  ) => {
-    const selectedCount = (() => {
-      const ids = getSelectedTextIds(selection, filteredTexts)
-      return ids === 'all' ? selection.texts.length : ids.length
-    })()
-
-    return (
-      <Paper sx={{ p: 2, mb: 2 }}>
-        <Typography variant="subtitle2" sx={{ mb: 1.5 }}>
-          {title}
-        </Typography>
-
-        <Stack spacing={2}>
-          <FormControl fullWidth size="small">
-            <InputLabel>{t('corpus.selectCorpus')}</InputLabel>
-            <Select
-              value={selection.corpus?.id || ''}
-              onChange={(e) => handleCorpusChange(e, isStudy)}
-              label={t('corpus.selectCorpus')}
-              disabled={loading}
-            >
-              {corpora.map(corpus => (
-                <MenuItem key={corpus.id} value={corpus.id}>
-                  <Stack direction="row" spacing={1} alignItems="center">
-                    <Typography>{corpus.name}</Typography>
-                    <Chip label={`${corpus.textCount} ${t('corpus.textsCount')}`} size="small" />
-                  </Stack>
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-
-          {selection.corpus && (
-            <>
-              <Divider />
-
-              <RadioGroup
-                value={selection.mode}
-                onChange={(e) => setSelection(prev => ({ 
-                  ...prev, 
-                  mode: e.target.value as SelectionMode,
-                  textIds: [],
-                  tags: []
-                }))}
-              >
-                <FormControlLabel 
-                  value="all" 
-                  control={<Radio size="small" />} 
-                  label={
-                    <Typography variant="body2">
-                      {t('keyword.corpus.selectAll', 'All texts')} ({selection.texts.length})
-                    </Typography>
-                  }
-                />
-                <FormControlLabel 
-                  value="tags" 
-                  control={<Radio size="small" />} 
-                  label={
-                    <Typography variant="body2">
-                      {t('keyword.corpus.selectByTags', 'By tags')}
-                    </Typography>
-                  }
-                />
-                <FormControlLabel 
-                  value="selected" 
-                  control={<Radio size="small" />} 
-                  label={
-                    <Typography variant="body2">
-                      {t('keyword.corpus.selectManually', 'Manual selection')}
-                    </Typography>
-                  }
-                />
-              </RadioGroup>
-
-              {selection.mode === 'tags' && (
-                <FormControl size="small" fullWidth>
-                  <InputLabel>{t('corpus.filterByTags')}</InputLabel>
-                  <Select
-                    multiple
-                    value={selection.tags}
-                    onChange={(e) => setSelection(prev => ({ 
-                      ...prev, 
-                      tags: e.target.value as string[] 
-                    }))}
-                    input={<OutlinedInput label={t('corpus.filterByTags')} />}
-                    renderValue={(selected) => (
-                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                        {selected.map((tag) => (
-                          <Chip key={tag} label={tag} size="small" />
-                        ))}
-                      </Box>
-                    )}
-                  >
-                    {selection.allTags.map((tag) => (
-                      <MenuItem key={tag} value={tag}>
-                        <Checkbox checked={selection.tags.includes(tag)} size="small" />
-                        <ListItemText primary={tag} />
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              )}
-
-              {selection.mode === 'selected' && (
-                <>
-                  <TextField
-                    size="small"
-                    placeholder={t('common.search')}
-                    value={textSearch}
-                    onChange={(e) => setTextSearch(e.target.value)}
-                    InputProps={{
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          <SearchIcon fontSize="small" />
-                        </InputAdornment>
-                      )
-                    }}
-                    fullWidth
-                  />
-
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <Typography variant="body2" color="text.secondary">
-                      {selection.textIds.length} / {filteredTexts.length}
-                    </Typography>
-                    <Stack direction="row" spacing={1}>
-                      <Button 
-                        size="small" 
-                        onClick={() => setSelection(prev => ({ 
-                          ...prev, 
-                          textIds: filteredTexts.map(t => t.id) 
-                        }))}
-                      >
-                        {t('common.selectAll')}
-                      </Button>
-                      <Button 
-                        size="small" 
-                        onClick={() => setSelection(prev => ({ ...prev, textIds: [] }))}
-                      >
-                        {t('common.clearAll')}
-                      </Button>
-                    </Stack>
-                  </Box>
-
-                  <Box sx={{ 
-                    maxHeight: 120, 
-                    overflow: 'auto', 
-                    border: 1, 
-                    borderColor: 'divider', 
-                    borderRadius: 1 
-                  }}>
-                    {loadingTexts ? (
-                      <Box sx={{ display: 'flex', justifyContent: 'center', p: 2 }}>
-                        <CircularProgress size={20} />
-                      </Box>
-                    ) : filteredTexts.length === 0 ? (
-                      <Typography variant="body2" color="text.secondary" sx={{ p: 2, textAlign: 'center' }}>
-                        {t('common.noData')}
-                      </Typography>
-                    ) : (
-                      filteredTexts.map(text => (
-                        <FormControlLabel
-                          key={text.id}
-                          control={
-                            <Checkbox
-                              checked={selection.textIds.includes(text.id)}
-                              onChange={() => setSelection(prev => ({
-                                ...prev,
-                                textIds: prev.textIds.includes(text.id)
-                                  ? prev.textIds.filter(id => id !== text.id)
-                                  : [...prev.textIds, text.id]
-                              }))}
-                              size="small"
-                            />
-                          }
-                          label={
-                            <Typography variant="body2" noWrap sx={{ maxWidth: 180 }}>
-                              {text.filename}
-                            </Typography>
-                          }
-                          sx={{ 
-                            display: 'flex', 
-                            width: '100%', 
-                            m: 0, 
-                            px: 1,
-                            '&:hover': { bgcolor: 'action.hover' }
-                          }}
-                        />
-                      ))
-                    )}
-                  </Box>
-                </>
-              )}
-
-              <Alert 
-                severity={selectedCount > 0 ? 'success' : 'warning'} 
-                icon={false}
-                sx={{ py: 0.5 }}
-              >
-                <Typography variant="body2">
-                  {t('keyword.corpus.selectedCount', 'Selected')}: <strong>{selectedCount}</strong> {t('corpus.textsCount')}
-                </Typography>
-              </Alert>
-            </>
-          )}
-        </Stack>
-      </Paper>
-    )
-  }
 
   return (
     <Box sx={{ display: 'flex', height: '100%', width: '100%' }}>
@@ -667,9 +329,32 @@ export default function KeynessTab() {
         display: 'flex',
         flexDirection: 'column'
       }}>
-        <Typography variant="h6" gutterBottom>
-          {t('keyword.keyness.title', 'Keyness Comparison')}
-        </Typography>
+        <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
+          <Typography variant="h6">
+            {t('keyword.keyness.title', 'Keyness Comparison')}
+          </Typography>
+          <AnalysisAIAssistant
+            enabled={ollamaConnected || openaiApiEnabled}
+            moduleLabel={t('keyword.keyness.title', 'Keyness Comparison')}
+            getContext={() => {
+              const hint = t('aiAssistant.keynessContextHint')
+              const study = studySelection ? `${studySelection.dataSource === 'corpus' ? 'corpus' : 'library'}, ${studySelection.textIds === 'all' ? 'all' : studySelection.textIds.length} texts` : '(none)'
+              const ref = useCorpusResource 
+                ? (selectedResource ? `resource: ${selectedResource.name}` : '(none)')
+                : (refSelection ? `${refSelection.dataSource === 'corpus' ? 'corpus' : 'library'}, ${refSelection.textIds === 'all' ? 'all' : refSelection.textIds.length} texts` : '(none)')
+              const params = `statistic=${keynessConfig.statistic}, minThreshold=${keynessConfig.min_threshold}`
+              if (results.length === 0) return `${hint}\n\nStudy: ${study}\nReference: ${ref}\n${params}\n${t('aiAssistant.noAnalysisResult')}`
+              const slice = results.slice(0, 25)
+              const labelCol = comparisonMode === 'domain' ? t('keyword.results.semanticDomain', 'Semantic Domain') : t('keyword.keyword', 'Word')
+              const header = `序号\t${labelCol}\t${t('keyword.results.score', 'Score')}`
+              const label = (r: KeynessKeyword) => (comparisonMode === 'domain' && r.domain_name) ? r.domain_name : r.keyword
+              const lines = slice.map((r, i) => `${i + 1}\t${label(r)}\t${r.score ?? ''}`).join('\n')
+              const vizTop = results.slice(0, 25).map((r, i) => `${i + 1}\t${label(r)}\t${r.score ?? ''}`).join('\n')
+              const view = rightTab === 0 ? `Results (rows 1-${slice.length}):\n${header}\n${lines}` : `Visualization. Top 25:\n${header}\n${vizTop}`
+              return `${hint}\n\nStudy: ${study}\nReference: ${ref}\n${params}\n${view}`
+            }}
+          />
+        </Stack>
 
         {/* Info chips */}
         <Stack direction="row" spacing={1} mb={2} flexWrap="wrap">
@@ -682,17 +367,12 @@ export default function KeynessTab() {
           />
         </Stack>
 
-        {/* 1. Study Corpus Selection */}
-        {renderCorpusSelector(
-          studySelection,
-          setStudySelection,
-          filteredStudyTexts,
-          studyTextSearch,
-          setStudyTextSearch,
-          loadingStudyTexts,
-          true,
-          t('keyword.keyness.studyCorpus', 'Study Corpus (Target)')
-        )}
+        {/* 1. Study Corpus / Library Selection */}
+        <CorpusOrLibrarySelector
+          sectionTitle={t('keyword.keyness.studyCorpus', 'Study Corpus (Target)')}
+          onSelectionChange={setStudySelection}
+          externalSelection={studyExternalSelection}
+        />
 
         {/* 2. Reference Corpus/Resource Selection */}
         <Paper sx={{ p: 2, mb: 2 }}>
@@ -743,17 +423,10 @@ export default function KeynessTab() {
               </Button>
             </Stack>
           ) : (
-            // Traditional corpus selection
-            renderCorpusSelector(
-              refSelection,
-              setRefSelection,
-              filteredRefTexts,
-              refTextSearch,
-              setRefTextSearch,
-              loadingRefTexts,
-              false,
-              ''
-            )
+            <CorpusOrLibrarySelector
+              sectionTitle={t('keyword.keyness.refCorpus', 'Reference Corpus')}
+              onSelectionChange={setRefSelection}
+            />
           )}
         </Paper>
 
@@ -771,7 +444,7 @@ export default function KeynessTab() {
                   checked={stopwordsConfig.removeStopwords}
                   onChange={handleStopwordsToggle}
                   size="small"
-                  disabled={!studySelection.corpus}
+                  disabled={!studySelection}
                 />
               }
               label={
@@ -781,9 +454,9 @@ export default function KeynessTab() {
               }
               sx={{ mr: 0 }}
             />
-            {stopwordsConfig.removeStopwords && studySelection.corpus && (
+            {stopwordsConfig.removeStopwords && studySelection && (
               <Chip 
-                label={studySelection.corpus.language || 'english'} 
+                label={studySelection.language || 'english'} 
                 size="small" 
                 variant="outlined"
                 color="info"
@@ -806,8 +479,33 @@ export default function KeynessTab() {
             onBlur={handleExcludeWordsBlur}
             placeholder={t('keyword.stopwords.excludeWordsPlaceholder')}
             helperText={t('keyword.stopwords.excludeWordsHelp')}
-            disabled={!studySelection.corpus}
+            disabled={!studySelection}
           />
+        </Paper>
+
+        {/* 4. Comparison Mode (word / lemma / semantic domain) */}
+        <Paper sx={{ p: 2, mb: 2 }}>
+          <Typography variant="subtitle2" sx={{ mb: 1 }}>
+            {t('keyword.keyness.comparisonMode', 'Comparison Mode')}
+          </Typography>
+          <FormControl fullWidth size="small" disabled={!studySelection}>
+            <InputLabel>{t('keyword.keyness.comparisonMode', 'Comparison Mode')}</InputLabel>
+            <Select
+              value={comparisonMode}
+              label={t('keyword.keyness.comparisonMode', 'Comparison Mode')}
+              onChange={(e) => setComparisonMode(e.target.value as ComparisonMode)}
+            >
+              <MenuItem value="word">
+                {t('keyword.keyness.mode.wordForm', 'Word Form')}
+              </MenuItem>
+              <MenuItem value="lemma">
+                {t('keyword.keyness.mode.lemma', 'Lemma')}
+              </MenuItem>
+              <MenuItem value="domain">
+                {t('keyword.keyness.mode.semanticDomain', 'Semantic Domain (USAS)')}
+              </MenuItem>
+            </Select>
+          </FormControl>
         </Paper>
 
         {/* 5. POS Filter Panel */}
@@ -816,7 +514,7 @@ export default function KeynessTab() {
             config={posFilter}
             onChange={setPosFilter}
             posTags={posTags}
-            disabled={!studySelection.corpus}
+            disabled={!studySelection}
           />
         </Box>
 
@@ -829,7 +527,7 @@ export default function KeynessTab() {
             onConfigChange={setKeynessConfig}
             lowercase={lowercase}
             onLowercaseChange={setLowercase}
-            disabled={!studySelection.corpus}
+            disabled={!studySelection}
           />
         </Box>
         
@@ -846,7 +544,7 @@ export default function KeynessTab() {
                     checked={useThreshold}
                     onChange={handleThresholdToggle}
                     size="small"
-                    disabled={!studySelection.corpus}
+                    disabled={!studySelection}
                   />
                 }
                 label={
@@ -875,7 +573,7 @@ export default function KeynessTab() {
                 max={1000}
                 step={0.5}
                 defaultValue={0}
-                disabled={!studySelection.corpus}
+                disabled={!studySelection}
                 helperText={
                   statistic === 'log_likelihood' || statistic === 'chi_squared'
                     ? t('keyword.threshold.llHelp', 'LL/Chi2 > 6.63 (p < 0.01), > 3.84 (p < 0.05)')
@@ -898,7 +596,7 @@ export default function KeynessTab() {
                   max={1}
                   step={0.01}
                   defaultValue={0.05}
-                  disabled={!studySelection.corpus}
+                  disabled={!studySelection}
                   helperText={t('keyword.threshold.pValueHelp', 'Standard: 0.05, Strict: 0.01')}
                 />
               )}
@@ -947,11 +645,14 @@ export default function KeynessTab() {
                 studySize={studySize}
                 refSize={refSize}
                 statistic={statistic}
+                comparisonMode={comparisonMode}
                 isLoading={isLoading}
-                corpusId={studySelection.corpus?.id}
-                textIds={getSelectedTextIds(studySelection, filteredStudyTexts)}
-                selectionMode={studySelection.mode}
-                selectedTags={studySelection.tags}
+                corpusId={studySelection?.corpusId}
+                textIds={studySelection?.textIds}
+                selectionMode={studySelection?.selectionMode === 'keywords' ? 'tags' : (studySelection?.selectionMode ?? 'all')}
+                selectedTags={studySelection?.selectedKeywords ?? studySelection?.selectedTags ?? []}
+                libraryId={studySelection?.dataSource === 'library' ? studySelection.libraryId : undefined}
+                selectedEntryIds={studySelection?.dataSource === 'library' && studySelection?.selectionMode === 'selected' ? studySelection?.selectedEntryIds : undefined}
               />
             ) : (
               <Box sx={{ 
@@ -975,9 +676,24 @@ export default function KeynessTab() {
           ) : (
             <VisualizationPanel
               data={results}
-              onKeywordClick={(keyword) => {
-                setRightTab(0)
-              }}
+              comparisonMode={comparisonMode}
+              onKeywordClick={studySelection ? (keyword) => {
+                openTab({
+                  type: 'collocation',
+                  title: `${t('collocation.title')} - ${keyword}`,
+                  props: {
+                    crossLinkParams: {
+                      searchWord: keyword,
+                      corpusId: studySelection.corpusId,
+                      textIds: studySelection.textIds,
+                      selectionMode: studySelection.selectionMode === 'keywords' ? 'tags' : studySelection.selectionMode,
+                      selectedTags: studySelection.selectedKeywords ?? studySelection.selectedTags ?? [],
+                      ...(studySelection.libraryId && { libraryId: studySelection.libraryId }),
+                      autoSearch: true
+                    }
+                  }
+                })
+              } : undefined}
             />
           )}
         </Box>

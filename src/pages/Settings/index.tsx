@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next'
 import LanguageSettings from './LanguageSettings'
 import WallpaperSettings from './WallpaperSettings'
 import OllamaConnection from './OllamaConnection'
+import OpenAIApiSettings from './OpenAIApiSettings'
 import USASModeSettings from './USASModeSettings'
 import USASSettings from './USASSettings'
 import LicenseViewer from './LicenseViewer'
@@ -38,6 +39,11 @@ export default function Settings() {
         {/* Ollama Connection */}
         <Grid item xs={12}>
           <OllamaConnection />
+        </Grid>
+
+        {/* OpenAI-compatible API (optional) */}
+        <Grid item xs={12}>
+          <OpenAIApiSettings />
         </Grid>
 
         {/* USAS Tagging Mode Settings */}

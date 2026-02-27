@@ -104,8 +104,8 @@ class CQLEngine:
     - []?       Optional (0 or 1)
     """
 
-    # Supported attributes (including head-based attributes for dependency constraints)
-    ATTRIBUTES = {'word', 'lemma', 'pos', 'tag', 'dep', 'headword', 'headlemma', 'headpos', 'headdep'}
+    # Supported attributes (including head-based, and usas for semantic domain)
+    ATTRIBUTES = {'word', 'lemma', 'pos', 'tag', 'dep', 'headword', 'headlemma', 'headpos', 'headdep', 'usas'}
 
     # Token pattern regex - matches [...] with optional {n} or {n,m} or ?
     TOKEN_PATTERN = re.compile(
@@ -499,33 +499,50 @@ class CQLEngine:
         Returns:
             True if condition matches
         """
-        # Get token value for attribute
-        token_value = token.get(condition.attribute, '')
+        # Get token value for attribute (usas attribute reads from usas_tag)
+        if condition.attribute == 'usas':
+            token_value = token.get('usas_tag', '') or ''
+        else:
+            token_value = token.get(condition.attribute, '')
         if token_value is None:
             token_value = ''
 
-        # Handle different operators
-        if condition.operator == '==':
-            # Exact match (case-insensitive for consistency)
-            match = token_value.lower() == condition.value.lower()
-        elif condition.operator == '!==':
-            # Exact not match
-            match = token_value.lower() != condition.value.lower()
-        elif condition.operator == '=':
-            # Regex match
-            try:
-                match = bool(re.fullmatch(condition.value, token_value, re.IGNORECASE))
-            except re.error:
-                # If regex is invalid, fall back to exact match
-                match = token_value.lower() == condition.value.lower()
-        elif condition.operator == '!=':
-            # Regex not match
-            try:
-                match = not bool(re.fullmatch(condition.value, token_value, re.IGNORECASE))
-            except re.error:
-                match = token_value.lower() != condition.value.lower()
+        # For usas: normalize by stripping _MWE so A1.5.1_MWE matches A1.5.1
+        if condition.attribute == 'usas':
+            token_value = (token_value or '').replace('_MWE', '')
+            if condition.operator == '==':
+                match = token_value == condition.value
+            elif condition.operator == '!==':
+                match = token_value != condition.value
+            elif condition.operator == '=':
+                # Contains: normalized tag starts with value or equals value
+                match = token_value == condition.value or (
+                    len(condition.value) > 0 and token_value.startswith(condition.value)
+                )
+            elif condition.operator == '!=':
+                match = token_value != condition.value and not (
+                    len(condition.value) > 0 and token_value.startswith(condition.value)
+                )
+            else:
+                match = False
         else:
-            match = False
+            # Handle different operators for other attributes
+            if condition.operator == '==':
+                match = token_value.lower() == condition.value.lower()
+            elif condition.operator == '!==':
+                match = token_value.lower() != condition.value.lower()
+            elif condition.operator == '=':
+                try:
+                    match = bool(re.fullmatch(condition.value, token_value, re.IGNORECASE))
+                except re.error:
+                    match = token_value.lower() == condition.value.lower()
+            elif condition.operator == '!=':
+                try:
+                    match = not bool(re.fullmatch(condition.value, token_value, re.IGNORECASE))
+                except re.error:
+                    match = token_value.lower() != condition.value.lower()
+            else:
+                match = False
 
         # Apply negation
         if condition.negated:

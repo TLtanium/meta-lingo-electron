@@ -300,7 +300,7 @@ export default function LDAVisualizationPanel({ result }: LDAVisualizationPanelP
   // Transform LDA topics to TopicWordBars format
   const topicBarData = result?.topics?.map((topic, idx) => ({
     topic_id: topic.topic_id,
-    topic_name: useCustomLabels && topic.custom_label ? topic.custom_label : `Topic ${topic.topic_id}`,
+    topic_name: useCustomLabels && topic.custom_label ? topic.custom_label : t('topicModeling.lda.viz.topicLabel', 'Topic {{topicId}}', { topicId: topic.topic_id }),
     words: topic.keywords.map(kw => ({
       word: kw.word,
       weight: kw.weight * 100 // Convert to percentage for display
@@ -622,11 +622,11 @@ function TopicPieChart({
       topicCounts[doc.dominant_topic] = (topicCounts[doc.dominant_topic] || 0) + 1
     })
     
-    const data = topics.map(t => ({
-      topic_id: t.topic_id,
-      count: topicCounts[t.topic_id] || 0,
-      keywords: t.keywords.slice(0, 3).map(k => k.word).join(', '),
-      label: useCustomLabels && t.custom_label ? t.custom_label : `Topic ${t.topic_id}`
+    const data = topics.map(topic => ({
+      topic_id: topic.topic_id,
+      count: topicCounts[topic.topic_id] || 0,
+      keywords: topic.keywords.slice(0, 3).map(k => k.word).join(', '),
+      label: useCustomLabels && topic.custom_label ? topic.custom_label : t('topicModeling.lda.viz.topicLabel', 'Topic {{topicId}}', { topicId: topic.topic_id })
     })).filter(d => d.count > 0)
     
     const pie = d3.pie<typeof data[0]>()

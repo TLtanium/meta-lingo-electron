@@ -1,7 +1,11 @@
 """
 Metaphor Detection Model Loader
 
-Loads and manages the HiTZ and fine-tuned DeBERTa models for metaphor detection.
+Loads and manages the HiTZ and clause-level DeBERTa models for metaphor detection.
+
+Models:
+- HiTZ: token-level metaphor detection, trained on full sentences
+- Clause model: token-level binary classifier, trained on SpaCy clauses
 """
 
 import os
@@ -17,21 +21,26 @@ logger = logging.getLogger(__name__)
 
 class MetaphorModelLoader:
     """
-    Loads and manages metaphor detection models.
+    Loads and manages metaphor detection models used in the hybrid MIPVU pipeline.
     
     Models:
     1. HiTZ: deberta-large-metaphor-detection-en
        - LABEL_0/1 = metaphor (B-METAPHOR/I-METAPHOR)
        - LABEL_2 = non-metaphor (O)
     
-    2. Fine-tuned: deberta-v3-large-metaphor-in-dt-rb-rp
-       - O (id=0) = non-metaphor
-       - B-METAPHOR (id=1) = metaphor start
-       - I-METAPHOR (id=2) = metaphor continuation
-       - Uses threshold 0.4 for P(metaphor)
+    2. Clause model: deberta-v3-large-clause-metaphor
+       - Binary token classifier on clauses
+       - id2label typically:
+         - 0: O (non-metaphor)
+         - 1: METAPHOR (metaphor)
+       - Uses threshold 0.5 for P(metaphor)
+    
+    For backward compatibility, older fine-tuned models with 3 labels
+    (O/B-METAPHOR/I-METAPHOR) are still supported at inference time.
     """
     
-    FINETUNED_THRESHOLD = 0.4
+    # Default probability threshold for the clause model when it is binary.
+    CLAUSE_THRESHOLD = 0.5
     
     def __init__(
         self,
@@ -73,7 +82,8 @@ class MetaphorModelLoader:
         )
         self.finetuned_model_path = self._find_model_path(
             finetuned_model_path,
-            'deberta-v3-large-metaphor-in-dt-rb-rp'
+            # New clause-level metaphor model (binary classification)
+            'deberta-v3-large-clause-metaphor'
         )
     
     def _find_model_path(self, provided_path: Optional[str], model_name: str) -> Optional[str]:
@@ -122,16 +132,16 @@ class MetaphorModelLoader:
             else:
                 logger.error("HiTZ model path not found - MIPVU annotation will not work")
             
-            # Load fine-tuned model
+            # Load clause / fine-tuned model
             if self.finetuned_model_path:
-                logger.info(f"Loading IDRRP model from {self.finetuned_model_path}")
+                logger.info(f"Loading clause-level metaphor model from {self.finetuned_model_path}")
                 self.finetuned_tokenizer = AutoTokenizer.from_pretrained(self.finetuned_model_path)
                 self.finetuned_model = AutoModelForTokenClassification.from_pretrained(self.finetuned_model_path)
                 self.finetuned_model.to(self.device)
                 self.finetuned_model.eval()
-                logger.info(f"IDRRP model loaded, labels: {self.finetuned_model.config.id2label}")
+                logger.info(f"Clause model loaded, labels: {self.finetuned_model.config.id2label}")
             else:
-                logger.warning("IDRRP model path not found - secondary detection will not work")
+                logger.warning("Clause model path not found - secondary detection on function words will not work")
             
             self._loaded = self.hitz_model is not None
             if not self._loaded:
@@ -194,14 +204,19 @@ class MetaphorModelLoader:
     
     def predict_finetuned(self, words: List[str], threshold: float = None) -> List[Tuple[int, float]]:
         """
-        Get fine-tuned model predictions for a list of words.
+        Get fine-tuned / clause model predictions for a list of words.
         
-        Fine-tuned labels:
-        - O (id=0): non-metaphor
-        - B-METAPHOR (id=1): metaphor start
-        - I-METAPHOR (id=2): metaphor continuation
+        Two supported label configurations:
+        - **Binary clause model** (recommended; deberta-v3-large-clause-metaphor):
+          - id 0: non-metaphor (O)
+          - id 1: metaphor (METAPHOR)
+          - Uses threshold: P(id=1) >= threshold -> metaphor
         
-        Uses threshold: P(B-METAPHOR) + P(I-METAPHOR) >= threshold -> metaphor
+        - **Legacy 3-label model** (backward compatible):
+          - id 0: O (non-metaphor)
+          - id 1: B-METAPHOR (metaphor start)
+          - id 2: I-METAPHOR (metaphor continuation)
+          - Uses threshold: P(1) + P(2) >= threshold -> metaphor
         
         Args:
             words: List of words (already tokenized by SpaCy)
@@ -211,7 +226,7 @@ class MetaphorModelLoader:
             List of (prediction, confidence) tuples
         """
         if threshold is None:
-            threshold = self.FINETUNED_THRESHOLD
+            threshold = self.CLAUSE_THRESHOLD
         
         if not self.finetuned_model or not words:
             return [(0, 0.0)] * len(words)
@@ -231,14 +246,26 @@ class MetaphorModelLoader:
                 logits = self.finetuned_model(**enc_dev).logits
                 probs = torch.softmax(logits, dim=-1)
             
+            num_labels = self.finetuned_model.config.num_labels
+            
             # Map subword predictions to word predictions
-            word_pred = {}
+            word_pred: Dict[int, Tuple[int, float]] = {}
             for idx, wid in enumerate(word_ids):
-                if wid is not None and wid not in word_pred:
-                    # P(metaphor) = P(B-METAPHOR) + P(I-METAPHOR) = probs[1] + probs[2]
+                if wid is None or wid in word_pred:
+                    continue
+                
+                if num_labels == 2:
+                    # Binary clause model: id 1 is metaphor
+                    p_metaphor = probs[0, idx, 1].item()
+                elif num_labels >= 3:
+                    # Legacy 3-label scheme: B-METAPHOR (1) + I-METAPHOR (2)
                     p_metaphor = probs[0, idx, 1].item() + probs[0, idx, 2].item()
-                    pred = 1 if p_metaphor >= threshold else 0
-                    word_pred[wid] = (pred, p_metaphor)
+                else:
+                    # Unexpected configuration; fall back to max probability of non-zero labels
+                    p_metaphor = float(probs[0, idx, 1:].sum().item())
+                
+                pred = 1 if p_metaphor >= threshold else 0
+                word_pred[wid] = (pred, p_metaphor)
             
             return [word_pred.get(wi, (0, 0.0)) for wi in range(len(words))]
             

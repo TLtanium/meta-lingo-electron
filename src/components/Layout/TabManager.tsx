@@ -98,17 +98,17 @@ function TabContent({ tab }: { tab: TabType }) {
     case 'corpus':
       return <CorpusManagement />
     case 'wordfreq':
-      return <WordFrequency />
+      return <WordFrequency crossLinkParams={crossLinkParams} />
     case 'synonym':
-      return <SynonymAnalysis />
+      return <SynonymAnalysis crossLinkParams={crossLinkParams} />
     case 'keyword':
-      return <KeywordExtraction />
+      return <KeywordExtraction crossLinkParams={crossLinkParams} />
     case 'ngram':
       return <NGram crossLinkParams={crossLinkParams} />
     case 'collocation':
       return <Collocation crossLinkParams={crossLinkParams} />
     case 'semantic':
-      return <SemanticAnalysis />
+      return <SemanticAnalysis crossLinkParams={crossLinkParams} />
     case 'wordsketch':
       return <WordSketch crossLinkParams={crossLinkParams} />
     case 'biblio':
@@ -116,7 +116,7 @@ function TabContent({ tab }: { tab: TabType }) {
     case 'annotation':
       return <Annotation />
     case 'topic':
-      return <TopicModeling />
+      return <TopicModeling crossLinkParams={crossLinkParams} />
     case 'settings':
       return <Settings />
     case 'help':

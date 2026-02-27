@@ -1050,7 +1050,7 @@ export default function CorpusDetail({ corpus, onBack, onUpload }: CorpusDetailP
             {corpus.name}
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            {t('corpus.textsCount', '{{count}} 个文本', { count: texts.length })}
+            {texts.length} {t('corpus.textsCount')}
           </Typography>
         </Box>
         <Stack direction="row" spacing={1} alignItems="center">

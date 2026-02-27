@@ -21,14 +21,28 @@ import {
   DialogContentText,
   DialogActions,
   LinearProgress,
-  Alert
+  Alert,
+  TextField,
+  InputAdornment,
+  Stack,
+  ToggleButtonGroup,
+  ToggleButton,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Paper
 } from '@mui/material'
 import DeleteIcon from '@mui/icons-material/Delete'
 import VisibilityIcon from '@mui/icons-material/Visibility'
 import StorageIcon from '@mui/icons-material/Storage'
-import CalendarTodayIcon from '@mui/icons-material/CalendarToday'
-import ArticleIcon from '@mui/icons-material/Article'
 import AddIcon from '@mui/icons-material/Add'
+import RefreshIcon from '@mui/icons-material/Refresh'
+import SearchIcon from '@mui/icons-material/Search'
+import ViewListIcon from '@mui/icons-material/ViewList'
+import ViewModuleIcon from '@mui/icons-material/ViewModule'
 import { useTranslation } from 'react-i18next'
 import type { BiblioLibrary } from '../../types/biblio'
 import * as biblioApi from '../../api/biblio'
@@ -44,9 +58,18 @@ export default function LibraryList({ onSelectLibrary, onCreateNew }: LibraryLis
   const [libraries, setLibraries] = useState<BiblioLibrary[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [viewMode, setViewMode] = useState<'card' | 'list'>('card')
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [libraryToDelete, setLibraryToDelete] = useState<BiblioLibrary | null>(null)
   const [deleting, setDeleting] = useState(false)
+
+  const filteredLibraries = libraries.filter(
+    lib =>
+      !searchQuery ||
+      lib.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (lib.description || '').toLowerCase().includes(searchQuery.toLowerCase())
+  )
   
   // Load libraries
   const loadLibraries = async () => {
@@ -123,14 +146,48 @@ export default function LibraryList({ onSelectLibrary, onCreateNew }: LibraryLis
         <Typography variant="h6">
           {t('biblio.libraryList')}
         </Typography>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={onCreateNew}
-        >
-          {t('biblio.createLibrary')}
-        </Button>
+        <Stack direction="row" spacing={1} alignItems="center">
+          <ToggleButtonGroup
+            value={viewMode}
+            exclusive
+            onChange={(_, mode) => mode && setViewMode(mode)}
+            size="small"
+          >
+            <ToggleButton value="card">
+              <ViewModuleIcon />
+            </ToggleButton>
+            <ToggleButton value="list">
+              <ViewListIcon />
+            </ToggleButton>
+          </ToggleButtonGroup>
+          <IconButton onClick={loadLibraries} title={t('common.refresh')}>
+            <RefreshIcon />
+          </IconButton>
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={onCreateNew}
+          >
+            {t('biblio.createLibrary')}
+          </Button>
+        </Stack>
       </Box>
+
+      <TextField
+        size="small"
+        placeholder={t('common.search')}
+        value={searchQuery}
+        onChange={e => setSearchQuery(e.target.value)}
+        fullWidth
+        sx={{ mb: 2 }}
+        InputProps={{
+          startAdornment: (
+            <InputAdornment position="start">
+              <SearchIcon />
+            </InputAdornment>
+          )
+        }}
+      />
       
       {libraries.length === 0 ? (
         <Box sx={{ 
@@ -158,9 +215,48 @@ export default function LibraryList({ onSelectLibrary, onCreateNew }: LibraryLis
             {t('biblio.createLibrary')}
           </Button>
         </Box>
+      ) : filteredLibraries.length === 0 ? (
+        <Paper sx={{ p: 6, textAlign: 'center' }}>
+          <Typography color="text.secondary">{t('common.noData')}</Typography>
+        </Paper>
+      ) : viewMode === 'list' ? (
+        <TableContainer component={Paper} sx={{ border: 1, borderColor: 'divider', borderRadius: 2 }}>
+          <Table size="small">
+            <TableHead>
+              <TableRow sx={{ bgcolor: (theme) => theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.02)' }}>
+                <TableCell>{t('biblio.libraryName')}</TableCell>
+                <TableCell>{t('biblio.sourceType')}</TableCell>
+                <TableCell align="center">{t('biblio.entries')}</TableCell>
+                <TableCell align="right">{t('common.actions')}</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {filteredLibraries.map(lib => (
+                <TableRow key={lib.id} hover sx={{ cursor: 'pointer' }} onClick={() => onSelectLibrary(lib)}>
+                  <TableCell>
+                    <Typography fontWeight={500}>{lib.name}</Typography>
+                    {lib.description && (
+                      <Typography variant="caption" color="text.secondary" display="block" noWrap sx={{ maxWidth: 300 }}>
+                        {lib.description}
+                      </Typography>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <Chip label={lib.source_type} size="small" color={lib.source_type === 'WOS' ? 'primary' : 'secondary'} variant="outlined" />
+                  </TableCell>
+                  <TableCell align="center">{lib.entry_count}</TableCell>
+                  <TableCell align="right" onClick={e => e.stopPropagation()}>
+                    <IconButton size="small" onClick={() => onSelectLibrary(lib)}><VisibilityIcon /></IconButton>
+                    <IconButton size="small" color="error" onClick={e => { e.stopPropagation(); handleDeleteClick(lib) }}><DeleteIcon fontSize="small" /></IconButton>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
       ) : (
         <Grid container spacing={3}>
-          {libraries.map((library) => (
+          {filteredLibraries.map((library) => (
             <Grid item xs={12} sm={6} md={4} key={library.id}>
               <Card 
                 sx={{ 

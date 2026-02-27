@@ -69,6 +69,12 @@ export const TOKEN_ATTRIBUTES: {
     label: { zh: '头词依存关系', en: 'Head Dep' },
     description: { zh: '匹配语法头词的依存关系', en: 'Match head token dependency' },
     category: 'head'
+  },
+  {
+    value: 'usas',
+    label: { zh: '语义域 (USAS)', en: 'Semantic Domain (USAS)' },
+    description: { zh: '匹配 USAS 语义域标签；= 包含(前缀)，== 精确', en: 'Match USAS semantic domain; = contains/prefix, == exact' },
+    category: 'basic'
   }
 ]
 

@@ -5,7 +5,7 @@
  * LSA/NMF topic modeling with sklearn
  */
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import {
   Box,
   Typography,
@@ -28,8 +28,8 @@ import type {
 } from '../../types/topicModeling'
 import { DEFAULT_CHUNKING_CONFIG } from '../../types/topicModeling'
 import type { CorpusText } from '../../types'
-
-import TopicCorpusSelector from './TopicCorpusSelector'
+import type { CorpusOrLibrarySelection } from '../../components/Corpus/CorpusOrLibrarySelector'
+import CorpusOrLibrarySelector from '../../components/Corpus/CorpusOrLibrarySelector'
 import PreprocessPanel from './PreprocessPanel'
 import EmbeddingPanel from './EmbeddingPanel'
 import AnalysisPanel from './AnalysisPanel'
@@ -39,10 +39,16 @@ import DynamicTopicPanel from './DynamicTopicPanel'
 import LDATab from './LDA'
 import LSATab from './LSA'
 import NMFTab from './NMF'
+import AnalysisAIAssistant from '../../components/AnalysisAIAssistant'
+import type { CrossLinkParams } from '../../types/crossLink'
 
-export default function TopicModeling() {
+interface TopicModelingProps {
+  crossLinkParams?: CrossLinkParams
+}
+
+export default function TopicModeling({ crossLinkParams }: TopicModelingProps = {}) {
   const { t } = useTranslation()
-  const { ollamaConnected, ollamaUrl, ollamaModel } = useSettingsStore()
+  const { ollamaConnected, openaiApiEnabled, ollamaUrl, ollamaModel, openaiApiBaseUrl, openaiApiKey, openaiApiModel } = useSettingsStore()
   const tabsActionRef = useRef<TabsActions>(null)
   
   // Main tab (BERTopic / LDA)
@@ -56,27 +62,40 @@ export default function TopicModeling() {
     return () => clearTimeout(timer)
   }, [])
   
-  // Corpus selection
+  // Corpus selection (unified corpus or library)
   const [corpusId, setCorpusId] = useState<string>('')
   const [textIds, setTextIds] = useState<string[]>([])
   const [texts, setTexts] = useState<CorpusText[]>([])
   const [corpusLanguage, setCorpusLanguage] = useState<string>('english')
   
+  // Track selection mode from corpus selector (for downstream)
+  const [selectionMode, setSelectionMode] = useState<'all' | 'selected' | 'tags'>('all')
+  const [selectedTags, setSelectedTags] = useState<string[]>([])
+  const [libraryId, setLibraryId] = useState<string | undefined>(undefined)
+  const [selectedEntryIds, setSelectedEntryIds] = useState<string[] | undefined>(undefined)
+  const [textDates, setTextDates] = useState<Record<string, string> | undefined>(undefined)
+
+  // Apply cross-link params to state so BERTopic tab shows same corpus/library when opened via cross-link
+  useEffect(() => {
+    if (!crossLinkParams?.corpusId) return
+    setCorpusId(crossLinkParams.corpusId)
+    setTextIds(Array.isArray(crossLinkParams.textIds) ? crossLinkParams.textIds : [])
+    setSelectionMode((crossLinkParams.selectionMode as 'all' | 'tags' | 'selected') ?? 'all')
+    setSelectedTags(crossLinkParams.selectedTags ?? [])
+    setLibraryId(crossLinkParams.libraryId)
+    setSelectedEntryIds(crossLinkParams.selectedEntryIds)
+  }, [crossLinkParams])
+
   // Preprocess config
-  // Note: stopwords and punctuation are handled by vectorizer, not during embedding
   const [preprocessConfig, setPreprocessConfig] = useState<PreprocessConfig>({
     remove_stopwords: false,
     remove_punctuation: false,
     lemmatize: false,
-    lowercase: false,  // Keep original case for embedding
+    lowercase: false,
     min_token_length: 1,
     pos_filter: []
   })
-  
-  // Chunking config
   const [chunkingConfig, setChunkingConfig] = useState<ChunkingConfig>(DEFAULT_CHUNKING_CONFIG)
-  
-  // Dynamic topic config
   const [dynamicTopicConfig, setDynamicTopicConfig] = useState<DynamicTopicConfig>({
     enabled: false,
     date_format: 'year_only',
@@ -84,38 +103,48 @@ export default function TopicModeling() {
     evolution_tuning: true,
     global_tuning: true
   })
-  
-  // Embedding selection
   const [selectedEmbedding, setSelectedEmbedding] = useState<string | null>(null)
-  
-  // Analysis result
   const [analysisResult, setAnalysisResult] = useState<TopicAnalysisResult | null>(null)
   const [isLoading, setIsLoading] = useState(false)
-  
-  // Right panel tabs
   const [rightTab, setRightTab] = useState(0)
 
-  // Track selection mode from corpus selector
-  const [selectionMode, setSelectionMode] = useState<'all' | 'selected' | 'tags'>('all')
-  const [selectedTags, setSelectedTags] = useState<string[]>([])
+  const externalSelection = useMemo((): CorpusOrLibrarySelection | null => {
+    if (!crossLinkParams?.corpusId) return null
+    return {
+      corpusId: crossLinkParams.corpusId,
+      textIds: Array.isArray(crossLinkParams.textIds) ? crossLinkParams.textIds : 'all',
+      language: 'english',
+      dataSource: crossLinkParams.libraryId ? 'library' : 'corpus',
+      selectionMode: (crossLinkParams.selectionMode as 'all' | 'tags' | 'selected') ?? 'all',
+      selectedTags: crossLinkParams.selectedTags ?? [],
+      ...(crossLinkParams.libraryId && { libraryId: crossLinkParams.libraryId }),
+      ...(crossLinkParams.selectedEntryIds?.length && { selectedEntryIds: crossLinkParams.selectedEntryIds })
+    }
+  }, [crossLinkParams])
 
-  // Handle corpus selection change
-  const handleCorpusSelectionChange = (
-    newCorpusId: string,
-    newTextIds: string[],
-    language: string,
-    allTexts: CorpusText[],
-    newSelectionMode: 'all' | 'selected' | 'tags' = 'all',
-    newSelectedTags: string[] = []
-  ) => {
-    setCorpusId(newCorpusId)
-    setTextIds(newTextIds)
-    setSelectionMode(newSelectionMode)
-    setSelectedTags(newSelectedTags)
-    setTexts(allTexts)  // Store all texts for dynamic topic date counting
-    setCorpusLanguage(language)
-    // Reset downstream selections when corpus changes
-    if (newCorpusId !== corpusId) {
+  const handleCorpusSelectionChange = (selection: CorpusOrLibrarySelection | null) => {
+    if (!selection) {
+      setCorpusId('')
+      setTextIds([])
+      setTexts([])
+      setCorpusLanguage('english')
+      setSelectionMode('all')
+      setSelectedTags([])
+      setLibraryId(undefined)
+      setSelectedEntryIds(undefined)
+      setTextDates(undefined)
+      return
+    }
+    setCorpusId(selection.corpusId)
+    setTextIds(Array.isArray(selection.textIds) ? selection.textIds : [])
+    setTexts(selection.allTexts ?? [])
+    setCorpusLanguage(selection.language)
+    setSelectionMode(selection.selectionMode === 'keywords' ? 'tags' : selection.selectionMode)
+    setSelectedTags(selection.selectedKeywords ?? selection.selectedTags ?? [])
+    setLibraryId(selection.dataSource === 'library' ? selection.libraryId : undefined)
+    setSelectedEntryIds(selection.dataSource === 'library' && selection.selectionMode === 'selected' ? selection.selectedEntryIds : undefined)
+    setTextDates(selection.textDates)
+    if (selection.corpusId !== corpusId) {
       setSelectedEmbedding(null)
       setAnalysisResult(null)
       // Reset dynamic topic config when corpus changes
@@ -190,14 +219,44 @@ export default function TopicModeling() {
               display: 'flex',
               flexDirection: 'column'
             }}>
-              <Typography variant="h6" gutterBottom>
-                {t('topicModeling.bertopic.title', 'BERTopic')}
-              </Typography>
-              
+              <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
+                <Typography variant="h6">
+                  {t('topicModeling.bertopic.title', 'BERTopic')}
+                </Typography>
+                <AnalysisAIAssistant
+                  enabled={ollamaConnected || openaiApiEnabled}
+                  moduleLabel={t('topicModeling.bertopic.title', 'BERTopic')}
+                  getContext={() => {
+                    const hint = t('aiAssistant.topicModelingBertopicContextHint')
+                    const corpusInfo = corpusId ? `CorpusId: ${corpusId}, ${textIds.length} texts, language: ${corpusLanguage}` : 'Corpus: (none)'
+                    const params = `preprocess: remove_stopwords=${preprocessConfig.remove_stopwords}, lemmatize=${preprocessConfig.lemmatize}, chunking=${chunkingConfig.strategy}`
+                    if (!analysisResult?.topics?.length) return `${hint}\n\n${corpusInfo}\n${params}\n${t('aiAssistant.noAnalysisResult')}`
+                    const toWords = (kw: any) => (typeof kw === 'string' ? kw : (kw?.word ?? '')).trim()
+                    const topicSummary = (analysisResult.topics || []).slice(0, 15).map((topic: TopicItem & { topic_id?: number; keywords?: any[] }, i: number) => {
+                      const arr = topic.words ?? topic.keywords ?? []
+                      const kws = arr.slice(0, 5).map(toWords).filter(Boolean)
+                      return `${i + 1}. ${topic.custom_label ?? topic.name ?? topic.topic_id ?? topic.id}: ${kws.join(', ')}`
+                    }).join('\n')
+                    let view = rightTab === 0 ? `Topics (${analysisResult.topics?.length ?? 0}):\n${topicSummary}` : `Visualization (${analysisResult.topics?.length ?? 0} topics). Topic list:\n${topicSummary}`
+                    if (rightTab === 1 && analysisResult.has_dynamic_topics && analysisResult.topics_over_time?.length) {
+                      const byTs = (analysisResult.topics_over_time as { timestamp: string; topic_name: string; words: string; frequency: number; topic?: number }[]).reduce<Record<string, string[]>>((acc, item) => {
+                        const ts = item.timestamp ?? ''
+                        if (!acc[ts]) acc[ts] = []
+                        acc[ts].push(`${item.topic_name} (${(item.words ?? '').slice(0, 80)}) freq=${item.frequency ?? 0}`)
+                        return acc
+                      }, {})
+                      const dynamicLines = Object.entries(byTs).map(([ts, lines]) => `${ts}:\n  ${lines.join('\n  ')}`).join('\n\n')
+                      view += `\n\n${t('aiAssistant.topicModelingDynamicTopicsSection')}\n${dynamicLines}`
+                    }
+                    return `${hint}\n\n${corpusInfo}\n${params}\n${view}`
+                  }}
+                />
+              </Stack>
+
               {/* Info chip */}
               <Stack direction="row" spacing={1} mb={2} flexWrap="wrap">
-                <Chip 
-                  label="BERTopic" 
+                <Chip
+                  label="BERTopic"
                   size="small" 
                   color="primary" 
                   variant="outlined"
@@ -225,8 +284,10 @@ export default function TopicModeling() {
               </Stack>
 
               {/* 1. Corpus Selector */}
-              <TopicCorpusSelector 
+              <CorpusOrLibrarySelector
+                sectionTitle={t('topicModeling.corpus.title')}
                 onSelectionChange={handleCorpusSelectionChange}
+                externalSelection={externalSelection}
               />
               
               <Divider sx={{ my: 2 }} />
@@ -258,6 +319,9 @@ export default function TopicModeling() {
                 config={dynamicTopicConfig}
                 onConfigChange={setDynamicTopicConfig}
                 texts={texts}
+                textDates={textDates}
+                libraryId={libraryId}
+                textCount={textIds.length}
                 disabled={!selectedEmbedding}
               />
 
@@ -271,6 +335,7 @@ export default function TopicModeling() {
                 corpusLanguage={corpusLanguage}
                 resultId={analysisResult?.result_id}
                 outlierCount={analysisResult?.stats?.outlier_count ?? 0}
+                libraryId={libraryId}
               />
             </Box>
 
@@ -295,11 +360,17 @@ export default function TopicModeling() {
                     ollamaUrl={ollamaUrl}
                     ollamaModel={ollamaModel || ''}
                     ollamaLanguage={corpusLanguage === 'chinese' ? 'zh' : 'en'}
+                    openaiApiEnabled={openaiApiEnabled}
+                    openaiApiBaseUrl={openaiApiBaseUrl ?? ''}
+                    openaiApiKey={openaiApiKey ?? ''}
+                    openaiApiModel={openaiApiModel ?? ''}
                     onTopicsUpdate={handleTopicsUpdate}
                     corpusId={corpusId}
                     textIds={selectionMode === 'all' ? 'all' : textIds}
                     selectionMode={selectionMode}
                     selectedTags={selectedTags}
+                    libraryId={libraryId}
+                    selectedEntryIds={libraryId && selectionMode === 'selected' ? selectedEntryIds : undefined}
                   />
                 )}
                 
@@ -315,17 +386,17 @@ export default function TopicModeling() {
 
         {/* LDA Tab - use display instead of conditional rendering to preserve state */}
         <Box sx={{ display: mainTab === 1 ? 'block' : 'none', height: '100%' }}>
-          <LDATab />
+          <LDATab crossLinkParams={crossLinkParams} />
         </Box>
 
         {/* LSA Tab - use display instead of conditional rendering to preserve state */}
         <Box sx={{ display: mainTab === 2 ? 'block' : 'none', height: '100%' }}>
-          <LSATab />
+          <LSATab crossLinkParams={crossLinkParams} />
         </Box>
 
         {/* NMF Tab - use display instead of conditional rendering to preserve state */}
         <Box sx={{ display: mainTab === 3 ? 'block' : 'none', height: '100%' }}>
-          <NMFTab />
+          <NMFTab crossLinkParams={crossLinkParams} />
         </Box>
       </Box>
     </Box>

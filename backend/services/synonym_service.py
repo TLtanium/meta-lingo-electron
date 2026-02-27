@@ -129,6 +129,9 @@ class SynonymService:
                     "unique_words": 0
                 }
             
+            # Build corpus vocabulary: only synonyms that appear in corpus are retained
+            corpus_vocab = set(k[0] for k in word_data.keys())
+            
             # Filter by search query if provided
             if search_query:
                 query = search_query.lower() if lowercase else search_query
@@ -150,20 +153,20 @@ class SynonymService:
                 reverse=True
             )[:max_results]
             
-            # Get synonyms for each word-POS combination
+            # Get synonyms for each word-POS combination; retain only synonyms that appear in corpus
             results = []
             for (word, pos), data in sorted_words:
-                # Get synonyms for this specific POS
                 synonyms_info = self._get_synonyms(word, {pos})
-                # Filter out words with no synonyms (synonym_count == 0)
-                if synonyms_info['synonym_count'] > 0:
+                # Filter to only synonyms that actually appear in the corpus
+                filtered = self._filter_synonyms_by_corpus(synonyms_info, corpus_vocab)
+                if filtered['synonym_count'] > 0:
                     results.append({
                         "word": word,
                         "frequency": data['frequency'],
-                        "pos_tags": [pos],  # Single POS per entry
-                        "synsets": synonyms_info['synsets'],
-                        "all_synonyms": synonyms_info['all_synonyms'],
-                        "synonym_count": synonyms_info['synonym_count']
+                        "pos_tags": [pos],
+                        "synsets": filtered['synsets'],
+                        "all_synonyms": filtered['all_synonyms'],
+                        "synonym_count": filtered['synonym_count']
                     })
             
             return {
@@ -357,9 +360,69 @@ class SynonymService:
                 logger.warning(f"Error getting synsets for '{word}': {e}")
         
         return {
-            "synsets": synsets_info,  # Return all synsets
-            "all_synonyms": list(all_synonyms),  # Return all synonyms
+            "synsets": synsets_info,
+            "all_synonyms": list(all_synonyms),
             "synonym_count": len(all_synonyms)
+        }
+    
+    def _filter_synonyms_by_corpus(
+        self,
+        synonyms_info: Dict[str, Any],
+        corpus_vocab: Set[str]
+    ) -> Dict[str, Any]:
+        """
+        Retain only synonyms that actually appear in the corpus vocabulary.
+        This ensures displayed synonym pairs are both dictionary-valid and
+        present in the user's corpus (research-context relevant).
+        """
+        def in_corpus(syn: str) -> bool:
+            low = syn.lower()
+            return low in corpus_vocab or low.replace(' ', '_') in corpus_vocab
+        
+        filtered_synonyms = [s for s in synonyms_info['all_synonyms'] if in_corpus(s)]
+        # Case-insensitive set so synset synonyms match even if WordNet uses different casing
+        filtered_synset_set_lower = {s.lower() for s in filtered_synonyms}
+        # Keep canonical form for display (first occurrence in filtered list)
+        synonym_lower_to_canonical = {}
+        for s in filtered_synonyms:
+            if s.lower() not in synonym_lower_to_canonical:
+                synonym_lower_to_canonical[s.lower()] = s
+        
+        filtered_synsets = []
+        for synset in synonyms_info['synsets']:
+            syns_in_synset = [
+                synonym_lower_to_canonical.get(s.lower(), s)
+                for s in synset['synonyms']
+                if s.lower() in filtered_synset_set_lower
+            ]
+            if syns_in_synset:
+                filtered_synsets.append({
+                    **synset,
+                    "synonyms": syns_in_synset
+                })
+        
+        # Ensure every synonym appears in at least one synset (no orphan synonyms)
+        covered_lower = set()
+        for synset in filtered_synsets:
+            for s in synset['synonyms']:
+                covered_lower.add(s.lower())
+        orphans = [
+            s for s in filtered_synonyms
+            if s.lower() not in covered_lower
+        ]
+        if orphans:
+            filtered_synsets.append({
+                "name": "_in_corpus",
+                "pos": "",
+                "definition": "",
+                "examples": [],
+                "synonyms": orphans
+            })
+        
+        return {
+            "synsets": filtered_synsets,
+            "all_synonyms": filtered_synonyms,
+            "synonym_count": len(filtered_synonyms)
         }
     
     def get_word_synonyms(self, word: str, pos: str = "auto") -> Dict[str, Any]:

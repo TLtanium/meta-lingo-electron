@@ -107,80 +107,92 @@ class TopicPreprocessService:
                     languages.append(f.name)
         return sorted(languages)
     
+    def _spacy_annotations_to_flat_tokens(self, spacy_data: Optional[Dict]) -> Optional[Dict]:
+        """Normalize SpaCy data to { tokens: [...] }. Handles segment format from transcript JSON."""
+        if not spacy_data:
+            return None
+        if spacy_data.get('tokens'):
+            return spacy_data
+        if spacy_data.get('segments'):
+            tokens = []
+            for _sid, seg in spacy_data['segments'].items():
+                if isinstance(seg, dict) and seg.get('tokens'):
+                    tokens.extend(seg['tokens'])
+            return {'tokens': tokens} if tokens else None
+        return None
+
     def get_spacy_annotations(self, corpus_id: str, text_id: str) -> Optional[Dict]:
         """
-        Get SpaCy annotations for a specific text
-        
-        Args:
-            corpus_id: Corpus identifier
-            text_id: Text identifier
-            
-        Returns:
-            SpaCy annotation data or None
+        Get SpaCy annotations for a specific text.
+        For audio/video, loads from transcript JSON (spacy_annotations, segment format supported).
         """
         import sqlite3
         
         try:
             corpus_dir = self._get_corpus_dir(corpus_id)
-            
-            # First, get filename from database
             db_path = self.data_dir / "database.sqlite"
             filename_base = None
             media_type = 'text'
-            
+            content_path = None
+            transcript_json_path = None
+
             if db_path.exists():
                 try:
                     conn = sqlite3.connect(str(db_path))
                     conn.row_factory = sqlite3.Row
                     cursor = conn.cursor()
                     cursor.execute(
-                        "SELECT filename, media_type FROM texts WHERE id = ?",
+                        "SELECT filename, content_path, media_type, transcript_json_path FROM texts WHERE id = ?",
                         (text_id,)
                     )
                     row = cursor.fetchone()
                     conn.close()
-                    
                     if row:
-                        # Remove extension to get base filename
-                        filename_base = Path(row['filename']).stem
-                        media_type = row['media_type']
+                        filename_base = Path(row['filename']).stem if row['filename'] else None
+                        media_type = row['media_type'] or 'text'
+                        content_path = row['content_path']
+                        transcript_json_path = row['transcript_json_path']
                 except Exception as e:
-                    logger.warning(f"Error getting filename from database: {e}")
-            
-            # Try to find spacy annotation file with actual filename
+                    logger.warning(f"Error getting text from database: {e}")
+
+            # Audio/video: prefer transcript JSON (spacy_annotations, may be segment format)
+            if media_type in ('audio', 'video') and transcript_json_path and Path(transcript_json_path).exists():
+                try:
+                    with open(transcript_json_path, 'r', encoding='utf-8') as f:
+                        data = json.load(f)
+                    if 'spacy_annotations' in data:
+                        ann = self._spacy_annotations_to_flat_tokens(data['spacy_annotations'])
+                        if ann:
+                            return ann
+                except Exception as e:
+                    logger.warning(f"Failed to load transcript SpaCy for {text_id}: {e}")
+
+            # Plain text or fallback: .spacy.json file
             if filename_base:
                 if media_type == 'text':
                     spacy_path = corpus_dir / "files" / f"{filename_base}.spacy.json"
-                    if spacy_path.exists():
-                        with open(spacy_path, 'r', encoding='utf-8') as f:
-                            return json.load(f)
                 elif media_type == 'audio':
                     spacy_path = corpus_dir / "audios" / f"{filename_base}.spacy.json"
-                    if spacy_path.exists():
-                        with open(spacy_path, 'r', encoding='utf-8') as f:
-                            return json.load(f)
                 elif media_type == 'video':
                     spacy_path = corpus_dir / "videos" / f"{filename_base}.spacy.json"
-                    if spacy_path.exists():
-                        with open(spacy_path, 'r', encoding='utf-8') as f:
-                            return json.load(f)
-            
+                else:
+                    spacy_path = corpus_dir / "files" / f"{filename_base}.spacy.json"
+                if spacy_path.exists():
+                    with open(spacy_path, 'r', encoding='utf-8') as f:
+                        return json.load(f)
+
+            if content_path and Path(content_path).exists():
+                spacy_path = Path(content_path).parent / f"{Path(content_path).stem}.spacy.json"
+                if spacy_path.exists():
+                    with open(spacy_path, 'r', encoding='utf-8') as f:
+                        return json.load(f)
+
             # Fallback: try with text_id
-            spacy_path = corpus_dir / "files" / f"{text_id}_spacy.json"
-            if spacy_path.exists():
-                with open(spacy_path, 'r', encoding='utf-8') as f:
-                    return json.load(f)
-            
-            spacy_path = corpus_dir / "audios" / f"{text_id}_spacy.json"
-            if spacy_path.exists():
-                with open(spacy_path, 'r', encoding='utf-8') as f:
-                    return json.load(f)
-            
-            spacy_path = corpus_dir / "videos" / f"{text_id}_spacy.json"
-            if spacy_path.exists():
-                with open(spacy_path, 'r', encoding='utf-8') as f:
-                    return json.load(f)
-            
+            for sub in ('files', 'audios', 'videos'):
+                spacy_path = corpus_dir / sub / f"{text_id}_spacy.json"
+                if spacy_path.exists():
+                    with open(spacy_path, 'r', encoding='utf-8') as f:
+                        return json.load(f)
             return None
             
         except Exception as e:
@@ -1011,60 +1023,47 @@ class TopicPreprocessService:
                 conn.row_factory = sqlite3.Row
                 cursor = conn.cursor()
                 cursor.execute(
-                    "SELECT filename, content_path, media_type, transcript_path FROM texts WHERE id = ?",
+                    "SELECT filename, content_path, media_type, transcript_path, transcript_json_path FROM texts WHERE id = ?",
                     (text_id,)
                 )
                 row = cursor.fetchone()
                 conn.close()
-                
                 if row:
                     # For text files, use content_path or construct from filename
                     if row['media_type'] == 'text':
                         if row['content_path'] and Path(row['content_path']).exists():
                             with open(row['content_path'], 'r', encoding='utf-8') as f:
                                 return f.read()
-                        # Fallback: try with filename
                         text_path = corpus_dir / "files" / row['filename']
                         if text_path.exists():
                             with open(text_path, 'r', encoding='utf-8') as f:
                                 return f.read()
-                    
-                    # For audio/video, load transcript
+                    # For audio/video, load transcript (prefer transcript_json_path). sqlite3.Row has no .get(); use key check.
                     elif row['media_type'] in ('audio', 'video'):
-                        if row['transcript_path'] and Path(row['transcript_path']).exists():
-                            with open(row['transcript_path'], 'r', encoding='utf-8') as f:
-                                data = json.load(f)
+                        for path_key in ('transcript_json_path', 'transcript_path'):
+                            path_val = row[path_key] if path_key in row.keys() else None
+                            if path_val and Path(str(path_val)).exists():
+                                with open(path_val, 'r', encoding='utf-8') as f:
+                                    data = json.load(f)
                                 if 'segments' in data:
                                     return ' '.join(seg.get('text', '') for seg in data['segments'])
-                                return data.get('text', '')
+                                return data.get('full_text') or data.get('fullText') or data.get('text', '')
             except Exception as e:
                 logger.error(f"Error loading text from database: {e}")
-        
+
         # Fallback: try direct file paths
-        # Check in files directory
         text_path = corpus_dir / "files" / f"{text_id}.txt"
         if text_path.exists():
             with open(text_path, 'r', encoding='utf-8') as f:
                 return f.read()
-        
-        # Check for transcript JSON in audios
-        transcript_path = corpus_dir / "audios" / f"{text_id}_transcript.json"
-        if transcript_path.exists():
-            with open(transcript_path, 'r', encoding='utf-8') as f:
-                data = json.load(f)
+        for sub in ('audios', 'videos'):
+            transcript_path = corpus_dir / sub / f"{text_id}_transcript.json"
+            if transcript_path.exists():
+                with open(transcript_path, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
                 if 'segments' in data:
                     return ' '.join(seg.get('text', '') for seg in data['segments'])
-                return data.get('text', '')
-        
-        # Check for transcript JSON in videos
-        transcript_path = corpus_dir / "videos" / f"{text_id}_transcript.json"
-        if transcript_path.exists():
-            with open(transcript_path, 'r', encoding='utf-8') as f:
-                data = json.load(f)
-                if 'segments' in data:
-                    return ' '.join(seg.get('text', '') for seg in data['segments'])
-                return data.get('text', '')
-        
+                return data.get('full_text') or data.get('fullText') or data.get('text', '')
         return None
     
     def preview_preprocess(

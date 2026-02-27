@@ -468,27 +468,34 @@ class SemanticAnalysisService:
         Returns:
             List of domain result dictionaries
         """
-        # Count domains
+        # Normalize domain for aggregation: strip _MWE only (A1.5.1_MWE -> A1.5.1)
+        def _normalize_domain(d: str) -> str:
+            return d.replace("_MWE", "") if "_MWE" in d else d
+
         domain_counts = Counter()
         domain_words = defaultdict(set)
         domain_info = {}
-        
+
         for token in tokens:
-            domain = token.get("domain", "")
-            if not domain:
+            raw_domain = token.get("domain", "")
+            if not raw_domain:
                 continue
-            
+            domain = _normalize_domain(raw_domain)
             domain_counts[domain] += 1
             domain_words[domain].add(token.get("word", ""))
-            
-            # Store domain info
+
             if domain not in domain_info:
                 domain_info[domain] = {
-                    "domain_name": token.get("domain_name", ""),
-                    "category": token.get("category", ""),
-                    "category_name": token.get("category_name", "")
+                    "domain_name": get_domain_description(domain),
+                    "category": get_major_category(domain)[0],
+                    "category_name": get_major_category(domain)[1],
                 }
-        
+                # Prefer token's category if we have it
+                if token.get("category"):
+                    domain_info[domain]["category"] = token.get("category", "")
+                if token.get("category_name"):
+                    domain_info[domain]["category_name"] = token.get("category_name", "")
+
         # Apply frequency filters
         filtered_domains = {}
         for domain, count in domain_counts.items():
@@ -630,10 +637,13 @@ class SemanticAnalysisService:
             word_counts = Counter()
             word_metaphor_info = {}  # Track metaphor status for each word
             
+            # Normalized domain matches both domain and domain_MWE
+            domain_mwe = domain + "_MWE" if "_MWE" not in domain else None
             for text in texts:
                 tokens = self._get_tokens_from_text(text, None, lowercase)
                 for token in tokens:
-                    if token.get("domain") == domain:
+                    t_domain = token.get("domain", "")
+                    if t_domain == domain or (domain_mwe and t_domain == domain_mwe):
                         word = token.get("word", "")
                         word_counts[word] += 1
                         # Track metaphor status - if any occurrence is metaphor, mark as metaphor

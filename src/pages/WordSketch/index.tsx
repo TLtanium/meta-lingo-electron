@@ -113,7 +113,7 @@ export default function WordSketch({ crossLinkParams }: WordSketchProps) {
           <WordSketchTab crossLinkParams={crossLinkParams} />
         </TabPanel>
         <TabPanel value={tabIndex} index={2}>
-          <WordSketchDiffTab />
+          <WordSketchDiffTab crossLinkParams={crossLinkParams} />
         </TabPanel>
       </Box>
     </Box>

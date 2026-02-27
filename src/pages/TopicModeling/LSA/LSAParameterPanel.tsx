@@ -27,7 +27,7 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import TuneIcon from '@mui/icons-material/Tune'
 import AutoGraphIcon from '@mui/icons-material/AutoGraph'
 import { useTranslation } from 'react-i18next'
-import type { LSAPreprocessConfig, LSAConfig, LSAResult, LSAOptimizeResult } from '../../../types/topicModeling'
+import type { LSAPreprocessConfig, LSAConfig, LSAResult, LSADynamicConfig, LSADynamicResult, LSAOptimizeResult } from '../../../types/topicModeling'
 import { topicModelingApi } from '../../../api'
 import VarianceDialog from './VarianceDialog'
 
@@ -38,8 +38,10 @@ interface LSAParameterPanelProps {
   preprocessConfig: LSAPreprocessConfig
   config: LSAConfig
   onConfigChange: (config: LSAConfig) => void
+  dynamicConfig?: LSADynamicConfig
+  textDates?: Record<string, string>
   onAnalysisStart: () => void
-  onAnalysisComplete: (result: LSAResult) => void
+  onAnalysisComplete: (result: LSAResult | LSADynamicResult) => void
   onOptimizeComplete: (result: LSAOptimizeResult) => void
   disabled?: boolean
 }
@@ -51,6 +53,8 @@ export default function LSAParameterPanel({
   preprocessConfig,
   config,
   onConfigChange,
+  dynamicConfig,
+  textDates,
   onAnalysisStart,
   onAnalysisComplete,
   onOptimizeComplete,
@@ -83,17 +87,28 @@ export default function LSAParameterPanel({
     onAnalysisStart()
     
     try {
-      const response = await topicModelingApi.analyzeLSA(
-        corpusId,
-        textIds,
-        language,
-        preprocessConfig,
-        config
-      )
+      const useDynamic = dynamicConfig?.enabled && textDates && Object.keys(textDates).length > 0
+      const response = useDynamic
+        ? await topicModelingApi.analyzeLSADynamic(
+            corpusId,
+            textIds,
+            language,
+            preprocessConfig,
+            config,
+            dynamicConfig,
+            textDates
+          )
+        : await topicModelingApi.analyzeLSA(
+            corpusId,
+            textIds,
+            language,
+            preprocessConfig,
+            config
+          )
       
       if (response.success && response.data) {
         if (response.data.success) {
-          onAnalysisComplete(response.data)
+          onAnalysisComplete(response.data as LSAResult | LSADynamicResult)
         } else {
           setError(response.data.error || 'Analysis failed')
         }

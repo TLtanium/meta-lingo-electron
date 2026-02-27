@@ -435,6 +435,9 @@ export interface LDAPreprocessConfig {
   min_word_length: number
   pos_filter: string[]
   pos_keep_mode: boolean  // true for keep mode, false for filter mode
+  // N-gram mode: build n-grams before stopword removal
+  ngram_enabled: boolean
+  ngram_n_values: number[]  // 2..6, e.g. [2, 3] for bigram + trigram
   // Extreme frequency filtering
   min_df: number  // Minimum document frequency (absolute count)
   max_df: number  // Maximum document frequency (ratio 0-1)
@@ -531,12 +534,14 @@ export interface POSTagInfo {
 
 export const DEFAULT_LDA_PREPROCESS_CONFIG: LDAPreprocessConfig = {
   remove_stopwords: true,
-  remove_punctuation: true,
+  remove_punctuation: false,
   lemmatize: true,
   lowercase: true,
   min_word_length: 2,
   pos_filter: ['PUNCT', 'SYM', 'X', 'NUM', 'INTJ'],  // Default filter these tags
   pos_keep_mode: false,  // Default to filter mode
+  ngram_enabled: false,
+  ngram_n_values: [2],
   // Extreme frequency filtering
   min_df: 2,     // Minimum document frequency
   max_df: 0.95   // Maximum document frequency ratio
@@ -572,6 +577,8 @@ export interface LSAPreprocessConfig {
   min_word_length: number
   pos_filter: string[]
   pos_keep_mode: boolean  // true for keep mode, false for filter mode
+  ngram_enabled: boolean
+  ngram_n_values: number[]
   // Extreme frequency filtering
   min_df: number
   max_df: number
@@ -659,12 +666,14 @@ export interface LSAOptimizeResult {
 
 export const DEFAULT_LSA_PREPROCESS_CONFIG: LSAPreprocessConfig = {
   remove_stopwords: true,
-  remove_punctuation: true,
+  remove_punctuation: false,
   lemmatize: true,
   lowercase: true,
   min_word_length: 2,
   pos_filter: ['PUNCT', 'SYM', 'X', 'NUM', 'INTJ'],
   pos_keep_mode: false,
+  ngram_enabled: false,
+  ngram_n_values: [2],
   min_df: 2,
   max_df: 0.95
 }
@@ -697,6 +706,8 @@ export interface NMFPreprocessConfig {
   min_word_length: number
   pos_filter: string[]
   pos_keep_mode: boolean  // true for keep mode, false for filter mode
+  ngram_enabled: boolean
+  ngram_n_values: number[]
   // Extreme frequency filtering
   min_df: number
   max_df: number
@@ -786,12 +797,14 @@ export interface NMFOptimizeResult {
 
 export const DEFAULT_NMF_PREPROCESS_CONFIG: NMFPreprocessConfig = {
   remove_stopwords: true,
-  remove_punctuation: true,
+  remove_punctuation: false,
   lemmatize: true,
   lowercase: true,
   min_word_length: 2,
   pos_filter: ['PUNCT', 'SYM', 'X', 'NUM', 'INTJ'],
   pos_keep_mode: false,
+  ngram_enabled: false,
+  ngram_n_values: [2],
   min_df: 2,
   max_df: 0.95
 }
@@ -900,6 +913,62 @@ export interface LDAHeatmapData {
 export interface LDADynamicResult extends LDAResult {
   has_dynamic?: boolean
   dynamic_config?: LDADynamicConfig
+  topic_evolution?: LDATopicEvolutionData
+  sankey_data?: LDASankeyData
+  time_slices?: {
+    timestamps: string[]
+    doc_slices: number[]
+    num_slices: number
+  }
+  dynamic_error?: string
+}
+
+// ============ LSA / NMF Dynamic Topic Types ============
+
+/** Dynamic topic config for LSA (same shape as LDA) */
+export interface LSADynamicConfig {
+  enabled: boolean
+  date_format: DateFormatType
+  nr_bins: number | null
+}
+
+export const DEFAULT_LSA_DYNAMIC_CONFIG: LSADynamicConfig = {
+  enabled: false,
+  date_format: 'year_only',
+  nr_bins: null
+}
+
+/** Extended LSA result with dynamic analysis data */
+export interface LSADynamicResult extends LSAResult {
+  has_dynamic?: boolean
+  dynamic_config?: LSADynamicConfig
+  topic_evolution?: LDATopicEvolutionData
+  sankey_data?: LDASankeyData
+  time_slices?: {
+    timestamps: string[]
+    doc_slices: number[]
+    num_slices: number
+  }
+  dynamic_error?: string
+}
+
+/** Dynamic topic config for NMF (same shape as LDA) */
+export interface NMFDynamicConfig {
+  enabled: boolean
+  date_format: DateFormatType
+  nr_bins: number | null
+}
+
+export const DEFAULT_NMF_DYNAMIC_CONFIG: NMFDynamicConfig = {
+  enabled: false,
+  date_format: 'year_only',
+  nr_bins: null
+}
+
+/** Extended NMF result with dynamic analysis data */
+export interface NMFDynamicResult extends NMFResult {
+  has_dynamic?: boolean
+  dynamic_config?: NMFDynamicConfig
   topic_evolution?: LDATopicEvolutionData
   sankey_data?: LDASankeyData
   time_slices?: {

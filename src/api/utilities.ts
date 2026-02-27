@@ -100,6 +100,43 @@ export const ollamaApi = {
   }
 }
 
+// OpenAI-compatible API (for settings and future topic naming, etc.)
+export const openaiApi = {
+  check: async (baseUrl: string, apiKey: string) => {
+    return api.post<{ connected: boolean; models?: string[]; error?: string }>(
+      '/api/openai/check',
+      { base_url: baseUrl, api_key: apiKey }
+    )
+  }
+}
+
+// Unified LLM chat (analysis AI assistant)
+export interface LLMChatMessage {
+  role: 'user' | 'assistant'
+  content: string
+}
+
+export const llmChatApi = {
+  chat: async (
+    provider: 'ollama' | 'openai',
+    config: { ollama?: { url: string; model: string }; openai?: { base_url: string; api_key: string; model: string } },
+    context: string,
+    messages: LLMChatMessage[]
+  ) => {
+    return api.post<{ response: string }>(
+      '/api/llm/chat',
+      {
+        provider,
+        ollama: config.ollama,
+        openai: config.openai,
+        context,
+        messages
+      },
+      { timeout: 180000 }
+    )
+  }
+}
+
 // Help API endpoints
 export const helpApi = {
   // Get help content
@@ -117,4 +154,4 @@ export const helpApi = {
   }
 }
 
-export default { dictionaryApi, ollamaApi, helpApi }
+export default { dictionaryApi, ollamaApi, openaiApi, llmChatApi, helpApi }

@@ -50,30 +50,42 @@ import { topicModelingApi } from '../../../api'
 
 interface NMFResultsPanelProps {
   result: NMFResult | null
-  // Ollama props
   ollamaConnected?: boolean
   ollamaUrl?: string
   ollamaModel?: string
   ollamaLanguage?: 'en' | 'zh'
+  openaiApiEnabled?: boolean
+  openaiApiBaseUrl?: string
+  openaiApiKey?: string
+  openaiApiModel?: string
   onTopicsUpdate?: (topics: NMFTopic[]) => void
-  // Cross-link props
   corpusId?: string
   textIds?: string[] | 'all'
   selectionMode?: SelectionMode
   selectedTags?: string[]
+  libraryId?: string
+  ngramEnabled?: boolean
+  selectedEntryIds?: string[]
 }
 
-export default function NMFResultsPanel({ 
+export default function NMFResultsPanel({
   result,
   ollamaConnected = false,
   ollamaUrl = 'http://localhost:11434',
   ollamaModel = '',
   ollamaLanguage = 'en',
+  openaiApiEnabled = false,
+  openaiApiBaseUrl = '',
+  openaiApiKey = '',
+  openaiApiModel = '',
   onTopicsUpdate,
   corpusId,
   textIds,
   selectionMode = 'all',
-  selectedTags
+  selectedTags,
+  libraryId,
+  ngramEnabled = false,
+  selectedEntryIds
 }: NMFResultsPanelProps) {
   const { t } = useTranslation()
   const theme = useTheme()
@@ -94,28 +106,42 @@ export default function NMFResultsPanel({
   const [editingLabel, setEditingLabel] = useState('')
   const [savingLabel, setSavingLabel] = useState(false)
   
-  // Generate topic names using Ollama
+  // Generate topic names using API (OpenAI) or Ollama; prefer API when enabled
   const handleGenerateNames = useCallback(async () => {
-    if (!ollamaConnected || !ollamaModel || !result?.result_id) return
+    const useApi = openaiApiEnabled && openaiApiBaseUrl && openaiApiModel
+    const useOllama = ollamaConnected && ollamaModel
+    if ((!useApi && !useOllama) || !result?.result_id) return
     
     setGeneratingNames(true)
     try {
-      const response = await topicModelingApi.generateNMFTopicNames(
-        result.result_id,
-        ollamaUrl,
-        ollamaModel,
-        { language: ollamaLanguage, delay: 0.5, topNWords: keywordDisplayCount }
-      )
-      
-      if (response.success && response.data?.success) {
-        onTopicsUpdate?.(response.data.topics)
+      if (useApi) {
+        const response = await topicModelingApi.generateNMFTopicNamesOpenAI(
+          result.result_id,
+          openaiApiBaseUrl,
+          openaiApiKey || '',
+          openaiApiModel,
+          { language: ollamaLanguage, topNWords: keywordDisplayCount }
+        )
+        if (response.success && response.data?.success) {
+          onTopicsUpdate?.(response.data.topics)
+        }
+      } else {
+        const response = await topicModelingApi.generateNMFTopicNames(
+          result.result_id,
+          ollamaUrl,
+          ollamaModel,
+          { language: ollamaLanguage, delay: 0.5, topNWords: keywordDisplayCount }
+        )
+        if (response.success && response.data?.success) {
+          onTopicsUpdate?.(response.data.topics)
+        }
       }
     } catch (err) {
       console.error('Failed to generate NMF topic names:', err)
     } finally {
       setGeneratingNames(false)
     }
-  }, [ollamaConnected, ollamaUrl, ollamaModel, ollamaLanguage, result?.result_id, keywordDisplayCount, onTopicsUpdate])
+  }, [ollamaConnected, ollamaUrl, ollamaModel, ollamaLanguage, openaiApiEnabled, openaiApiBaseUrl, openaiApiKey, openaiApiModel, result?.result_id, keywordDisplayCount, onTopicsUpdate])
   
   // Open label edit dialog
   const openLabelDialog = useCallback((topicId: number) => {
@@ -196,7 +222,7 @@ export default function NMFResultsPanel({
       const topKeywords = topic.keywords.slice(0, topN).map(k => k.word).join(', ')
       
       csvRows.push([
-        `Topic ${topic.topic_id}`,
+        t('topicModeling.lda.viz.topicLabel', 'Topic {{topicId}}', { topicId: topic.topic_id }),
         `"${topicName}"`,
         `"${keywordsWithWeights}"`,
         docCount.toString(),
@@ -290,7 +316,7 @@ export default function NMFResultsPanel({
                 color="success"
               />
             )}
-            {ollamaConnected && (
+            {(openaiApiEnabled || ollamaConnected) && (
               <Tooltip title={t('topicModeling.ollama.generateNames')}>
                 <Button
                   variant="outlined"
@@ -443,7 +469,7 @@ export default function NMFResultsPanel({
                 }}>
                   <Stack direction="row" alignItems="center" spacing={1}>
                     <Chip 
-                      label={`Topic ${selectedTopic.topic_id}`} 
+                      label={t('topicModeling.lda.viz.topicLabel', 'Topic {{topicId}}', { topicId: selectedTopic.topic_id })} 
                       size="small" 
                       color="primary"
                       variant="outlined"
@@ -546,8 +572,12 @@ export default function NMFResultsPanel({
                                   textIds={textIds || 'all'}
                                   selectionMode={selectionMode}
                                   selectedTags={selectedTags}
+                                  libraryId={libraryId}
+                                  selectedEntryIds={selectedEntryIds}
                                   showCollocation={true}
-                                  showWordSketch={true}
+                                  showCollocationAnalysis={!ngramEnabled}
+                                  showWordSketch={!ngramEnabled}
+                                  showNgram={!ngramEnabled}
                                 />
                               </TableCell>
                             )}
@@ -695,7 +725,7 @@ export default function NMFResultsPanel({
                       <TableCell>{doc.doc_id + 1}</TableCell>
                       <TableCell>
                         <Chip
-                          label={`Topic ${doc.dominant_topic}`}
+                          label={t('topicModeling.lda.viz.topicLabel', 'Topic {{topicId}}', { topicId: doc.dominant_topic })}
                           size="small"
                           color="primary"
                           variant="outlined"
@@ -772,6 +802,7 @@ export default function NMFResultsPanel({
 
 // Topic Distribution Bar Component
 function TopicDistributionBar({ distribution }: { distribution: number[] }) {
+  const { t } = useTranslation()
   const colors = [
     '#1976d2', '#dc004e', '#9c27b0', '#ff9800', '#4caf50',
     '#00bcd4', '#795548', '#607d8b', '#e91e63', '#3f51b5'
@@ -787,7 +818,7 @@ function TopicDistributionBar({ distribution }: { distribution: number[] }) {
             bgcolor: colors[idx % colors.length],
             minWidth: weight > 0.01 ? 2 : 0
           }}
-          title={`Topic ${idx}: ${(weight * 100).toFixed(1)}%`}
+          title={t('topicModeling.lda.viz.topicLabel', 'Topic {{topicId}}', { topicId: idx }) + `: ${(weight * 100).toFixed(1)}%`}
         />
       ))}
     </Box>

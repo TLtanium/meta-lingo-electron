@@ -15,6 +15,7 @@
  */
 
 import { useState, useCallback, useMemo, useRef, useEffect, forwardRef, useImperativeHandle } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Box, Typography, Paper, Alert, Chip, Stack, IconButton, Tooltip, CircularProgress, useTheme } from '@mui/material'
 import ImageIcon from '@mui/icons-material/Image'
 import CodeIcon from '@mui/icons-material/Code'
@@ -205,6 +206,7 @@ const TranscriptAnnotator = forwardRef<TranscriptAnnotatorRef, TranscriptAnnotat
   disabled = false,
   selectedAnnotationId = null
 }, ref) => {
+  const { t } = useTranslation()
   const theme = useTheme()
   const isDarkMode = theme.palette.mode === 'dark'
   const [selectedSegmentId, setSelectedSegmentId] = useState<string | null>(null)
@@ -681,14 +683,14 @@ const TranscriptAnnotator = forwardRef<TranscriptAnnotatorRef, TranscriptAnnotat
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
         <Typography variant="caption" color="text.secondary">
           {selectedLabel 
-            ? `选中文本以使用 "${selectedLabel.node.name}" 标注。点击标签块可删除。`
-            : '请先从框架树选择一个标签'
+            ? t('annotation.selectToAnnotateWithLabel', { label: selectedLabel.node.name })
+            : t('annotation.selectLabelFirst')
           }
         </Typography>
         
         {/* Export Buttons */}
         <Stack direction="row" spacing={0.5}>
-          <Tooltip title="导出为PNG">
+          <Tooltip title={t('annotation.exportPngTooltip')}>
             <span>
               <IconButton 
                 size="small" 
@@ -703,7 +705,7 @@ const TranscriptAnnotator = forwardRef<TranscriptAnnotatorRef, TranscriptAnnotat
               </IconButton>
             </span>
           </Tooltip>
-          <Tooltip title="导出为SVG">
+          <Tooltip title={t('annotation.exportSvgTooltip')}>
             <span>
               <IconButton 
                 size="small" 
@@ -1009,7 +1011,7 @@ const TranscriptAnnotator = forwardRef<TranscriptAnnotatorRef, TranscriptAnnotat
 
       {/* Statistics */}
       <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
-        {annotations.length} 条标注 | {transcriptSegments.length} 个段落 | 点击句子选中 | 选择文本添加标注 | 点击标签块删除
+        {annotations.length} {t('annotation.annotationCount')} | {transcriptSegments.length} {t('annotation.segmentCount')} | {t('annotation.transcriptHints')}
       </Typography>
 
       {/* Syntax Visualization Dialog */}

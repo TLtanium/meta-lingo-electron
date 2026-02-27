@@ -16,6 +16,7 @@ import {
 } from '@mui/material'
 import CloudUploadIcon from '@mui/icons-material/CloudUpload'
 import ListIcon from '@mui/icons-material/List'
+import InfoIcon from '@mui/icons-material/Info'
 import BubbleChartIcon from '@mui/icons-material/BubbleChart'
 import StorageIcon from '@mui/icons-material/Storage'
 import { useTranslation } from 'react-i18next'
@@ -95,18 +96,17 @@ export default function BiblioVisualization() {
     loadLibraries()
   }
   
-  // Handle upload complete
-  const handleUploadComplete = () => {
-    loadLibraries()
+  // Handle upload complete (called after all files in batch are uploaded, like corpus management)
+  const handleUploadComplete = useCallback(async () => {
+    await loadLibraries()
     if (selectedLibrary) {
-      // Refresh selected library
-      biblioApi.getLibrary(selectedLibrary.id).then(response => {
-        if (response.success && response.data) {
-          setSelectedLibrary(response.data)
-        }
-      })
+      const response = await biblioApi.getLibrary(selectedLibrary.id)
+      if (response.success && response.data) {
+        setSelectedLibrary(response.data)
+      }
+      setCurrentTab('detail')
     }
-  }
+  }, [selectedLibrary, loadLibraries])
   
   // Handle back from detail
   const handleBackFromDetail = () => {
@@ -151,7 +151,7 @@ export default function BiblioVisualization() {
             value="libraries"
           />
           <Tab 
-            icon={<ListIcon />} 
+            icon={<InfoIcon />} 
             iconPosition="start"
             label={t('biblio.libraryDetail')} 
             value="detail"

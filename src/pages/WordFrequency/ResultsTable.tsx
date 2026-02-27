@@ -55,6 +55,9 @@ interface ResultsTableProps {
   textIds?: string[] | 'all'
   selectionMode?: SelectionMode
   selectedTags?: string[]
+  /** When in library mode, for cross-link target sync */
+  libraryId?: string
+  selectedEntryIds?: string[]
 }
 
 type SortableColumn = keyof WordFrequencyResult
@@ -73,7 +76,9 @@ export default function ResultsTable({
   corpusId,
   textIds,
   selectionMode = 'all',
-  selectedTags
+  selectedTags,
+  libraryId,
+  selectedEntryIds
 }: ResultsTableProps) {
   const { t } = useTranslation()
   const [tableFilter, setTableFilter] = useState('')
@@ -359,6 +364,8 @@ export default function ResultsTable({
                       textIds={textIds || 'all'}
                       selectionMode={selectionMode}
                       selectedTags={selectedTags}
+                      libraryId={libraryId}
+                      selectedEntryIds={selectedEntryIds}
                       showCollocation={true}
                       showWordSketch={true}
                     />

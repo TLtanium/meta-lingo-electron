@@ -53,7 +53,8 @@ import type {
   StopwordsConfig,
   ThresholdConfig,
   StatisticThresholds,
-  CorpusResource
+  CorpusResource,
+  ComparisonMode
 } from '../types/keyword'
 
 // ==================== Keyword Extraction Types ====================
@@ -89,6 +90,7 @@ export interface KeynessRequest {
   stopwords_config?: StopwordsConfig
   language?: string
   threshold_config?: ThresholdConfig
+  comparison_mode?: ComparisonMode
 }
 
 export interface KeynessResourceRequest {
@@ -102,6 +104,7 @@ export interface KeynessResourceRequest {
   stopwords_config?: StopwordsConfig
   language?: string
   threshold_config?: ThresholdConfig
+  comparison_mode?: ComparisonMode
 }
 
 export interface KeynessResponse {

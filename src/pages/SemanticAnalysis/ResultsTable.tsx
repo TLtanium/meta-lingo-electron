@@ -3,7 +3,7 @@
  * Displays results in two views: by domain or by word
  */
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef } from 'react'
 import {
   Box,
   Paper,
@@ -33,7 +33,10 @@ import {
   InputAdornment,
   Switch,
   FormControlLabel,
-  Checkbox
+  Checkbox,
+  Menu,
+  MenuItem,
+  ListItemIcon
 } from '@mui/material'
 import InfoIcon from '@mui/icons-material/Info'
 import DownloadIcon from '@mui/icons-material/Download'
@@ -42,7 +45,10 @@ import SearchIcon from '@mui/icons-material/Search'
 import ContentCopyIcon from '@mui/icons-material/ContentCopy'
 import SelectAllIcon from '@mui/icons-material/SelectAll'
 import DeselectIcon from '@mui/icons-material/Deselect'
+import MoreVertIcon from '@mui/icons-material/MoreVert'
+import LinkIcon from '@mui/icons-material/Link'
 import { useTranslation } from 'react-i18next'
+import { useTabStore } from '../../stores/tabStore'
 import { analysisApi } from '../../api'
 import type {
   SemanticAnalysisResponse,
@@ -69,6 +75,8 @@ interface ResultsTableProps {
   // Cross-link props
   selectionMode?: SelectionMode
   selectedTags?: string[]
+  libraryId?: string
+  selectedEntryIds?: string[]
   // Metaphor highlight props
   showMetaphorHighlight?: boolean
   onShowMetaphorHighlightChange?: (value: boolean) => void
@@ -90,6 +98,8 @@ export default function ResultsTable({
   lowercase,
   selectionMode = 'all',
   selectedTags,
+  libraryId,
+  selectedEntryIds,
   showMetaphorHighlight = false,
   onShowMetaphorHighlightChange,
   selectedItems = [],
@@ -97,7 +107,35 @@ export default function ResultsTable({
 }: ResultsTableProps) {
   const { t, i18n } = useTranslation()
   const isZh = i18n.language === 'zh'
+  const { openTab } = useTabStore()
   const [tableFilter, setTableFilter] = useState('')
+  const [domainMenuAnchor, setDomainMenuAnchor] = useState<null | HTMLElement>(null)
+  const [domainMenuDomain, setDomainMenuDomain] = useState<{ domain: string; domainName: string } | null>(null)
+  const pendingDomainLinkRef = useRef<{ domain: string; domainName: string } | null>(null)
+  const handleDomainMenuExited = () => {
+    if (pendingDomainLinkRef.current) {
+      const { domain } = pendingDomainLinkRef.current
+      pendingDomainLinkRef.current = null
+      openTab({
+        type: 'collocation',
+        title: `${t('collocation.title')} - ${domain}`,
+        props: {
+          crossLinkParams: {
+            searchWord: domain,
+            corpusId: corpusId!,
+            textIds,
+            selectionMode: selectionMode ?? 'all',
+            selectedTags,
+            ...(libraryId && { libraryId }),
+            ...(libraryId && selectionMode === 'selected' && selectedEntryIds?.length && { selectedEntryIds }),
+            autoSearch: true,
+            semanticDomain: domain,
+            semanticDomainMatch: 'contains'
+          }
+        }
+      })
+    }
+  }
   const [domainWordsDialog, setDomainWordsDialog] = useState<{
     open: boolean
     domain: string
@@ -498,7 +536,10 @@ export default function ResultsTable({
               </TableCell>
               
               {isDomainMode && (
-                <TableCell sx={{ width: 60 }}></TableCell>
+                <>
+                  <TableCell sx={{ width: 60 }}>{t('semantic.results.viewWords')}</TableCell>
+                  <TableCell sx={{ width: 48 }} align="center">{t('semantic.results.crossLink')}</TableCell>
+                </>
               )}
               
               {!isDomainMode && corpusId && (
@@ -599,16 +640,38 @@ export default function ResultsTable({
                   </TableCell>
                   
                   {isDomainMode && (
-                    <TableCell>
-                      <Tooltip title={t('semantic.results.viewWords')}>
-                        <IconButton
-                          size="small"
-                          onClick={() => handleDomainClick(row.domain, row.domain_name)}
-                        >
-                          <InfoIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                    </TableCell>
+                    <>
+                      <TableCell>
+                        <Tooltip title={t('semantic.results.viewWords')}>
+                          <IconButton
+                            size="small"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleDomainClick(row.domain, row.domain_name)
+                            }}
+                          >
+                            <InfoIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      </TableCell>
+                      <TableCell>
+                        {corpusId && (
+                          <Tooltip title={t('crossLink.viewInOtherModules')}>
+                            <IconButton
+                              size="small"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setDomainMenuAnchor(e.currentTarget)
+                                setDomainMenuDomain({ domain: row.domain, domainName: row.domain_name })
+                              }}
+                              sx={{ opacity: 0.6, '&:hover': { opacity: 1 } }}
+                            >
+                              <MoreVertIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        )}
+                      </TableCell>
+                    </>
                   )}
                   
                   {!isDomainMode && corpusId && (
@@ -619,8 +682,11 @@ export default function ResultsTable({
                         textIds={textIds}
                         selectionMode={selectionMode}
                         selectedTags={selectedTags}
+                        libraryId={libraryId}
+                        selectedEntryIds={selectedEntryIds}
                         showCollocation={true}
                         showWordSketch={true}
+                        showSemanticDomain={false}
                       />
                     </TableCell>
                   )}
@@ -630,6 +696,37 @@ export default function ResultsTable({
           </TableBody>
         </Table>
       </TableContainer>
+
+      {/* Single Menu for domain-mode cross-link (outside table so only one instance, shadow matches word-mode) */}
+      {isDomainMode && corpusId && (
+        <Menu
+          anchorEl={domainMenuAnchor}
+          open={Boolean(domainMenuAnchor)}
+          onClose={() => {
+            setDomainMenuAnchor(null)
+            setDomainMenuDomain(null)
+          }}
+          onClick={(e) => e.stopPropagation()}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+          transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+          TransitionProps={{ onExited: handleDomainMenuExited }}
+        >
+          <MenuItem
+            onClick={() => {
+              if (domainMenuDomain) {
+                pendingDomainLinkRef.current = { domain: domainMenuDomain.domain, domainName: domainMenuDomain.domainName }
+                setDomainMenuAnchor(null)
+                setDomainMenuDomain(null)
+              }
+            }}
+          >
+            <ListItemIcon>
+              <LinkIcon fontSize="small" />
+            </ListItemIcon>
+            <ListItemText primary={t('crossLink.viewCollocation')} />
+          </MenuItem>
+        </Menu>
+      )}
 
       {/* Pagination */}
       <TablePagination
@@ -689,8 +786,11 @@ export default function ResultsTable({
                         textIds={textIds}
                         selectionMode={selectionMode}
                         selectedTags={selectedTags}
+                        libraryId={libraryId}
+                        selectedEntryIds={selectedEntryIds}
                         showCollocation={true}
                         showWordSketch={true}
+                        showSemanticDomain={false}
                       />
                     )
                   }>

@@ -43,6 +43,8 @@ interface ResultsTableProps {
   textIds?: string[] | 'all'
   selectionMode?: SelectionMode
   selectedTags?: string[]
+  libraryId?: string
+  selectedEntryIds?: string[]
 }
 
 type SortColumn = 'rank' | 'keyword' | 'score' | 'frequency'
@@ -56,7 +58,9 @@ export default function ResultsTable({
   corpusId,
   textIds,
   selectionMode = 'all',
-  selectedTags
+  selectedTags,
+  libraryId,
+  selectedEntryIds
 }: ResultsTableProps) {
   const { t } = useTranslation()
   
@@ -368,6 +372,8 @@ export default function ResultsTable({
                         textIds={textIds || 'all'}
                         selectionMode={selectionMode}
                         selectedTags={selectedTags}
+                        libraryId={libraryId}
+                        selectedEntryIds={selectedEntryIds}
                         showCollocation={true}
                         showWordSketch={true}
                       />

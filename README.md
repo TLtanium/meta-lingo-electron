@@ -64,7 +64,7 @@
 | **Metaphor Analysis** | MIPVU-based detection with HiTZ and fine-tuned models |
 | **Word Sketch** | Grammar pattern analysis (50 relations), logDice scoring, difference comparison |
 | **Topic Modeling** | BERTopic, LDA, LSA, NMF with dynamic topic analysis |
-| **Bibliography** | Refworks parsing (WOS/CNKI), network visualization, burst detection |
+| **Bibliography** | Refworks parsing (WOS/CNKI), shadow corpus for abstracts, network visualization, burst detection; analysis modules support corpus/literature toggle and library selection (all / by keyword / manual). |
 
 ### Annotation Mode
 - **Text Annotation**: Sentence-level display, intelligent segmentation, batch annotation
@@ -249,7 +249,7 @@ Meta-Lingo integrates several pre-trained models:
 | CLIP ViT-Large-Patch14 | Image classification | OpenAI |
 | SpaCy en/zh_core_web_lg | NLP processing | Explosion |
 | HiTZ DeBERTa | Metaphor detection | [HiTZ](https://huggingface.co/HiTZ/deberta-large-metaphor-detection-en) |
-| IDRRP DeBERTa | Fine-tuned metaphor | [tommyleo2077](https://huggingface.co/tommyleo2077/deberta-v3-large-metaphor-in-dt-rb-rp) |
+| Clause DeBERTa | Clause-level metaphor | [tommyleo2077](https://huggingface.co/tommyleo2077/deberta-v3-large-clause-metaphor) |
 | Sentence-BERT | Text embeddings | sentence-transformers |
 
 ## Contributing

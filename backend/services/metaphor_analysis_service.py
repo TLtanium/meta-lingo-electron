@@ -70,7 +70,13 @@ class MetaphorAnalysisService:
                         if 'segments' in mipvu_data and 'sentences' not in mipvu_data:
                             # Merge sentences from all segments' mipvu_data
                             all_sentences = []
-                            total_stats = {'total_tokens': 0, 'metaphor_tokens': 0, 'literal_tokens': 0}
+                            total_stats = {
+                                'total_tokens': 0,
+                                'metaphor_tokens': 0,
+                                'literal_tokens': 0,
+                            }
+                            # Optional POS-grouped statistics (if present)
+                            aggregated_pos_groups: Dict[str, Dict[str, Any]] = {}
                             for seg in mipvu_data.get('segments', []):
                                 seg_mipvu = seg.get('mipvu_data', {})
                                 if seg_mipvu.get('success'):
@@ -79,6 +85,28 @@ class MetaphorAnalysisService:
                                     total_stats['total_tokens'] += seg_stats.get('total_tokens', 0)
                                     total_stats['metaphor_tokens'] += seg_stats.get('metaphor_tokens', 0)
                                     total_stats['literal_tokens'] += seg_stats.get('literal_tokens', 0)
+                                    # Merge pos_group_stats if available
+                                    seg_pos_groups = seg_stats.get('pos_group_stats') or {}
+                                    for group_key, group_stats in seg_pos_groups.items():
+                                        if group_key not in aggregated_pos_groups:
+                                            aggregated_pos_groups[group_key] = {
+                                                'total_tokens': 0,
+                                                'metaphor_tokens': 0,
+                                                'literal_tokens': 0,
+                                                'metaphor_rate': 0.0,
+                                            }
+                                        agg = aggregated_pos_groups[group_key]
+                                        agg['total_tokens'] += group_stats.get('total_tokens', 0)
+                                        agg['metaphor_tokens'] += group_stats.get('metaphor_tokens', 0)
+                                        agg['literal_tokens'] += group_stats.get('literal_tokens', 0)
+                            # Recompute metaphor_rate per POS group
+                            if aggregated_pos_groups:
+                                for key, stats in aggregated_pos_groups.items():
+                                    tt = stats['total_tokens']
+                                    mt = stats['metaphor_tokens']
+                                    stats['literal_tokens'] = stats.get('literal_tokens', tt - mt)
+                                    stats['metaphor_rate'] = mt / tt if tt > 0 else 0.0
+                                total_stats['pos_group_stats'] = aggregated_pos_groups
                             mipvu_data = {
                                 'success': True,
                                 'sentences': all_sentences,

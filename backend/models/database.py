@@ -157,11 +157,18 @@ def init_database():
             name TEXT NOT NULL UNIQUE,
             source_type TEXT NOT NULL CHECK(source_type IN ('WOS', 'CNKI')),
             description TEXT,
+            language TEXT DEFAULT 'english',
             entry_count INTEGER DEFAULT 0,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )
     """)
+    
+    # Add language column if missing (migration for existing DBs)
+    try:
+        cursor.execute("ALTER TABLE biblio_libraries ADD COLUMN language TEXT DEFAULT 'english'")
+    except sqlite3.OperationalError:
+        pass  # Column already exists
     
     # Create biblio_entries table for bibliographic entries
     cursor.execute("""
@@ -196,6 +203,27 @@ def init_database():
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_biblio_entries_year ON biblio_entries(year)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_biblio_entries_doi ON biblio_entries(doi)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_biblio_entries_unique_id ON biblio_entries(unique_id)")
+    
+    # biblio_entry_abstracts: links biblio entry to shadow corpus text (abstract)
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS biblio_entry_abstracts (
+            entry_id TEXT PRIMARY KEY,
+            text_id TEXT NOT NULL,
+            FOREIGN KEY (entry_id) REFERENCES biblio_entries(id) ON DELETE CASCADE,
+            FOREIGN KEY (text_id) REFERENCES texts(id) ON DELETE CASCADE
+        )
+    """)
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_biblio_entry_abstracts_text ON biblio_entry_abstracts(text_id)")
+    
+    # biblio_library_corpus: maps library to its shadow corpus for abstract processing
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS biblio_library_corpus (
+            library_id TEXT PRIMARY KEY,
+            corpus_id TEXT NOT NULL UNIQUE,
+            FOREIGN KEY (library_id) REFERENCES biblio_libraries(id) ON DELETE CASCADE,
+            FOREIGN KEY (corpus_id) REFERENCES corpora(id) ON DELETE CASCADE
+        )
+    """)
     
     conn.commit()
     conn.close()
@@ -311,10 +339,14 @@ class CorpusDB:
     
     @staticmethod
     def list_all() -> List[Dict[str, Any]]:
-        """List all corpora"""
+        """List all corpora (excluding biblio shadow corpora)"""
         with get_db_readonly() as conn:
             cursor = conn.cursor()
-            cursor.execute("SELECT * FROM corpora ORDER BY updated_at DESC")
+            cursor.execute("""
+                SELECT * FROM corpora 
+                WHERE id NOT IN (SELECT corpus_id FROM biblio_library_corpus)
+                ORDER BY updated_at DESC
+            """)
             rows = cursor.fetchall()
             corpora = []
             for row in rows:
@@ -782,20 +814,45 @@ class BiblioLibraryDB:
     
     @staticmethod
     def create(library_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Create a new bibliographic library"""
+        """Create a new bibliographic library and its shadow corpus"""
         with get_db_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("""
-                INSERT INTO biblio_libraries (id, name, source_type, description)
-                VALUES (?, ?, ?, ?)
+                INSERT INTO biblio_libraries (id, name, source_type, description, language)
+                VALUES (?, ?, ?, ?, ?)
             """, (
                 library_data['id'],
                 library_data['name'],
                 library_data['source_type'],
-                library_data.get('description')
+                library_data.get('description'),
+                library_data.get('language', 'english')
             ))
+            # Create shadow corpus for abstract processing
+            import uuid as uuid_mod
+            corpus_id = str(uuid_mod.uuid4())
+            shadow_name = f"[Biblio] {library_data['name']}"
+            cursor.execute("""
+                INSERT INTO corpora (id, name, language, author, source, text_type, description)
+                VALUES (?, ?, ?, NULL, NULL, NULL, NULL)
+            """, (corpus_id, shadow_name, library_data.get('language', 'english')))
+            cursor.execute("""
+                INSERT INTO biblio_library_corpus (library_id, corpus_id)
+                VALUES (?, ?)
+            """, (library_data['id'], corpus_id))
             conn.commit()
             return BiblioLibraryDB.get_by_id(library_data['id'])
+    
+    @staticmethod
+    def get_corpus_id(library_id: str) -> Optional[str]:
+        """Get shadow corpus id for a library"""
+        with get_db_readonly() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT corpus_id FROM biblio_library_corpus WHERE library_id = ?",
+                (library_id,)
+            )
+            row = cursor.fetchone()
+            return row[0] if row else None
     
     @staticmethod
     def get_by_id(library_id: str) -> Optional[Dict[str, Any]]:
@@ -806,12 +863,17 @@ class BiblioLibraryDB:
             row = cursor.fetchone()
             if row:
                 library = row_to_dict(row)
-                # Get actual entry count
                 cursor.execute(
                     "SELECT COUNT(*) FROM biblio_entries WHERE library_id = ?",
                     (library_id,)
                 )
                 library['entry_count'] = cursor.fetchone()[0]
+                cursor.execute(
+                    "SELECT corpus_id FROM biblio_library_corpus WHERE library_id = ?",
+                    (library_id,)
+                )
+                corpus_row = cursor.fetchone()
+                library['corpus_id'] = corpus_row[0] if corpus_row else None
                 return library
             return None
     
@@ -829,6 +891,12 @@ class BiblioLibraryDB:
                     (library['id'],)
                 )
                 library['entry_count'] = cursor.fetchone()[0]
+                cursor.execute(
+                    "SELECT corpus_id FROM biblio_library_corpus WHERE library_id = ?",
+                    (library['id'],)
+                )
+                corpus_row = cursor.fetchone()
+                library['corpus_id'] = corpus_row[0] if corpus_row else None
                 return library
             return None
     
@@ -847,6 +915,12 @@ class BiblioLibraryDB:
                     (library['id'],)
                 )
                 library['entry_count'] = cursor.fetchone()[0]
+                cursor.execute(
+                    "SELECT corpus_id FROM biblio_library_corpus WHERE library_id = ?",
+                    (library['id'],)
+                )
+                corpus_row = cursor.fetchone()
+                library['corpus_id'] = corpus_row[0] if corpus_row else None
                 libraries.append(library)
             return libraries
     
@@ -858,7 +932,7 @@ class BiblioLibraryDB:
             
             fields = []
             values = []
-            for key in ['name', 'description']:
+            for key in ['name', 'description', 'language']:
                 if key in data:
                     fields.append(f"{key} = ?")
                     values.append(data[key])
@@ -876,15 +950,24 @@ class BiblioLibraryDB:
     
     @staticmethod
     def delete(library_id: str) -> bool:
-        """Delete library and all related entries"""
+        """Delete library, its shadow corpus, and all related data"""
         with get_db_connection() as conn:
             cursor = conn.cursor()
-            # Delete all entries first
+            cursor.execute("SELECT corpus_id FROM biblio_library_corpus WHERE library_id = ?", (library_id,))
+            row = cursor.fetchone()
+            corpus_id = row[0] if row else None
+            cursor.execute("DELETE FROM biblio_entry_abstracts WHERE entry_id IN (SELECT id FROM biblio_entries WHERE library_id = ?)", (library_id,))
             cursor.execute("DELETE FROM biblio_entries WHERE library_id = ?", (library_id,))
-            # Delete the library
+            cursor.execute("DELETE FROM biblio_library_corpus WHERE library_id = ?", (library_id,))
+            if corpus_id:
+                cursor.execute("DELETE FROM text_tags WHERE text_id IN (SELECT id FROM texts WHERE corpus_id = ?)", (corpus_id,))
+                cursor.execute("DELETE FROM processing_tasks WHERE corpus_id = ?", (corpus_id,))
+                cursor.execute("DELETE FROM texts WHERE corpus_id = ?", (corpus_id,))
+                cursor.execute("DELETE FROM corpus_tags WHERE corpus_id = ?", (corpus_id,))
+                cursor.execute("DELETE FROM corpora WHERE id = ?", (corpus_id,))
             cursor.execute("DELETE FROM biblio_libraries WHERE id = ?", (library_id,))
             conn.commit()
-            return cursor.rowcount > 0
+            return True
     
     @staticmethod
     def update_entry_count(library_id: str):
@@ -1005,10 +1088,13 @@ class BiblioEntryDB:
                 return entry
             return None
     
+    _SORT_COLUMNS = frozenset({'title', 'year', 'journal', 'citation_count'})
+
     @staticmethod
     def list_by_library(library_id: str, filters: Optional[Dict[str, Any]] = None, 
-                        page: int = 1, page_size: int = 50) -> Dict[str, Any]:
-        """List entries in a library with optional filters and pagination"""
+                        page: int = 1, page_size: int = 50,
+                        order_by: Optional[str] = None, order_dir: Optional[str] = None) -> Dict[str, Any]:
+        """List entries in a library with optional filters, pagination and sort."""
         with get_db_readonly() as conn:
             cursor = conn.cursor()
             
@@ -1057,13 +1143,27 @@ class BiblioEntryDB:
                     query += " AND doc_type = ?"
                     count_query += " AND doc_type = ?"
                     params.append(filters['doc_type'])
+                
+                # Title search (e.g. for table search box)
+                if filters.get('title_search'):
+                    query += " AND title LIKE ?"
+                    count_query += " AND title LIKE ?"
+                    params.append(f'%{filters["title_search"]}%')
             
             # Get total count
             cursor.execute(count_query, params)
             total = cursor.fetchone()[0]
             
-            # Add pagination
-            query += " ORDER BY year DESC, title ASC LIMIT ? OFFSET ?"
+            # Order by (whitelist columns); SQLite: use "col IS NULL, col" to put nulls last
+            if order_by and order_by in BiblioEntryDB._SORT_COLUMNS and order_dir in ('asc', 'desc'):
+                direction = 'ASC' if order_dir == 'asc' else 'DESC'
+                if order_by in ('year', 'citation_count'):
+                    query += f" ORDER BY {order_by} IS NULL, {order_by} {direction}, title ASC"
+                else:
+                    query += f" ORDER BY {order_by} {direction}, title ASC"
+            else:
+                query += " ORDER BY year IS NULL, year DESC, title ASC"
+            query += " LIMIT ? OFFSET ?"
             params.extend([page_size, (page - 1) * page_size])
             
             cursor.execute(query, params)
@@ -1087,6 +1187,52 @@ class BiblioEntryDB:
                 'page_size': page_size,
                 'total_pages': (total + page_size - 1) // page_size
             }
+    
+    @staticmethod
+    def count_processing_entries(library_id: str, filters: Optional[Dict[str, Any]] = None) -> int:
+        """Count entries (matching filters) that have a text whose latest task is pending/processing."""
+        with get_db_readonly() as conn:
+            cursor = conn.cursor()
+            base = (
+                "SELECT COUNT(DISTINCT be.id) FROM biblio_entries be "
+                "INNER JOIN biblio_entry_abstracts bea ON bea.entry_id = be.id "
+                "INNER JOIN ("
+                "  SELECT pt.text_id, pt.status FROM processing_tasks pt "
+                "  INNER JOIN ("
+                "    SELECT text_id, MAX(created_at) AS max_created FROM processing_tasks GROUP BY text_id"
+                "  ) latest ON latest.text_id = pt.text_id AND latest.max_created = pt.created_at"
+                ") latest_task ON latest_task.text_id = bea.text_id "
+                "WHERE be.library_id = ? AND latest_task.status IN ('pending', 'processing')"
+            )
+            params: List[Any] = [library_id]
+            if filters:
+                if filters.get('year_start'):
+                    base += " AND be.year >= ?"
+                    params.append(filters['year_start'])
+                if filters.get('year_end'):
+                    base += " AND be.year <= ?"
+                    params.append(filters['year_end'])
+                if filters.get('author'):
+                    base += " AND be.authors LIKE ?"
+                    params.append(f'%{filters["author"]}%')
+                if filters.get('institution'):
+                    base += " AND be.institutions LIKE ?"
+                    params.append(f'%{filters["institution"]}%')
+                if filters.get('keyword'):
+                    base += " AND be.keywords LIKE ?"
+                    params.append(f'%{filters["keyword"]}%')
+                if filters.get('journal'):
+                    base += " AND be.journal LIKE ?"
+                    params.append(f'%{filters["journal"]}%')
+                if filters.get('doc_type'):
+                    base += " AND be.doc_type = ?"
+                    params.append(filters['doc_type'])
+                if filters.get('title_search'):
+                    base += " AND be.title LIKE ?"
+                    params.append(f'%{filters["title_search"]}%')
+            cursor.execute(base, params)
+            row = cursor.fetchone()
+            return row[0] if row else 0
     
     @staticmethod
     def get_all_by_library(library_id: str, filters: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
@@ -1139,18 +1285,36 @@ class BiblioEntryDB:
     
     @staticmethod
     def delete(entry_id: str) -> bool:
-        """Delete a single entry"""
+        """Delete a single entry and its abstract text if any"""
         with get_db_connection() as conn:
             cursor = conn.cursor()
+            cursor.execute("SELECT text_id FROM biblio_entry_abstracts WHERE entry_id = ?", (entry_id,))
+            row = cursor.fetchone()
+            text_id = row[0] if row else None
+            cursor.execute("DELETE FROM biblio_entry_abstracts WHERE entry_id = ?", (entry_id,))
+            if text_id:
+                cursor.execute("DELETE FROM text_tags WHERE text_id = ?", (text_id,))
+                cursor.execute("DELETE FROM processing_tasks WHERE text_id = ?", (text_id,))
+                cursor.execute("DELETE FROM texts WHERE id = ?", (text_id,))
             cursor.execute("DELETE FROM biblio_entries WHERE id = ?", (entry_id,))
             conn.commit()
             return cursor.rowcount > 0
     
     @staticmethod
     def delete_by_library(library_id: str) -> int:
-        """Delete all entries in a library"""
+        """Delete all entries in a library and their abstract texts"""
         with get_db_connection() as conn:
             cursor = conn.cursor()
+            cursor.execute(
+                "SELECT text_id FROM biblio_entry_abstracts WHERE entry_id IN (SELECT id FROM biblio_entries WHERE library_id = ?)",
+                (library_id,)
+            )
+            text_ids = [row[0] for row in cursor.fetchall()]
+            cursor.execute("DELETE FROM biblio_entry_abstracts WHERE entry_id IN (SELECT id FROM biblio_entries WHERE library_id = ?)", (library_id,))
+            for text_id in text_ids:
+                cursor.execute("DELETE FROM text_tags WHERE text_id = ?", (text_id,))
+                cursor.execute("DELETE FROM processing_tasks WHERE text_id = ?", (text_id,))
+                cursor.execute("DELETE FROM texts WHERE id = ?", (text_id,))
             cursor.execute("DELETE FROM biblio_entries WHERE library_id = ?", (library_id,))
             count = cursor.rowcount
             conn.commit()
@@ -1235,6 +1399,56 @@ class BiblioEntryDB:
                     (library_id,)
                 )
                 return [row[0] for row in cursor.fetchall()]
+
+
+class BiblioEntryAbstractsDB:
+    """Database operations for biblio entry -> abstract text mapping"""
+    
+    @staticmethod
+    def create(entry_id: str, text_id: str) -> None:
+        """Link an entry to its abstract text"""
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "INSERT OR REPLACE INTO biblio_entry_abstracts (entry_id, text_id) VALUES (?, ?)",
+                (entry_id, text_id)
+            )
+            conn.commit()
+    
+    @staticmethod
+    def get_text_id(entry_id: str) -> Optional[str]:
+        """Get text_id for an entry"""
+        with get_db_readonly() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT text_id FROM biblio_entry_abstracts WHERE entry_id = ?", (entry_id,))
+            row = cursor.fetchone()
+            return row[0] if row else None
+    
+    @staticmethod
+    def get_entry_id(text_id: str) -> Optional[str]:
+        """Get entry_id for a text"""
+        with get_db_readonly() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT entry_id FROM biblio_entry_abstracts WHERE text_id = ?", (text_id,))
+            row = cursor.fetchone()
+            return row[0] if row else None
+    
+    @staticmethod
+    def get_task_by_entry_id(entry_id: str) -> Optional[Dict[str, Any]]:
+        """Get active/recent task for an entry's abstract text"""
+        text_id = BiblioEntryAbstractsDB.get_text_id(entry_id)
+        if not text_id:
+            return None
+        with get_db_readonly() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """SELECT * FROM processing_tasks 
+                   WHERE text_id = ? 
+                   ORDER BY created_at DESC LIMIT 1""",
+                (text_id,)
+            )
+            row = cursor.fetchone()
+            return row_to_dict(row) if row else None
 
 
 # Initialize database on module import

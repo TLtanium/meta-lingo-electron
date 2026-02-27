@@ -47,12 +47,21 @@ export interface MetaphorSourceResult {
   percentage: number;
 }
 
+export interface MetaphorPOSGroupStats {
+  total_tokens: number;
+  metaphor_tokens: number;
+  literal_tokens: number;
+  metaphor_rate: number;
+}
+
 export interface MetaphorStatistics {
   total_tokens: number;
   metaphor_tokens: number;
   literal_tokens: number;
   metaphor_rate: number;
   source_distribution: Record<MetaphorSource, number>;
+  // Optional statistics grouped by POS (e.g. ALL / IN / DT / RB / RP / OTHER)
+  pos_group_stats?: Record<string, MetaphorPOSGroupStats>;
 }
 
 export interface MetaphorAnalysisResponse {
@@ -251,7 +260,9 @@ export const METAPHOR_SOURCE_COLORS: Record<MetaphorSource, string> = {
 export const METAPHOR_SOURCE_LABELS: Record<MetaphorSource, { en: string; zh: string }> = {
   filter: { en: 'Word Filter', zh: '词表过滤' },
   rule: { en: 'Rule Filter', zh: '规则过滤' },
-  hitz: { en: 'HiTZ', zh: 'HiTZ' },
-  finetuned: { en: 'IDRRP', zh: 'IDRRP' },
+  // Both HiTZ and clause model outputs are presented as "indirect metaphor" in the UI;
+  // colors are used to distinguish their internal sources.
+  hitz: { en: 'indirect', zh: '间接隐喻' },
+  finetuned: { en: 'indirect', zh: '间接隐喻' },
   unknown: { en: 'Unknown', zh: '未知' },
 };

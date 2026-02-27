@@ -128,7 +128,9 @@ class KWICService:
                 tokens = self._get_tokens_from_spacy(spacy_data)
                 if not tokens:
                     continue
-                
+                # Merge USAS tags for CQL usas attribute
+                self._merge_usas_into_tokens(tokens, text)
+
                 # Load MIPVU data for metaphor info
                 mipvu_map = self._load_mipvu_map(text)
                 
@@ -307,7 +309,69 @@ class KWICService:
                 return True
         
         return False
-    
+
+    def _load_usas_annotation(self, text: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """Load USAS annotation for a text (for CQL usas attribute)."""
+        media_type = text.get('media_type', 'text')
+        if media_type in ('audio', 'video'):
+            transcript_json = text.get('transcript_json_path')
+            if transcript_json and os.path.exists(transcript_json):
+                try:
+                    with open(transcript_json, 'r', encoding='utf-8') as f:
+                        data = json.load(f)
+                    if 'usas_annotations' in data:
+                        return data['usas_annotations']
+                except Exception as e:
+                    logger.debug(f"Failed to load transcript USAS: {e}")
+            return None
+        content_path = text.get('content_path')
+        if not content_path:
+            return None
+        content_path = Path(content_path)
+        usas_path = content_path.parent / f"{content_path.stem}.usas.json"
+        if not usas_path.exists():
+            return None
+        try:
+            with open(usas_path, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except Exception as e:
+            logger.debug(f"Failed to load USAS annotation: {e}")
+        return None
+
+    def _usas_tokens_flat(self, usas_data: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Flatten USAS tokens from either 'tokens' or 'segments' in document order."""
+        if not usas_data:
+            return []
+        if "tokens" in usas_data:
+            return list(usas_data["tokens"])
+        if "segments" in usas_data:
+            out = []
+            for seg_id in sorted(usas_data["segments"].keys()):
+                seg = usas_data["segments"][seg_id]
+                out.extend(seg.get("tokens", []))
+            return out
+        return []
+
+    def _merge_usas_into_tokens(
+        self, tokens: List[Dict[str, Any]], text: Dict[str, Any]
+    ) -> None:
+        """Merge USAS usas_tag into token list by index (or by start/end if lengths differ)."""
+        usas_data = self._load_usas_annotation(text)
+        if not usas_data:
+            for t in tokens:
+                t['usas_tag'] = ''
+            return
+        usas_tokens = self._usas_tokens_flat(usas_data)
+        if len(usas_tokens) == len(tokens):
+            for t, u in zip(tokens, usas_tokens):
+                t['usas_tag'] = u.get('usas_tag', '')
+        else:
+            # Align by (start, end)
+            by_pos = {(u.get('start', -1), u.get('end', -1)): u.get('usas_tag', '') for u in usas_tokens}
+            for t in tokens:
+                key = (t.get('start', -1), t.get('end', -1))
+                t['usas_tag'] = by_pos.get(key, '')
+
     def _get_tokens_from_spacy(self, spacy_data: Dict[str, Any]) -> List[Dict[str, Any]]:
         """Extract tokens from SpaCy data"""
         tokens = []

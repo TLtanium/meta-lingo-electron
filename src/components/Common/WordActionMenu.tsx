@@ -16,6 +16,8 @@ import MoreVertIcon from '@mui/icons-material/MoreVert'
 import LinkIcon from '@mui/icons-material/Link'
 import JoinInnerIcon from '@mui/icons-material/JoinInner'
 import HubIcon from '@mui/icons-material/Hub'
+import TextFieldsIcon from '@mui/icons-material/TextFields'
+import CategoryIcon from '@mui/icons-material/Category'
 import { useTranslation } from 'react-i18next'
 import { useTabStore } from '../../stores/tabStore'
 import type { CrossLinkParams, TabType, MatchMode, SourceModule } from '../../types'
@@ -199,12 +201,20 @@ export interface WordActionMenuProps {
   selectionMode: 'all' | 'selected' | 'tags'
   /** Selected tags (when selectionMode is 'tags') */
   selectedTags?: string[]
+  /** When in library mode, the library id for cross-link target sync */
+  libraryId?: string
+  /** When library + manual selection, entry IDs for cross-link target to restore selection */
+  selectedEntryIds?: string[]
   /** Whether to show collocation option (共现关系) */
   showCollocation?: boolean
   /** Whether to show collocation analysis option (搭配分析) */
   showCollocationAnalysis?: boolean
   /** Whether to show word sketch option (词图分析) */
   showWordSketch?: boolean
+  /** Whether to show N-gram analysis option (N-gram分析) */
+  showNgram?: boolean
+  /** Whether to show semantic domain analysis option (语义域分析) */
+  showSemanticDomain?: boolean
   /** Button size */
   size?: 'small' | 'medium'
   /** Custom tooltip */
@@ -233,9 +243,13 @@ export default function WordActionMenu({
   textIds,
   selectionMode,
   selectedTags,
+  libraryId,
+  selectedEntryIds,
   showCollocation = true,
   showCollocationAnalysis = true,
   showWordSketch = true,
+  showNgram = true,
+  showSemanticDomain = true,
   size = 'small',
   tooltip,
   highlightWords,
@@ -316,7 +330,9 @@ export default function WordActionMenu({
       kwicKeywordLemma: isFromWordSketch ? kwicKeyword : undefined,
       kwicHighlightLemma: isFromWordSketch ? kwicHighlight : undefined,
       // Source module for default settings
-      sourceModule
+      sourceModule,
+      ...(libraryId && { libraryId }),
+      ...(libraryId && selectionMode === 'selected' && selectedEntryIds?.length && { selectedEntryIds })
     }
     return params
   }
@@ -367,8 +383,60 @@ export default function WordActionMenu({
     handleClose()
   }
 
+  const handleOpenNgram = (event: React.MouseEvent) => {
+    event.stopPropagation()
+    const crossLinkParams: CrossLinkParams = {
+      searchWord: word,
+      corpusId,
+      textIds,
+      selectionMode,
+      selectedTags,
+      autoSearch: true,
+      ngramValues: [2, 3, 4],
+      ngramSearchType: 'contains',
+      sourceModule,
+      ...(libraryId && { libraryId }),
+      ...(libraryId && selectionMode === 'selected' && selectedEntryIds?.length && { selectedEntryIds })
+    }
+    const title = `${t('ngram.title')} - ${word}`
+    pendingActionRef.current = () => {
+      openTab({
+        type: 'ngram' as TabType,
+        title,
+        props: { crossLinkParams }
+      })
+    }
+    handleClose()
+  }
+
+  const handleOpenSemanticDomain = (event: React.MouseEvent) => {
+    event.stopPropagation()
+    const crossLinkParams: CrossLinkParams = {
+      searchWord: word,
+      corpusId,
+      textIds,
+      selectionMode,
+      selectedTags,
+      semanticResultMode: 'domain',
+      semanticSearchType: 'contains',
+      semanticSearchValue: word,
+      sourceModule,
+      ...(libraryId && { libraryId }),
+      ...(libraryId && selectionMode === 'selected' && selectedEntryIds?.length && { selectedEntryIds })
+    }
+    const title = `${t('semantic.title')} - ${word}`
+    pendingActionRef.current = () => {
+      openTab({
+        type: 'semantic' as TabType,
+        title,
+        props: { crossLinkParams }
+      })
+    }
+    handleClose()
+  }
+
   // Don't render if no options to show
-  if (!showCollocation && !showCollocationAnalysis && !showWordSketch) {
+  if (!showCollocation && !showCollocationAnalysis && !showWordSketch && !showNgram && !showSemanticDomain) {
     return null
   }
 
@@ -425,6 +493,22 @@ export default function WordActionMenu({
               <HubIcon fontSize="small" />
             </ListItemIcon>
             <ListItemText primary={t('crossLink.viewWordSketch')} />
+          </MenuItem>
+        )}
+        {showNgram && (
+          <MenuItem onClick={handleOpenNgram}>
+            <ListItemIcon>
+              <TextFieldsIcon fontSize="small" />
+            </ListItemIcon>
+            <ListItemText primary={t('crossLink.viewNgram')} />
+          </MenuItem>
+        )}
+        {showSemanticDomain && (
+          <MenuItem onClick={handleOpenSemanticDomain}>
+            <ListItemIcon>
+              <CategoryIcon fontSize="small" />
+            </ListItemIcon>
+            <ListItemText primary={t('crossLink.viewSemanticDomain')} />
           </MenuItem>
         )}
       </Menu>

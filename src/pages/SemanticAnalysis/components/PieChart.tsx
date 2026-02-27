@@ -60,11 +60,11 @@ export default function PieChart({
     const svg = d3.select(svgRef.current)
     svg.selectAll('*').remove()
 
-    // Get label for each item
+    // Get label for each item (use domain_name for display in domain mode)
     const getLabel = (d: SemanticDomainResult | SemanticWordResult) => {
       if (isDomainMode) {
         const domainResult = d as SemanticDomainResult
-        return domainResult.domain
+        return domainResult.domain_name || domainResult.domain
       } else {
         const wordResult = d as SemanticWordResult
         return wordResult.word

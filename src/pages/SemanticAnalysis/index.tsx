@@ -8,12 +8,17 @@ import { Box, Tabs, Tab } from '@mui/material'
 import CategoryIcon from '@mui/icons-material/Category'
 import AutoGraphIcon from '@mui/icons-material/AutoGraph'
 import { useTranslation } from 'react-i18next'
+import type { CrossLinkParams } from '../../types'
 import SemanticDomainAnalysis from './SemanticDomainAnalysis'
 import MetaphorAnalysis from './MetaphorAnalysis'
 
 type AnalysisTab = 'semantic' | 'metaphor'
 
-export default function SemanticAnalysis() {
+interface SemanticAnalysisProps {
+  crossLinkParams?: CrossLinkParams
+}
+
+export default function SemanticAnalysis({ crossLinkParams }: SemanticAnalysisProps) {
   const { i18n } = useTranslation()
   const isZh = i18n.language === 'zh'
   
@@ -47,10 +52,10 @@ export default function SemanticAnalysis() {
       {/* Tab Content - use display to preserve state when switching tabs */}
       <Box sx={{ flex: 1, overflow: 'hidden' }}>
         <Box sx={{ display: activeTab === 'semantic' ? 'block' : 'none', height: '100%', width: '100%' }}>
-          <SemanticDomainAnalysis />
+          <SemanticDomainAnalysis crossLinkParams={crossLinkParams} />
         </Box>
         <Box sx={{ display: activeTab === 'metaphor' ? 'block' : 'none', height: '100%', width: '100%' }}>
-          <MetaphorAnalysis />
+          <MetaphorAnalysis crossLinkParams={crossLinkParams} />
         </Box>
       </Box>
     </Box>

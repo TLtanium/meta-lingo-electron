@@ -151,7 +151,7 @@ export default function TermDecayChart({
       const topicData = topics.get(topicId) || []
       const sortedData = [...topicData].sort((a, b) => a.rank - b.rank)
       const color = sortedData[0]?.color || getTopicColor(i)
-      const topicName = sortedData[0]?.topic_name || `Topic ${topicId}`
+      const topicName = sortedData[0]?.topic_name || t('topicModeling.visualization.topicLabel', 'Topic {{topicId}}', { topicId })
 
       // Line path
       const path = g.append('path')
@@ -264,7 +264,7 @@ export default function TermDecayChart({
       .attr('fill', '#555')
       .text(d => {
         const topicData = topics.get(d)
-        return truncateText(topicData?.[0]?.topic_name || `Topic ${d}`, 15)
+        return truncateText(topicData?.[0]?.topic_name || t('topicModeling.visualization.topicLabel', 'Topic {{topicId}}', { topicId: d }), 15)
       })
 
     // Legend hover to highlight lines and points

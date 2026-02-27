@@ -32,10 +32,14 @@ import type {
   LSAConfig,
   LSAResult,
   LSAOptimizeResult,
+  LSADynamicConfig,
+  LSADynamicResult,
   NMFPreprocessConfig,
   NMFConfig,
   NMFResult,
-  NMFOptimizeResult
+  NMFOptimizeResult,
+  NMFDynamicConfig,
+  NMFDynamicResult
 } from '../types/topicModeling'
 
 const BASE_URL = '/api/topic-modeling'
@@ -279,6 +283,31 @@ export async function generateTopicNames(
   })
 }
 
+/**
+ * Generate topic names using OpenAI-compatible API
+ */
+export async function generateTopicNamesOpenAI(
+  topics: TopicItem[],
+  baseUrl: string,
+  apiKey: string,
+  model: string,
+  options: {
+    promptTemplate?: string
+    language?: 'en' | 'zh'
+    topNWords?: number
+  } = {}
+) {
+  return api.postLong<{ topics: TopicItem[] }>(`${BASE_URL}/openai/naming`, {
+    topics,
+    base_url: baseUrl,
+    api_key: apiKey,
+    model,
+    prompt_template: options.promptTemplate,
+    language: options.language || 'en',
+    top_n_words: options.topNWords || 10
+  })
+}
+
 // ============ Outlier Estimation API ============
 
 export interface OutlierEstimationResult {
@@ -507,6 +536,31 @@ export async function generateLDATopicNames(
 }
 
 /**
+ * Generate topic names for LDA using OpenAI-compatible API
+ */
+export async function generateLDATopicNamesOpenAI(
+  resultId: string,
+  baseUrl: string,
+  apiKey: string,
+  model: string,
+  options: {
+    promptTemplate?: string
+    language?: 'en' | 'zh'
+    topNWords?: number
+  } = {}
+) {
+  return api.postLong<{ success: boolean; topics: import('../types/topicModeling').LDATopic[] }>(`${BASE_URL}/lda/openai/naming`, {
+    result_id: resultId,
+    base_url: baseUrl,
+    api_key: apiKey,
+    model,
+    prompt_template: options.promptTemplate,
+    language: options.language || 'en',
+    top_n_words: options.topNWords || 10
+  })
+}
+
+/**
  * Update custom label for a single LDA topic
  */
 export async function updateLDATopicLabel(
@@ -632,6 +686,43 @@ export async function analyzeLSA(
 }
 
 /**
+ * Run LSA topic modeling with dynamic topic evolution analysis
+ */
+export async function analyzeLSADynamic(
+  corpusId: string,
+  textIds: string[],
+  language: string,
+  preprocessConfig: LSAPreprocessConfig,
+  lsaConfig: LSAConfig,
+  dynamicConfig: LSADynamicConfig,
+  textDates: Record<string, string>
+) {
+  return api.postLong<LSADynamicResult>(`${BASE_URL}/lsa/analyze-dynamic`, {
+    corpus_id: corpusId,
+    text_ids: textIds,
+    language,
+    preprocess_config: preprocessConfig,
+    lsa_config: lsaConfig,
+    dynamic_config: dynamicConfig,
+    text_dates: textDates
+  })
+}
+
+/**
+ * Get LSA topic evolution time series data
+ */
+export async function getLSATopicEvolution(resultId: string) {
+  return api.get<LDATopicEvolutionData>(`${BASE_URL}/lsa/results/${resultId}/evolution`)
+}
+
+/**
+ * Get LSA sankey diagram data for topic flow
+ */
+export async function getLSASankeyData(resultId: string) {
+  return api.get<LDASankeyData>(`${BASE_URL}/lsa/results/${resultId}/sankey`)
+}
+
+/**
  * Optimize LSA topic count based on explained variance
  */
 export async function optimizeLSATopics(
@@ -721,6 +812,31 @@ export async function generateLSATopicNames(
 }
 
 /**
+ * Generate topic names for LSA using OpenAI-compatible API
+ */
+export async function generateLSATopicNamesOpenAI(
+  resultId: string,
+  baseUrl: string,
+  apiKey: string,
+  model: string,
+  options: {
+    promptTemplate?: string
+    language?: 'en' | 'zh'
+    topNWords?: number
+  } = {}
+) {
+  return api.postLong<{ success: boolean; topics: import('../types/topicModeling').LSATopic[] }>(`${BASE_URL}/lsa/openai/naming`, {
+    result_id: resultId,
+    base_url: baseUrl,
+    api_key: apiKey,
+    model,
+    prompt_template: options.promptTemplate,
+    language: options.language || 'en',
+    top_n_words: options.topNWords || 10
+  })
+}
+
+/**
  * Update custom label for a single LSA topic
  */
 export async function updateLSATopicLabel(
@@ -796,6 +912,43 @@ export async function analyzeNMF(
     preprocess_config: preprocessConfig,
     nmf_config: nmfConfig
   })
+}
+
+/**
+ * Run NMF topic modeling with dynamic topic evolution analysis
+ */
+export async function analyzeNMFDynamic(
+  corpusId: string,
+  textIds: string[],
+  language: string,
+  preprocessConfig: NMFPreprocessConfig,
+  nmfConfig: NMFConfig,
+  dynamicConfig: NMFDynamicConfig,
+  textDates: Record<string, string>
+) {
+  return api.postLong<NMFDynamicResult>(`${BASE_URL}/nmf/analyze-dynamic`, {
+    corpus_id: corpusId,
+    text_ids: textIds,
+    language,
+    preprocess_config: preprocessConfig,
+    nmf_config: nmfConfig,
+    dynamic_config: dynamicConfig,
+    text_dates: textDates
+  })
+}
+
+/**
+ * Get NMF topic evolution time series data
+ */
+export async function getNMFTopicEvolution(resultId: string) {
+  return api.get<LDATopicEvolutionData>(`${BASE_URL}/nmf/results/${resultId}/evolution`)
+}
+
+/**
+ * Get NMF sankey diagram data for topic flow
+ */
+export async function getNMFSankeyData(resultId: string) {
+  return api.get<LDASankeyData>(`${BASE_URL}/nmf/results/${resultId}/sankey`)
 }
 
 /**
@@ -889,6 +1042,31 @@ export async function generateNMFTopicNames(
 }
 
 /**
+ * Generate topic names for NMF using OpenAI-compatible API
+ */
+export async function generateNMFTopicNamesOpenAI(
+  resultId: string,
+  baseUrl: string,
+  apiKey: string,
+  model: string,
+  options: {
+    promptTemplate?: string
+    language?: 'en' | 'zh'
+    topNWords?: number
+  } = {}
+) {
+  return api.postLong<{ success: boolean; topics: import('../types/topicModeling').NMFTopic[] }>(`${BASE_URL}/nmf/openai/naming`, {
+    result_id: resultId,
+    base_url: baseUrl,
+    api_key: apiKey,
+    model,
+    prompt_template: options.promptTemplate,
+    language: options.language || 'en',
+    top_n_words: options.topNWords || 10
+  })
+}
+
+/**
  * Update custom label for a single NMF topic
  */
 export async function updateNMFTopicLabel(
@@ -935,6 +1113,7 @@ export const topicModelingApi = {
   // Ollama
   checkOllamaConnection,
   generateTopicNames,
+  generateTopicNamesOpenAI,
   // Outlier estimation
   estimateOutliers,
   // Topic merge
@@ -951,6 +1130,7 @@ export const topicModelingApi = {
   listLDAResults,
   deleteLDAResult,
   generateLDATopicNames,
+  generateLDATopicNamesOpenAI,
   updateLDATopicLabel,
   updateLDATopics,
   // LDA Dynamic
@@ -961,23 +1141,31 @@ export const topicModelingApi = {
   // LSA
   previewLSAPreprocess,
   analyzeLSA,
+  analyzeLSADynamic,
+  getLSATopicEvolution,
+  getLSASankeyData,
   optimizeLSATopics,
   getLSAResult,
   getLSATopicSimilarity,
   listLSAResults,
   deleteLSAResult,
   generateLSATopicNames,
+  generateLSATopicNamesOpenAI,
   updateLSATopicLabel,
   updateLSATopics,
   // NMF
   previewNMFPreprocess,
   analyzeNMF,
+  analyzeNMFDynamic,
+  getNMFTopicEvolution,
+  getNMFSankeyData,
   optimizeNMFTopics,
   getNMFResult,
   getNMFTopicSimilarity,
   listNMFResults,
   deleteNMFResult,
   generateNMFTopicNames,
+  generateNMFTopicNamesOpenAI,
   updateNMFTopicLabel,
   updateNMFTopics
 }

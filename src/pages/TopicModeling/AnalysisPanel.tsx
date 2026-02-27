@@ -57,6 +57,8 @@ interface AnalysisPanelProps {
   corpusLanguage?: string
   resultId?: string | null  // For outlier estimation after analysis
   outlierCount?: number  // Current outlier count from analysis result
+  /** When in library mode, pass for dynamic topic to use biblio entry year */
+  libraryId?: string
 }
 
 export default function AnalysisPanel({
@@ -67,7 +69,8 @@ export default function AnalysisPanel({
   textIds,
   corpusLanguage = 'english',
   resultId = null,
-  outlierCount = 0
+  outlierCount = 0,
+  libraryId
 }: AnalysisPanelProps) {
   const { t } = useTranslation()
   const [analyzing, setAnalyzing] = useState(false)
@@ -237,12 +240,13 @@ export default function AnalysisPanel({
       if (dynamicTopicConfig?.enabled && corpusId && textIds?.length) {
         requestData.dynamic_topic = {
           enabled: true,
-          date_format: dynamicTopicConfig.date_format,
+          date_format: libraryId ? 'year_only' : dynamicTopicConfig.date_format,
           nr_bins: dynamicTopicConfig.nr_bins,
           evolution_tuning: dynamicTopicConfig.evolution_tuning,
           global_tuning: dynamicTopicConfig.global_tuning,
           corpus_id: corpusId,
-          text_ids: textIds
+          text_ids: textIds,
+          ...(libraryId && { library_id: libraryId })
         }
       }
 

@@ -29,6 +29,12 @@ interface DynamicTopicPanelProps {
   config: DynamicTopicConfig
   onConfigChange: (config: DynamicTopicConfig) => void
   texts: CorpusText[]
+  /** When in library mode, text_id -> date string (year) from biblio entry */
+  textDates?: Record<string, string>
+  /** When in library mode, force year-only format (literature has only year) */
+  libraryId?: string
+  /** Resolved number of selected texts (for library mode when textDates may be partial) */
+  textCount?: number
   disabled?: boolean
 }
 
@@ -36,14 +42,29 @@ export default function DynamicTopicPanel({
   config,
   onConfigChange,
   texts,
+  textDates,
+  libraryId,
+  textCount = 0,
   disabled = false
 }: DynamicTopicPanelProps) {
   const { t } = useTranslation()
 
-  // Count texts with date metadata
-  const textsWithDate = useMemo(() => {
+  const isLibraryMode = Boolean(libraryId)
+  const dateCountFromTexts = useMemo(() => {
+    if (textDates && Object.keys(textDates).length > 0) return Object.keys(textDates).length
     return texts.filter(text => text.metadata?.date).length
-  }, [texts])
+  }, [texts, textDates])
+  const textsWithDate = isLibraryMode ? Math.max(dateCountFromTexts, textCount) : dateCountFromTexts
+  const totalTextCount = useMemo(() => {
+    if (textDates && Object.keys(textDates).length > 0) return Math.max(Object.keys(textDates).length, textCount)
+    return isLibraryMode ? textCount : texts.length
+  }, [texts, textDates, isLibraryMode, textCount])
+
+  useEffect(() => {
+    if (isLibraryMode && config.date_format !== 'year_only') {
+      onConfigChange({ ...config, date_format: 'year_only' })
+    }
+  }, [isLibraryMode]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleConfigChange = (key: keyof DynamicTopicConfig, value: unknown) => {
     onConfigChange({ ...config, [key]: value })
@@ -68,15 +89,28 @@ export default function DynamicTopicPanel({
           sx={{ py: 0.5 }}
         >
           <Typography variant="caption">
-            {textsWithDate > 0 ? (
+            {isLibraryMode ? (
+              <>
+                {t('topicModeling.dynamicTopic.libraryYearHint')}
+                {' '}
+                <strong>{textsWithDate}</strong> {t('topicModeling.dynamicTopic.textsWithDate')}
+                {' '}/ {totalTextCount} {t('corpus.textsCount')}
+                {' '}({t('topicModeling.dynamicTopic.yearOnly')})
+              </>
+            ) : textsWithDate > 0 ? (
               <>
                 <strong>{textsWithDate}</strong> {t('topicModeling.dynamicTopic.textsWithDate')}
-                {' '}/ {texts.length} {t('corpus.textsCount')}
+                {' '}/ {totalTextCount} {t('corpus.textsCount')}
               </>
             ) : (
               t('topicModeling.dynamicTopic.noDateData')
             )}
           </Typography>
+          {textDates && Object.keys(textDates).length > 0 && !isLibraryMode && (
+            <Typography variant="caption" display="block" sx={{ mt: 0.5 }} color="text.secondary">
+              {t('topicModeling.dynamicTopic.libraryYearHint')}
+            </Typography>
+          )}
         </Alert>
 
         {/* Enable checkbox */}
@@ -101,22 +135,29 @@ export default function DynamicTopicPanel({
           <>
             <Divider />
             
-            {/* Date format selection */}
-            <FormControl size="small" fullWidth disabled={disabled}>
-              <InputLabel>{t('topicModeling.dynamicTopic.dateFormat')}</InputLabel>
-              <Select
-                value={config.date_format}
-                label={t('topicModeling.dynamicTopic.dateFormat')}
-                onChange={(e) => handleConfigChange('date_format', e.target.value as DateFormatType)}
-              >
-                <MenuItem value="year_only">
-                  {t('topicModeling.dynamicTopic.yearOnly')}
-                </MenuItem>
-                <MenuItem value="full_date">
-                  {t('topicModeling.dynamicTopic.fullDate')}
-                </MenuItem>
-              </Select>
-            </FormControl>
+            {/* Date format: in library mode fixed to year_only, no selector */}
+            {!isLibraryMode && (
+              <FormControl size="small" fullWidth disabled={disabled}>
+                <InputLabel>{t('topicModeling.dynamicTopic.dateFormat')}</InputLabel>
+                <Select
+                  value={config.date_format}
+                  label={t('topicModeling.dynamicTopic.dateFormat')}
+                  onChange={(e) => handleConfigChange('date_format', e.target.value as DateFormatType)}
+                >
+                  <MenuItem value="year_only">
+                    {t('topicModeling.dynamicTopic.yearOnly')}
+                  </MenuItem>
+                  <MenuItem value="full_date">
+                    {t('topicModeling.dynamicTopic.fullDate')}
+                  </MenuItem>
+                </Select>
+              </FormControl>
+            )}
+            {isLibraryMode && (
+              <Typography variant="body2" color="text.secondary">
+                {t('topicModeling.dynamicTopic.dateFormat')}: {t('topicModeling.dynamicTopic.yearOnly')} (%Y)
+              </Typography>
+            )}
 
             {/* Number of bins */}
             <NumberInput

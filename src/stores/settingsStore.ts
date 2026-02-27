@@ -26,6 +26,16 @@ interface SettingsStore {
   setOllamaConnected: (connected: boolean) => void
   setOllamaModel: (model: string | null) => void
   setOllamaModels: (models: string[]) => void
+
+  // OpenAI-compatible API (optional, default off)
+  openaiApiEnabled: boolean
+  openaiApiBaseUrl: string
+  openaiApiKey: string
+  openaiApiModel: string
+  setOpenaiApiEnabled: (enabled: boolean) => void
+  setOpenaiApiBaseUrl: (url: string) => void
+  setOpenaiApiKey: (key: string) => void
+  setOpenaiApiModel: (model: string) => void
   
   // Theme (future use)
   darkMode: boolean
@@ -58,6 +68,16 @@ export const useSettingsStore = create<SettingsStore>()(
       setOllamaConnected: (connected) => set({ ollamaConnected: connected }),
       setOllamaModel: (model) => set({ ollamaModel: model }),
       setOllamaModels: (models) => set({ ollamaModels: models }),
+
+      // OpenAI-compatible API (default off)
+      openaiApiEnabled: false,
+      openaiApiBaseUrl: 'https://api.openai.com/v1',
+      openaiApiKey: '',
+      openaiApiModel: '',
+      setOpenaiApiEnabled: (enabled) => set({ openaiApiEnabled: enabled }),
+      setOpenaiApiBaseUrl: (url) => set({ openaiApiBaseUrl: url }),
+      setOpenaiApiKey: (key) => set({ openaiApiKey: key }),
+      setOpenaiApiModel: (model) => set({ openaiApiModel: model }),
       
       // Theme
       darkMode: false,

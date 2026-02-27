@@ -48,6 +48,13 @@ class SketchDifferenceRequest(BaseModel):
     compare_mode: str = "lemmas"  # "lemmas" or "word_form"
 
 
+class LemmaFormsRequest(BaseModel):
+    """Request model for getting word forms of a lemma in the corpus"""
+    corpus_id: str
+    text_ids: Union[str, List[str]] = "all"
+    lemma: str
+
+
 class SearchCollocationsRequest(BaseModel):
     """Request model for searching collocations"""
     corpus_id: str
@@ -72,9 +79,29 @@ class AnnotateCorpusRequest(BaseModel):
 # Helper Functions
 # ============================================================================
 
+def _spacy_data_to_flat_tokens(spacy_data: dict) -> Optional[list]:
+    """
+    Normalize SpaCy data to a single list of tokens for the sketch engine.
+    Handles: (1) top-level 'tokens'; (2) transcript segment format { segments: { id: { tokens } } }.
+    Returns the token list or None if empty.
+    """
+    if not spacy_data:
+        return None
+    if spacy_data.get('tokens'):
+        return spacy_data['tokens']
+    if spacy_data.get('segments'):
+        tokens = []
+        for _seg_id, seg_data in spacy_data['segments'].items():
+            if isinstance(seg_data, dict) and seg_data.get('tokens'):
+                tokens.extend(seg_data['tokens'])
+        return tokens if tokens else None
+    return None
+
+
 async def get_corpus_spacy_data(corpus_id: str, text_ids: Union[str, List[str]]) -> tuple:
     """
-    Load SpaCy annotation data for specified texts in a corpus
+    Load SpaCy annotation data for specified texts in a corpus.
+    Converts transcript segment-based format to flat tokens so the sketch engine can use it.
     
     Returns:
         Tuple of (spacy_data_list, text_id_list)
@@ -135,8 +162,10 @@ async def get_corpus_spacy_data(corpus_id: str, text_ids: Union[str, List[str]])
                         except Exception as e:
                             logger.warning(f"Failed to load SpaCy file for {text_id}: {e}")
             
-            if spacy_data and spacy_data.get('tokens'):
-                spacy_data_list.append(spacy_data)
+            # Normalize: sketch engine expects each item to have top-level 'tokens'
+            tokens = _spacy_data_to_flat_tokens(spacy_data) if spacy_data else None
+            if tokens:
+                spacy_data_list.append({'tokens': tokens})
                 text_id_list.append(text_id)
                 
         except Exception as e:
@@ -232,6 +261,31 @@ async def generate_sketch_difference(request: SketchDifferenceRequest):
             "success": False,
             "error": str(e)
         }
+
+
+@router.post("/lemma-forms")
+async def get_lemma_forms(request: LemmaFormsRequest):
+    """
+    Return all distinct word forms for a given lemma in the selected corpus.
+    Used by Word Sketch Difference lemma mode: user enters a lemma, then
+    selects two different word forms from dropdowns. If the input is not
+    a lemma present in the corpus (e.g. "goes"), returns empty list.
+    """
+    try:
+        spacy_data_list, _ = await get_corpus_spacy_data(
+            request.corpus_id, request.text_ids
+        )
+        sketch_service = get_sketch_service()
+        forms = sketch_service.get_lemma_forms(
+            lemma=request.lemma,
+            corpus_spacy_data=spacy_data_list
+        )
+        return {"success": True, "forms": forms}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Lemma forms failed: {e}")
+        return {"success": False, "forms": [], "error": str(e)}
 
 
 @router.post("/search")

@@ -10,6 +10,7 @@ from .preprocess_service import TopicPreprocessService, get_topic_preprocess_ser
 from .embedding_service import TopicEmbeddingService, get_topic_embedding_service
 from .bertopic_service import BERTopicService, get_bertopic_service
 from .ollama_naming_service import OllamaTopicNamingService, get_ollama_naming_service
+from .openai_naming_service import OpenAITopicNamingService, get_openai_naming_service
 from .visualization_service import TopicVisualizationService, get_topic_visualization_service
 from .dynamic_topic_service import DynamicTopicService, get_dynamic_topic_service
 from .lda_preprocess_service import LDAPreprocessService, get_lda_preprocess_service
@@ -27,6 +28,8 @@ __all__ = [
     'get_bertopic_service',
     'OllamaTopicNamingService',
     'get_ollama_naming_service',
+    'OpenAITopicNamingService',
+    'get_openai_naming_service',
     'TopicVisualizationService',
     'get_topic_visualization_service',
     'DynamicTopicService',

@@ -28,16 +28,18 @@ import ImageIcon from '@mui/icons-material/Image'
 import InsertChartIcon from '@mui/icons-material/InsertChart'
 import { useTranslation } from 'react-i18next'
 import * as d3 from 'd3'
-import type { NMFResult, NMFTopic } from '../../../types/topicModeling'
+import type { NMFResult, NMFDynamicResult, NMFTopic } from '../../../types/topicModeling'
 import { useResizeObserver, useTooltip, getTopicColor } from '../components/visualizations/d3/useD3'
 import { TopicWordBars } from '../components/visualizations/d3'
 import { COLOR_SCHEMES, COLOR_SCHEME_LABELS, DEFAULT_COLOR_SCHEME, type ColorSchemeName } from '../shared/colorSchemes'
+import TopicEvolutionSankey from '../LDA/components/TopicEvolutionSankey'
+import LDATopicTimeline from '../LDA/components/LDATopicTimeline'
 
 interface NMFVisualizationPanelProps {
-  result: NMFResult | null
+  result: NMFResult | NMFDynamicResult | null
 }
 
-type VizType = 'topicWords' | 'topicPie' | 'docDist'
+type VizType = 'topicWords' | 'topicPie' | 'docDist' | 'sankey' | 'timeline'
 
 export default function NMFVisualizationPanel({ result }: NMFVisualizationPanelProps) {
   const { t, i18n } = useTranslation()
@@ -110,7 +112,7 @@ export default function NMFVisualizationPanel({ result }: NMFVisualizationPanelP
   // Transform NMF topics to TopicWordBars format
   const topicBarData = result?.topics?.map((topic, idx) => ({
     topic_id: topic.topic_id,
-    topic_name: useCustomLabels && topic.custom_label ? topic.custom_label : `Topic ${topic.topic_id}`,
+    topic_name: useCustomLabels && topic.custom_label ? topic.custom_label : t('topicModeling.lda.viz.topicLabel', 'Topic {{topicId}}', { topicId: topic.topic_id }),
     words: topic.keywords.map(kw => ({
       word: kw.word,
       weight: kw.weight * 100 // Convert to percentage for display
@@ -147,13 +149,20 @@ export default function NMFVisualizationPanel({ result }: NMFVisualizationPanelP
       {/* Visualization Tabs */}
       <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
         <Tabs 
-          value={vizType} 
+          value={vizType}
           onChange={(_, v) => setVizType(v)}
-          variant="fullWidth"
+          variant="scrollable"
+          scrollButtons="auto"
         >
           <Tab value="topicWords" label={t('topicModeling.visualization.barchart', 'Topic Word Bars')} />
           <Tab value="topicPie" label={t('topicModeling.nmf.viz.topicPie', 'Topic Distribution')} />
           <Tab value="docDist" label={t('topicModeling.nmf.viz.docDist', 'Document Distribution')} />
+          {result?.has_dynamic && (
+            <Tab value="sankey" label={t('topicModeling.lda.viz.sankey', 'Topic Flow')} />
+          )}
+          {result?.has_dynamic && (
+            <Tab value="timeline" label={t('topicModeling.lda.viz.timeline', 'Evolution Timeline')} />
+          )}
         </Tabs>
       </Box>
       
@@ -302,6 +311,26 @@ export default function NMFVisualizationPanel({ result }: NMFVisualizationPanelP
                 useCustomLabels={useCustomLabels}
               />
             )}
+            {vizType === 'sankey' && result?.has_dynamic && result.sankey_data && (
+              <Box sx={{ flex: 1, width: '100%', display: 'flex' }}>
+                <TopicEvolutionSankey
+                  key="sankey"
+                  data={result.sankey_data}
+                  topics={result.topics}
+                  useCustomLabels={useCustomLabels}
+                />
+              </Box>
+            )}
+            {vizType === 'timeline' && result?.has_dynamic && result.topic_evolution && (
+              <Box sx={{ flex: 1, width: '100%', display: 'flex' }}>
+                <LDATopicTimeline
+                  key="timeline"
+                  data={result.topic_evolution}
+                  topics={result.topics}
+                  useCustomLabels={useCustomLabels}
+                />
+              </Box>
+            )}
           </Box>
         )}
       </Box>
@@ -372,11 +401,11 @@ function TopicPieChart({
       topicCounts[doc.dominant_topic] = (topicCounts[doc.dominant_topic] || 0) + 1
     })
     
-    const data = topics.map(t => ({
-      topic_id: t.topic_id,
-      count: topicCounts[t.topic_id] || 0,
-      keywords: t.keywords.slice(0, 3).map(k => k.word).join(', '),
-      label: useCustomLabels && t.custom_label ? t.custom_label : `Topic ${t.topic_id}`
+    const data = topics.map(topic => ({
+      topic_id: topic.topic_id,
+      count: topicCounts[topic.topic_id] || 0,
+      keywords: topic.keywords.slice(0, 3).map(k => k.word).join(', '),
+      label: useCustomLabels && topic.custom_label ? topic.custom_label : t('topicModeling.lda.viz.topicLabel', 'Topic {{topicId}}', { topicId: topic.topic_id })
     })).filter(d => d.count > 0)
     
     const pie = d3.pie<typeof data[0]>()

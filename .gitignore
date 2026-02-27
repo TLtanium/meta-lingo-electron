@@ -99,6 +99,11 @@ data/*.db
 saves/dict/*.json
 
 # ===================================
+# Corpus data (generated/large CSVs - OANC, BNC, etc.)
+# ===================================
+saves/corpus/
+
+# ===================================
 # JSON Data Files (specific)
 # ===================================
 master_metaphor_lexicon.json

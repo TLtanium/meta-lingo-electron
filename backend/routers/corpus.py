@@ -50,6 +50,12 @@ import time
 _progress_queues: Dict[str, Queue] = {}
 _progress_lock = threading.Lock()
 
+# Throttle DB writes so GET /tasks/ can read without blocking (SQLite lock contention)
+_progress_db_throttle: Dict[str, tuple] = {}  # task_id -> (last_progress, last_status, last_ts)
+_progress_db_throttle_lock = threading.Lock()
+PROGRESS_DB_MIN_INTERVAL = 2.0   # min seconds between DB updates per task
+PROGRESS_DB_MIN_DELTA = 8        # or when progress increased by >= this
+
 
 def create_progress_queue(task_id: str) -> Queue:
     """Create a progress queue for a task (thread-safe)"""
@@ -76,7 +82,7 @@ def remove_progress_queue(task_id: str):
 
 def send_progress_sync(task_id: str, stage: str, progress: int, message: str, 
                        status: str = "processing", result: Dict = None):
-    """Send progress update to queue (synchronous, thread-safe)"""
+    """Send progress update to queue (synchronous, thread-safe). DB writes are throttled to avoid blocking GET /tasks/."""
     event = {
         "task_id": task_id,
         "stage": stage,
@@ -88,13 +94,29 @@ def send_progress_sync(task_id: str, stage: str, progress: int, message: str,
     
     logger.info(f"Progress: {task_id} - {stage} {progress}% - {message}")
     
-    # Update database first (always works - this is the primary data store)
-    TaskDB.update(task_id, {
-        "progress": progress,
-        "message": f"{stage}: {message}",
-        "status": status,
-        "result": result
-    })
+    # Throttle DB updates to reduce SQLite lock contention (so GET /tasks/ can read without blocking)
+    do_db_update = False
+    if status in ("completed", "failed"):
+        do_db_update = True
+    else:
+        with _progress_db_throttle_lock:
+            now = time.time()
+            last = _progress_db_throttle.get(task_id, (0, "", 0))
+            last_progress, last_status, last_ts = last
+            if progress - last_progress >= PROGRESS_DB_MIN_DELTA or (now - last_ts) >= PROGRESS_DB_MIN_INTERVAL:
+                do_db_update = True
+                _progress_db_throttle[task_id] = (progress, status, now)
+    
+    if do_db_update:
+        TaskDB.update(task_id, {
+            "progress": progress,
+            "message": f"{stage}: {message}",
+            "status": status,
+            "result": result
+        })
+        if status in ("completed", "failed"):
+            with _progress_db_throttle_lock:
+                _progress_db_throttle.pop(task_id, None)
     
     # Try to put event in queue for SSE streaming
     queue = get_progress_queue(task_id)
@@ -2650,8 +2672,11 @@ def process_text_spacy_sync(
     text_type: str = None
 ):
     """
-    Background task to process text files with SpaCy and USAS annotation (for large texts)
-    
+    Background task to process text files with SpaCy, USAS, and MIPVU annotation.
+    Used by corpus management (plain text upload) and bibliographic visualization
+    (abstract upload). MIPVU uses the same hybrid pipeline (HiTZ + Clause model,
+    pos_group_stats) as single-text re-annotation.
+
     Args:
         task_id: Task ID for progress tracking
         text_id: Text entry ID in database

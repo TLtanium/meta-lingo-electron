@@ -4,7 +4,7 @@
  * Design pattern follows WordFrequency/VisualizationPanel.tsx
  */
 
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useMemo } from 'react'
 import {
   Box,
   Tabs,
@@ -24,6 +24,7 @@ import {
 } from '@mui/material'
 import BarChartIcon from '@mui/icons-material/BarChart'
 import PieChartIcon from '@mui/icons-material/PieChart'
+import CloudIcon from '@mui/icons-material/Cloud'
 import InsertChartIcon from '@mui/icons-material/InsertChart'
 import SaveAltIcon from '@mui/icons-material/SaveAlt'
 import ImageIcon from '@mui/icons-material/Image'
@@ -32,10 +33,17 @@ import { NumberInput } from '../../components/common'
 import type {
   SemanticAnalysisResponse,
   VisualizationConfig,
-  ChartType
+  ChartType,
+  SemanticWordCloudEngine,
+  SemanticWordCloudConfig
 } from '../../types/semanticAnalysis'
+import type { WordFrequencyResult } from '../../types/wordFrequency'
+import { DEFAULT_WORDCLOUD_CONFIG, DEFAULT_LEGACY_WORDCLOUD_CONFIG } from '../../types/wordFrequency'
 import BarChart from './components/BarChart'
 import PieChart from './components/PieChart'
+import WordCloud from '../WordFrequency/components/WordCloud'
+import LegacyWordCloud from '../WordFrequency/components/LegacyWordCloud'
+import LegacyWordCloudConfig from '../WordFrequency/components/LegacyWordCloudConfig'
 
 interface VisualizationPanelProps {
   results: SemanticAnalysisResponse | null
@@ -66,7 +74,8 @@ export default function VisualizationPanel({
   const [maxItemsByType, setMaxItemsByType] = useState<Record<ChartType, number>>({
     bar: 20,
     pie: 10,
-    treemap: 20
+    treemap: 20,
+    wordcloud: 100
   })
 
   // Get maxItems for current chart type
@@ -74,19 +83,61 @@ export default function VisualizationPanel({
     return maxItemsByType[activeTab] || config.showTopN
   }
 
+  const getCurrentEngine = (): SemanticWordCloudEngine => {
+    return config.wordCloudEngine || 'd3'
+  }
+
+  const getCurrentWordCloudConfig = (): SemanticWordCloudConfig => {
+    const engine = getCurrentEngine()
+    if (engine === 'd3') {
+      return config.wordCloudConfig || DEFAULT_WORDCLOUD_CONFIG
+    }
+    return config.legacyWordCloudConfig || DEFAULT_LEGACY_WORDCLOUD_CONFIG
+  }
+
+  const handleWordCloudConfigChange = (wcConfig: SemanticWordCloudConfig) => {
+    const engine = config.wordCloudEngine || 'd3'
+    if (engine === 'd3') {
+      onConfigChange({ ...config, wordCloudConfig: wcConfig })
+    } else {
+      onConfigChange({ ...config, legacyWordCloudConfig: wcConfig })
+    }
+  }
+
+  const handleEngineChange = (engine: SemanticWordCloudEngine) => {
+    const current = config.wordCloudEngine || 'd3'
+    if (current === 'd3') {
+      onConfigChange({
+        ...config,
+        wordCloudEngine: engine,
+        legacyWordCloudConfig: config.legacyWordCloudConfig || {
+          ...DEFAULT_LEGACY_WORDCLOUD_CONFIG,
+          maxWords: (config.wordCloudConfig || DEFAULT_WORDCLOUD_CONFIG).maxWords ?? 100
+        }
+      })
+    } else {
+      onConfigChange({
+        ...config,
+        wordCloudEngine: engine,
+        wordCloudConfig: config.wordCloudConfig || {
+          ...DEFAULT_WORDCLOUD_CONFIG,
+          maxWords: (config.legacyWordCloudConfig || DEFAULT_LEGACY_WORDCLOUD_CONFIG).maxWords ?? 100
+        }
+      })
+    }
+  }
+
   // Handle tab change - maintain separate maxItems for each chart type
   const handleTabChange = (_: React.SyntheticEvent, newValue: ChartType) => {
-    // Save current maxItems for the old chart type
     setMaxItemsByType(prev => ({
       ...prev,
       [activeTab]: getCurrentMaxItems()
     }))
-
     setActiveTab(newValue)
     onConfigChange({
       ...config,
       chartType: newValue,
-      showTopN: maxItemsByType[newValue] || (newValue === 'pie' ? 10 : 20)
+      showTopN: maxItemsByType[newValue] ?? (newValue === 'pie' ? 10 : newValue === 'wordcloud' ? 100 : 20)
     })
   }
 
@@ -109,11 +160,42 @@ export default function VisualizationPanel({
     onConfigChange({ ...config, showPercentage: event.target.checked })
   }
 
-  // Export SVG
+  // Word cloud data: by domain_name frequency; include real percentage and domain code for cross-link
+  const wordCloudData = useMemo((): (WordFrequencyResult & { domain?: string })[] => {
+    if (!results || results.results.length === 0) return []
+    const isDomain = results.result_mode === 'domain'
+    if (isDomain) {
+      const rows = results.results as Array<{ domain: string; domain_name: string; frequency: number; percentage: number }>
+      return rows.map((r, i) => ({
+        word: r.domain_name || r.domain,
+        frequency: r.frequency,
+        percentage: r.percentage,
+        rank: i + 1,
+        domain: r.domain
+      }))
+    }
+    const byName: Record<string, { frequency: number }> = {}
+    ;(results.results as Array<{ domain_name: string; domain: string; frequency: number }>).forEach(r => {
+      const name = r.domain_name || r.domain
+      if (!byName[name]) byName[name] = { frequency: 0 }
+      byName[name].frequency += r.frequency
+    })
+    const total = Object.values(byName).reduce((sum, v) => sum + v.frequency, 0)
+    return Object.entries(byName)
+      .sort((a, b) => b[1].frequency - a[1].frequency)
+      .map(([word, { frequency }], i) => ({
+        word,
+        frequency,
+        percentage: total > 0 ? (frequency / total) * 100 : 0,
+        rank: i + 1
+      }))
+  }, [results])
+
+  // Export SVG (disabled for legacy word cloud)
   const handleExportSVG = useCallback(() => {
     const container = chartContainerRef.current
     if (!container) return
-
+    if (activeTab === 'wordcloud' && getCurrentEngine() === 'legacy') return
     const svg = container.querySelector('svg')
     if (!svg) return
 
@@ -292,6 +374,42 @@ export default function VisualizationPanel({
             />
           </Box>
         )
+      case 'wordcloud': {
+        const engine = getCurrentEngine()
+        const wcConfig = getCurrentWordCloudConfig()
+        const maxWords = wcConfig.maxWords ?? 100
+        const dataSlice = wordCloudData.slice(0, (wcConfig as any).useAllWords ? wordCloudData.length : maxWords)
+        const handleWordCloudClick = (word: string) => {
+          const item = dataSlice.find(d => d.word === word) as (WordFrequencyResult & { domain?: string }) | undefined
+          if (item?.domain && onDomainClick) onDomainClick(item.domain)
+        }
+        if (engine === 'legacy') {
+          return (
+            <Box sx={{ height: '100%', display: 'flex' }}>
+              <LegacyWordCloud
+                data={dataSlice}
+                config={{
+                  maxWords: maxWords,
+                  useAllWords: (wcConfig as any).useAllWords || false,
+                  style: wcConfig.style || 'default',
+                  colormap: wcConfig.colormap,
+                  maskImage: wcConfig.maskImage
+                }}
+                onWordClick={onDomainClick ? handleWordCloudClick : undefined}
+              />
+            </Box>
+          )
+        }
+        return (
+          <Box sx={{ height: '100%', display: 'flex' }}>
+            <WordCloud
+              data={dataSlice}
+              config={wcConfig as any}
+              onWordClick={onDomainClick ? handleWordCloudClick : undefined}
+            />
+          </Box>
+        )
+      }
       default:
         return null
     }
@@ -318,6 +436,12 @@ export default function VisualizationPanel({
             label={t('semantic.viz.pieChart')}
             iconPosition="start"
           />
+          <Tab
+            value="wordcloud"
+            icon={<CloudIcon />}
+            label={t('semantic.viz.wordCloud')}
+            iconPosition="start"
+          />
         </Tabs>
       </Box>
 
@@ -336,74 +460,204 @@ export default function VisualizationPanel({
         }}
       >
         <Stack direction="row" spacing={3} alignItems="center" flexWrap="wrap">
-          {/* Max Items */}
-          <NumberInput
-            label={t('semantic.viz.maxItems')}
-            size="small"
-            value={getCurrentMaxItems()}
-            onChange={handleMaxItemsChange}
-            min={5}
-            max={activeTab === 'pie' ? 20 : 50}
-            step={5}
-            integer
-            defaultValue={activeTab === 'pie' ? 10 : 20}
-            sx={{ width: 130 }}
-          />
+          {/* Max Items (bar / pie only) */}
+          {activeTab !== 'wordcloud' && (
+            <NumberInput
+              label={t('semantic.viz.maxItems')}
+              size="small"
+              value={getCurrentMaxItems()}
+              onChange={handleMaxItemsChange}
+              min={5}
+              max={activeTab === 'pie' ? 20 : 50}
+              step={5}
+              integer
+              defaultValue={activeTab === 'pie' ? 10 : 20}
+              sx={{ width: 130 }}
+            />
+          )}
 
-          {/* Color Scheme */}
-          <FormControl size="small" sx={{ minWidth: 150 }}>
-            <InputLabel>{t('semantic.viz.colorScheme')}</InputLabel>
-            <Select
-              value={config.colorScheme || 'blue'}
-              label={t('semantic.viz.colorScheme')}
-              onChange={handleColorSchemeChange}
-            >
-              {COLOR_SCHEMES.map(scheme => (
-                <MenuItem key={scheme.value} value={scheme.value}>
-                  <Stack direction="row" spacing={1} alignItems="center">
-                    <Box
-                      sx={{
-                        width: 16,
-                        height: 16,
-                        borderRadius: 0.5,
-                        bgcolor: scheme.value === 'blue' ? '#2196f3' :
-                                scheme.value === 'green' ? '#4caf50' :
-                                scheme.value === 'purple' ? '#9c27b0' :
-                                scheme.value === 'orange' ? '#ff9800' : '#f44336'
-                      }}
+          {/* Word cloud engine */}
+          {activeTab === 'wordcloud' && (
+            <FormControl size="small" sx={{ minWidth: 180 }}>
+              <InputLabel>{t('semantic.viz.wordCloudEngine')}</InputLabel>
+              <Select
+                value={getCurrentEngine()}
+                label={t('semantic.viz.wordCloudEngine')}
+                onChange={(e) => handleEngineChange(e.target.value as SemanticWordCloudEngine)}
+              >
+                <MenuItem value="d3">{t('semantic.viz.wordCloudEngineD3')}</MenuItem>
+                <MenuItem value="legacy">{t('semantic.viz.wordCloudEngineLegacy')}</MenuItem>
+              </Select>
+            </FormControl>
+          )}
+
+          {/* Word cloud max words */}
+          {activeTab === 'wordcloud' && (
+            <>
+              {getCurrentEngine() === 'legacy' && (
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={getCurrentWordCloudConfig().useAllWords || false}
+                      onChange={(e) =>
+                        handleWordCloudConfigChange({
+                          ...getCurrentWordCloudConfig(),
+                          useAllWords: e.target.checked
+                        })
+                      }
+                      size="small"
                     />
-                    <span>{scheme.label}</span>
-                  </Stack>
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+                  }
+                  label={<Typography variant="body2">{t('semantic.viz.useAllWords')}</Typography>}
+                />
+              )}
+              {!(getCurrentEngine() === 'legacy' && (getCurrentWordCloudConfig().useAllWords || false)) && (
+                <NumberInput
+                  label={t('semantic.viz.maxWords')}
+                  size="small"
+                  value={getCurrentWordCloudConfig().maxWords ?? 100}
+                  onChange={(v) =>
+                    handleWordCloudConfigChange({
+                      ...getCurrentWordCloudConfig(),
+                      maxWords: v
+                    })
+                  }
+                  min={5}
+                  max={500}
+                  step={10}
+                  integer
+                  defaultValue={100}
+                  sx={{ width: 180 }}
+                />
+              )}
+            </>
+          )}
 
-          {/* Show Percentage */}
-          <FormControlLabel
-            control={
-              <Switch
-                checked={config.showPercentage}
-                onChange={handleShowPercentageChange}
-                size="small"
-              />
-            }
-            label={
-              <Typography variant="body2">
-                {t('semantic.viz.showPercentage')}
-              </Typography>
-            }
-          />
+          {/* Legacy word cloud style */}
+          {activeTab === 'wordcloud' && getCurrentEngine() === 'legacy' && (
+            <FormControl size="small" sx={{ minWidth: 200 }}>
+              <InputLabel>{t('semantic.viz.wordCloudStyle')}</InputLabel>
+              <Select
+                value={getCurrentWordCloudConfig().style || 'default'}
+                label={t('semantic.viz.wordCloudStyle')}
+                onChange={(e) => {
+                  const style = e.target.value as SemanticWordCloudConfig['style']
+                  handleWordCloudConfigChange({
+                    ...getCurrentWordCloudConfig(),
+                    style,
+                    ...(style === 'default' && { maskImage: null, maskImageFile: null })
+                  })
+                }}
+              >
+                <MenuItem value="default">{t('semantic.viz.wordCloudStyleDefault')}</MenuItem>
+                <MenuItem value="mask">{t('semantic.viz.wordCloudStyleMask')}</MenuItem>
+                <MenuItem value="imageColor">{t('semantic.viz.wordCloudStyleImageColor')}</MenuItem>
+              </Select>
+            </FormControl>
+          )}
+
+          {/* Color scheme (bar/pie or word cloud) */}
+          {((activeTab !== 'wordcloud') ||
+            (activeTab === 'wordcloud' &&
+              (getCurrentEngine() === 'd3' ||
+                (getCurrentEngine() === 'legacy' &&
+                  ((getCurrentWordCloudConfig().style === 'default') ||
+                    getCurrentWordCloudConfig().style === 'mask'))))) && (
+            <FormControl size="small" sx={{ minWidth: 150 }}>
+              <InputLabel>{t('semantic.viz.colorScheme')}</InputLabel>
+              <Select
+                value={
+                  activeTab === 'wordcloud'
+                    ? (getCurrentWordCloudConfig().colormap || 'viridis')
+                    : (config.colorScheme || 'blue')
+                }
+                label={t('semantic.viz.colorScheme')}
+                onChange={(e) => {
+                  if (activeTab === 'wordcloud') {
+                    handleWordCloudConfigChange({
+                      ...getCurrentWordCloudConfig(),
+                      colormap: e.target.value as SemanticWordCloudConfig['colormap']
+                    })
+                  } else {
+                    onConfigChange({ ...config, colorScheme: e.target.value })
+                  }
+                }}
+              >
+                {activeTab === 'wordcloud'
+                  ? ['viridis', 'inferno', 'plasma', 'autumn', 'winter', 'rainbow', 'ocean', 'forest', 'sunset'].map(
+                      (s) => (
+                        <MenuItem key={s} value={s}>
+                          <Typography variant="body2" sx={{ textTransform: 'capitalize' }}>
+                            {s}
+                          </Typography>
+                        </MenuItem>
+                      )
+                    )
+                  : COLOR_SCHEMES.map((scheme) => (
+                      <MenuItem key={scheme.value} value={scheme.value}>
+                        <Stack direction="row" spacing={1} alignItems="center">
+                          <Box
+                            sx={{
+                              width: 16,
+                              height: 16,
+                              borderRadius: 0.5,
+                              bgcolor:
+                                scheme.value === 'blue'
+                                  ? '#2196f3'
+                                  : scheme.value === 'green'
+                                    ? '#4caf50'
+                                    : scheme.value === 'purple'
+                                      ? '#9c27b0'
+                                      : scheme.value === 'orange'
+                                        ? '#ff9800'
+                                        : '#f44336'
+                            }}
+                          />
+                          <span>{scheme.label}</span>
+                        </Stack>
+                      </MenuItem>
+                    ))}
+              </Select>
+            </FormControl>
+          )}
+
+          {/* Show Percentage (bar / pie only) */}
+          {(activeTab === 'bar' || activeTab === 'pie') && (
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={config.showPercentage}
+                  onChange={handleShowPercentageChange}
+                  size="small"
+                />
+              }
+              label={
+                <Typography variant="body2">{t('semantic.viz.showPercentage')}</Typography>
+              }
+            />
+          )}
         </Stack>
 
         {/* Export buttons */}
         {results && results.results.length > 0 && (
           <Stack direction="row" spacing={0.5} alignItems="center">
             <Divider orientation="vertical" flexItem sx={{ mx: 1 }} />
-            <Tooltip title={t('semantic.viz.export') + ' SVG'}>
-              <IconButton size="small" onClick={handleExportSVG}>
-                <SaveAltIcon fontSize="small" />
-              </IconButton>
+            <Tooltip
+              title={
+                activeTab === 'wordcloud' && getCurrentEngine() === 'legacy'
+                  ? t('semantic.viz.svgNotSupported')
+                  : t('semantic.viz.export') + ' SVG'
+              }
+            >
+              <span>
+                <IconButton
+                  size="small"
+                  onClick={handleExportSVG}
+                  disabled={activeTab === 'wordcloud' && getCurrentEngine() === 'legacy'}
+                >
+                  <SaveAltIcon fontSize="small" />
+                </IconButton>
+              </span>
             </Tooltip>
             <Tooltip title={t('semantic.viz.export') + ' PNG'}>
               <IconButton size="small" onClick={handleExportPNG}>
@@ -413,6 +667,28 @@ export default function VisualizationPanel({
           </Stack>
         )}
       </Paper>
+
+      {/* Legacy word cloud mask config */}
+      {activeTab === 'wordcloud' &&
+        getCurrentEngine() === 'legacy' &&
+        (getCurrentWordCloudConfig().style === 'mask' ||
+          getCurrentWordCloudConfig().style === 'imageColor') && (
+          <Paper
+            elevation={0}
+            sx={{
+              px: 2,
+              py: 1,
+              borderBottom: 1,
+              borderColor: 'divider',
+              bgcolor: 'background.default'
+            }}
+          >
+            <LegacyWordCloudConfig
+              config={getCurrentWordCloudConfig() as any}
+              onChange={(c) => handleWordCloudConfigChange(c as SemanticWordCloudConfig)}
+            />
+          </Paper>
+        )}
 
       {/* Chart Container - Same style as WordFrequency */}
       <Box ref={chartContainerRef} sx={{ flex: 1, overflow: 'auto', p: 1 }}>

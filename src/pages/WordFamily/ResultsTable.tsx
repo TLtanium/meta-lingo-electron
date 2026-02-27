@@ -49,6 +49,8 @@ interface ResultsTableProps {
   textIds?: string[] | 'all'
   selectionMode?: SelectionMode
   selectedTags?: string[]
+  libraryId?: string
+  selectedEntryIds?: string[]
 }
 
 type SortField = 'word' | 'frequency' | 'synonym_count'
@@ -64,7 +66,9 @@ export default function ResultsTable({
   corpusId,
   textIds,
   selectionMode = 'all',
-  selectedTags
+  selectedTags,
+  libraryId,
+  selectedEntryIds
 }: ResultsTableProps) {
   const { t } = useTranslation()
   
@@ -376,6 +380,8 @@ export default function ResultsTable({
                           textIds={textIds || 'all'}
                           selectionMode={selectionMode}
                           selectedTags={selectedTags}
+                          libraryId={libraryId}
+                          selectedEntryIds={selectedEntryIds}
                           showCollocation={true}
                           showWordSketch={true}
                         />
@@ -392,6 +398,12 @@ export default function ResultsTable({
                             synsets={result.synsets} 
                             allSynonyms={result.all_synonyms}
                             synonymCount={result.synonym_count}
+                            corpusId={corpusId}
+                            textIds={textIds}
+                            selectionMode={selectionMode}
+                            selectedTags={selectedTags}
+                            libraryId={libraryId}
+                            selectedEntryIds={selectedEntryIds}
                           />
                         </Box>
                       </Collapse>
@@ -422,19 +434,59 @@ export default function ResultsTable({
   )
 }
 
-// Synset details component
+const IN_CORPUS_SYNSET_NAME = '_in_corpus'
+
+// Expandable content: "所有同义词" chips, then one block per synonym with its definition. Each synonym card has cross-link menu (same as word column).
 function SynsetDetails({ 
   synsets, 
   allSynonyms, 
-  synonymCount 
+  synonymCount,
+  corpusId,
+  textIds,
+  selectionMode = 'all',
+  selectedTags,
+  libraryId,
+  selectedEntryIds
 }: { 
   synsets: Synset[]
   allSynonyms: string[]
   synonymCount: number
+  corpusId?: string
+  textIds?: string[] | 'all'
+  selectionMode?: SelectionMode
+  selectedTags?: string[]
+  libraryId?: string
+  selectedEntryIds?: string[]
 }) {
   const { t } = useTranslation()
   
-  if (synsets.length === 0) {
+  // For each synonym, the synset(s) that contain it (same sense as the row word). Used to show "this synonym's definition" only.
+  const synonymToSynsets = useMemo(() => {
+    const map = new Map<string, Synset[]>()
+    for (const syn of allSynonyms) {
+      const key = syn.toLowerCase()
+      if (map.has(key)) continue
+      const containing = synsets.filter(
+        ss => ss.name !== IN_CORPUS_SYNSET_NAME && ss.synonyms.some(s => s.toLowerCase() === key)
+      )
+      map.set(key, containing)
+    }
+    return map
+  }, [allSynonyms, synsets])
+  
+  const uniqueSynonyms = useMemo(() => {
+    const seen = new Set<string>()
+    const out: string[] = []
+    for (const syn of allSynonyms) {
+      const key = syn.toLowerCase()
+      if (seen.has(key)) continue
+      seen.add(key)
+      out.push(syn)
+    }
+    return out
+  }, [allSynonyms])
+  
+  if (synsets.length === 0 && allSynonyms.length === 0) {
     return (
       <Typography variant="body2" color="text.secondary">
         {t('synonym.results.noSynsets')}
@@ -444,7 +496,7 @@ function SynsetDetails({
   
   return (
     <Stack spacing={2}>
-      {/* All synonyms summary section */}
+      {/* All synonyms (same as table row: 词语列 → 同义词列) */}
       <Paper variant="outlined" sx={{ p: 2, bgcolor: 'action.hover' }}>
         <Stack spacing={1}>
           <Typography variant="subtitle1" fontWeight={600}>
@@ -460,48 +512,63 @@ function SynsetDetails({
         </Stack>
       </Paper>
       
-      {/* Individual synset details */}
-      <Typography variant="subtitle2" fontWeight={600} sx={{ pt: 1 }}>
+      {/* 同义词集详情 = 每个同义词的释义（该词作为当前词语同义词时的义项），不以 synset 名为主标题 */}
+      <Typography variant="subtitle2" fontWeight={600}>
         {t('synonym.results.synsetDetails')}
       </Typography>
-      {synsets.map((synset, index) => (
-        <Paper key={synset.name} variant="outlined" sx={{ p: 2 }}>
-          <Stack spacing={1}>
-            <Stack direction="row" spacing={1} alignItems="center">
+      {uniqueSynonyms.map(syn => {
+        const key = syn.toLowerCase()
+        const synsetsForSyn = synonymToSynsets.get(key) ?? []
+        const inCorpusOnly = synsets.find(ss => ss.name === IN_CORPUS_SYNSET_NAME && ss.synonyms.some(s => s.toLowerCase() === key))
+        return (
+          <Paper key={key} variant="outlined" sx={{ p: 2 }}>
+            <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
               <Typography variant="subtitle2" color="primary">
-                {index + 1}. {synset.name}
+                {syn}
               </Typography>
-              <Chip label={synset.pos} size="small" color="secondary" />
+              {corpusId && (
+                <WordActionMenu
+                  word={syn}
+                  corpusId={corpusId}
+                  textIds={textIds ?? 'all'}
+                  selectionMode={selectionMode}
+                  selectedTags={selectedTags}
+                  libraryId={libraryId}
+                  selectedEntryIds={selectedEntryIds}
+                  showCollocation={true}
+                  showWordSketch={true}
+                />
+              )}
             </Stack>
-            
-            <Typography variant="body2">
-              <strong>{t('synonym.results.definition')}:</strong> {synset.definition}
-            </Typography>
-            
-            {synset.examples.length > 0 && (
+            {synsetsForSyn.length === 0 && !inCorpusOnly && (
+              <Typography variant="body2" color="text.secondary">—</Typography>
+            )}
+            {synsetsForSyn.map((ss, i) => (
+              <Box key={ss.name} sx={{ mt: i > 0 ? 1.5 : 0 }}>
+                {ss.definition && (
+                  <Typography variant="body2">
+                    <strong>{t('synonym.results.definition')}:</strong> {ss.definition}
+                  </Typography>
+                )}
+                {ss.examples.length > 0 && (
+                  <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                    <strong>{t('synonym.results.examples')}:</strong>{' '}
+                    {ss.examples.map((ex, i) => `"${ex}"`).join('; ')}
+                  </Typography>
+                )}
+                <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5 }}>
+                  WordNet: {ss.name}{ss.pos ? ` · ${ss.pos}` : ''}
+                </Typography>
+              </Box>
+            ))}
+            {inCorpusOnly && synsetsForSyn.length === 0 && (
               <Typography variant="body2" color="text.secondary">
-                <strong>{t('synonym.results.examples')}:</strong>{' '}
-                {synset.examples.map((ex, i) => (
-                  <span key={i}>"{ex}"{i < synset.examples.length - 1 ? '; ' : ''}</span>
-                ))}
+                {t('synonym.results.inCorpusSynset')}
               </Typography>
             )}
-            
-            {synset.synonyms.length > 0 && (
-              <Box>
-                <Typography variant="body2" component="span">
-                  <strong>{t('synonym.results.synonyms')}:</strong>{' '}
-                </Typography>
-                <Stack direction="row" spacing={0.5} flexWrap="wrap" display="inline-flex">
-                  {synset.synonyms.map(syn => (
-                    <Chip key={syn} label={syn} size="small" variant="outlined" />
-                  ))}
-                </Stack>
-              </Box>
-            )}
-          </Stack>
-        </Paper>
-      ))}
+          </Paper>
+        )
+      })}
     </Stack>
   )
 }

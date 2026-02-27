@@ -13,6 +13,7 @@ from sklearn.decomposition import NMF
 from sklearn.feature_extraction.text import TfidfVectorizer
 
 from .lda_preprocess_service import get_lda_preprocess_service
+from . import dynamic_evolution
 
 logger = logging.getLogger(__name__)
 
@@ -288,6 +289,80 @@ class NMFService:
             result['text_ids'] = preprocess_result['text_ids']
         
         return result
+
+    def analyze_dynamic(
+        self,
+        corpus_id: str,
+        text_ids: List[str],
+        language: str,
+        preprocess_config: Dict[str, Any],
+        nmf_config: Dict[str, Any],
+        dynamic_config: Dict[str, Any],
+        text_dates: Dict[str, str]
+    ) -> Dict[str, Any]:
+        """NMF analysis with dynamic topic evolution based on document dates."""
+        result = self.analyze(
+            corpus_id, text_ids, language, preprocess_config, nmf_config
+        )
+        if not result.get('success'):
+            return result
+        if not dynamic_config.get('enabled', False):
+            result['has_dynamic'] = False
+            return result
+
+        date_format = dynamic_config.get('date_format', 'year_only')
+        nr_bins = dynamic_config.get('nr_bins')
+        result_text_ids = result.get('text_ids', text_ids)
+
+        doc_dates = []
+        for text_id in result_text_ids:
+            date_str = text_dates.get(text_id, '')
+            parsed = dynamic_evolution.parse_date(date_str, date_format)
+            doc_dates.append(parsed)
+
+        valid_count = sum(1 for d in doc_dates if d is not None)
+        if valid_count < 2:
+            result['has_dynamic'] = False
+            result['dynamic_error'] = 'Not enough documents with valid dates'
+            self._results_cache[result['result_id']] = result
+            return result
+
+        time_slices = dynamic_evolution.create_time_slices(doc_dates, date_format, nr_bins)
+        if len(time_slices['timestamps']) < 2:
+            result['has_dynamic'] = False
+            result['dynamic_error'] = 'Not enough distinct time periods'
+            self._results_cache[result['result_id']] = result
+            return result
+
+        doc_topics = result.get('doc_topics', [])
+        num_topics = result.get('num_topics', 10)
+        evolution_data = dynamic_evolution.calculate_topic_evolution(
+            doc_topics, doc_dates, time_slices, num_topics
+        )
+        sankey_data = dynamic_evolution.calculate_sankey_data(
+            doc_topics, doc_dates, time_slices, num_topics
+        )
+        result['has_dynamic'] = True
+        result['dynamic_config'] = dynamic_config
+        result['topic_evolution'] = evolution_data
+        result['sankey_data'] = sankey_data
+        result['time_slices'] = time_slices
+        self._results_cache[result['result_id']] = result
+        return result
+
+    def get_evolution_data(self, result_id: str) -> Optional[Dict[str, Any]]:
+        """Get topic evolution data for visualization."""
+        result = self.get_cached_result(result_id)
+        if not result or not result.get('has_dynamic'):
+            return None
+        return result.get('topic_evolution')
+
+    def get_sankey_data(self, result_id: str) -> Optional[Dict[str, Any]]:
+        """Get sankey diagram data for visualization."""
+        result = self.get_cached_result(result_id)
+        if not result or not result.get('has_dynamic'):
+            return None
+        return result.get('sankey_data')
     
     def optimize_topics(
         self,

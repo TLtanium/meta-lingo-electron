@@ -1,14 +1,16 @@
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios'
 import type { ApiResponse } from '../types'
 
-// API base URL - can be configured via environment variable
-export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
+// API base URL - use 127.0.0.1 to avoid IPv6/localhost mismatch when backend listens on IPv4
+export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000'
 
 // Timeout settings
 const DEFAULT_TIMEOUT = 60000      // 60 seconds for normal requests
 const UPLOAD_TIMEOUT = 600000      // 10 minutes for file uploads
 const LONG_TIMEOUT = 300000        // 5 minutes for long-running tasks (topic modeling, etc.)
 const SPACY_TIMEOUT = 600000       // 10 minutes for SpaCy annotation (long texts may take time)
+const TASK_POLLING_TIMEOUT = 120000  // 2 minutes for task status (backend may be busy with annotation)
+export { TASK_POLLING_TIMEOUT }
 
 // Create axios instance
 const apiClient: AxiosInstance = axios.create({

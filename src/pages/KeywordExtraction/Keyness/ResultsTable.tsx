@@ -31,7 +31,7 @@ import DeselectIcon from '@mui/icons-material/Deselect'
 import TrendingUpIcon from '@mui/icons-material/TrendingUp'
 import TrendingDownIcon from '@mui/icons-material/TrendingDown'
 import { useTranslation } from 'react-i18next'
-import type { KeynessKeyword, KeynessStatistic } from '../../../types/keyword'
+import type { KeynessKeyword, KeynessStatistic, ComparisonMode } from '../../../types/keyword'
 import type { SelectionMode } from '../../../types/crossLink'
 import { WordActionMenu } from '../../../components/common'
 
@@ -41,11 +41,14 @@ interface ResultsTableProps {
   refSize: number
   statistic: KeynessStatistic
   isLoading?: boolean
+  comparisonMode?: ComparisonMode
   // Cross-link props
   corpusId?: string
   textIds?: string[] | 'all'
   selectionMode?: SelectionMode
   selectedTags?: string[]
+  libraryId?: string
+  selectedEntryIds?: string[]
 }
 
 type SortColumn = 'rank' | 'keyword' | 'study_freq' | 'ref_freq' | 'score' | 'effect_size'
@@ -57,10 +60,13 @@ export default function ResultsTable({
   refSize,
   statistic,
   isLoading = false,
+  comparisonMode = 'word',
   corpusId,
   textIds,
   selectionMode = 'all',
-  selectedTags
+  selectedTags,
+  libraryId,
+  selectedEntryIds
 }: ResultsTableProps) {
   const { t, i18n } = useTranslation()
   const isZh = i18n.language === 'zh'
@@ -98,9 +104,14 @@ export default function ResultsTable({
     
     if (searchQuery) {
       const query = searchQuery.toLowerCase()
-      filtered = results.filter(r => 
-        r.keyword.toLowerCase().includes(query)
-      )
+      filtered = results.filter(r => {
+        // In semantic domain mode, search by domain_name first
+        if (comparisonMode === 'domain' && (r as any).domain_name) {
+          const name = String((r as any).domain_name || '').toLowerCase()
+          if (name.includes(query)) return true
+        }
+        return r.keyword.toLowerCase().includes(query)
+      })
     }
     
     filtered = [...filtered].sort((a, b) => {
@@ -123,7 +134,10 @@ export default function ResultsTable({
   // Handle export
   const handleExport = () => {
     const headers = [
-      'Rank', 'Keyword', 'Direction',
+      'Rank',
+      comparisonMode === 'domain' ? 'Semantic Domain' : 'Keyword',
+      ...(comparisonMode === 'domain' ? ['Domain Name'] : []),
+      'Direction',
       'Study Freq', 'Study Norm (per M)', 
       'Ref Freq', 'Ref Norm (per M)',
       'Score', 'Effect Size', 'Significance'
@@ -133,6 +147,9 @@ export default function ResultsTable({
       ...filteredResults.map(r => [
         r.rank,
         `"${r.keyword}"`,
+        ...(comparisonMode === 'domain'
+          ? [`"${(r as any).domain_name ?? ''}"`]
+          : []),
         r.direction,
         r.study_freq,
         r.study_norm,
@@ -320,7 +337,9 @@ export default function ResultsTable({
                   direction={orderBy === 'keyword' ? order : 'asc'}
                   onClick={() => handleSort('keyword')}
                 >
-                  {t('keyword.results.keyword', 'Keyword')}
+                  {comparisonMode === 'domain'
+                    ? t('keyword.results.semanticDomain', 'Semantic Domain')
+                    : t('keyword.results.keyword', 'Keyword')}
                 </TableSortLabel>
               </TableCell>
               <TableCell align="center" sx={{ whiteSpace: 'nowrap', minWidth: 50 }}>
@@ -400,7 +419,13 @@ export default function ResultsTable({
                     </Typography>
                   </TableCell>
                   <TableCell align="center">
-                    <Typography fontWeight={500}>{result.keyword}</Typography>
+                    {comparisonMode === 'domain' ? (
+                      <Tooltip title={(result as any).domain_name || ''}>
+                        <Typography fontWeight={500}>{result.keyword}</Typography>
+                      </Tooltip>
+                    ) : (
+                      <Typography fontWeight={500}>{result.keyword}</Typography>
+                    )}
                   </TableCell>
                   <TableCell align="center">
                     {result.direction === 'positive' ? (
@@ -470,6 +495,8 @@ export default function ResultsTable({
                         textIds={textIds || 'all'}
                         selectionMode={selectionMode}
                         selectedTags={selectedTags}
+                        libraryId={libraryId}
+                        selectedEntryIds={selectedEntryIds}
                         showCollocation={true}
                         showWordSketch={true}
                       />

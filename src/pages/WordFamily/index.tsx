@@ -10,33 +10,16 @@ import {
   LinearProgress,
   Tabs,
   Tab,
-  Divider,
   Stack,
   Chip,
   Button,
-  Paper,
   Alert,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  RadioGroup,
-  Radio,
-  FormControlLabel,
-  TextField,
-  InputAdornment,
-  Checkbox,
-  CircularProgress,
-  SelectChangeEvent,
-  OutlinedInput,
-  ListItemText
+  CircularProgress
 } from '@mui/material'
-import SearchIcon from '@mui/icons-material/Search'
 import PlayArrowIcon from '@mui/icons-material/PlayArrow'
 import TableChartIcon from '@mui/icons-material/TableChart'
 import { useTranslation } from 'react-i18next'
-import { corpusApi, analysisApi } from '../../api'
-import type { Corpus, CorpusText } from '../../types'
+import { analysisApi } from '../../api'
 import type { 
   SynonymResult,
   SynonymRequest,
@@ -48,22 +31,21 @@ import POSFilterPanel from './POSFilterPanel'
 import SearchConfigPanel from './SearchConfigPanel'
 import ResultsTable from './ResultsTable'
 import VisualizationPanel from './VisualizationPanel'
+import AnalysisAIAssistant from '../../components/AnalysisAIAssistant'
+import CorpusOrLibrarySelector, { type CorpusOrLibrarySelection } from '../../components/Corpus/CorpusOrLibrarySelector'
+import { useSettingsStore } from '../../stores/settingsStore'
+import type { CrossLinkParams } from '../../types/crossLink'
 
-type SelectionMode = 'all' | 'selected' | 'tags'
+interface SynonymAnalysisProps {
+  crossLinkParams?: CrossLinkParams
+}
 
-export default function SynonymAnalysis() {
+export default function SynonymAnalysis({ crossLinkParams }: SynonymAnalysisProps = {}) {
   const { t } = useTranslation()
+  const { ollamaConnected, openaiApiEnabled } = useSettingsStore()
 
-  // Corpus state
-  const [corpora, setCorpora] = useState<Corpus[]>([])
-  const [selectedCorpus, setSelectedCorpus] = useState<Corpus | null>(null)
-  const [texts, setTexts] = useState<CorpusText[]>([])
-  const [selectedTextIds, setSelectedTextIds] = useState<string[]>([])
-  const [selectedTags, setSelectedTags] = useState<string[]>([])
-  const [selectionMode, setSelectionMode] = useState<SelectionMode>('all')
-  const [textSearch, setTextSearch] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [loadingTexts, setLoadingTexts] = useState(false)
+  // Data source: corpus or library (unified selector)
+  const [corpusSelection, setCorpusSelection] = useState<CorpusOrLibrarySelection | null>(null)
 
   // Filter state
   const [posFilter, setPosFilter] = useState<string>('auto')
@@ -88,132 +70,46 @@ export default function SynonymAnalysis() {
   // Right panel tabs
   const [rightTab, setRightTab] = useState(0)
 
-  // Load corpora on mount
+  // Sync corpus/library selection from cross-link so selector shows same source
   useEffect(() => {
-    loadCorpora()
-  }, [])
+    if (!crossLinkParams?.corpusId) return
+    setCorpusSelection({
+      corpusId: crossLinkParams.corpusId,
+      textIds: Array.isArray(crossLinkParams.textIds) ? crossLinkParams.textIds : 'all',
+      language: 'english',
+      dataSource: crossLinkParams.libraryId ? 'library' : 'corpus',
+      selectionMode: (crossLinkParams.selectionMode as 'all' | 'tags' | 'selected') ?? 'all',
+      selectedTags: crossLinkParams.selectedTags ?? [],
+      ...(crossLinkParams.libraryId && { libraryId: crossLinkParams.libraryId })
+    })
+  }, [crossLinkParams])
 
-  const loadCorpora = async () => {
-    setLoading(true)
-    try {
-      const response = await corpusApi.listCorpora()
-      if (response.success && response.data) {
-        setCorpora(response.data)
-      }
-    } catch (err) {
-      console.error('Failed to load corpora:', err)
-    } finally {
-      setLoading(false)
+  // External selection for selector sync when opened via cross-link (including library)
+  const externalSelection = useMemo((): CorpusOrLibrarySelection | null => {
+    if (!crossLinkParams?.corpusId) return null
+    return {
+      corpusId: crossLinkParams.corpusId,
+      textIds: Array.isArray(crossLinkParams.textIds) ? crossLinkParams.textIds : 'all',
+      language: 'english',
+      dataSource: crossLinkParams.libraryId ? 'library' : 'corpus',
+      selectionMode: (crossLinkParams.selectionMode as 'all' | 'tags' | 'selected') ?? 'all',
+      selectedTags: crossLinkParams.selectedTags ?? [],
+      ...(crossLinkParams.libraryId && { libraryId: crossLinkParams.libraryId }),
+      ...(crossLinkParams.selectedEntryIds?.length && { selectedEntryIds: crossLinkParams.selectedEntryIds })
     }
-  }
-
-  // Load texts when corpus changes
-  useEffect(() => {
-    if (selectedCorpus) {
-      loadTexts(selectedCorpus.id)
-    } else {
-      setTexts([])
-      setSelectedTextIds([])
-      setSelectedTags([])
-    }
-  }, [selectedCorpus])
-
-  // Get all available tags from texts
-  const allTags = useMemo(() => {
-    const tagSet = new Set<string>()
-    texts.forEach(text => text.tags.forEach(tag => tagSet.add(tag)))
-    return Array.from(tagSet).sort()
-  }, [texts])
-
-  const loadTexts = async (corpusId: string) => {
-    setLoadingTexts(true)
-    try {
-      const response = await corpusApi.getTexts(corpusId)
-      if (response.success && response.data) {
-        setTexts(response.data)
-      }
-    } catch (err) {
-      console.error('Failed to load texts:', err)
-    } finally {
-      setLoadingTexts(false)
-    }
-  }
-
-  // Filter texts based on search and tags
-  const filteredTexts = useMemo(() => {
-    let result = texts
-    
-    if (textSearch) {
-      const query = textSearch.toLowerCase()
-      result = result.filter(t => 
-        t.filename.toLowerCase().includes(query) ||
-        t.originalFilename?.toLowerCase().includes(query)
-      )
-    }
-    
-    if (selectionMode === 'tags' && selectedTags.length > 0) {
-      result = result.filter(t => 
-        selectedTags.some(tag => t.tags.includes(tag))
-      )
-    }
-    
-    return result
-  }, [texts, textSearch, selectionMode, selectedTags])
-
-  // Get selected text IDs based on mode
-  const getSelectedTextIds = (): string[] | 'all' => {
-    switch (selectionMode) {
-      case 'all':
-        return 'all'
-      case 'selected':
-        return selectedTextIds
-      case 'tags':
-        return filteredTexts.map(t => t.id)
-      default:
-        return []
-    }
-  }
-
-  // Handle corpus change
-  const handleCorpusChange = (event: SelectChangeEvent<string>) => {
-    const corpus = corpora.find(c => c.id === event.target.value)
-    setSelectedCorpus(corpus || null)
-    setSelectionMode('all')
-    setSelectedTextIds([])
-    setSelectedTags([])
-    setResults([])
-    setError(null)
-  }
-
-  // Handle text selection toggle
-  const handleTextToggle = (textId: string) => {
-    setSelectedTextIds(prev => 
-      prev.includes(textId) 
-        ? prev.filter(id => id !== textId)
-        : [...prev, textId]
-    )
-  }
-
-  // Handle select all / deselect all
-  const handleSelectAll = () => {
-    setSelectedTextIds(filteredTexts.map(t => t.id))
-  }
-
-  const handleDeselectAll = () => {
-    setSelectedTextIds([])
-  }
+  }, [crossLinkParams])
 
   // Run analysis
   const handleAnalyze = async () => {
-    if (!selectedCorpus) return
+    if (!corpusSelection) return
 
     setIsLoading(true)
     setError(null)
 
     try {
       const request: SynonymRequest = {
-        corpus_id: selectedCorpus.id,
-        text_ids: getSelectedTextIds(),
+        corpus_id: corpusSelection.corpusId,
+        text_ids: corpusSelection.textIds,
         pos_filter: posFilter,
         search_query: searchQuery,
         min_freq: minFreq,
@@ -243,16 +139,11 @@ export default function SynonymAnalysis() {
   }
 
   // Check if analysis can run
-  const canAnalyze = selectedCorpus && (
-    selectionMode === 'all' || 
-    (selectionMode === 'tags' && selectedTags.length > 0 && filteredTexts.length > 0) ||
-    (selectionMode === 'selected' && selectedTextIds.length > 0)
-  )
+  const canAnalyze = corpusSelection !== null
 
-  const selectedCount = (() => {
-    const ids = getSelectedTextIds()
-    return ids === 'all' ? texts.length : ids.length
-  })()
+  const selectedCount = corpusSelection
+    ? (corpusSelection.textIds === 'all' ? 0 : corpusSelection.textIds.length)
+    : 0
 
   return (
     <Box sx={{ display: 'flex', height: '100%' }}>
@@ -266,211 +157,59 @@ export default function SynonymAnalysis() {
         display: 'flex',
         flexDirection: 'column'
       }}>
-        <Typography variant="h6" gutterBottom>
-          {t('synonym.title')}
-        </Typography>
+        <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
+          <Typography variant="h6">
+            {t('synonym.title')}
+          </Typography>
+          <AnalysisAIAssistant
+            enabled={ollamaConnected || openaiApiEnabled}
+            moduleLabel={t('synonym.title')}
+            getContext={() => {
+              const corpusInfo = corpusSelection
+                ? `${t('synonym.corpus.title')}: ${corpusSelection.dataSource === 'corpus' ? 'corpus' : 'library'}, ${corpusSelection.textIds === 'all' ? 'all' : corpusSelection.textIds.length} ${t('corpus.textsCount')}`
+                : t('synonym.corpus.title') + ': (none)'
+              const params = `searchQuery=${searchQuery}, minFreq=${minFreq}, maxResults=${maxResults}, lowercase=${lowercase}, posFilter=${posFilter}`
+              if (results.length === 0) return `${corpusInfo}\n${params}\n${t('aiAssistant.noAnalysisResult')}`
+              const taskHint = t('aiAssistant.synonymContextHint')
+              if (rightTab === 0) {
+                const slice = results.slice(0, 25)
+                const header = `序号\t${t('synonym.results.word')}\t${t('synonym.results.posTags')}\t${t('synonym.results.synonyms')}`
+                const lines = slice.map((r, i) =>
+                  `${i + 1}\t${r.word}\t${(r.pos_tags || []).join(',')}\t${(r.all_synonyms || []).slice(0, 8).join(', ')}`
+                ).join('\n')
+                return `${taskHint}\n\n${corpusInfo}\n${params}\n\n${t('synonym.results.title')} (rows 1-${slice.length}):\n${header}\n${lines}`
+              }
+              const top = results.slice(0, 30).map(r => `${r.word}: ${(r.all_synonyms || []).length} ${t('synonym.results.synonyms')}`).join('; ')
+              return `${taskHint}\n\n${corpusInfo}\n${params}\n${t('synonym.visualization.title')}: ${vizConfig.chartType}\n${top}`
+            }}
+          />
+        </Stack>
 
         {/* Info chips */}
         <Stack direction="row" spacing={1} mb={2} flexWrap="wrap">
           <Chip label="SpaCy" size="small" color="secondary" variant="outlined" />
-          {selectedCorpus?.language && (
+          {corpusSelection?.language && (
             <Chip 
-              label={`${t('corpus.language')}: ${selectedCorpus.language}`}
+              label={`${t('corpus.language')}: ${corpusSelection.language}`}
               size="small" 
               variant="outlined"
             />
           )}
         </Stack>
 
-        {/* 1. Corpus Selection */}
-        <Paper sx={{ p: 2, mb: 2 }}>
-          <Typography variant="subtitle2" sx={{ mb: 1.5 }}>
-            {t('synonym.corpus.title')}
-          </Typography>
-
-          <Stack spacing={2}>
-            <FormControl fullWidth size="small">
-              <InputLabel>{t('corpus.selectCorpus')}</InputLabel>
-              <Select
-                value={selectedCorpus?.id || ''}
-                onChange={handleCorpusChange}
-                label={t('corpus.selectCorpus')}
-                disabled={loading}
-              >
-                {corpora.map(corpus => (
-                  <MenuItem key={corpus.id} value={corpus.id}>
-                    <Stack direction="row" spacing={1} alignItems="center">
-                      <Typography>{corpus.name}</Typography>
-                      <Chip label={`${corpus.textCount} ${t('corpus.textsCount')}`} size="small" />
-                    </Stack>
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-
-            {selectedCorpus && (
-              <>
-                <Divider />
-
-                {/* Selection mode */}
-                <RadioGroup
-                  value={selectionMode}
-                  onChange={(e) => setSelectionMode(e.target.value as SelectionMode)}
-                >
-                  <FormControlLabel 
-                    value="all" 
-                    control={<Radio size="small" />} 
-                    label={
-                      <Typography variant="body2">
-                        {t('synonym.corpus.selectAll')} ({texts.length} {t('corpus.textsCount')})
-                      </Typography>
-                    }
-                  />
-                  <FormControlLabel 
-                    value="tags" 
-                    control={<Radio size="small" />} 
-                    label={
-                      <Typography variant="body2">
-                        {t('topicModeling.corpus.selectByTags')}
-                      </Typography>
-                    }
-                  />
-                  <FormControlLabel 
-                    value="selected" 
-                    control={<Radio size="small" />} 
-                    label={
-                      <Typography variant="body2">
-                        {t('synonym.corpus.selectManually')}
-                      </Typography>
-                    }
-                  />
-                </RadioGroup>
-
-                {/* Tag selection (when mode is 'tags') */}
-                {selectionMode === 'tags' && (
-                  <FormControl size="small" fullWidth>
-                    <InputLabel>{t('corpus.filterByTags')}</InputLabel>
-                    <Select
-                      multiple
-                      value={selectedTags}
-                      onChange={(e) => setSelectedTags(e.target.value as string[])}
-                      input={<OutlinedInput label={t('corpus.filterByTags')} />}
-                      renderValue={(selected) => (
-                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                          {selected.map((tag) => (
-                            <Chip key={tag} label={tag} size="small" />
-                          ))}
-                        </Box>
-                      )}
-                    >
-                      {allTags.map((tag) => (
-                        <MenuItem key={tag} value={tag}>
-                          <Checkbox checked={selectedTags.includes(tag)} size="small" />
-                          <ListItemText primary={tag} />
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                )}
-
-                {/* Manual selection */}
-                {selectionMode === 'selected' && (
-                  <>
-                    <TextField
-                      size="small"
-                      placeholder={t('common.search')}
-                      value={textSearch}
-                      onChange={(e) => setTextSearch(e.target.value)}
-                      InputProps={{
-                        startAdornment: (
-                          <InputAdornment position="start">
-                            <SearchIcon fontSize="small" />
-                          </InputAdornment>
-                        )
-                      }}
-                      fullWidth
-                    />
-
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <Typography variant="body2" color="text.secondary">
-                        {selectedTextIds.length} / {filteredTexts.length} {t('common.selected')}
-                      </Typography>
-                      <Stack direction="row" spacing={1}>
-                        <Button size="small" onClick={handleSelectAll}>
-                          {t('common.selectAll')}
-                        </Button>
-                        <Button size="small" onClick={handleDeselectAll}>
-                          {t('common.clearAll')}
-                        </Button>
-                      </Stack>
-                    </Box>
-
-                    <Box sx={{ 
-                      maxHeight: 150, 
-                      overflow: 'auto', 
-                      border: 1, 
-                      borderColor: 'divider', 
-                      borderRadius: 1 
-                    }}>
-                      {loadingTexts ? (
-                        <Box sx={{ display: 'flex', justifyContent: 'center', p: 2 }}>
-                          <CircularProgress size={24} />
-                        </Box>
-                      ) : filteredTexts.length === 0 ? (
-                        <Typography variant="body2" color="text.secondary" sx={{ p: 2, textAlign: 'center' }}>
-                          {t('common.noData')}
-                        </Typography>
-                      ) : (
-                        filteredTexts.map(text => (
-                          <FormControlLabel
-                            key={text.id}
-                            control={
-                              <Checkbox
-                                checked={selectedTextIds.includes(text.id)}
-                                onChange={() => handleTextToggle(text.id)}
-                                size="small"
-                              />
-                            }
-                            label={
-                              <Typography variant="body2" noWrap sx={{ maxWidth: 200 }}>
-                                {text.filename}
-                              </Typography>
-                            }
-                            sx={{ 
-                              display: 'flex', 
-                              width: '100%', 
-                              m: 0, 
-                              px: 1,
-                              '&:hover': { bgcolor: 'action.hover' }
-                            }}
-                          />
-                        ))
-                      )}
-                    </Box>
-                  </>
-                )}
-
-                {/* Selection summary */}
-                <Alert 
-                  severity={selectedCount > 0 ? 'success' : 'warning'} 
-                  icon={false}
-                  sx={{ py: 0.5 }}
-                >
-                  <Typography variant="body2">
-                    {t('synonym.corpus.selectedCount')}: <strong>{selectedCount}</strong> {t('corpus.textsCount')}
-                  </Typography>
-                </Alert>
-              </>
-            )}
-          </Stack>
-        </Paper>
+        {/* 1. Corpus / Library Selection */}
+        <CorpusOrLibrarySelector
+          sectionTitle={t('synonym.corpus.title')}
+          onSelectionChange={setCorpusSelection}
+          externalSelection={externalSelection}
+        />
 
         {/* 2. POS Filter Panel */}
         <Box sx={{ mb: 2 }}>
           <POSFilterPanel
             value={posFilter}
             onChange={setPosFilter}
-            disabled={!selectedCorpus}
+            disabled={!corpusSelection}
           />
         </Box>
 
@@ -485,7 +224,7 @@ export default function SynonymAnalysis() {
             onMinFreqChange={setMinFreq}
             onMaxResultsChange={setMaxResults}
             onLowercaseChange={setLowercase}
-            disabled={!selectedCorpus}
+            disabled={!corpusSelection}
           />
         </Box>
 
@@ -531,10 +270,12 @@ export default function SynonymAnalysis() {
                 selectedWords={selectedWords}
                 onSelectionChange={setSelectedWords}
                 isLoading={isLoading}
-                corpusId={selectedCorpus?.id}
-                textIds={getSelectedTextIds()}
-                selectionMode={selectionMode}
-                selectedTags={selectedTags}
+                corpusId={corpusSelection?.corpusId}
+                textIds={corpusSelection?.textIds}
+                selectionMode={corpusSelection?.selectionMode === 'keywords' ? 'tags' : (corpusSelection?.selectionMode ?? 'all')}
+                selectedTags={corpusSelection?.selectedKeywords ?? corpusSelection?.selectedTags ?? []}
+                libraryId={corpusSelection?.dataSource === 'library' ? corpusSelection.libraryId : undefined}
+                selectedEntryIds={corpusSelection?.dataSource === 'library' && corpusSelection?.selectionMode === 'selected' ? corpusSelection?.selectedEntryIds : undefined}
               />
             ) : (
               <Box sx={{ 

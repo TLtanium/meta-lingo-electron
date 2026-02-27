@@ -28,6 +28,8 @@ interface LDADynamicPanelProps {
   config: LDADynamicConfig
   onConfigChange: (config: LDADynamicConfig) => void
   texts: CorpusText[]
+  /** When in library mode, text_id -> date string (year) from biblio entry */
+  textDates?: Record<string, string>
   disabled?: boolean
 }
 
@@ -35,25 +37,31 @@ export default function LDADynamicPanel({
   config,
   onConfigChange,
   texts,
+  textDates: textDatesProp,
   disabled = false
 }: LDADynamicPanelProps) {
   const { t } = useTranslation()
 
-  // Count texts with date metadata
+  // Count texts with date metadata (or from library textDates)
   const textsWithDate = useMemo(() => {
+    if (textDatesProp && Object.keys(textDatesProp).length > 0) return Object.keys(textDatesProp).length
     return texts.filter(text => text.metadata?.date).length
-  }, [texts])
+  }, [texts, textDatesProp])
 
-  // Get text dates mapping
+  // Get text dates mapping: prefer prop (library mode), else derive from texts
   const textDates = useMemo(() => {
+    if (textDatesProp && Object.keys(textDatesProp).length > 0) return textDatesProp
     const dates: Record<string, string> = {}
     texts.forEach(text => {
-      if (text.metadata?.date) {
-        dates[text.id] = text.metadata.date
-      }
+      if (text.metadata?.date) dates[text.id] = text.metadata.date
     })
     return dates
-  }, [texts])
+  }, [texts, textDatesProp])
+
+  const totalTextCount = useMemo(() => {
+    if (textDatesProp && Object.keys(textDatesProp).length > 0) return Object.keys(textDatesProp).length
+    return texts.length
+  }, [texts, textDatesProp])
 
   const handleConfigChange = (key: keyof LDADynamicConfig, value: unknown) => {
     onConfigChange({ ...config, [key]: value })
@@ -81,12 +89,17 @@ export default function LDADynamicPanel({
             {textsWithDate > 0 ? (
               <>
                 <strong>{textsWithDate}</strong> {t('topicModeling.ldaDynamic.textsWithDate', 'texts have date metadata')}
-                {' '}/ {texts.length} {t('corpus.textsCount', 'texts')}
+                {' '}/ {totalTextCount} {t('corpus.textsCount', 'texts')}
               </>
             ) : (
               t('topicModeling.ldaDynamic.noDateData', 'No date metadata found in selected texts')
             )}
           </Typography>
+          {textDatesProp && Object.keys(textDatesProp).length > 0 && (
+            <Typography variant="caption" display="block" sx={{ mt: 0.5 }} color="text.secondary">
+              {t('topicModeling.ldaDynamic.libraryYearHint')}
+            </Typography>
+          )}
         </Alert>
 
         {/* Enable checkbox */}

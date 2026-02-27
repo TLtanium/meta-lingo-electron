@@ -38,7 +38,9 @@ export interface BiblioLibrary {
   name: string
   source_type: SourceType
   description?: string
+  language?: string
   entry_count: number
+  corpus_id?: string
   created_at?: string
   updated_at?: string
 }
@@ -47,11 +49,13 @@ export interface BiblioLibraryCreate {
   name: string
   source_type: SourceType
   description?: string
+  language?: string
 }
 
 export interface BiblioLibraryUpdate {
   name?: string
   description?: string
+  language?: string
 }
 
 // ==================== Entry Models ====================
@@ -78,6 +82,12 @@ export interface BiblioEntry {
   unique_id?: string
   raw_data?: Record<string, any>
   created_at?: string
+  /** Set when listing with include_status (abstract text id in shadow corpus) */
+  text_id?: string
+  task_id?: string
+  task_status?: string
+  task_progress?: number
+  task_message?: string
 }
 
 // ==================== Filter Models ====================
@@ -286,6 +296,8 @@ export interface BiblioEntryListResponse {
   page: number
   page_size: number
   total_pages: number
+  /** Total entries (matching current filters) still in SpaCy/USAS/MIPVU processing */
+  processing_count?: number
 }
 
 export interface UploadResult {
@@ -293,6 +305,8 @@ export interface UploadResult {
   entries_added: number
   entries_skipped: number
   errors: string[]
+  /** For each entry with abstract: entry_id, text_id, task_id (for progress polling) */
+  entry_tasks?: { entry_id: string; text_id: string; task_id: string }[]
 }
 
 // ==================== Request Models ====================

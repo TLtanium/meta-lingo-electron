@@ -59,12 +59,18 @@ interface ResultsPanelProps {
   ollamaUrl: string
   ollamaModel: string
   ollamaLanguage?: 'en' | 'zh'
+  openaiApiEnabled?: boolean
+  openaiApiBaseUrl?: string
+  openaiApiKey?: string
+  openaiApiModel?: string
   onTopicsUpdate?: (topics: TopicItem[]) => void
   // Cross-link props
   corpusId?: string
   textIds?: string[] | 'all'
   selectionMode?: SelectionMode
   selectedTags?: string[]
+  libraryId?: string
+  selectedEntryIds?: string[]
 }
 
 export default function ResultsPanel({
@@ -73,11 +79,17 @@ export default function ResultsPanel({
   ollamaUrl,
   ollamaModel,
   ollamaLanguage = 'en',
+  openaiApiEnabled = false,
+  openaiApiBaseUrl = '',
+  openaiApiKey = '',
+  openaiApiModel = '',
   onTopicsUpdate,
   corpusId,
   textIds,
   selectionMode = 'all',
-  selectedTags
+  selectedTags,
+  libraryId,
+  selectedEntryIds
 }: ResultsPanelProps) {
   const { t } = useTranslation()
   const theme = useTheme()
@@ -155,27 +167,41 @@ export default function ResultsPanel({
   }
 
   const handleGenerateNames = async () => {
-    if (!ollamaConnected || !ollamaModel || !result?.result_id) return
+    const useApi = openaiApiEnabled && openaiApiBaseUrl && openaiApiModel
+    const useOllama = ollamaConnected && ollamaModel
+    if ((!useApi && !useOllama) || !result?.result_id) return
 
     setGeneratingNames(true)
     try {
-      const response = await topicModelingApi.generateTopicNames(
-        validTopics,
-        ollamaUrl,
-        ollamaModel,
-        { language: ollamaLanguage, delay: 0.5, topNWords: keywordDisplayCount }
-      )
-
-      if (response.success && response.data) {
-        // Update frontend state
-        onTopicsUpdate?.(response.data.topics)
-        
-        // Sync updated topics to backend cache for visualizations
-        // Include outlier topic if exists
-        const allTopics = outlierTopic 
-          ? [...response.data.topics, outlierTopic]
-          : response.data.topics
-        await topicModelingApi.updateTopics(result.result_id, allTopics)
+      if (useApi) {
+        const response = await topicModelingApi.generateTopicNamesOpenAI(
+          validTopics,
+          openaiApiBaseUrl,
+          openaiApiKey || '',
+          openaiApiModel,
+          { language: ollamaLanguage, topNWords: keywordDisplayCount }
+        )
+        if (response.success && response.data) {
+          onTopicsUpdate?.(response.data.topics)
+          const allTopics = outlierTopic
+            ? [...response.data.topics, outlierTopic]
+            : response.data.topics
+          await topicModelingApi.updateTopics(result.result_id, allTopics)
+        }
+      } else {
+        const response = await topicModelingApi.generateTopicNames(
+          validTopics,
+          ollamaUrl,
+          ollamaModel,
+          { language: ollamaLanguage, delay: 0.5, topNWords: keywordDisplayCount }
+        )
+        if (response.success && response.data) {
+          onTopicsUpdate?.(response.data.topics)
+          const allTopics = outlierTopic
+            ? [...response.data.topics, outlierTopic]
+            : response.data.topics
+          await topicModelingApi.updateTopics(result.result_id, allTopics)
+        }
       }
     } catch (err) {
       console.error('Failed to generate names:', err)
@@ -336,7 +362,7 @@ export default function ResultsPanel({
                 </Button>
               </Tooltip>
             )}
-            {ollamaConnected && (
+            {(openaiApiEnabled || ollamaConnected) && (
               <Tooltip title={t('topicModeling.ollama.generateNames')}>
                 <Button
                   variant="outlined"
@@ -592,6 +618,8 @@ export default function ResultsPanel({
                                   textIds={textIds || 'all'}
                                   selectionMode={selectionMode}
                                   selectedTags={selectedTags}
+                                  libraryId={libraryId}
+                                  selectedEntryIds={selectedEntryIds}
                                   showCollocation={true}
                                   showWordSketch={true}
                                 />

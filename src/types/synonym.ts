@@ -61,12 +61,11 @@ export interface WordSynonymResponse {
 
 // Visualization config for synonym network
 export interface SynonymVizConfig {
-  type: 'network' | 'tree' | 'list';
+  type: 'network' | 'tree';
   maxNodes: number;  // For backward compatibility, but use maxNodesByType instead
   maxNodesByType?: {
     network?: number;
     tree?: number;
-    list?: number;
   };
   showDefinitions: boolean;
   colorScheme: string;
@@ -87,8 +86,7 @@ export const DEFAULT_VIZ_CONFIG: SynonymVizConfig = {
   maxNodes: 50,  // For backward compatibility
   maxNodesByType: {
     network: 50,
-    tree: 5,
-    list: 200
+    tree: 5
   },
   showDefinitions: true,
   colorScheme: 'default',

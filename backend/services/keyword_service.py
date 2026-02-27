@@ -19,6 +19,7 @@ from scipy import stats
 import sys
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from config import DATA_DIR, CORPORA_DIR, MODELS_DIR
+from services.usas.domain_config import get_domain_description, get_aggregated_domain_description
 
 logger = logging.getLogger(__name__)
 
@@ -176,7 +177,7 @@ class KeywordService:
         return CORPORA_DIR / corpus_id
     
     def _get_texts_from_db(self, corpus_id: str, text_ids: List[str] | str) -> List[Dict[str, Any]]:
-        """Get text list from database"""
+        """Get text list from database (includes content_path and transcript_json_path for transcript/audio/video)."""
         db_path = DATA_DIR / "database.sqlite"
         if not db_path.exists():
             return []
@@ -184,16 +185,16 @@ class KeywordService:
         try:
             conn = sqlite3.connect(str(db_path))
             cursor = conn.cursor()
-            
+            cols = "id, filename, media_type, content_path, transcript_json_path"
             if text_ids == 'all':
                 cursor.execute(
-                    "SELECT id, filename, media_type FROM texts WHERE corpus_id = ?",
+                    f"SELECT {cols} FROM texts WHERE corpus_id = ?",
                     (corpus_id,)
                 )
             else:
                 placeholders = ','.join('?' * len(text_ids))
                 cursor.execute(
-                    f"SELECT id, filename, media_type FROM texts WHERE corpus_id = ? AND id IN ({placeholders})",
+                    f"SELECT {cols} FROM texts WHERE corpus_id = ? AND id IN ({placeholders})",
                     (corpus_id, *text_ids)
                 )
             
@@ -201,71 +202,100 @@ class KeywordService:
             conn.close()
             
             return [
-                {'id': row[0], 'filename': row[1], 'media_type': row[2]}
+                {
+                    'id': row[0], 'filename': row[1], 'media_type': row[2] or 'text',
+                    'content_path': row[3] if len(row) > 3 else None,
+                    'transcript_json_path': row[4] if len(row) > 4 else None
+                }
                 for row in rows
             ]
         except Exception as e:
             logger.warning(f"Error getting texts from database: {e}")
             return []
     
-    def _load_spacy_data(self, corpus_id: str, text_ids: List[str] | str) -> List[Dict[str, Any]]:
-        """Load SpaCy annotation data for given texts"""
-        corpus_dir = self._get_corpus_dir(corpus_id)
+    def _extract_tokens_from_spacy_data(self, spacy_data: Any) -> List[Dict[str, Any]]:
+        """Extract flat token list from SpaCy data (list of sentences, dict with tokens/sentences/segments)."""
+        tokens = []
+        if isinstance(spacy_data, list):
+            for sent in spacy_data:
+                if isinstance(sent, dict) and 'tokens' in sent:
+                    tokens.extend(sent['tokens'])
+                elif isinstance(sent, list):
+                    tokens.extend(sent)
+        elif isinstance(spacy_data, dict):
+            if 'tokens' in spacy_data:
+                tokens.extend(spacy_data['tokens'])
+            elif 'segments' in spacy_data:
+                # Transcript format: spacy_annotations from annotate_segments -> { segments: { seg_id: { tokens: [...] } } }
+                for seg_id, seg_data in spacy_data['segments'].items():
+                    if isinstance(seg_data, dict) and 'tokens' in seg_data:
+                        tokens.extend(seg_data['tokens'])
+            elif 'sentences' in spacy_data:
+                for sent in spacy_data['sentences']:
+                    if isinstance(sent, dict) and 'tokens' in sent:
+                        tokens.extend(sent['tokens'])
+        return tokens
+    
+    def _load_spacy_annotation_for_text(
+        self, text_info: Dict[str, Any], corpus_dir: Path
+    ) -> Optional[List[Dict[str, Any]]]:
+        """
+        Load SpaCy tokens for one text. For audio/video, prefer transcript JSON (spacy_annotations).
+        For plain text, use content_path-based or corpus_dir/files path.
+        """
+        filename = text_info.get('filename', '')
+        media_type = text_info.get('media_type', 'text')
+        base_name = filename.rsplit('.', 1)[0] if '.' in filename else filename
         
+        # Audio/video: try transcript JSON first (canonical place for transcript SpaCy)
+        if media_type in ('audio', 'video'):
+            transcript_json = text_info.get('transcript_json_path')
+            if transcript_json and Path(transcript_json).exists():
+                try:
+                    with open(transcript_json, 'r', encoding='utf-8') as f:
+                        data = json.load(f)
+                    if 'spacy_annotations' in data:
+                        ann = data['spacy_annotations']
+                        tokens = self._extract_tokens_from_spacy_data(ann)
+                        if tokens:
+                            return tokens
+                except Exception as e:
+                    logger.warning(f"Failed to load transcript SpaCy for {filename}: {e}")
+            # Fallback: audios/videos/{base_name}.spacy.json
+            subdir = "audios" if media_type == 'audio' else "videos"
+            spacy_file = corpus_dir / subdir / f"{base_name}.spacy.json"
+        else:
+            # Plain text: content_path-based path first, then files/base_name
+            content_path = text_info.get('content_path')
+            if content_path and Path(content_path).exists():
+                spacy_file = Path(content_path).parent / f"{Path(content_path).stem}.spacy.json"
+            else:
+                spacy_file = corpus_dir / "files" / f"{base_name}.spacy.json"
+        
+        if not spacy_file.exists():
+            return None
+        try:
+            with open(spacy_file, 'r', encoding='utf-8') as f:
+                spacy_data = json.load(f)
+            return self._extract_tokens_from_spacy_data(spacy_data)
+        except Exception as e:
+            logger.warning(f"Failed to load SpaCy data for {filename}: {e}")
+            return None
+    
+    def _load_spacy_data(self, corpus_id: str, text_ids: List[str] | str) -> List[Dict[str, Any]]:
+        """Load SpaCy annotation data for given texts (supports transcript JSON for audio/video)."""
+        corpus_dir = self._get_corpus_dir(corpus_id)
         if not corpus_dir.exists():
             raise ValueError(f"Corpus not found: {corpus_id}")
-        
-        # Get texts from database
         texts = self._get_texts_from_db(corpus_id, text_ids)
-        
         if not texts:
             logger.warning(f"No texts found for corpus: {corpus_id}")
             return []
-        
         all_tokens = []
-        
         for text_info in texts:
-            filename = text_info.get('filename', '')
-            media_type = text_info.get('media_type', 'text')
-            
-            # Get base filename without extension
-            base_name = filename.rsplit('.', 1)[0] if '.' in filename else filename
-            
-            # Determine SpaCy file path based on media type
-            if media_type == 'text':
-                spacy_file = corpus_dir / "files" / f"{base_name}.spacy.json"
-            elif media_type == 'audio':
-                spacy_file = corpus_dir / "audios" / f"{base_name}.spacy.json"
-            elif media_type == 'video':
-                spacy_file = corpus_dir / "videos" / f"{base_name}.spacy.json"
-            else:
-                continue
-            
-            if spacy_file.exists():
-                try:
-                    with open(spacy_file, 'r', encoding='utf-8') as f:
-                        spacy_data = json.load(f)
-                    
-                    # Handle different SpaCy data formats
-                    if isinstance(spacy_data, list):
-                        # Multiple sentences
-                        for sent in spacy_data:
-                            if isinstance(sent, dict) and 'tokens' in sent:
-                                all_tokens.extend(sent['tokens'])
-                            elif isinstance(sent, list):
-                                all_tokens.extend(sent)
-                    elif isinstance(spacy_data, dict):
-                        if 'tokens' in spacy_data:
-                            all_tokens.extend(spacy_data['tokens'])
-                        elif 'sentences' in spacy_data:
-                            for sent in spacy_data['sentences']:
-                                if isinstance(sent, dict) and 'tokens' in sent:
-                                    all_tokens.extend(sent['tokens'])
-                except Exception as e:
-                    logger.warning(f"Failed to load SpaCy data for {filename}: {e}")
-            else:
-                logger.debug(f"SpaCy file not found: {spacy_file}")
-        
+            tokens = self._load_spacy_annotation_for_text(text_info, corpus_dir)
+            if tokens:
+                all_tokens.extend(tokens)
         return all_tokens
     
     def _filter_by_pos(
@@ -316,65 +346,20 @@ class KeywordService:
         corpus_id: str, 
         text_ids: List[str] | str
     ) -> List[Tuple[str, List[Dict[str, Any]]]]:
-        """Load SpaCy annotation data grouped by text file, returns list of (text_id, tokens)"""
+        """Load SpaCy annotation data grouped by text file (supports transcript JSON for audio/video)."""
         corpus_dir = self._get_corpus_dir(corpus_id)
-        
         if not corpus_dir.exists():
             raise ValueError(f"Corpus not found: {corpus_id}")
-        
-        # Get texts from database
         texts = self._get_texts_from_db(corpus_id, text_ids)
-        
         if not texts:
             logger.warning(f"No texts found for corpus: {corpus_id}")
             return []
-        
         result = []
-        
         for text_info in texts:
             text_id = text_info.get('id', '')
-            filename = text_info.get('filename', '')
-            media_type = text_info.get('media_type', 'text')
-            
-            # Get base filename without extension
-            base_name = filename.rsplit('.', 1)[0] if '.' in filename else filename
-            
-            # Determine SpaCy file path based on media type
-            if media_type == 'text':
-                spacy_file = corpus_dir / "files" / f"{base_name}.spacy.json"
-            elif media_type == 'audio':
-                spacy_file = corpus_dir / "audios" / f"{base_name}.spacy.json"
-            elif media_type == 'video':
-                spacy_file = corpus_dir / "videos" / f"{base_name}.spacy.json"
-            else:
-                continue
-            
-            if spacy_file.exists():
-                try:
-                    with open(spacy_file, 'r', encoding='utf-8') as f:
-                        spacy_data = json.load(f)
-                    
-                    tokens = []
-                    # Handle different SpaCy data formats
-                    if isinstance(spacy_data, list):
-                        for sent in spacy_data:
-                            if isinstance(sent, dict) and 'tokens' in sent:
-                                tokens.extend(sent['tokens'])
-                            elif isinstance(sent, list):
-                                tokens.extend(sent)
-                    elif isinstance(spacy_data, dict):
-                        if 'tokens' in spacy_data:
-                            tokens.extend(spacy_data['tokens'])
-                        elif 'sentences' in spacy_data:
-                            for sent in spacy_data['sentences']:
-                                if isinstance(sent, dict) and 'tokens' in sent:
-                                    tokens.extend(sent['tokens'])
-                    
-                    if tokens:
-                        result.append((text_id, tokens))
-                except Exception as e:
-                    logger.warning(f"Failed to load SpaCy data for {filename}: {e}")
-        
+            tokens = self._load_spacy_annotation_for_text(text_info, corpus_dir)
+            if tokens:
+                result.append((text_id, tokens))
         return result
     
     def analyze_tfidf(
@@ -872,10 +857,17 @@ class KeywordService:
                 'error': f'Unknown algorithm: {algorithm}'
             }
         
-        return algorithms[algorithm](
+        out = algorithms[algorithm](
             corpus_id, text_ids, config, pos_filter, lowercase,
             stopwords_config, language
         )
+        # Filter out keywords with frequency 0 (can occur with TF-IDF vocabulary vs tokenization mismatch, or YAKE/RAKE n-gram tokenization)
+        if out.get('success') and out.get('results'):
+            out['results'] = [r for r in out['results'] if r.get('frequency', 0) > 0]
+            for i, r in enumerate(out['results']):
+                r['rank'] = i + 1
+            out['total_keywords'] = len(out['results'])
+        return out
     
     # ==================== Keyness Comparison Methods ====================
     
@@ -886,15 +878,98 @@ class KeywordService:
         pos_filter: Optional[Dict] = None,
         lowercase: bool = True,
         stopwords_config: Optional[Dict[str, Any]] = None,
-        language: str = 'english'
+        language: str = 'english',
+        comparison_mode: str = 'word'
     ) -> Tuple[Counter, int]:
-        """Build word frequency counter and total token count"""
+        """
+        Build frequency counter and total token count for a corpus.
+        
+        comparison_mode:
+            - 'word': surface word form (default)
+            - 'lemma': lemma form
+            - 'domain': USAS semantic domain (delegated to semantic_analysis_service)
+        """
+        comparison_mode = (comparison_mode or 'word').lower()
+        
+        # USAS semantic domain mode: delegate to semantic analysis service
+        if comparison_mode == 'domain':
+            try:
+                from services.semantic_analysis_service import get_semantic_analysis_service
+            except Exception as e:
+                logger.error(f"Failed to import semantic_analysis_service for domain mode: {e}")
+                return Counter(), 0
+            
+            service = get_semantic_analysis_service()
+            try:
+                result = service.analyze(
+                    corpus_id=corpus_id,
+                    text_ids=text_ids,
+                    pos_filter=pos_filter,
+                    search_config=None,
+                    min_freq=1,
+                    max_freq=None,
+                    lowercase=lowercase,
+                    result_mode="domain"
+                )
+            except Exception as e:
+                logger.error(f"Semantic analysis (domain mode) failed: {e}")
+                return Counter(), 0
+            
+            domain_counter: Counter = Counter()
+            for item in result.get("results", []):
+                code = item.get("domain")
+                freq = item.get("frequency", 0)
+                if not code or not isinstance(freq, (int, float)):
+                    continue
+                domain_counter[code] += int(freq)
+            
+            total_tokens = int(result.get("total_tokens", sum(domain_counter.values())))
+            return domain_counter, total_tokens
+        
+        # Word / lemma modes use SpaCy token data
         tokens = self._load_spacy_data(corpus_id, text_ids)
-        filtered = self._filter_by_pos(tokens, pos_filter, lowercase)
-        # Apply stopwords filter
+        
+        # POS filter configuration
+        if not pos_filter:
+            pos_filter = {'selectedPOS': [], 'keepMode': True}
+        selected_pos = set(pos_filter.get('selectedPOS', []))
+        keep_mode = pos_filter.get('keepMode', True)
+        
+        items: List[Tuple[str, str]] = []
+        for token in tokens:
+            text = token.get('text', token.get('word', ''))
+            lemma = token.get('lemma', text)
+            pos = token.get('pos', token.get('upos', 'X'))
+            
+            # Skip empty tokens
+            if not text or not text.strip():
+                continue
+            
+            # POS filtering (same logic as _filter_by_pos)
+            if selected_pos:
+                if keep_mode and pos not in selected_pos:
+                    continue
+                if not keep_mode and pos in selected_pos:
+                    continue
+            
+            if comparison_mode == 'lemma':
+                unit = lemma or text
+            else:
+                unit = text
+            
+            if not unit or not unit.strip():
+                continue
+            
+            if lowercase:
+                unit = unit.lower()
+            
+            items.append((unit, pos))
+        
+        # Apply stopwords filter only for word/lemma modes
         if stopwords_config:
-            filtered = self._apply_stopwords_filter(filtered, stopwords_config, language)
-        words = [w for w, _ in filtered]
+            items = self._apply_stopwords_filter(items, stopwords_config, language)
+        
+        words = [w for w, _ in items]
         return Counter(words), len(words)
     
     def _calculate_log_likelihood(
@@ -1068,18 +1143,20 @@ class KeywordService:
         lowercase: bool = True,
         stopwords_config: Optional[Dict[str, Any]] = None,
         language: str = 'english',
-        threshold_config: Optional[Dict[str, Any]] = None
+        threshold_config: Optional[Dict[str, Any]] = None,
+        comparison_mode: str = 'word'
     ) -> Dict[str, Any]:
         """Perform keyness analysis comparing study corpus to reference corpus"""
         try:
+            comparison_mode = (comparison_mode or 'word').lower()
             # Build frequency tables with stopwords filtering
             study_freq, study_total = self._build_frequency_table(
                 study_corpus_id, study_text_ids, pos_filter, lowercase,
-                stopwords_config, language
+                stopwords_config, language, comparison_mode=comparison_mode
             )
             ref_freq, ref_total = self._build_frequency_table(
                 reference_corpus_id, reference_text_ids, pos_filter, lowercase,
-                stopwords_config, language
+                stopwords_config, language, comparison_mode=comparison_mode
             )
             
             if study_total == 0 or ref_total == 0:
@@ -1099,15 +1176,38 @@ class KeywordService:
             show_negative = config.get('showNegative', False)
             effect_size_threshold = config.get('effectSizeThreshold', 0)
             
-            # Get all words from both corpora
-            all_words = set(study_freq.keys()) | set(ref_freq.keys())
+            # In domain mode: aggregate by base (same as corpus-resource path) and use aggregated domain name
+            if comparison_mode == 'domain':
+                try:
+                    from services.corpus_resource_service import normalize_usas_domain_to_base
+                except ImportError:
+                    normalize_usas_domain_to_base = None
+            else:
+                normalize_usas_domain_to_base = None
+            
+            if comparison_mode == 'domain' and normalize_usas_domain_to_base:
+                base_to_study_val: Dict[str, int] = {}
+                base_to_ref_val: Dict[str, int] = {}
+                for w, cnt in study_freq.items():
+                    base = normalize_usas_domain_to_base(w)
+                    if not base:
+                        continue
+                    base_to_study_val[base] = base_to_study_val.get(base, 0) + cnt
+                for w, cnt in ref_freq.items():
+                    base = normalize_usas_domain_to_base(w)
+                    if not base:
+                        continue
+                    base_to_ref_val[base] = base_to_ref_val.get(base, 0) + cnt
+                all_bases = set(base_to_study_val.keys()) | set(base_to_ref_val.keys())
+                iter_items = [(b, base_to_study_val.get(b, 0), base_to_ref_val.get(b, 0)) for b in all_bases]
+            else:
+                all_words = set(study_freq.keys()) | set(ref_freq.keys())
+                iter_items = [(w, study_freq.get(w, 0), ref_freq.get(w, 0)) for w in all_words]
             
             results = []
             n = study_total + ref_total  # Total tokens
             
-            for word in all_words:
-                sf = study_freq.get(word, 0)  # o11: word in study
-                rf = ref_freq.get(word, 0)    # o21: word in reference
+            for word, sf, rf in iter_items:
                 
                 # Apply frequency filters
                 if sf < min_freq_study and rf < min_freq_ref:
@@ -1183,7 +1283,8 @@ class KeywordService:
                         if actual_p > max_p_value:
                             continue
                 
-                results.append({
+                # Base result structure
+                result_item: Dict[str, Any] = {
                     'keyword': word,
                     'study_freq': sf,
                     'ref_freq': rf,
@@ -1193,8 +1294,13 @@ class KeywordService:
                     'effect_size': round(effect_size, 4),
                     'p_value': p_value,
                     'significance': significance,
-                    'direction': direction
-                })
+                    'direction': direction,
+                }
+                # Semantic domain metadata in domain mode (same aggregated name and base as resource path)
+                if comparison_mode == 'domain':
+                    result_item['domain_code'] = word
+                    result_item['domain_name'] = get_aggregated_domain_description(word)
+                results.append(result_item)
             
             # Sort by absolute score
             results.sort(key=lambda x: abs(x['score']), reverse=True)
@@ -1237,7 +1343,8 @@ class KeywordService:
         lowercase: bool = True,
         stopwords_config: Optional[Dict[str, Any]] = None,
         language: str = 'english',
-        threshold_config: Optional[Dict[str, Any]] = None
+        threshold_config: Optional[Dict[str, Any]] = None,
+        comparison_mode: str = 'word'
     ) -> Dict[str, Any]:
         """
         Perform keyness analysis comparing study corpus to a corpus resource (CSV)
@@ -1257,10 +1364,11 @@ class KeywordService:
         try:
             from services.corpus_resource_service import get_corpus_resource_service
             
+            comparison_mode = (comparison_mode or 'word').lower()
             # Build study corpus frequency table
             study_freq, study_total = self._build_frequency_table(
                 study_corpus_id, study_text_ids, pos_filter, lowercase,
-                stopwords_config, language
+                stopwords_config, language, comparison_mode=comparison_mode
             )
             
             if study_total == 0:
@@ -1276,7 +1384,11 @@ class KeywordService:
             
             # Load reference corpus from CSV resource
             resource_service = get_corpus_resource_service()
-            ref_freq_table = resource_service.build_frequency_table(resource_id, lowercase)
+            ref_freq_table = resource_service.build_frequency_table(
+                resource_id,
+                lowercase,
+                mode=comparison_mode
+            )
             
             if not ref_freq_table:
                 return {
@@ -1316,15 +1428,41 @@ class KeywordService:
             show_negative = config.get('showNegative', False)
             effect_size_threshold = config.get('effectSizeThreshold', 0)
             
-            # Get all words from both corpora
-            all_words = set(study_freq.keys()) | set(ref_freq.keys())
+            # When domain mode with corpus resource: aggregate by base (A2.1, A2.1+, A2.1mf -> one row A2.1)
+            if comparison_mode == 'domain':
+                try:
+                    from services.corpus_resource_service import normalize_usas_domain_to_base
+                except ImportError:
+                    normalize_usas_domain_to_base = None
+            else:
+                normalize_usas_domain_to_base = None
+            
+            if comparison_mode == 'domain' and normalize_usas_domain_to_base:
+                # Aggregate study_freq by base; ref_freq is already keyed by base
+                base_to_study: Dict[str, int] = {}
+                for w, cnt in study_freq.items():
+                    base = normalize_usas_domain_to_base(w)
+                    if not base:
+                        continue
+                    base_to_study[base] = base_to_study.get(base, 0) + cnt
+                all_bases = set(base_to_study.keys()) | set(ref_freq.keys())
+                iter_items = [(b, base_to_study.get(b, 0), ref_freq.get(b, 0)) for b in all_bases]
+            else:
+                all_words = set(study_freq.keys()) | set(ref_freq.keys())
+                iter_items = []
+                for w in all_words:
+                    if comparison_mode == 'domain' and normalize_usas_domain_to_base:
+                        base = normalize_usas_domain_to_base(w)
+                        if not base:
+                            continue
+                        iter_items.append((base, study_freq.get(w, 0), ref_freq.get(base, 0)))
+                    else:
+                        iter_items.append((w, study_freq.get(w, 0), ref_freq.get(w, 0)))
             
             results = []
             n = study_total + ref_total
             
-            for word in all_words:
-                sf = study_freq.get(word, 0)
-                rf = ref_freq.get(word, 0)
+            for word, sf, rf in iter_items:
                 
                 # Apply frequency filters
                 if sf < min_freq_study and rf < min_freq_ref:
@@ -1392,7 +1530,7 @@ class KeywordService:
                         if actual_p > max_p_value:
                             continue
                 
-                results.append({
+                result_item: Dict[str, Any] = {
                     'keyword': word,
                     'study_freq': sf,
                     'ref_freq': rf,
@@ -1402,8 +1540,12 @@ class KeywordService:
                     'effect_size': round(effect_size, 4),
                     'p_value': p_value,
                     'significance': significance,
-                    'direction': direction
-                })
+                    'direction': direction,
+                }
+                if comparison_mode == 'domain':
+                    result_item['domain_code'] = word
+                    result_item['domain_name'] = get_aggregated_domain_description(word)
+                results.append(result_item)
             
             results.sort(key=lambda x: abs(x['score']), reverse=True)
             

@@ -25,7 +25,6 @@ import {
 } from '@mui/material'
 import HubIcon from '@mui/icons-material/Hub'
 import AccountTreeIcon from '@mui/icons-material/AccountTree'
-import ViewListIcon from '@mui/icons-material/ViewList'
 import InsertChartIcon from '@mui/icons-material/InsertChart'
 import SaveAltIcon from '@mui/icons-material/SaveAlt'
 import ImageIcon from '@mui/icons-material/Image'
@@ -42,7 +41,7 @@ interface VisualizationPanelProps {
   onWordClick: (word: string) => void
 }
 
-type ChartType = 'network' | 'tree' | 'list'
+type ChartType = 'network' | 'tree'
 
 const COLOR_SCHEMES = [
   { value: 'default', label: 'Default' },
@@ -71,23 +70,18 @@ export default function VisualizationPanel({
   const getCurrentMaxNodes = (): number => {
     const defaults: Record<ChartType, number> = {
       network: 50,
-      tree: 5,
-      list: 200
+      tree: 5
     }
     return config.maxNodesByType?.[activeTab] ?? config.maxNodes ?? defaults[activeTab]
   }
 
   // Handle tab change - maintain separate maxNodes for each chart type
   const handleTabChange = (_: React.SyntheticEvent, newValue: ChartType) => {
-    // Save current maxNodes for the old chart type
     const currentMaxNodes = getCurrentMaxNodes()
     const defaults: Record<ChartType, number> = {
       network: 50,
-      tree: 5,
-      list: 200
+      tree: 5
     }
-    
-    // Get the maxNodes for the new chart type (use saved value or default)
     const newChartMaxNodes = config.maxNodesByType?.[newValue] ?? defaults[newValue]
     
     const newMaxNodesByType = {
@@ -169,42 +163,12 @@ export default function VisualizationPanel({
     URL.revokeObjectURL(url)
   }, [activeTab])
 
-  // Export PNG - export full content for all views
+  // Export PNG - convert SVG to PNG with full content
   const handleExportPNG = useCallback(async () => {
     try {
-      // For list view, capture the entire scrollable content
-      if (activeTab === 'list') {
-        const html2canvas = (await import('html2canvas')).default
-        
-        // Get the list content element by id
-        const listContent = document.getElementById('synonym-list-content')
-        if (!listContent) return
-        
-        const canvas = await html2canvas(listContent, {
-          backgroundColor: '#ffffff',
-          scale: 3,
-          useCORS: true,
-          scrollY: -window.scrollY,
-          height: listContent.scrollHeight,
-          windowHeight: listContent.scrollHeight + 100
-        })
-        
-        canvas.toBlob((blob) => {
-          if (!blob) return
-          
-          const url = URL.createObjectURL(blob)
-          const link = document.createElement('a')
-          link.href = url
-          link.download = `synonym-list.png`
-          link.click()
-          
-          URL.revokeObjectURL(url)
-        }, 'image/png')
-      } else {
-        // For network and tree views - convert SVG to PNG with full content
-        const svgRef = activeTab === 'network' ? networkSvgRef.current : 
-                        activeTab === 'tree' ? treeSvgRef.current : null
-        if (!svgRef) return
+      const svgRef = activeTab === 'network' ? networkSvgRef.current : 
+                      activeTab === 'tree' ? treeSvgRef.current : null
+      if (!svgRef) return
         
         // Get the content group's bounding box
         const gElement = svgRef.querySelector('g')
@@ -269,7 +233,6 @@ export default function VisualizationPanel({
           URL.revokeObjectURL(svgUrl)
         }
         img.src = svgUrl
-      }
     } catch (error) {
       console.error('Failed to export PNG:', error)
     }
@@ -333,17 +296,6 @@ export default function VisualizationPanel({
             />
           </Box>
         )
-      case 'list':
-        return (
-          <Box sx={{ height: '100%', overflow: 'auto' }}>
-            <SynonymListView 
-              data={data} 
-              maxNodes={currentMaxNodes}
-              onWordClick={onWordClick}
-              isDarkMode={isDarkMode}
-            />
-          </Box>
-        )
       default:
         return null
     }
@@ -368,12 +320,6 @@ export default function VisualizationPanel({
             value="tree" 
             icon={<AccountTreeIcon />} 
             label={t('synonym.visualization.tree')} 
-            iconPosition="start"
-          />
-          <Tab 
-            value="list" 
-            icon={<ViewListIcon />} 
-            label={t('synonym.visualization.list')} 
             iconPosition="start"
           />
         </Tabs>
@@ -401,16 +347,15 @@ export default function VisualizationPanel({
             value={getCurrentMaxNodes()}
             onChange={handleMaxNodesChange}
             min={5}
-            max={activeTab === 'tree' ? 1000 : activeTab === 'list' ? 1000 : 200}
-            step={activeTab === 'tree' ? 1 : activeTab === 'list' ? 20 : 5}
+            max={activeTab === 'tree' ? 1000 : 200}
+            step={activeTab === 'tree' ? 1 : 5}
             integer
-            defaultValue={activeTab === 'tree' ? 5 : activeTab === 'list' ? 200 : 50}
+            defaultValue={activeTab === 'tree' ? 5 : 50}
             sx={{ width: 140 }}
           />
 
-          {/* Color Scheme (for network and tree) */}
-          {activeTab !== 'list' && (
-            <FormControl size="small" sx={{ minWidth: 150 }}>
+          {/* Color Scheme */}
+          <FormControl size="small" sx={{ minWidth: 150 }}>
               <InputLabel>{t('synonym.visualization.colorScheme')}</InputLabel>
               <Select
                 value={config.colorScheme}
@@ -437,11 +382,9 @@ export default function VisualizationPanel({
                 ))}
               </Select>
             </FormControl>
-          )}
 
-          {/* Show Definitions (for network and tree) */}
-          {activeTab !== 'list' && (
-            <FormControlLabel
+          {/* Show Definitions */}
+          <FormControlLabel
               control={
                 <Switch
                   checked={config.showDefinitions}
@@ -455,7 +398,6 @@ export default function VisualizationPanel({
                 </Typography>
               }
             />
-          )}
         </Stack>
 
         {/* Export buttons */}
@@ -484,80 +426,3 @@ export default function VisualizationPanel({
   )
 }
 
-// Simple list view of synonyms
-function SynonymListView({ 
-  data, 
-  maxNodes,
-  onWordClick,
-  isDarkMode = false
-}: { 
-  data: SynonymResult[]
-  maxNodes: number
-  onWordClick: (word: string) => void
-  isDarkMode?: boolean
-}) {
-  const { t } = useTranslation()
-  const limitedData = data.slice(0, maxNodes)
-  
-  return (
-    <Stack spacing={2} sx={{ p: 1, bgcolor: isDarkMode ? 'transparent' : '#fff' }} id="synonym-list-content">
-      {limitedData.map(result => (
-        <Paper 
-          key={result.word} 
-          variant="outlined" 
-          sx={{ 
-            p: 2,
-            cursor: 'pointer',
-            '&:hover': { bgcolor: 'action.hover' }
-          }}
-          onClick={() => onWordClick(result.word)}
-        >
-          <Stack direction="row" spacing={2} alignItems="flex-start">
-            <Box sx={{ minWidth: 120 }}>
-              <Typography variant="subtitle1" fontWeight={600}>
-                {result.word}
-              </Typography>
-              <Typography variant="caption" color="text.secondary">
-                {t('synonym.results.frequency')}: {result.frequency}
-              </Typography>
-              <br />
-              <Typography variant="caption" color="text.secondary">
-                {t('synonym.results.synonymCount')}: {result.synonym_count}
-              </Typography>
-            </Box>
-            <Box sx={{ flex: 1 }}>
-              <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
-                {result.all_synonyms.slice(0, 15).map(syn => (
-                  <Typography 
-                    key={syn} 
-                    variant="body2"
-                    sx={{ 
-                      bgcolor: 'primary.light', 
-                      color: 'primary.contrastText',
-                      px: 1,
-                      py: 0.25,
-                      borderRadius: 1,
-                      fontSize: '0.8rem'
-                    }}
-                  >
-                    {syn}
-                  </Typography>
-                ))}
-                {result.all_synonyms.length > 15 && (
-                  <Typography variant="body2" color="text.secondary">
-                    +{result.all_synonyms.length - 15} {t('common.more')}
-                  </Typography>
-                )}
-              </Stack>
-              {result.synsets[0] && (
-                <Typography variant="body2" color="text.secondary" sx={{ mt: 1, fontStyle: 'italic' }}>
-                  {result.synsets[0].definition}
-                </Typography>
-              )}
-            </Box>
-          </Stack>
-        </Paper>
-      ))}
-    </Stack>
-  )
-}

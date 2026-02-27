@@ -238,6 +238,59 @@ export default function NMFPreprocessPanel({
           </Typography>
         </Box>
         
+        {/* N-gram mode: above stopwords/punctuation */}
+        <Box>
+          <FormControlLabel
+            control={
+              <Checkbox
+                size="small"
+                checked={config.ngram_enabled}
+                onChange={(e) => handleConfigChange('ngram_enabled', e.target.checked)}
+              />
+            }
+            label={
+              <Typography variant="body2">
+                {t('topicModeling.nmf.preprocess.ngramMode', 'N-gram mode')}
+              </Typography>
+            }
+          />
+          {config.ngram_enabled && (
+            <Box sx={{ mt: 1, pl: 3 }}>
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+                {t('topicModeling.nmf.preprocess.selectNValues', 'Select N value(s) (multi-select)')}
+              </Typography>
+              <Stack direction="row" flexWrap="wrap" gap={0.5}>
+                {([2, 3, 4, 5, 6] as const).map((n) => {
+                  const label = n === 2
+                    ? t('topicModeling.nmf.preprocess.bigram', 'Bigram(2)')
+                    : n === 3
+                      ? t('topicModeling.nmf.preprocess.trigram', '3-gram')
+                      : t('topicModeling.nmf.preprocess.nGram' + n, `${n}-gram`)
+                  const checked = config.ngram_n_values.includes(n)
+                  return (
+                    <FormControlLabel
+                      key={n}
+                      control={
+                        <Checkbox
+                          size="small"
+                          checked={checked}
+                          onChange={() => {
+                            const next = checked
+                              ? config.ngram_n_values.filter((v) => v !== n)
+                              : [...config.ngram_n_values, n].sort((a, b) => a - b)
+                            handleConfigChange('ngram_n_values', next.length ? next : [2])
+                          }}
+                        />
+                      }
+                      label={<Typography variant="body2">{label}</Typography>}
+                    />
+                  )
+                })}
+              </Stack>
+            </Box>
+          )}
+        </Box>
+        
         {/* Basic preprocessing options - 2x2 grid */}
         <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0.5 }}>
           <FormControlLabel
@@ -251,21 +304,6 @@ export default function NMFPreprocessPanel({
             label={
               <Typography variant="body2">
                 {t('topicModeling.nmf.preprocess.removeStopwords', 'Remove stopwords')}
-              </Typography>
-            }
-          />
-          
-          <FormControlLabel
-            control={
-              <Checkbox
-                size="small"
-                checked={config.remove_punctuation}
-                onChange={(e) => handleConfigChange('remove_punctuation', e.target.checked)}
-              />
-            }
-            label={
-              <Typography variant="body2">
-                {t('topicModeling.nmf.preprocess.removePunctuation', 'Remove punct.')}
               </Typography>
             }
           />

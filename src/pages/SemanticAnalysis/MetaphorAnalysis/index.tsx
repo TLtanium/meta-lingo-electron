@@ -10,32 +10,17 @@ import {
   LinearProgress,
   Tabs,
   Tab,
-  Divider,
   Stack,
   Chip,
   Button,
   Paper,
-  Alert,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  RadioGroup,
-  Radio,
-  FormControlLabel,
-  TextField,
-  InputAdornment,
-  Checkbox,
-  CircularProgress,
-  OutlinedInput,
-  ListItemText
+  Alert
 } from '@mui/material'
-import SearchIcon from '@mui/icons-material/Search'
 import PlayArrowIcon from '@mui/icons-material/PlayArrow'
 import AutoGraphIcon from '@mui/icons-material/AutoGraph'
 import { useTranslation } from 'react-i18next'
-import { corpusApi, analysisApi } from '../../../api'
-import type { Corpus, CorpusText } from '../../../types'
+import { useTabStore } from '../../../stores/tabStore'
+import { analysisApi } from '../../../api'
 import type {
   MetaphorResult,
   MetaphorStatistics,
@@ -50,8 +35,10 @@ import SearchConfigPanel from '../../WordFrequency/SearchConfigPanel'
 import ResultsTable from './ResultsTable'
 import VisualizationPanel from './VisualizationPanel'
 import type { POSTagInfo } from '../../../types/wordFrequency'
-
-type SelectionMode = 'all' | 'selected' | 'tags'
+import AnalysisAIAssistant from '../../../components/AnalysisAIAssistant'
+import CorpusOrLibrarySelector, { type CorpusOrLibrarySelection } from '../../../components/Corpus/CorpusOrLibrarySelector'
+import { useSettingsStore } from '../../../stores/settingsStore'
+import type { CrossLinkParams } from '../../../types/crossLink'
 
 const DEFAULT_POS_FILTER: POSFilterConfig = {
   selectedPOS: [],
@@ -66,20 +53,18 @@ const DEFAULT_SEARCH_CONFIG: SearchConfig = {
   removeStopwords: false
 }
 
-export default function MetaphorAnalysis() {
+interface MetaphorAnalysisProps {
+  crossLinkParams?: CrossLinkParams
+}
+
+export default function MetaphorAnalysis({ crossLinkParams }: MetaphorAnalysisProps = {}) {
   const { t, i18n } = useTranslation()
   const isZh = i18n.language === 'zh'
+  const { openTab } = useTabStore()
+  const { ollamaConnected, openaiApiEnabled } = useSettingsStore()
 
-  // Corpus state
-  const [corpora, setCorpora] = useState<Corpus[]>([])
-  const [selectedCorpus, setSelectedCorpus] = useState<Corpus | null>(null)
-  const [texts, setTexts] = useState<CorpusText[]>([])
-  const [selectedTextIds, setSelectedTextIds] = useState<string[]>([])
-  const [selectedTags, setSelectedTags] = useState<string[]>([])
-  const [selectionMode, setSelectionMode] = useState<SelectionMode>('all')
-  const [textSearch, setTextSearch] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [loadingTexts, setLoadingTexts] = useState(false)
+  // Data source: corpus or library (unified selector); MIPVU is English-only (library language filtered in selector when needed)
+  const [corpusSelection, setCorpusSelection] = useState<CorpusOrLibrarySelection | null>(null)
 
   // POS tags
   const [posTags, setPosTags] = useState<POSTagInfo[]>([])
@@ -106,29 +91,40 @@ export default function MetaphorAnalysis() {
   // Visualization config
   const [vizConfig, setVizConfig] = useState<MetaphorVisualizationConfig>(DEFAULT_METAPHOR_VIZ_CONFIG)
 
-  // Load corpora and POS tags on mount
+  // Sync corpus/library selection from cross-link so selector shows same source
   useEffect(() => {
-    loadCorpora()
+    if (!crossLinkParams?.corpusId) return
+    setCorpusSelection({
+      corpusId: crossLinkParams.corpusId,
+      textIds: Array.isArray(crossLinkParams.textIds) ? crossLinkParams.textIds : 'all',
+      language: 'english',
+      dataSource: crossLinkParams.libraryId ? 'library' : 'corpus',
+      selectionMode: (crossLinkParams.selectionMode as 'all' | 'tags' | 'selected') ?? 'all',
+      selectedTags: crossLinkParams.selectedTags ?? [],
+      ...(crossLinkParams.libraryId && { libraryId: crossLinkParams.libraryId }),
+      ...(crossLinkParams.selectedEntryIds?.length && { selectedEntryIds: crossLinkParams.selectedEntryIds })
+    })
+  }, [crossLinkParams])
+
+  // External selection for selector sync when opened via cross-link (including library)
+  const externalSelection = useMemo((): CorpusOrLibrarySelection | null => {
+    if (!crossLinkParams?.corpusId) return null
+    return {
+      corpusId: crossLinkParams.corpusId,
+      textIds: Array.isArray(crossLinkParams.textIds) ? crossLinkParams.textIds : 'all',
+      language: 'english',
+      dataSource: crossLinkParams.libraryId ? 'library' : 'corpus',
+      selectionMode: (crossLinkParams.selectionMode as 'all' | 'tags' | 'selected') ?? 'all',
+      selectedTags: crossLinkParams.selectedTags ?? [],
+      ...(crossLinkParams.libraryId && { libraryId: crossLinkParams.libraryId }),
+      ...(crossLinkParams.selectedEntryIds?.length && { selectedEntryIds: crossLinkParams.selectedEntryIds })
+    }
+  }, [crossLinkParams])
+
+  // Load POS tags on mount
+  useEffect(() => {
     loadPosTags()
   }, [])
-
-  const loadCorpora = async () => {
-    setLoading(true)
-    try {
-      const response = await corpusApi.listCorpora()
-      if (response.success && response.data) {
-        // Only show English corpora (MIPVU only supports English)
-        const englishCorpora = response.data.filter(
-          c => c.language?.toLowerCase() === 'english' || c.language?.toLowerCase() === 'en'
-        )
-        setCorpora(englishCorpora)
-      }
-    } catch (err) {
-      console.error('Failed to load corpora:', err)
-    } finally {
-      setLoading(false)
-    }
-  }
 
   const loadPosTags = async () => {
     try {
@@ -141,101 +137,16 @@ export default function MetaphorAnalysis() {
     }
   }
 
-  // Load texts when corpus changes
-  useEffect(() => {
-    if (selectedCorpus) {
-      loadTexts(selectedCorpus.id)
-    } else {
-      setTexts([])
-      setSelectedTextIds([])
-      setSelectedTags([])
-    }
-  }, [selectedCorpus])
-
-  // Get all available tags from texts
-  const allTags = useMemo(() => {
-    const tagSet = new Set<string>()
-    texts.forEach(text => text.tags.forEach(tag => tagSet.add(tag)))
-    return Array.from(tagSet).sort()
-  }, [texts])
-
-  const loadTexts = async (corpusId: string) => {
-    setLoadingTexts(true)
-    try {
-      const response = await corpusApi.getTexts(corpusId)
-      if (response.success && response.data) {
-        setTexts(response.data)
-      }
-    } catch (err) {
-      console.error('Failed to load texts:', err)
-    } finally {
-      setLoadingTexts(false)
-    }
-  }
-
-  // Filter texts based on search
-  const filteredTexts = useMemo(() => {
-    let result = texts
-
-    if (textSearch) {
-      const query = textSearch.toLowerCase()
-      result = result.filter(t =>
-        t.filename.toLowerCase().includes(query) ||
-        t.originalFilename?.toLowerCase().includes(query)
-      )
-    }
-
-    return result
-  }, [texts, textSearch])
-
-  const handleCorpusChange = (event: any) => {
-    const corpusId = event.target.value
-    const corpus = corpora.find(c => c.id === corpusId) || null
-    setSelectedCorpus(corpus)
-    setResults([])
-    setStatistics(null)
-    setError(null)
-  }
-
-  const handleTextToggle = (textId: string) => {
-    setSelectedTextIds(prev =>
-      prev.includes(textId)
-        ? prev.filter(id => id !== textId)
-        : [...prev, textId]
-    )
-  }
-
-  const handleSelectAll = () => {
-    setSelectedTextIds(filteredTexts.map(t => t.id))
-  }
-
-  const handleDeselectAll = () => {
-    setSelectedTextIds([])
-  }
-
-  const getSelectedTextIds = (): string[] | 'all' => {
-    if (selectionMode === 'all') {
-      return 'all'
-    }
-    if (selectionMode === 'tags') {
-      if (selectedTags.length === 0) return 'all'
-      return texts
-        .filter(t => t.tags.some(tag => selectedTags.includes(tag)))
-        .map(t => t.id)
-    }
-    return selectedTextIds.length > 0 ? selectedTextIds : 'all'
-  }
-
   const handleAnalyze = async () => {
-    if (!selectedCorpus) return
+    if (!corpusSelection) return
 
     setIsLoading(true)
     setError(null)
 
     try {
       const request: MetaphorAnalysisRequest = {
-        corpus_id: selectedCorpus.id,
-        text_ids: getSelectedTextIds(),
+        corpus_id: corpusSelection.corpusId,
+        text_ids: corpusSelection.textIds,
         pos_filter: posFilter.selectedPOS.length > 0 ? posFilter : undefined,
         search_config: searchConfig.searchValue || searchConfig.excludeWords.length > 0 ? searchConfig : undefined,
         min_freq: minFreq,
@@ -265,12 +176,15 @@ export default function MetaphorAnalysis() {
     }
   }
 
-  const canAnalyze = selectedCorpus && !isLoading
+  const canAnalyze = corpusSelection !== null && !isLoading &&
+    (corpusSelection.language === 'english' || corpusSelection.language === 'en')
 
-  const selectedCount = (() => {
-    const ids = getSelectedTextIds()
-    return ids === 'all' ? texts.length : ids.length
-  })()
+  const isNonEnglishSelection = corpusSelection !== null &&
+    corpusSelection.language !== 'english' && corpusSelection.language !== 'en'
+
+  const selectedCount = corpusSelection
+    ? (corpusSelection.textIds === 'all' ? 0 : corpusSelection.textIds.length)
+    : 0
 
   return (
     <Box sx={{ display: 'flex', height: '100%' }}>
@@ -284,9 +198,27 @@ export default function MetaphorAnalysis() {
         display: 'flex',
         flexDirection: 'column'
       }}>
-        <Typography variant="h6" gutterBottom>
-          {isZh ? '隐喻分析' : 'Metaphor Analysis'}
-        </Typography>
+        <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
+          <Typography variant="h6">
+            {isZh ? '隐喻分析' : 'Metaphor Analysis'}
+          </Typography>
+          <AnalysisAIAssistant
+            enabled={ollamaConnected || openaiApiEnabled}
+            moduleLabel={isZh ? '隐喻分析' : 'Metaphor Analysis'}
+            getContext={() => {
+              const hint = t('aiAssistant.metaphorContextHint')
+              const corpusInfo = corpusSelection ? `Corpus: ${corpusSelection.dataSource === 'corpus' ? 'corpus' : 'library'}, ${corpusSelection.textIds === 'all' ? 'all' : corpusSelection.textIds.length} texts` : 'Corpus: (none)'
+              const params = `minFreq=${minFreq}, maxFreq=${maxFreq ?? 'null'}, lowercase=${lowercase}`
+              if (results.length === 0) return `${hint}\n\n${corpusInfo}\n${params}\n${t('aiAssistant.noAnalysisResult')}`
+              const slice = results.slice(0, 25)
+              const lines = slice.map((r, i) => `${i + 1}\t${(r as MetaphorResult).word}\t${(r as MetaphorResult).frequency}\t${(r as MetaphorResult).is_metaphor ? 'Y' : 'N'}`).join('\n')
+              const header = '序号\t词\t频次\t隐喻'
+              const vizSlice = results.slice(0, 20).map((r, i) => `${i + 1}\t${(r as MetaphorResult).word}\t${(r as MetaphorResult).frequency}\t${(r as MetaphorResult).is_metaphor ? 'Y' : 'N'}`).join('\n')
+              const view = rightTab === 0 ? `Results (rows 1-${slice.length}):\n${header}\n${lines}` : `Visualization (metaphor). Top 20:\n${header}\n${vizSlice}`
+              return `${hint}\n\n${corpusInfo}\n${params}\n${view}`
+            }}
+          />
+        </Stack>
 
         {/* Info chips */}
         <Stack direction="row" spacing={1} mb={2} flexWrap="wrap">
@@ -294,188 +226,18 @@ export default function MetaphorAnalysis() {
           <Chip label={isZh ? '仅英语' : 'English Only'} size="small" color="warning" variant="outlined" />
         </Stack>
 
-        {/* 1. Corpus Selection */}
-        <Paper sx={{ p: 2, mb: 2 }}>
-          <Typography variant="subtitle2" sx={{ mb: 1.5 }}>
-            {t('wordFrequency.corpus.title')}
-          </Typography>
+        {/* 1. Corpus / Library Selection */}
+        <CorpusOrLibrarySelector
+          sectionTitle={t('wordFrequency.corpus.title')}
+          onSelectionChange={setCorpusSelection}
+          externalSelection={externalSelection}
+        />
 
-          <Stack spacing={2}>
-            <FormControl fullWidth size="small">
-              <InputLabel>{t('corpus.selectCorpus')}</InputLabel>
-              <Select
-                value={selectedCorpus?.id || ''}
-                onChange={handleCorpusChange}
-                label={t('corpus.selectCorpus')}
-                disabled={loading}
-              >
-                {corpora.map(corpus => (
-                  <MenuItem key={corpus.id} value={corpus.id}>
-                    <Stack direction="row" spacing={1} alignItems="center">
-                      <Typography>{corpus.name}</Typography>
-                      <Chip label={`${corpus.textCount} ${t('corpus.textsCount')}`} size="small" />
-                    </Stack>
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-
-            {selectedCorpus && (
-              <>
-                <Divider />
-
-                {/* Selection mode */}
-                <RadioGroup
-                  value={selectionMode}
-                  onChange={(e) => setSelectionMode(e.target.value as SelectionMode)}
-                >
-                  <FormControlLabel
-                    value="all"
-                    control={<Radio size="small" />}
-                    label={
-                      <Typography variant="body2">
-                        {t('wordFrequency.corpus.selectAll')} ({texts.length} {t('corpus.textsCount')})
-                      </Typography>
-                    }
-                  />
-                  <FormControlLabel
-                    value="tags"
-                    control={<Radio size="small" />}
-                    label={
-                      <Typography variant="body2">
-                        {t('topicModeling.corpus.selectByTags')}
-                      </Typography>
-                    }
-                  />
-                  <FormControlLabel
-                    value="selected"
-                    control={<Radio size="small" />}
-                    label={
-                      <Typography variant="body2">
-                        {t('wordFrequency.corpus.selectManually')}
-                      </Typography>
-                    }
-                  />
-                </RadioGroup>
-
-                {/* Tag selection */}
-                {selectionMode === 'tags' && allTags.length > 0 && (
-                  <FormControl size="small" fullWidth>
-                    <InputLabel>{t('corpus.filterByTags')}</InputLabel>
-                    <Select
-                      multiple
-                      value={selectedTags}
-                      onChange={(e) => setSelectedTags(e.target.value as string[])}
-                      input={<OutlinedInput label={t('corpus.filterByTags')} />}
-                      renderValue={(selected) => (
-                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                          {selected.map((tag) => (
-                            <Chip key={tag} label={tag} size="small" />
-                          ))}
-                        </Box>
-                      )}
-                    >
-                      {allTags.map((tag) => (
-                        <MenuItem key={tag} value={tag}>
-                          <Checkbox checked={selectedTags.includes(tag)} size="small" />
-                          <ListItemText primary={tag} />
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                )}
-
-                {/* Manual selection */}
-                {selectionMode === 'selected' && (
-                  <>
-                    <TextField
-                      size="small"
-                      placeholder={t('common.search')}
-                      value={textSearch}
-                      onChange={(e) => setTextSearch(e.target.value)}
-                      InputProps={{
-                        startAdornment: (
-                          <InputAdornment position="start">
-                            <SearchIcon fontSize="small" />
-                          </InputAdornment>
-                        )
-                      }}
-                      fullWidth
-                    />
-
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <Typography variant="body2" color="text.secondary">
-                        {selectedTextIds.length} / {filteredTexts.length} {t('common.selected')}
-                      </Typography>
-                      <Stack direction="row" spacing={1}>
-                        <Button size="small" onClick={handleSelectAll}>
-                          {t('common.selectAll')}
-                        </Button>
-                        <Button size="small" onClick={handleDeselectAll}>
-                          {t('common.clearAll')}
-                        </Button>
-                      </Stack>
-                    </Box>
-
-                    <Box sx={{
-                      maxHeight: 150,
-                      overflow: 'auto',
-                      border: 1,
-                      borderColor: 'divider',
-                      borderRadius: 1
-                    }}>
-                      {loadingTexts ? (
-                        <Box sx={{ display: 'flex', justifyContent: 'center', p: 2 }}>
-                          <CircularProgress size={24} />
-                        </Box>
-                      ) : filteredTexts.length === 0 ? (
-                        <Typography variant="body2" color="text.secondary" sx={{ p: 2, textAlign: 'center' }}>
-                          {t('common.noData')}
-                        </Typography>
-                      ) : (
-                        filteredTexts.map(text => (
-                          <FormControlLabel
-                            key={text.id}
-                            control={
-                              <Checkbox
-                                checked={selectedTextIds.includes(text.id)}
-                                onChange={() => handleTextToggle(text.id)}
-                                size="small"
-                              />
-                            }
-                            label={
-                              <Typography variant="body2" noWrap sx={{ maxWidth: 200 }}>
-                                {text.filename}
-                              </Typography>
-                            }
-                            sx={{
-                              display: 'flex',
-                              width: '100%',
-                              m: 0,
-                              px: 1,
-                              '&:hover': { bgcolor: 'action.hover' }
-                            }}
-                          />
-                        ))
-                      )}
-                    </Box>
-                  </>
-                )}
-
-                {/* Selection summary */}
-                <Alert
-                  severity={selectedCount > 0 ? 'success' : 'warning'}
-                  icon={false}
-                  sx={{ py: 0.5 }}
-                >
-                  <Typography variant="body2">
-                    {t('wordFrequency.corpus.selectedCount')}: <strong>{selectedCount}</strong> {t('corpus.textsCount')}
-                  </Typography>
-                </Alert>
-              </>
-            )}
-          </Stack>
-        </Paper>
+        {isNonEnglishSelection && (
+          <Alert severity="warning" sx={{ mb: 2 }}>
+            {isZh ? 'MIPVU 仅支持英文语料/文献库，请选择英文语料库或英文文献库。' : 'MIPVU only supports English corpora/libraries. Please select an English corpus or library.'}
+          </Alert>
+        )}
 
         {/* 2. POS Filter Panel */}
         <Box sx={{ mb: 2 }}>
@@ -483,7 +245,7 @@ export default function MetaphorAnalysis() {
             config={posFilter}
             onChange={setPosFilter}
             posTags={posTags}
-            disabled={!selectedCorpus}
+            disabled={!corpusSelection}
           />
         </Box>
 
@@ -498,7 +260,7 @@ export default function MetaphorAnalysis() {
             onMinFreqChange={setMinFreq}
             onMaxFreqChange={setMaxFreq}
             onLowercaseChange={setLowercase}
-            disabled={!selectedCorpus}
+            disabled={!corpusSelection}
             corpusLanguage="english"
             hideSearchTarget
           />
@@ -545,10 +307,12 @@ export default function MetaphorAnalysis() {
                 selectedWords={selectedWords}
                 onSelectionChange={setSelectedWords}
                 isLoading={isLoading}
-                corpusId={selectedCorpus?.id}
-                textIds={getSelectedTextIds()}
-                selectionMode={selectionMode}
-                selectedTags={selectedTags}
+                corpusId={corpusSelection?.corpusId}
+                textIds={corpusSelection?.textIds}
+                selectionMode={corpusSelection?.selectionMode === 'keywords' ? 'tags' : (corpusSelection?.selectionMode ?? 'all')}
+                selectedTags={corpusSelection?.selectedKeywords ?? corpusSelection?.selectedTags ?? []}
+                libraryId={corpusSelection?.dataSource === 'library' ? corpusSelection.libraryId : undefined}
+                selectedEntryIds={corpusSelection?.dataSource === 'library' && corpusSelection?.selectionMode === 'selected' ? corpusSelection?.selectedEntryIds : undefined}
               />
             ) : (
               <Box sx={{
@@ -577,12 +341,23 @@ export default function MetaphorAnalysis() {
               statistics={statistics}
               config={vizConfig}
               onConfigChange={setVizConfig}
-              onWordClick={(word) => {
-                if (!selectedWords.includes(word)) {
-                  setSelectedWords([...selectedWords, word])
-                }
-                setRightTab(0)
-              }}
+              onWordClick={corpusSelection ? (word) => {
+                openTab({
+                  type: 'collocation',
+                  title: `${t('collocation.title')} - ${word}`,
+                  props: {
+                    crossLinkParams: {
+                      searchWord: word,
+                      corpusId: corpusSelection.corpusId,
+                      textIds: corpusSelection.textIds,
+                      selectionMode: corpusSelection.selectionMode === 'keywords' ? 'tags' : corpusSelection.selectionMode,
+                      selectedTags: corpusSelection.selectedKeywords ?? corpusSelection.selectedTags ?? [],
+                      ...(corpusSelection.libraryId && { libraryId: corpusSelection.libraryId }),
+                      autoSearch: true
+                    }
+                  }
+                })
+              } : undefined}
             />
           )}
         </Box>

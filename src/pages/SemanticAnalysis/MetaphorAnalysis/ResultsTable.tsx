@@ -50,6 +50,8 @@ interface ResultsTableProps {
   textIds?: string[] | 'all'
   selectionMode?: SelectionMode
   selectedTags?: string[]
+  libraryId?: string
+  selectedEntryIds?: string[]
 }
 
 type SortField = 'word' | 'frequency' | 'percentage' | 'pos' | 'is_metaphor' | 'source'
@@ -64,7 +66,9 @@ export default function ResultsTable({
   corpusId,
   textIds,
   selectionMode = 'all',
-  selectedTags
+  selectedTags,
+  libraryId,
+  selectedEntryIds
 }: ResultsTableProps) {
   const { t, i18n } = useTranslation()
   const isZh = i18n.language === 'zh'
@@ -246,6 +250,28 @@ export default function ResultsTable({
                 variant="outlined"
                 color="primary"
               />
+              {/* POS-grouped statistics: IN / DT / RB / RP / OTHER */}
+              {statistics.pos_group_stats && (
+                <>
+                  {(['IN', 'DT', 'RB', 'RP', 'OTHER'] as const).map((key) => {
+                    const group = statistics.pos_group_stats?.[key]
+                    if (!group || group.total_tokens === 0) return null
+                    const rate = (group.metaphor_rate * 100).toFixed(1)
+                    const label =
+                      key === 'OTHER'
+                        ? (isZh ? `其他: ${rate}%` : `OTHER: ${rate}%`)
+                        : `${key}: ${rate}%`
+                    return (
+                      <Chip
+                        key={key}
+                        label={label}
+                        size="small"
+                        variant="outlined"
+                      />
+                    )
+                  })}
+                </>
+              )}
             </>
           )}
           {selectedWords.length > 0 && (
@@ -425,6 +451,8 @@ export default function ResultsTable({
                       textIds={textIds || 'all'}
                       selectionMode={selectionMode}
                       selectedTags={selectedTags}
+                      libraryId={libraryId}
+                      selectedEntryIds={selectedEntryIds}
                       showCollocation={true}
                       showWordSketch={true}
                       sourceModule="metaphor"

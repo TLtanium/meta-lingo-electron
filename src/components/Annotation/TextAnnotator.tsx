@@ -505,14 +505,18 @@ const TextAnnotator = forwardRef<TextAnnotatorRef, TextAnnotatorProps>(({
   useImperativeHandle(ref, () => ({
     getContainer: () => containerRef.current,
     scrollToAnnotation: (id: string) => {
-      if (!containerRef.current) return
-      // 找到标注块所在的句子行，滚动到该行
-      const annEl = containerRef.current.querySelector(`[data-annotation-id="${CSS.escape(id)}"]`) as HTMLElement
-      if (annEl) {
-        const sentenceRow = annEl.closest('[data-sentence-idx]') as HTMLElement
-        const target = sentenceRow || annEl
-        target.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
-      }
+      const container = containerRef.current
+      if (!container) return
+      const annEl = container.querySelector(`[data-annotation-id="${CSS.escape(id)}"]`) as HTMLElement
+      if (!annEl) return
+      const sentenceRow = annEl.closest('[data-sentence-idx]') as HTMLElement
+      const target = sentenceRow || annEl
+      // 在转录文本容器内将目标句子滚动到可视区域中间（避免目标被挤到框外）
+      const containerRect = container.getBoundingClientRect()
+      const elRect = target.getBoundingClientRect()
+      const elTop = elRect.top - containerRect.top + container.scrollTop
+      const targetScrollTop = elTop - (container.clientHeight - target.offsetHeight) / 2
+      container.scrollTo({ top: Math.max(0, targetScrollTop), behavior: 'smooth' })
     }
   }))
 

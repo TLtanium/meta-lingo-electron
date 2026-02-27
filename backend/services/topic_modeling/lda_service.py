@@ -5,11 +5,13 @@ Using Gensim engine for LDA analysis
 
 import logging
 import uuid
-import numpy as np
-from typing import Dict, List, Any, Optional, Tuple
 from datetime import datetime
 
+import numpy as np
+from typing import Dict, List, Any, Optional, Tuple
+
 from .lda_preprocess_service import get_lda_preprocess_service
+from . import dynamic_evolution
 
 logger = logging.getLogger(__name__)
 
@@ -474,14 +476,13 @@ class LDAService:
         doc_dates = []
         for text_id in result.get('text_ids', text_ids):
             date_str = text_dates.get(text_id, '')
-            parsed_date = self._parse_date(date_str, date_format)
+            parsed_date = dynamic_evolution.parse_date(date_str, date_format)
             doc_dates.append(parsed_date)
         
-        # Filter documents with valid dates
-        valid_indices = [i for i, d in enumerate(doc_dates) if d is not None]
-        logger.debug(f"[LDA Dynamic] Found {len(valid_indices)} documents with valid dates out of {len(doc_dates)}")
+        valid_count = sum(1 for d in doc_dates if d is not None)
+        logger.debug(f"[LDA Dynamic] Found {valid_count} documents with valid dates out of {len(doc_dates)}")
         
-        if len(valid_indices) < 2:
+        if valid_count < 2:
             logger.warning("[LDA Dynamic] Not enough documents with valid dates")
             result['has_dynamic'] = False
             result['dynamic_error'] = 'Not enough documents with valid dates'
@@ -489,9 +490,8 @@ class LDAService:
             self._results_cache[result['result_id']] = self._preserve_gensim_objects_in_cache(result)
             return result
         
-        # Create time slices
-        valid_dates = [doc_dates[i] for i in valid_indices]
-        time_slices = self._create_time_slices(valid_dates, date_format, nr_bins)
+        # Create time slices (full doc_dates; docs without date get slice -1)
+        time_slices = dynamic_evolution.create_time_slices(doc_dates, date_format, nr_bins)
         logger.debug(f"[LDA Dynamic] Created {len(time_slices['timestamps'])} time slices: {time_slices['timestamps']}")
         
         if len(time_slices['timestamps']) < 2:
@@ -506,12 +506,12 @@ class LDAService:
         doc_topics = result.get('doc_topics', [])
         num_topics = result.get('num_topics', 10)
         
-        evolution_data = self._calculate_topic_evolution(
+        evolution_data = dynamic_evolution.calculate_topic_evolution(
             doc_topics, doc_dates, time_slices, num_topics
         )
         
         # Calculate sankey data for topic flow
-        sankey_data = self._calculate_sankey_data(
+        sankey_data = dynamic_evolution.calculate_sankey_data(
             doc_topics, doc_dates, time_slices, num_topics
         )
         
@@ -546,234 +546,7 @@ class LDAService:
             cached_result['_documents'] = cached.get('_documents')
         
         return cached_result
-    
-    def _parse_date(self, date_str: str, date_format: str) -> Optional[str]:
-        """Parse date string to normalized format
-        
-        Args:
-            date_str: Date string from corpus metadata
-            date_format: 'year_only' for just year (e.g., "2020"), 
-                        'full_date' for complete date (e.g., "2020-03-15")
-        
-        Returns:
-            Formatted date string or None if parsing fails
-        """
-        if not date_str:
-            return None
-        
-        try:
-            # Try different date formats
-            for fmt in ['%Y-%m-%d', '%Y/%m/%d', '%Y.%m.%d', '%Y%m%d', '%Y']:
-                try:
-                    dt = datetime.strptime(date_str.strip(), fmt)
-                    if date_format == 'year_only':
-                        return str(dt.year)
-                    else:
-                        # full_date: return complete date format
-                        return dt.strftime('%Y-%m-%d')
-                except ValueError:
-                    continue
-            
-            # Try to extract year only
-            import re
-            year_match = re.search(r'(\d{4})', date_str)
-            if year_match:
-                return year_match.group(1)
-            
-            return None
-        except Exception:
-            return None
-    
-    def _create_time_slices(
-        self,
-        dates: List[str],
-        date_format: str,
-        nr_bins: Optional[int] = None
-    ) -> Dict[str, Any]:
-        """Create time slices from document dates"""
-        # Get unique sorted timestamps
-        unique_dates = sorted(set(d for d in dates if d))
-        
-        if nr_bins and len(unique_dates) > nr_bins:
-            # Bin dates into nr_bins groups
-            step = len(unique_dates) // nr_bins
-            binned_dates = [unique_dates[i * step] for i in range(nr_bins)]
-            if unique_dates[-1] not in binned_dates:
-                binned_dates.append(unique_dates[-1])
-            unique_dates = binned_dates
-        
-        # Create mapping from date to slice index
-        date_to_slice = {d: i for i, d in enumerate(unique_dates)}
-        
-        # Map each document date to nearest slice
-        doc_slices = []
-        for d in dates:
-            if d in date_to_slice:
-                doc_slices.append(date_to_slice[d])
-            else:
-                # Find nearest slice
-                nearest_idx = 0
-                for i, ud in enumerate(unique_dates):
-                    if ud <= d:
-                        nearest_idx = i
-                doc_slices.append(nearest_idx)
-        
-        return {
-            'timestamps': unique_dates,
-            'doc_slices': doc_slices,
-            'num_slices': len(unique_dates)
-        }
-    
-    def _calculate_topic_evolution(
-        self,
-        doc_topics: List[Dict],
-        doc_dates: List[Optional[str]],
-        time_slices: Dict[str, Any],
-        num_topics: int
-    ) -> Dict[str, Any]:
-        """Calculate topic distribution evolution over time"""
-        timestamps = time_slices['timestamps']
-        doc_slices = time_slices['doc_slices']
-        num_slices = len(timestamps)
-        
-        # Initialize topic counts per time slice
-        topic_counts = np.zeros((num_slices, num_topics))
-        slice_doc_counts = np.zeros(num_slices)
-        
-        # Aggregate topic weights per time slice
-        for doc_idx, doc in enumerate(doc_topics):
-            if doc_idx < len(doc_slices):
-                slice_idx = doc_slices[doc_idx]
-                dist = doc.get('distribution', [])
-                if dist:
-                    for topic_idx, weight in enumerate(dist):
-                        if topic_idx < num_topics:
-                            topic_counts[slice_idx, topic_idx] += weight
-                    slice_doc_counts[slice_idx] += 1
-        
-        # Normalize by document count per slice
-        for slice_idx in range(num_slices):
-            if slice_doc_counts[slice_idx] > 0:
-                topic_counts[slice_idx] /= slice_doc_counts[slice_idx]
-        
-        # Build series data for visualization
-        series = []
-        for topic_idx in range(num_topics):
-            series.append({
-                'topic_id': topic_idx,
-                'topic_name': f'Topic {topic_idx}',
-                'values': topic_counts[:, topic_idx].tolist()
-            })
-        
-        return {
-            'type': 'topics_over_time',
-            'timestamps': timestamps,
-            'series': series,
-            'doc_counts': slice_doc_counts.tolist()
-        }
-    
-    def _calculate_sankey_data(
-        self,
-        doc_topics: List[Dict],
-        doc_dates: List[Optional[str]],
-        time_slices: Dict[str, Any],
-        num_topics: int
-    ) -> Dict[str, Any]:
-        """Calculate sankey diagram data for topic flow between time slices"""
-        timestamps = time_slices['timestamps']
-        doc_slices = time_slices['doc_slices']
-        num_slices = len(timestamps)
-        
-        if num_slices < 2:
-            return {'nodes': [], 'links': []}
-        
-        # Create nodes for each topic at each time slice
-        nodes = []
-        node_id = 0
-        node_map = {}  # (slice_idx, topic_idx) -> node_id
-        
-        for slice_idx, timestamp in enumerate(timestamps):
-            for topic_idx in range(num_topics):
-                nodes.append({
-                    'id': node_id,
-                    'name': f'T{topic_idx}',
-                    'timestamp': timestamp,
-                    'topic_id': topic_idx,
-                    'slice_idx': slice_idx
-                })
-                node_map[(slice_idx, topic_idx)] = node_id
-                node_id += 1
-        
-        # Calculate topic transitions between consecutive time slices
-        # Count documents that move from topic A at time T to topic B at time T+1
-        topic_transitions = np.zeros((num_slices - 1, num_topics, num_topics))
-        
-        # Group documents by time slice
-        slice_docs = [[] for _ in range(num_slices)]
-        for doc_idx, doc in enumerate(doc_topics):
-            if doc_idx < len(doc_slices):
-                slice_idx = doc_slices[doc_idx]
-                slice_docs[slice_idx].append((doc_idx, doc))
-        
-        # For simplicity, calculate topic flow based on topic distribution changes
-        # This represents how topics "flow" between time periods
-        for slice_idx in range(num_slices - 1):
-            curr_topic_weights = np.zeros(num_topics)
-            next_topic_weights = np.zeros(num_topics)
-            
-            # Aggregate current slice topic weights
-            for _, doc in slice_docs[slice_idx]:
-                dist = doc.get('distribution', [])
-                for t_idx, w in enumerate(dist):
-                    if t_idx < num_topics:
-                        curr_topic_weights[t_idx] += w
-            
-            # Aggregate next slice topic weights
-            for _, doc in slice_docs[slice_idx + 1]:
-                dist = doc.get('distribution', [])
-                for t_idx, w in enumerate(dist):
-                    if t_idx < num_topics:
-                        next_topic_weights[t_idx] += w
-            
-            # Normalize
-            if curr_topic_weights.sum() > 0:
-                curr_topic_weights /= curr_topic_weights.sum()
-            if next_topic_weights.sum() > 0:
-                next_topic_weights /= next_topic_weights.sum()
-            
-            # Create flow based on weight products (simplified model)
-            for from_topic in range(num_topics):
-                for to_topic in range(num_topics):
-                    # Weight flow proportional to both topic weights
-                    flow = curr_topic_weights[from_topic] * next_topic_weights[to_topic]
-                    topic_transitions[slice_idx, from_topic, to_topic] = flow
-        
-        # Build links
-        links = []
-        for slice_idx in range(num_slices - 1):
-            for from_topic in range(num_topics):
-                for to_topic in range(num_topics):
-                    flow_value = topic_transitions[slice_idx, from_topic, to_topic]
-                    if flow_value > 0.01:  # Filter small flows
-                        source_node = node_map[(slice_idx, from_topic)]
-                        target_node = node_map[(slice_idx + 1, to_topic)]
-                        links.append({
-                            'source': source_node,
-                            'target': target_node,
-                            'value': float(flow_value),
-                            'from_topic': from_topic,
-                            'to_topic': to_topic,
-                            'from_timestamp': timestamps[slice_idx],
-                            'to_timestamp': timestamps[slice_idx + 1]
-                        })
-        
-        return {
-            'nodes': nodes,
-            'links': links,
-            'timestamps': timestamps,
-            'num_topics': num_topics
-        }
-    
+
     def get_evolution_data(self, result_id: str) -> Optional[Dict[str, Any]]:
         """Get topic evolution data for visualization"""
         result = self.get_cached_result(result_id)

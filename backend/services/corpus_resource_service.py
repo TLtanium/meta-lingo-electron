@@ -4,6 +4,7 @@ Provides access to pre-built corpus frequency CSV files for reference corpus com
 """
 
 import os
+import re
 import csv
 import logging
 from typing import List, Dict, Any, Optional, Set, Tuple
@@ -11,8 +12,44 @@ from pathlib import Path
 from functools import lru_cache
 
 from config import get_saves_dir
+from services.usas.disambiguator import parse_compound_tag
 
 logger = logging.getLogger(__name__)
+
+# Base codes starting with these uppercase letters are excluded from reference/study domain lists (per USAS spec)
+USAS_EXCLUDED_BASE_PREFIXES = frozenset('DJRUV')
+
+
+def normalize_usas_domain_to_base(tag: str) -> str:
+    """
+    Normalize a USAS domain tag to its base form for comparison with corpus resource reference data.
+    All suffix variants (e.g. A2.1+, A2.1mf, A2.1_MWE) map to the same base (A2.1) so reference
+    frequency is looked up against the aggregated reference count for that base.
+    Suffixes stripped (and trailing lowercase ignored) include: _MWE, gender (m/f/n/c), idiom (i),
+    polarity (+/-), slash (/), rarity (%, @), bracket [i]. Items whose base starts with D, J, R, U, V
+    are filtered out (empty string returned).
+    """
+    if not tag or not tag.strip():
+        return ''
+    s = (tag or '').strip()
+    # Strip _MWE
+    s = s.replace('_MWE', '')
+    # Take first segment if compound (e.g. F2/O2 -> F2)
+    if '/' in s:
+        s = s.split('/')[0].strip()
+    # Strip trailing lowercase letters (all)
+    s = re.sub(r'[a-z]+$', '', s)
+    # Strip trailing polarity/rarity/slash: +, -, /, %, @ (any combination)
+    s = re.sub(r'[-+\/%@]+$', '', s)
+    # Strip trailing bracket tag e.g. [i]
+    s = re.sub(r'\[[^\]]*\]$', '', s)
+    s = s.strip()
+    if not s:
+        return ''
+    # Filter out bases starting with D, J, R, U, V (uppercase)
+    if s[0].upper() in USAS_EXCLUDED_BASE_PREFIXES:
+        return ''
+    return s
 
 
 class CorpusResourceService:
@@ -20,18 +57,38 @@ class CorpusResourceService:
     
     # Name mapping: corpus prefix -> display name template
     CORPUS_PREFIX_NAMES = {
-        'bnc': 'BNC',
+        'bnc1994': 'BNC 1994',
+        'bnc2014': 'BNC 2014',
         'brown': 'Brown',
         'now': 'NOW',
-        'oanc': 'OANC'
+        'oanc': 'OANC',
+        'coca': 'COCA',
+        'coha': 'COHA',
+        'glowbe': 'GloWbE',
+        'coronavirus': 'Coronavirus',
+        'iweb': 'iWeb',
+        'movies': 'Movies',
+        'soap': 'SOAP',
+        'tv': 'TV',
+        'wikipedia': 'Wikipedia',
     }
     
     # Display name mappings (Chinese)
     CORPUS_PREFIX_NAMES_ZH = {
-        'bnc': 'BNC',
+        'bnc1994': 'BNC 1994',
+        'bnc2014': 'BNC 2014',
         'brown': 'Brown',
         'now': 'NOW',
-        'oanc': 'OANC'
+        'oanc': 'OANC',
+        'coca': 'COCA',
+        'coha': 'COHA',
+        'glowbe': 'GloWbE',
+        'coronavirus': 'Coronavirus',
+        'iweb': 'iWeb',
+        'movies': 'Movies',
+        'soap': 'SOAP',
+        'tv': 'TV',
+        'wikipedia': 'Wikipedia',
     }
     
     # Tag mappings for special cases
@@ -81,6 +138,16 @@ class CorpusResourceService:
         'plos': 'PLOS',
         'telephone': 'Telephone',
         'travel_guides': 'Travel Guides',
+        # COCA
+        'acad': 'Academic',
+        'blog': 'Blog',
+        'fic': 'Fiction',
+        'mag': 'Magazine',
+        'spok': 'Spoken',
+        'tvm': 'TV/Movies',
+        'web': 'Web',
+        # COHA
+        'nf': 'Non-Fiction',
     }
     
     # Category display names (Chinese)
@@ -125,9 +192,19 @@ class CorpusResourceService:
         'plos': 'PLOS',
         'telephone': '电话',
         'travel_guides': '旅游指南',
+        # COCA
+        'acad': '学术',
+        'blog': '博客',
+        'fic': '小说',
+        'mag': '杂志',
+        'spok': '口语',
+        'tvm': '电视/电影',
+        'web': '网络',
+        # COHA
+        'nf': '非虚构',
     }
     
-    # Country names for NOW corpus
+    # Country names for NOW corpus (and GloWbE - same regions)
     NOW_COUNTRIES = {
         'Australia': 'Australia',
         'Bangladesh': 'Bangladesh',
@@ -189,6 +266,9 @@ class CorpusResourceService:
         
         self.corpus_dir = Path(corpus_dir)
         self._frequency_cache: Dict[str, Dict[str, int]] = {}
+        # Cache for list_resources() so we don't re-sum every CSV on each request (corpus data is static)
+        self._list_resources_cache: Optional[List[Dict[str, Any]]] = None
+        self._list_resources_cache_key: Optional[Tuple[Tuple[str, float], ...]] = None  # (path, mtime) per CSV
         logger.info(f"CorpusResourceService initialized with directory: {self.corpus_dir}")
         logger.info(f"Corpus directory exists: {self.corpus_dir.exists()}")
     
@@ -230,13 +310,19 @@ class CorpusResourceService:
         
         base_name = prefix_names.get(prefix, prefix.upper())
         
-        # Special handling for NOW countries
+        # Special handling for NOW: country suffix (localized)
         if prefix == 'now' and category != 'total':
             country_names = self.NOW_COUNTRIES_ZH if lang == 'zh' else self.NOW_COUNTRIES
             country_display = country_names.get(category, category)
             if lang == 'zh':
                 return f"NOW - {country_display}新闻"
             return f"NOW - {country_display} News"
+        
+        # GloWbE: country/region suffix (localized)
+        if prefix == 'glowbe' and category != 'total':
+            country_names = self.NOW_COUNTRIES_ZH if lang == 'zh' else self.NOW_COUNTRIES
+            country_display = country_names.get(category, category)
+            return f"GloWbE - {country_display}"
         
         # Handle total case
         if category == 'total':
@@ -293,6 +379,8 @@ class CorpusResourceService:
         # Special handling for NOW
         if prefix == 'now':
             tags.append('新闻')
+        elif prefix == 'glowbe' and category != 'total':
+            tags.append(self.NOW_COUNTRIES_ZH.get(category, category))
         else:
             if category != 'total':
                 # Use Chinese category names if available
@@ -311,9 +399,9 @@ class CorpusResourceService:
         Generate a descriptive text for a corpus resource
         
         Args:
-            prefix: Corpus prefix (e.g., 'bnc')
+            prefix: Corpus prefix (e.g., 'bnc1994')
             category: Category name (e.g., 'commerce_finance')
-            word_count: Number of unique words
+            word_count: Total token count (sum of frequencies)
             lang: Language ('en' or 'zh')
             
         Returns:
@@ -321,16 +409,36 @@ class CorpusResourceService:
         """
         # Corpus full names
         corpus_names_en = {
-            'bnc': 'British National Corpus (BNC 1994)',
+            'bnc1994': 'British National Corpus 1994 (BNC 1994)',
+            'bnc2014': 'British National Corpus 2014 (BNC 2014)',
             'brown': 'Brown Corpus',
             'now': 'News on the Web Corpus (2010-2024)',
-            'oanc': 'Open American National Corpus'
+            'oanc': 'Open American National Corpus',
+            'coca': 'Corpus of Contemporary American English (COCA)',
+            'coha': 'Corpus of Historical American English (COHA)',
+            'glowbe': 'Global Web-based English (GloWbE)',
+            'coronavirus': 'Coronavirus Corpus',
+            'iweb': 'iWeb: The Intelligent Web Corpus',
+            'movies': 'Movies Corpus',
+            'soap': 'SOAP Corpus',
+            'tv': 'TV Corpus',
+            'wikipedia': 'Wikipedia Corpus',
         }
         corpus_names_zh = {
-            'bnc': '英国国家语料库 (BNC 1994)',
-            'brown': 'Brown语料库',
+            'bnc1994': '英国国家语料库 1994 (BNC 1994)',
+            'bnc2014': '英国国家语料库 2014 (BNC 2014)',
+            'brown': 'Brown 语料库',
             'now': '网络新闻语料库 (2010-2024)',
-            'oanc': '开放美国国家语料库'
+            'oanc': '开放美国国家语料库',
+            'coca': '当代美语语料库 (COCA)',
+            'coha': '历史美语语料库 (COHA)',
+            'glowbe': '全球网络英语语料库 (GloWbE)',
+            'coronavirus': '新冠语料库',
+            'iweb': '智能网络语料库 (iWeb)',
+            'movies': '电影语料库',
+            'soap': '肥皂剧语料库 (SOAP)',
+            'tv': '电视语料库 (TV)',
+            'wikipedia': '维基百科语料库',
         }
         
         corpus_name = corpus_names_zh.get(prefix, prefix.upper()) if lang == 'zh' else corpus_names_en.get(prefix, prefix.upper())
@@ -346,11 +454,11 @@ class CorpusResourceService:
         
         if category == 'total':
             if lang == 'zh':
-                return f"{corpus_name}完整词频数据，包含 {word_count_str} 个独立词条"
+                return f"{corpus_name}完整词频数据，总词数约 {word_count_str}"
             else:
-                return f"Complete {corpus_name} frequency data with {word_count_str} unique words"
+                return f"Complete {corpus_name} frequency data with approximately {word_count_str} tokens"
         
-        # Handle NOW countries
+        # Handle NOW countries (localized)
         if prefix == 'now':
             country_names = self.NOW_COUNTRIES_ZH if lang == 'zh' else self.NOW_COUNTRIES
             country = country_names.get(category, category)
@@ -359,29 +467,57 @@ class CorpusResourceService:
             else:
                 return f"News frequency data from {country}, {word_count_str} words"
         
+        # GloWbE country/region (localized)
+        if prefix == 'glowbe' and category != 'total':
+            country_names = self.NOW_COUNTRIES_ZH if lang == 'zh' else self.NOW_COUNTRIES
+            country = country_names.get(category, category)
+            if lang == 'zh':
+                return f"GloWbE {country} 词频数据，约 {word_count_str} 词"
+            return f"GloWbE {country} frequency data, ~{word_count_str} words"
+        
         # General case
         cat_display = category_names.get(category, category.replace('_', ' ').title())
         if lang == 'zh':
-            return f"{corpus_name}{cat_display}类词频数据，{word_count_str} 词条"
+            return f"{corpus_name}{cat_display}类词频数据，总词数约 {word_count_str}"
         else:
-            return f"{corpus_name} {cat_display} frequency data, {word_count_str} words"
+            return f"{corpus_name} {cat_display} frequency data with approximately {word_count_str} tokens"
     
+    def _list_resources_cache_key_current(self) -> Optional[Tuple[Tuple[str, float], ...]]:
+        """Build cache key from all CSV paths and mtimes (fast, no file content read).
+        Same path but updated content invalidates cache because file mtime changes on write."""
+        if not self.corpus_dir.exists():
+            return None
+        key_parts = []
+        try:
+            for subdir in sorted(self.corpus_dir.iterdir()):
+                if not subdir.is_dir() or subdir.name.startswith('.'):
+                    continue
+                for csv_file in sorted(subdir.glob('*.csv')):
+                    if csv_file.name.startswith('.'):
+                        continue
+                    key_parts.append((str(csv_file.resolve()), csv_file.stat().st_mtime))
+        except OSError:
+            return None
+        return tuple(key_parts) if key_parts else None
+
     def list_resources(self, lang: str = 'en') -> List[Dict[str, Any]]:
         """
-        List all available corpus resources
-        
-        Args:
-            lang: Language for display names ('en' or 'zh')
-            
-        Returns:
-            List of corpus resource metadata
+        List all available corpus resources.
+        Results are cached by CSV set and mtimes so we don't re-sum every CSV on each request.
         """
-        resources = []
+        current_key = self._list_resources_cache_key_current()
+        if (
+            self._list_resources_cache is not None
+            and self._list_resources_cache_key is not None
+            and current_key == self._list_resources_cache_key
+        ):
+            return self._list_resources_cache
         
         if not self.corpus_dir.exists():
             logger.warning(f"Corpus directory not found: {self.corpus_dir}")
-            return resources
+            return []
         
+        resources = []
         # Scan subdirectories
         for subdir in sorted(self.corpus_dir.iterdir()):
             if not subdir.is_dir() or subdir.name.startswith('.'):
@@ -398,9 +534,16 @@ class CorpusResourceService:
                 # Get file info
                 try:
                     file_size = csv_file.stat().st_size
-                    # Count lines (approximate word count)
+                    # Sum frequencies as total token count
+                    word_count = 0
                     with open(csv_file, 'r', encoding='utf-8') as f:
-                        word_count = sum(1 for _ in f) - 1  # Subtract header
+                        reader = csv.DictReader(f)
+                        for row in reader:
+                            try:
+                                freq = int(row.get('freq', 0))
+                            except (TypeError, ValueError):
+                                freq = 0
+                            word_count += freq
                 except Exception as e:
                     logger.error(f"Error reading {csv_file}: {e}")
                     file_size = 0
@@ -430,6 +573,8 @@ class CorpusResourceService:
                     'description_zh': desc_zh
                 })
         
+        self._list_resources_cache = resources
+        self._list_resources_cache_key = current_key
         return resources
     
     def get_resource(self, resource_id: str, lang: str = 'en') -> Optional[Dict[str, Any]]:
@@ -654,24 +799,83 @@ class CorpusResourceService:
         data = self.load_frequency_data(resource_id)
         return sum(d['freq'] for d in data.values())
     
+    def _build_domain_frequency_table(self, resource_id: str) -> Dict[str, int]:
+        """
+        Build a USAS domain -> frequency table from a corpus resource.
+        
+        Expects CSV 'usas' column with tags like A1.5.1, N3.8+_MWE, A2.1mf.
+        Domains are normalized to base form (strip _MWE and all listed suffixes / trailing
+        lowercase) so that A2.1, A2.1+, A2.1mf all aggregate under A2.1. Bases starting
+        with D, J, R, U, V are excluded.
+        """
+        csv_path = self._get_csv_path(resource_id)
+        if not csv_path:
+            logger.error(f"CSV file not found for resource (domain mode): {resource_id}")
+            return {}
+        
+        domain_freq: Dict[str, int] = {}
+        
+        try:
+            with open(csv_path, 'r', encoding='utf-8') as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    usas_tag = (row.get('usas') or '').strip()
+                    if not usas_tag:
+                        continue
+                    try:
+                        freq = int(row.get('freq', 0))
+                    except (TypeError, ValueError):
+                        freq = 0
+                    if freq <= 0:
+                        continue
+                    domains = parse_compound_tag(usas_tag)
+                    for d in domains:
+                        base = normalize_usas_domain_to_base(d)
+                        if not base:
+                            continue
+                        domain_freq[base] = domain_freq.get(base, 0) + freq
+        except Exception as e:
+            logger.error(f"Error building domain frequency table from {csv_path}: {e}")
+            return {}
+        
+        return domain_freq
+    
     def build_frequency_table(
         self,
         resource_id: str,
-        lowercase: bool = True
+        lowercase: bool = True,
+        mode: str = "word"
     ) -> Dict[str, int]:
         """
-        Build a simple word -> frequency table for keyness analysis
+        Build a simple frequency table for keyness analysis.
         
         Args:
             resource_id: Resource ID
-            lowercase: Whether to convert to lowercase
+            lowercase: Whether to convert to lowercase (word/lemma modes)
+            mode: Aggregation mode: 'word' | 'lemma' | 'domain'
             
         Returns:
-            Dictionary mapping words to frequencies
+            Dictionary mapping tokens/lemmas/domains to frequencies
         """
-        data = self.load_frequency_data(resource_id)
+        mode = (mode or "word").lower()
         
-        freq_table = {}
+        # Domain mode: aggregate by USAS semantic domain codes
+        if mode == "domain":
+            return self._build_domain_frequency_table(resource_id)
+        
+        data = self.load_frequency_data(resource_id)
+        freq_table: Dict[str, int] = {}
+        
+        if mode == "lemma":
+            for info in data.values():
+                lemma = info.get('lemma') or info.get('word') or ''
+                if not lemma:
+                    continue
+                key = lemma.lower() if lowercase else lemma
+                freq_table[key] = freq_table.get(key, 0) + info.get('freq', 0)
+            return freq_table
+        
+        # Default: aggregate by surface word form
         for word, info in data.items():
             key = word.lower() if lowercase else word
             if key in freq_table:
@@ -683,7 +887,7 @@ class CorpusResourceService:
     
     def clear_cache(self, resource_id: Optional[str] = None):
         """
-        Clear frequency data cache
+        Clear frequency data cache and list_resources cache (when resource_id is None).
         
         Args:
             resource_id: Specific resource to clear (or None for all)
@@ -692,6 +896,8 @@ class CorpusResourceService:
             self._frequency_cache.pop(resource_id, None)
         else:
             self._frequency_cache.clear()
+            self._list_resources_cache = None
+            self._list_resources_cache_key = None
         logger.info(f"Cache cleared: {resource_id or 'all'}")
 
 

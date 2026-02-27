@@ -96,6 +96,7 @@ class DynamicTopicConfig(BaseModel):
     global_tuning: bool = True
     corpus_id: Optional[str] = None
     text_ids: Optional[List[str]] = None
+    library_id: Optional[str] = None  # When set, use biblio entry year instead of corpus text metadata
 
 
 class AnalysisRequest(BaseModel):
@@ -118,6 +119,16 @@ class OllamaNamingRequest(BaseModel):
     language: str = "en"
     delay: float = 0.5
     top_n_words: int = 10  # Number of keywords to use for naming
+
+
+class OpenAINamingRequest(BaseModel):
+    topics: List[Dict[str, Any]]
+    base_url: str
+    api_key: str = ""
+    model: str
+    prompt_template: Optional[str] = None
+    language: str = "en"
+    top_n_words: int = 10
 
 
 # ============ Preprocess Endpoints ============
@@ -389,10 +400,28 @@ async def analyze_topics(request: AnalysisRequest):
             dynamic_service = get_dynamic_topic_service()
             
             corpus_id = request.dynamic_topic.corpus_id
+            library_id = request.dynamic_topic.library_id
             
-            # Use chunk_text_ids if available (chunked embeddings)
-            # Otherwise fall back to request text_ids
-            if chunk_text_ids and len(chunk_text_ids) == len(documents):
+            if library_id:
+                # Library mode: use biblio entry year; literature only has year, force year_only (%Y)
+                date_fmt = 'year_only'
+                if chunk_text_ids and len(chunk_text_ids) == len(documents):
+                    logger.info(f"Using biblio year for chunk-level text_ids ({len(chunk_text_ids)} chunks)")
+                    timestamps_int, _, stats = dynamic_service.get_timestamps_from_biblio(
+                        library_id=library_id,
+                        text_ids=chunk_text_ids,
+                        date_format=date_fmt
+                    )
+                elif request.dynamic_topic.text_ids:
+                    timestamps_int, _, stats = dynamic_service.get_timestamps_from_biblio(
+                        library_id=library_id,
+                        text_ids=request.dynamic_topic.text_ids,
+                        date_format=date_fmt
+                    )
+                else:
+                    timestamps_int = []
+                    stats = {'with_date': 0, 'total': 0}
+            elif chunk_text_ids and len(chunk_text_ids) == len(documents):
                 # Get timestamps for each chunk using its corresponding text_id
                 logger.info(f"Using chunk-level text_ids mapping ({len(chunk_text_ids)} chunks)")
                 timestamps_int, _, stats = dynamic_service.get_timestamps_for_chunks(
@@ -597,6 +626,30 @@ async def generate_topic_names(request: OllamaNamingRequest):
         raise
     except Exception as e:
         logger.error(f"Ollama naming error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/openai/naming")
+async def generate_topic_names_openai(request: OpenAINamingRequest):
+    """Generate topic names using OpenAI-compatible chat API"""
+    try:
+        from services.topic_modeling import get_openai_naming_service
+
+        service = get_openai_naming_service()
+        updated_topics = await service.generate_all_topic_names(
+            topics=request.topics,
+            base_url=request.base_url,
+            api_key=request.api_key,
+            model=request.model,
+            prompt_template=request.prompt_template,
+            language=request.language,
+            top_n_words=request.top_n_words
+        )
+        return {"topics": updated_topics}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"OpenAI naming error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -860,12 +913,14 @@ class UpdateLabelRequest(BaseModel):
 
 class LDAPreprocessConfig(BaseModel):
     remove_stopwords: bool = True
-    remove_punctuation: bool = True  # Remove punctuation and symbols
+    remove_punctuation: bool = False  # Remove punctuation and symbols (only when checked)
     lemmatize: bool = True
     lowercase: bool = True
     min_word_length: int = 2
     pos_filter: List[str] = ['PUNCT', 'SYM', 'X', 'NUM', 'INTJ']  # Default filter these
     pos_keep_mode: bool = False  # True for keep mode, False for filter mode (default: filter mode)
+    ngram_enabled: bool = False
+    ngram_n_values: List[int] = [2]  # 2..6, e.g. [2, 3] for bigram + trigram
 
 
 class LDAConfig(BaseModel):
@@ -1190,6 +1245,16 @@ class LDAUpdateLabelRequest(BaseModel):
     custom_label: str
 
 
+class LDAOpenAINamingRequest(BaseModel):
+    result_id: str
+    base_url: str
+    api_key: str = ""
+    model: str
+    prompt_template: Optional[str] = None
+    language: str = "en"
+    top_n_words: int = 10
+
+
 @router.post("/lda/ollama/naming")
 async def generate_lda_topic_names(request: LDAOllamaNamingRequest):
     """Generate topic names for LDA using Ollama"""
@@ -1254,6 +1319,58 @@ async def generate_lda_topic_names(request: LDAOllamaNamingRequest):
         raise
     except Exception as e:
         logger.error(f"LDA Ollama naming error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/lda/openai/naming")
+async def generate_lda_topic_names_openai(request: LDAOpenAINamingRequest):
+    """Generate topic names for LDA using OpenAI-compatible API"""
+    try:
+        from services.topic_modeling import get_openai_naming_service
+
+        if request.result_id not in _lda_analysis_cache:
+            raise HTTPException(status_code=404, detail="LDA result not found")
+
+        cached = _lda_analysis_cache[request.result_id]
+        topics = cached.get('topics', [])
+
+        if not topics:
+            raise HTTPException(status_code=400, detail="No topics found in LDA result")
+
+        openai_topics = []
+        for topic in topics:
+            keywords = topic.get('keywords', [])
+            words = [kw.get('word', '') for kw in keywords if kw.get('word')]
+            openai_topics.append({
+                'id': topic.get('topic_id', -1),
+                'words': [{'word': w} for w in words]
+            })
+
+        service = get_openai_naming_service()
+        updated_topics = await service.generate_all_topic_names(
+            topics=openai_topics,
+            base_url=request.base_url,
+            api_key=request.api_key,
+            model=request.model,
+            prompt_template=request.prompt_template,
+            language=request.language,
+            top_n_words=request.top_n_words
+        )
+
+        for updated in updated_topics:
+            topic_id = updated.get('id')
+            custom_label = updated.get('custom_label', '')
+            for topic in topics:
+                if topic.get('topic_id') == topic_id:
+                    topic['custom_label'] = custom_label
+                    break
+
+        _lda_analysis_cache[request.result_id]['topics'] = topics
+        return {"success": True, "topics": topics}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"LDA OpenAI naming error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -1464,12 +1581,14 @@ async def update_topic_label(result_id: str, request: UpdateLabelRequest):
 class LSAPreprocessConfig(BaseModel):
     """LSA preprocessing config - reuses LDA preprocessing service"""
     remove_stopwords: bool = True
-    remove_punctuation: bool = True
+    remove_punctuation: bool = False
     lemmatize: bool = True
     lowercase: bool = True
     min_word_length: int = 2
     pos_filter: List[str] = ['PUNCT', 'SYM', 'X', 'NUM', 'INTJ']
     pos_keep_mode: bool = False  # True for keep mode, False for filter mode
+    ngram_enabled: bool = False
+    ngram_n_values: List[int] = [2]
 
 
 class LSAConfig(BaseModel):
@@ -1502,6 +1621,24 @@ class LSAAnalyzeRequest(BaseModel):
     language: str = "english"
     preprocess_config: LSAPreprocessConfig
     lsa_config: LSAConfig
+
+
+class LSADynamicConfig(BaseModel):
+    """Dynamic topic analysis configuration for LSA"""
+    enabled: bool = False
+    date_format: str = "year_only"
+    nr_bins: Optional[int] = None
+
+
+class LSADynamicAnalyzeRequest(BaseModel):
+    """Request for LSA dynamic topic analysis"""
+    corpus_id: str
+    text_ids: List[str]
+    language: str = "english"
+    preprocess_config: LSAPreprocessConfig
+    lsa_config: LSAConfig
+    dynamic_config: LSADynamicConfig
+    text_dates: Dict[str, str]
 
 
 class LSAOptimizeRequest(BaseModel):
@@ -1575,6 +1712,71 @@ async def analyze_lsa(request: LSAAnalyzeRequest):
         logger.error(f"LSA analysis error: {e}")
         import traceback
         traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/lsa/analyze-dynamic")
+async def analyze_lsa_dynamic(request: LSADynamicAnalyzeRequest):
+    """Perform LSA topic modeling with dynamic topic evolution analysis"""
+    try:
+        from services.topic_modeling.lsa_service import get_lsa_service
+
+        service = get_lsa_service()
+        result = service.analyze_dynamic(
+            corpus_id=request.corpus_id,
+            text_ids=request.text_ids,
+            language=request.language,
+            preprocess_config=request.preprocess_config.model_dump(),
+            lsa_config=request.lsa_config.model_dump(),
+            dynamic_config=request.dynamic_config.model_dump(),
+            text_dates=request.text_dates
+        )
+        if not result.get('success'):
+            raise HTTPException(status_code=400, detail=result.get('error', 'LSA dynamic analysis failed'))
+        result_id = result.get('result_id')
+        if result_id:
+            _lsa_analysis_cache[result_id] = result
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"LSA dynamic analysis error: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/lsa/results/{result_id}/evolution")
+async def get_lsa_topic_evolution(result_id: str):
+    """Get LSA topic evolution data for time-series visualization"""
+    try:
+        from services.topic_modeling.lsa_service import get_lsa_service
+        service = get_lsa_service()
+        result = service.get_evolution_data(result_id)
+        if result is None:
+            raise HTTPException(status_code=404, detail="LSA result not found or no dynamic data available")
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"LSA evolution data error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/lsa/results/{result_id}/sankey")
+async def get_lsa_sankey_data(result_id: str):
+    """Get LSA sankey diagram data for topic flow visualization"""
+    try:
+        from services.topic_modeling.lsa_service import get_lsa_service
+        service = get_lsa_service()
+        result = service.get_sankey_data(result_id)
+        if result is None:
+            raise HTTPException(status_code=404, detail="LSA result not found or no dynamic data available")
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"LSA sankey data error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -1679,6 +1881,16 @@ class LSAUpdateLabelRequest(BaseModel):
     custom_label: str
 
 
+class LSAOpenAINamingRequest(BaseModel):
+    result_id: str
+    base_url: str
+    api_key: str = ""
+    model: str
+    prompt_template: Optional[str] = None
+    language: str = "en"
+    top_n_words: int = 10
+
+
 @router.post("/lsa/ollama/naming")
 async def generate_lsa_topic_names(request: LSAOllamaNamingRequest):
     """Generate topic names for LSA using Ollama"""
@@ -1744,6 +1956,58 @@ async def generate_lsa_topic_names(request: LSAOllamaNamingRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.post("/lsa/openai/naming")
+async def generate_lsa_topic_names_openai(request: LSAOpenAINamingRequest):
+    """Generate topic names for LSA using OpenAI-compatible API"""
+    try:
+        from services.topic_modeling import get_openai_naming_service
+
+        if request.result_id not in _lsa_analysis_cache:
+            raise HTTPException(status_code=404, detail="LSA result not found")
+
+        cached = _lsa_analysis_cache[request.result_id]
+        topics = cached.get('topics', [])
+
+        if not topics:
+            raise HTTPException(status_code=400, detail="No topics found in LSA result")
+
+        openai_topics = []
+        for topic in topics:
+            keywords = topic.get('keywords', [])
+            words = [kw.get('word', '') for kw in keywords if kw.get('word')]
+            openai_topics.append({
+                'id': topic.get('topic_id', -1),
+                'words': [{'word': w} for w in words]
+            })
+
+        service = get_openai_naming_service()
+        updated_topics = await service.generate_all_topic_names(
+            topics=openai_topics,
+            base_url=request.base_url,
+            api_key=request.api_key,
+            model=request.model,
+            prompt_template=request.prompt_template,
+            language=request.language,
+            top_n_words=request.top_n_words
+        )
+
+        for updated in updated_topics:
+            topic_id = updated.get('id')
+            custom_label = updated.get('custom_label', '')
+            for topic in topics:
+                if topic.get('topic_id') == topic_id:
+                    topic['custom_label'] = custom_label
+                    break
+
+        _lsa_analysis_cache[request.result_id]['topics'] = topics
+        return {"success": True, "topics": topics}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"LSA OpenAI naming error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.put("/lsa/results/{result_id}/label")
 async def update_lsa_topic_label(result_id: str, request: LSAUpdateLabelRequest):
     """Update custom label for a single LSA topic"""
@@ -1798,12 +2062,14 @@ async def update_lsa_topics(result_id: str, topics: List[Dict[str, Any]]):
 class NMFPreprocessConfig(BaseModel):
     """NMF preprocessing config - reuses LDA preprocessing service"""
     remove_stopwords: bool = True
-    remove_punctuation: bool = True
+    remove_punctuation: bool = False
     lemmatize: bool = True
     lowercase: bool = True
     min_word_length: int = 2
     pos_filter: List[str] = ['PUNCT', 'SYM', 'X', 'NUM', 'INTJ']
     pos_keep_mode: bool = False  # True for keep mode, False for filter mode
+    ngram_enabled: bool = False
+    ngram_n_values: List[int] = [2]
 
 
 class NMFConfig(BaseModel):
@@ -1839,6 +2105,24 @@ class NMFAnalyzeRequest(BaseModel):
     language: str = "english"
     preprocess_config: NMFPreprocessConfig
     nmf_config: NMFConfig
+
+
+class NMFDynamicConfig(BaseModel):
+    """Dynamic topic analysis configuration for NMF"""
+    enabled: bool = False
+    date_format: str = "year_only"
+    nr_bins: Optional[int] = None
+
+
+class NMFDynamicAnalyzeRequest(BaseModel):
+    """Request for NMF dynamic topic analysis"""
+    corpus_id: str
+    text_ids: List[str]
+    language: str = "english"
+    preprocess_config: NMFPreprocessConfig
+    nmf_config: NMFConfig
+    dynamic_config: NMFDynamicConfig
+    text_dates: Dict[str, str]
 
 
 class NMFOptimizeRequest(BaseModel):
@@ -1912,6 +2196,71 @@ async def analyze_nmf(request: NMFAnalyzeRequest):
         logger.error(f"NMF analysis error: {e}")
         import traceback
         traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/nmf/analyze-dynamic")
+async def analyze_nmf_dynamic(request: NMFDynamicAnalyzeRequest):
+    """Perform NMF topic modeling with dynamic topic evolution analysis"""
+    try:
+        from services.topic_modeling.nmf_service import get_nmf_service
+
+        service = get_nmf_service()
+        result = service.analyze_dynamic(
+            corpus_id=request.corpus_id,
+            text_ids=request.text_ids,
+            language=request.language,
+            preprocess_config=request.preprocess_config.model_dump(),
+            nmf_config=request.nmf_config.model_dump(),
+            dynamic_config=request.dynamic_config.model_dump(),
+            text_dates=request.text_dates
+        )
+        if not result.get('success'):
+            raise HTTPException(status_code=400, detail=result.get('error', 'NMF dynamic analysis failed'))
+        result_id = result.get('result_id')
+        if result_id:
+            _nmf_analysis_cache[result_id] = result
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"NMF dynamic analysis error: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/nmf/results/{result_id}/evolution")
+async def get_nmf_topic_evolution(result_id: str):
+    """Get NMF topic evolution data for time-series visualization"""
+    try:
+        from services.topic_modeling.nmf_service import get_nmf_service
+        service = get_nmf_service()
+        result = service.get_evolution_data(result_id)
+        if result is None:
+            raise HTTPException(status_code=404, detail="NMF result not found or no dynamic data available")
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"NMF evolution data error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/nmf/results/{result_id}/sankey")
+async def get_nmf_sankey_data(result_id: str):
+    """Get NMF sankey diagram data for topic flow visualization"""
+    try:
+        from services.topic_modeling.nmf_service import get_nmf_service
+        service = get_nmf_service()
+        result = service.get_sankey_data(result_id)
+        if result is None:
+            raise HTTPException(status_code=404, detail="NMF result not found or no dynamic data available")
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"NMF sankey data error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -2017,6 +2366,16 @@ class NMFUpdateLabelRequest(BaseModel):
     custom_label: str
 
 
+class NMFOpenAINamingRequest(BaseModel):
+    result_id: str
+    base_url: str
+    api_key: str = ""
+    model: str
+    prompt_template: Optional[str] = None
+    language: str = "en"
+    top_n_words: int = 10
+
+
 @router.post("/nmf/ollama/naming")
 async def generate_nmf_topic_names(request: NMFOllamaNamingRequest):
     """Generate topic names for NMF using Ollama"""
@@ -2079,6 +2438,58 @@ async def generate_nmf_topic_names(request: NMFOllamaNamingRequest):
         raise
     except Exception as e:
         logger.error(f"NMF Ollama naming error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/nmf/openai/naming")
+async def generate_nmf_topic_names_openai(request: NMFOpenAINamingRequest):
+    """Generate topic names for NMF using OpenAI-compatible API"""
+    try:
+        from services.topic_modeling import get_openai_naming_service
+
+        if request.result_id not in _nmf_analysis_cache:
+            raise HTTPException(status_code=404, detail="NMF result not found")
+
+        cached = _nmf_analysis_cache[request.result_id]
+        topics = cached.get('topics', [])
+
+        if not topics:
+            raise HTTPException(status_code=400, detail="No topics found in NMF result")
+
+        openai_topics = []
+        for topic in topics:
+            keywords = topic.get('keywords', [])
+            words = [kw.get('word', '') for kw in keywords if kw.get('word')]
+            openai_topics.append({
+                'id': topic.get('topic_id', -1),
+                'words': [{'word': w} for w in words]
+            })
+
+        service = get_openai_naming_service()
+        updated_topics = await service.generate_all_topic_names(
+            topics=openai_topics,
+            base_url=request.base_url,
+            api_key=request.api_key,
+            model=request.model,
+            prompt_template=request.prompt_template,
+            language=request.language,
+            top_n_words=request.top_n_words
+        )
+
+        for updated in updated_topics:
+            topic_id = updated.get('id')
+            custom_label = updated.get('custom_label', '')
+            for topic in topics:
+                if topic.get('topic_id') == topic_id:
+                    topic['custom_label'] = custom_label
+                    break
+
+        _nmf_analysis_cache[request.result_id]['topics'] = topics
+        return {"success": True, "topics": topics}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"NMF OpenAI naming error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 

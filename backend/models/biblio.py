@@ -32,12 +32,14 @@ class BiblioLibraryCreate(BaseModel):
     name: str
     source_type: SourceType
     description: Optional[str] = None
+    language: Optional[str] = "english"  # For abstract processing: english / chinese
 
 
 class BiblioLibraryUpdate(BaseModel):
     """Update bibliographic library request"""
     name: Optional[str] = None
     description: Optional[str] = None
+    language: Optional[str] = None
 
 
 class BiblioLibrary(BaseModel):
@@ -46,7 +48,9 @@ class BiblioLibrary(BaseModel):
     name: str
     source_type: SourceType
     description: Optional[str] = None
+    language: Optional[str] = "english"
     entry_count: int = 0
+    corpus_id: Optional[str] = None  # Shadow corpus for abstract processing
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
 

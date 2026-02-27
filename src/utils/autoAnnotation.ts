@@ -114,6 +114,8 @@ export function createMipvuAnnotations(
   for (const sentence of mipvuData.sentences) {
     for (const token of sentence.tokens) {
       if (token.is_metaphor) {
+        const sourceForRemark =
+          token.metaphor_source === 'finetuned' ? 'clause' : token.metaphor_source
         // Extract the actual text from the content
         const annotatedText = textContent.substring(token.start, token.end)
         
@@ -128,7 +130,7 @@ export function createMipvuAnnotations(
           type: 'text',
           pos: token.pos,
           entity: undefined,
-          remark: `Metaphor (${token.metaphor_source}, confidence: ${(token.metaphor_confidence * 100).toFixed(1)}%)`
+          remark: `Metaphor (${sourceForRemark}, confidence: ${(token.metaphor_confidence * 100).toFixed(1)}%)`
         }
         
         annotations.push(annotation)

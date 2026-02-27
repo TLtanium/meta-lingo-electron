@@ -156,8 +156,8 @@ export default function SimilarityHeatmap({ data, height = 600 }: SimilarityHeat
           .attr('stroke', colors.cellHover)
           .attr('stroke-width', 2)
 
-        const rowLabel = labels[d[0]] || `Topic ${d[0]}`
-        const colLabel = labels[d[1]] || `Topic ${d[1]}`
+        const rowLabel = labels[d[0]] || t('topicModeling.visualization.topicLabel', 'Topic {{topicId}}', { topicId: d[0] })
+        const colLabel = labels[d[1]] || t('topicModeling.visualization.topicLabel', 'Topic {{topicId}}', { topicId: d[1] })
         const value = d[2]
 
         const similarityLabel = t('topicModeling.visualization.similarity') || 'Similarity'

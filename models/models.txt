@@ -1,7 +1,7 @@
 ./models
 ├── metaphor_identification
 │   ├── deberta-large-metaphor-detection-en
-│   └── deberta-v3-large-metaphor-in-dt-rb-rp
+│   └── deberta-v3-large-clause-metaphor
 ├── multimodal_analyzer
 │   ├── clip-vit-large-patch14
 │   ├── whisper-large-v3-turbo

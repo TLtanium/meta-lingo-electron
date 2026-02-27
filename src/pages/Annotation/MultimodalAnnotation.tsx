@@ -332,14 +332,16 @@ export default function MultimodalAnnotation() {
     }
   }
   
-  // Handle archive delete
+  // Handle archive delete（不依赖当前是否加载语料库，优先使用存档自身的 corpusName）
   const handleDeleteArchive = async () => {
     if (!editingArchive) return
-    
+    const corpusName = editingArchive.corpusName || currentCorpus?.name
+    if (!corpusName) {
+      console.error('Archive has no corpus name, cannot delete')
+      return
+    }
     setArchiveOperating(true)
     try {
-      const corpusName = editingArchive.corpusName || currentCorpus?.name
-      if (!corpusName) return
       const response = await annotationApi.delete(corpusName, editingArchive.id)
       if (response.success) {
         await refreshArchives()

@@ -175,6 +175,12 @@ export default function CQLEditor({
               <Typography variant="body2" fontFamily="monospace" fontSize="0.8rem">
                 [dep="nsubj"] - {isZh ? '依存关系匹配' : 'Dependency match'}
               </Typography>
+              <Typography variant="body2" fontFamily="monospace" fontSize="0.8rem">
+                [usas="A1"] - {isZh ? '语义域包含 (忽略 _MWE 后缀)' : 'USAS domain contains (ignores _MWE)'}
+              </Typography>
+              <Typography variant="body2" fontFamily="monospace" fontSize="0.8rem">
+                [usas=="N3.8+"] - {isZh ? '语义域精确匹配' : 'USAS domain exact match'}
+              </Typography>
             </Stack>
           </Box>
 

@@ -22,6 +22,7 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  TableSortLabel,
   Paper,
   Tooltip,
   Typography,
@@ -44,8 +45,10 @@ import AddIcon from '@mui/icons-material/Add'
 import MoreHorizIcon from '@mui/icons-material/MoreHoriz'
 import MoreVertIcon from '@mui/icons-material/MoreVert'
 import LinkIcon from '@mui/icons-material/Link'
+import JoinInnerIcon from '@mui/icons-material/JoinInner'
 import HubIcon from '@mui/icons-material/Hub'
-import TableChartIcon from '@mui/icons-material/TableChart'
+import TextFieldsIcon from '@mui/icons-material/TextFields'
+import CategoryIcon from '@mui/icons-material/Category'
 import DeleteIcon from '@mui/icons-material/Delete'
 import CloseIcon from '@mui/icons-material/Close'
 import { useTranslation } from 'react-i18next'
@@ -233,6 +236,57 @@ export default function AnnotationTable({
     }))
   }, [displayAnnotations, spacyTokens, spacyEntities])
 
+  // 表头排序
+  type OrderBy = 'label' | 'text' | 'pos' | 'entity' | 'position' | 'startFrame' | 'totalFrames'
+  const [orderBy, setOrderBy] = useState<OrderBy>('position')
+  const [order, setOrder] = useState<'asc' | 'desc'>('asc')
+  const handleSort = (property: OrderBy) => {
+    const isAsc = orderBy === property && order === 'asc'
+    setOrder(isAsc ? 'desc' : 'asc')
+    setOrderBy(property)
+  }
+  const sortedAnnotations = useMemo(() => {
+    return [...annotationsWithSpacy].sort((a, b) => {
+      let aVal: string | number | undefined
+      let bVal: string | number | undefined
+      switch (orderBy) {
+        case 'label':
+          aVal = (a.label || '').toLowerCase()
+          bVal = (b.label || '').toLowerCase()
+          break
+        case 'text':
+          aVal = (a.text || '').toLowerCase()
+          bVal = (b.text || '').toLowerCase()
+          break
+        case 'pos':
+          aVal = (a.pos || '').toLowerCase()
+          bVal = (b.pos || '').toLowerCase()
+          break
+        case 'entity':
+          aVal = (a.entity || '').toLowerCase()
+          bVal = (b.entity || '').toLowerCase()
+          break
+        case 'position':
+          aVal = a.startPosition
+          bVal = b.startPosition
+          break
+        case 'startFrame':
+          aVal = a.frameNumber ?? -1
+          bVal = b.frameNumber ?? -1
+          break
+        case 'totalFrames':
+          aVal = a.frameCount ?? -1
+          bVal = b.frameCount ?? -1
+          break
+        default:
+          return 0
+      }
+      if (aVal === bVal) return 0
+      const cmp = typeof aVal === 'string' ? (aVal < bVal ? -1 : 1) : (aVal < bVal ? -1 : 1)
+      return order === 'asc' ? cmp : -cmp
+    })
+  }, [annotationsWithSpacy, orderBy, order])
+
   const handleOpenRemark = (annotation: Annotation) => {
     setEditingAnnotation(annotation)
     setRemarkText(annotation.remark || '')
@@ -297,12 +351,22 @@ export default function AnnotationTable({
     handleMenuClose()
   }
 
+  const handleOpenCollocationAnalysis = () => {
+    if (!menuAnn) return
+    const params = buildCrossLinkParams(menuAnn)
+    const title = `${t('wordsketch.collocationAnalysisTab', '搭配分析')} - ${menuAnn.text || menuAnn.label}`
+    pendingActionRef.current = () => {
+      openTab({ type: 'wordsketch' as TabType, title, props: { crossLinkParams: { ...params, targetSubTab: 0 } } })
+    }
+    handleMenuClose()
+  }
+
   const handleOpenWordSketch = () => {
     if (!menuAnn) return
     const params = buildCrossLinkParams(menuAnn)
     const title = `${t('wordsketch.title', '词图分析')} - ${menuAnn.text || menuAnn.label}`
     pendingActionRef.current = () => {
-      openTab({ type: 'wordsketch' as TabType, title, props: { crossLinkParams: params } })
+      openTab({ type: 'wordsketch' as TabType, title, props: { crossLinkParams: { ...params, targetSubTab: 1 } } })
     }
     handleMenuClose()
   }
@@ -320,6 +384,28 @@ export default function AnnotationTable({
             ...params,
             ngramValues: [2, 3, 4],        // Bigram, Trigram, 4-gram
             ngramSearchType: 'contains'    // 包含
+          }
+        }
+      })
+    }
+    handleMenuClose()
+  }
+
+  const handleOpenSemanticDomain = () => {
+    if (!menuAnn) return
+    const params = buildCrossLinkParams(menuAnn)
+    const word = menuAnn.text || menuAnn.label
+    const title = `${t('semantic.title', '语义分析')} - ${word}`
+    pendingActionRef.current = () => {
+      openTab({
+        type: 'semantic' as TabType,
+        title,
+        props: {
+          crossLinkParams: {
+            ...params,
+            semanticResultMode: 'domain',
+            semanticSearchType: 'contains',
+            semanticSearchValue: word
           }
         }
       })
@@ -352,17 +438,53 @@ export default function AnnotationTable({
           <TableHead>
             <TableRow>
               <TableCell sx={headerCellSx}>#</TableCell>
-              <TableCell sx={headerCellSx}>{t('annotation.label', '标签')}</TableCell>
-              {!directDeleteOnly && <TableCell sx={headerCellSx}>{t('annotation.text', '文本')}</TableCell>}
+              <TableCell sx={headerCellSx} sortDirection={orderBy === 'label' ? order : false}>
+                <TableSortLabel active={orderBy === 'label'} direction={orderBy === 'label' ? order : 'asc'} onClick={() => handleSort('label')}>
+                  {t('annotation.label', '标签')}
+                </TableSortLabel>
+              </TableCell>
+              {!directDeleteOnly && (
+                <TableCell sx={headerCellSx} sortDirection={orderBy === 'text' ? order : false}>
+                  <TableSortLabel active={orderBy === 'text'} direction={orderBy === 'text' ? order : 'asc'} onClick={() => handleSort('text')}>
+                    {t('annotation.text', '文本')}
+                  </TableSortLabel>
+                </TableCell>
+              )}
               {showVideoColumns && (
                 <>
-                  <TableCell sx={headerCellSx}>起始帧</TableCell>
-                  <TableCell sx={headerCellSx}>总帧数</TableCell>
+                  <TableCell sx={headerCellSx} sortDirection={orderBy === 'startFrame' ? order : false}>
+                    <TableSortLabel active={orderBy === 'startFrame'} direction={orderBy === 'startFrame' ? order : 'asc'} onClick={() => handleSort('startFrame')}>
+                      {t('annotation.startFrame')}
+                    </TableSortLabel>
+                  </TableCell>
+                  <TableCell sx={headerCellSx} sortDirection={orderBy === 'totalFrames' ? order : false}>
+                    <TableSortLabel active={orderBy === 'totalFrames'} direction={orderBy === 'totalFrames' ? order : 'asc'} onClick={() => handleSort('totalFrames')}>
+                      {t('annotation.totalFrames')}
+                    </TableSortLabel>
+                  </TableCell>
                 </>
               )}
-              {!directDeleteOnly && <TableCell sx={headerCellSx}>{t('annotation.pos', '词性')}</TableCell>}
-              {!directDeleteOnly && <TableCell sx={headerCellSx}>{t('annotation.ner', '命名实体')}</TableCell>}
-              {!directDeleteOnly && <TableCell sx={headerCellSx}>{t('annotation.position', '位置')}</TableCell>}
+              {!directDeleteOnly && (
+                <TableCell sx={headerCellSx} sortDirection={orderBy === 'pos' ? order : false}>
+                  <TableSortLabel active={orderBy === 'pos'} direction={orderBy === 'pos' ? order : 'asc'} onClick={() => handleSort('pos')}>
+                    {t('annotation.pos', '词性')}
+                  </TableSortLabel>
+                </TableCell>
+              )}
+              {!directDeleteOnly && (
+                <TableCell sx={headerCellSx} sortDirection={orderBy === 'entity' ? order : false}>
+                  <TableSortLabel active={orderBy === 'entity'} direction={orderBy === 'entity' ? order : 'asc'} onClick={() => handleSort('entity')}>
+                    {t('annotation.ner', '命名实体')}
+                  </TableSortLabel>
+                </TableCell>
+              )}
+              {!directDeleteOnly && (
+                <TableCell sx={headerCellSx} sortDirection={orderBy === 'position' ? order : false}>
+                  <TableSortLabel active={orderBy === 'position'} direction={orderBy === 'position' ? order : 'asc'} onClick={() => handleSort('position')}>
+                    {t('annotation.position', '位置')}
+                  </TableSortLabel>
+                </TableCell>
+              )}
               <TableCell sx={headerCellSx}>{t('annotation.remark', '备注')}</TableCell>
               <TableCell sx={headerCellSx}>{t('annotation.action', '操作')}</TableCell>
             </TableRow>
@@ -378,9 +500,6 @@ export default function AnnotationTable({
       </TableContainer>
     )
   }
-
-  // Sort by position
-  const sorted = [...annotationsWithSpacy].sort((a, b) => a.startPosition - b.startPosition)
 
   return (
     <>
@@ -398,42 +517,73 @@ export default function AnnotationTable({
           <TableHead>
             <TableRow>
               <TableCell sx={headerCellSx}>#</TableCell>
-              <TableCell sx={headerCellSx}>{t('annotation.label', '标签')}</TableCell>
-              {!directDeleteOnly && <TableCell sx={headerCellSx}>{t('annotation.text', '文本')}</TableCell>}
+              <TableCell sx={headerCellSx} sortDirection={orderBy === 'label' ? order : false}>
+                <TableSortLabel active={orderBy === 'label'} direction={orderBy === 'label' ? order : 'asc'} onClick={() => handleSort('label')}>
+                  {t('annotation.label', '标签')}
+                </TableSortLabel>
+              </TableCell>
+              {!directDeleteOnly && (
+                <TableCell sx={headerCellSx} sortDirection={orderBy === 'text' ? order : false}>
+                  <TableSortLabel active={orderBy === 'text'} direction={orderBy === 'text' ? order : 'asc'} onClick={() => handleSort('text')}>
+                    {t('annotation.text', '文本')}
+                  </TableSortLabel>
+                </TableCell>
+              )}
               {showVideoColumns && (
                 <>
-                  <TableCell sx={headerCellSx}>起始帧</TableCell>
-                  <TableCell sx={headerCellSx}>总帧数</TableCell>
+                  <TableCell sx={headerCellSx} sortDirection={orderBy === 'startFrame' ? order : false}>
+                    <TableSortLabel active={orderBy === 'startFrame'} direction={orderBy === 'startFrame' ? order : 'asc'} onClick={() => handleSort('startFrame')}>
+                      {t('annotation.startFrame')}
+                    </TableSortLabel>
+                  </TableCell>
+                  <TableCell sx={headerCellSx} sortDirection={orderBy === 'totalFrames' ? order : false}>
+                    <TableSortLabel active={orderBy === 'totalFrames'} direction={orderBy === 'totalFrames' ? order : 'asc'} onClick={() => handleSort('totalFrames')}>
+                      {t('annotation.totalFrames')}
+                    </TableSortLabel>
+                  </TableCell>
                 </>
               )}
-              {!directDeleteOnly && <TableCell sx={headerCellSx}>{t('annotation.pos', '词性')}</TableCell>}
-              {!directDeleteOnly && <TableCell sx={headerCellSx}>{t('annotation.ner', '命名实体')}</TableCell>}
-              {!directDeleteOnly && <TableCell sx={headerCellSx}>{t('annotation.position', '位置')}</TableCell>}
+              {!directDeleteOnly && (
+                <TableCell sx={headerCellSx} sortDirection={orderBy === 'pos' ? order : false}>
+                  <TableSortLabel active={orderBy === 'pos'} direction={orderBy === 'pos' ? order : 'asc'} onClick={() => handleSort('pos')}>
+                    {t('annotation.pos', '词性')}
+                  </TableSortLabel>
+                </TableCell>
+              )}
+              {!directDeleteOnly && (
+                <TableCell sx={headerCellSx} sortDirection={orderBy === 'entity' ? order : false}>
+                  <TableSortLabel active={orderBy === 'entity'} direction={orderBy === 'entity' ? order : 'asc'} onClick={() => handleSort('entity')}>
+                    {t('annotation.ner', '命名实体')}
+                  </TableSortLabel>
+                </TableCell>
+              )}
+              {!directDeleteOnly && (
+                <TableCell sx={headerCellSx} sortDirection={orderBy === 'position' ? order : false}>
+                  <TableSortLabel active={orderBy === 'position'} direction={orderBy === 'position' ? order : 'asc'} onClick={() => handleSort('position')}>
+                    {t('annotation.position', '位置')}
+                  </TableSortLabel>
+                </TableCell>
+              )}
               <TableCell sx={headerCellSx}>{t('annotation.remark', '备注')}</TableCell>
               <TableCell sx={headerCellSx}>{t('annotation.action', '操作')}</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
-            {sorted.map((ann, idx) => (
+            {sortedAnnotations.map((ann, idx) => (
               <TableRow
                 key={ann.id}
+                hover
                 onClick={() => handleRowClick(ann.id)}
                 onMouseEnter={() => handleMouseEnter(ann.id)}
                 onMouseLeave={handleMouseLeave}
                 sx={{
                   cursor: 'pointer',
-                  backgroundColor: selectedId === ann.id
-                    ? `${ann.color || '#2196F3'}30`
-                    : highlightedId === ann.id
-                      ? `${ann.color}20`
-                      : 'transparent',
-                  outline: selectedId === ann.id
-                    ? `1.5px solid ${ann.color || '#2196F3'}`
-                    : 'none',
+                  // 仅选中行显示颜色；悬停仅阴影（纯 CSS，无状态，避免快速移动拖影）
+                  backgroundColor: selectedId === ann.id ? `${ann.color || '#2196F3'}30` : 'transparent',
+                  outline: selectedId === ann.id ? `1.5px solid ${ann.color || '#2196F3'}` : 'none',
                   '&:hover': {
-                    backgroundColor: selectedId === ann.id
-                      ? `${ann.color || '#2196F3'}40`
-                      : isDarkMode ? 'rgba(255,255,255,0.03)' : '#f9f9f9'
+                    backgroundColor: selectedId === ann.id ? `${ann.color || '#2196F3'}30` : 'transparent',
+                    boxShadow: isDarkMode ? '0 2px 8px rgba(0,0,0,0.25)' : '0 2px 8px rgba(0,0,0,0.08)'
                   }
                 }}
               >
@@ -605,7 +755,16 @@ export default function AnnotationTable({
           <ListItemIcon>
             <LinkIcon fontSize="small" />
           </ListItemIcon>
-          <ListItemText primary={t('crossLink.viewCollocation', '搭配分析')} />
+          <ListItemText primary={t('crossLink.viewCollocation', '查看共现关系')} />
+        </MenuItem>
+        <MenuItem
+          onClick={handleOpenCollocationAnalysis}
+          disabled={!hasCrossLinkProps}
+        >
+          <ListItemIcon>
+            <JoinInnerIcon fontSize="small" />
+          </ListItemIcon>
+          <ListItemText primary={t('crossLink.viewCollocationAnalysis', '查看搭配分析')} />
         </MenuItem>
         <MenuItem
           onClick={handleOpenWordSketch}
@@ -614,16 +773,25 @@ export default function AnnotationTable({
           <ListItemIcon>
             <HubIcon fontSize="small" />
           </ListItemIcon>
-          <ListItemText primary={t('crossLink.viewWordSketch', '词图分析')} />
+          <ListItemText primary={t('crossLink.viewWordSketch', '查看词图分析')} />
         </MenuItem>
         <MenuItem
           onClick={handleOpenNgram}
           disabled={!hasCrossLinkProps}
         >
           <ListItemIcon>
-            <TableChartIcon fontSize="small" />
+            <TextFieldsIcon fontSize="small" />
           </ListItemIcon>
           <ListItemText primary={t('crossLink.viewNgram', 'N-gram分析')} />
+        </MenuItem>
+        <MenuItem
+          onClick={handleOpenSemanticDomain}
+          disabled={!hasCrossLinkProps}
+        >
+          <ListItemIcon>
+            <CategoryIcon fontSize="small" />
+          </ListItemIcon>
+          <ListItemText primary={t('crossLink.viewSemanticDomain', '语义域分析')} />
         </MenuItem>
         <Divider />
         <MenuItem

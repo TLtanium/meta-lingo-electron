@@ -159,6 +159,20 @@ export const sketchApi = {
   },
 
   /**
+   * Get all word forms for a lemma in the corpus (for Sketch Difference lemma mode).
+   * Returns empty array if the lemma is not found in the corpus (e.g. user entered a word form).
+   */
+  async getLemmaForms(corpusId: string, textIds: string | string[], lemma: string) {
+    const response = await api.post<{ success: boolean; forms: string[]; error?: string }>(
+      '/api/sketch/lemma-forms',
+      { corpus_id: corpusId, text_ids: textIds, lemma: (lemma || '').trim() }
+    )
+    const data = response.data as { success?: boolean; forms?: string[] }
+    if (data && typeof data.success !== 'undefined' && !data.success) return []
+    return (data?.forms ?? []) as string[]
+  },
+
+  /**
    * Get POS filter options
    */
   async getPosOptions() {

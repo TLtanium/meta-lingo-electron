@@ -27,6 +27,7 @@ import AccountTreeIcon from '@mui/icons-material/AccountTree'
 import { useTranslation } from 'react-i18next'
 import { api } from '../../api/client'
 import { frameworkApi } from '../../api/framework'
+import { useSettingsStore } from '../../stores/settingsStore'
 
 export default function FactoryReset() {
   const { t } = useTranslation()
@@ -102,6 +103,11 @@ export default function FactoryReset() {
           } else {
             results.push(t('settings.dataResetCompleted'))
           }
+          const { setOpenaiApiEnabled, setOpenaiApiBaseUrl, setOpenaiApiKey, setOpenaiApiModel } = useSettingsStore.getState()
+          setOpenaiApiEnabled(false)
+          setOpenaiApiBaseUrl('https://api.openai.com/v1')
+          setOpenaiApiKey('')
+          setOpenaiApiModel('')
         } else {
           hasError = true
           results.push(response.error || t('settings.dataResetFailed'))

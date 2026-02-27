@@ -14,6 +14,8 @@ from routers import analysis
 from routers import preprocess
 from routers import help
 from routers import ollama
+from routers import openai_api
+from routers import llm_chat
 from routers import framework
 from routers import annotation
 from routers import reliability
@@ -48,6 +50,8 @@ app.include_router(analysis.router, prefix="/api/analysis", tags=["Analysis"])
 app.include_router(preprocess.router, prefix="/api/preprocess", tags=["Preprocess"])
 app.include_router(help.router, prefix="/api/help", tags=["Help"])
 app.include_router(ollama.router, prefix="/api/ollama", tags=["Ollama"])
+app.include_router(openai_api.router, prefix="/api/openai", tags=["OpenAI API"])
+app.include_router(llm_chat.router, prefix="/api/llm", tags=["LLM"])
 app.include_router(framework.router, prefix="/api/framework", tags=["Framework"])
 app.include_router(annotation.router, prefix="/api/annotation", tags=["Annotation"])
 app.include_router(reliability.router, prefix="/api/reliability", tags=["Reliability"])

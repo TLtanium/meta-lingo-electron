@@ -415,7 +415,7 @@ export default function DocumentScatter({
         const outliersLabel = t('topicModeling.visualization.outliers') || 'Outliers'
         if (d === -1) return `${outliersLabel} (${count})`
         const topicData = data.find(item => item.topic === d)
-        const name = topicData ? topicData.topic_name : `Topic ${d}`
+        const name = topicData ? topicData.topic_name : t('topicModeling.visualization.topicLabel', 'Topic {{topicId}}', { topicId: d })
         // Truncate name to 16 chars and add count
         const shortName = name.length > 16 ? name.substring(0, 16) + '...' : name
         return `${shortName} (${count})`

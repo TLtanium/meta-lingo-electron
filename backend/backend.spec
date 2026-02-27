@@ -246,10 +246,10 @@ hitz_model_path = os.path.join(MODELS_PATH, 'metaphor_identification', 'deberta-
 if os.path.exists(hitz_model_path):
     datas.append((hitz_model_path, 'models/metaphor_identification/deberta-large-metaphor-detection-en'))
 
-# MIPVU 隐喻识别模型 - 微调 DeBERTa
-finetuned_model_path = os.path.join(MODELS_PATH, 'metaphor_identification', 'deberta-v3-large-metaphor-in-dt-rb-rp')
+# MIPVU 隐喻识别模型 - Clause DeBERTa（二分类）
+finetuned_model_path = os.path.join(MODELS_PATH, 'metaphor_identification', 'deberta-v3-large-clause-metaphor')
 if os.path.exists(finetuned_model_path):
-    datas.append((finetuned_model_path, 'models/metaphor_identification/deberta-v3-large-metaphor-in-dt-rb-rp'))
+    datas.append((finetuned_model_path, 'models/metaphor_identification/deberta-v3-large-clause-metaphor'))
 
 # 数据目录 (只包含框架定义，不包含用户数据)
 frameworks_path = os.path.join(DATA_PATH, 'frameworks')

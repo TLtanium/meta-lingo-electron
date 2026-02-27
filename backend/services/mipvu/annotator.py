@@ -1,11 +1,11 @@
 """
 MIPVU Annotator
 
-Core annotation logic implementing the 4-step MIPVU metaphor detection pipeline:
+Core annotation logic implementing the hybrid MIPVU metaphor detection pipeline:
 1. Word form filtering (metaphor_filter.json)
 2. SpaCy-based rule filtering (POS, dependency, high-confidence rules)
-3. HiTZ model prediction
-4. Fine-tuned model for IN/DT/RB/RP POS tags
+3. HiTZ model prediction (primary model)
+4. Clause-level DeBERTa model for IN/DT/RB/RP POS tags (secondary model)
 """
 
 import logging
@@ -22,11 +22,11 @@ class MIPVUAnnotator:
     """
     MIPVU-based metaphor annotator.
     
-    Implements a 4-step pipeline:
+    Implements a hybrid pipeline:
     1. Word form filtering - filter out high-frequency non-metaphor words
     2. SpaCy rule filtering - filter based on POS, dependency, and high-confidence rules
     3. HiTZ model - primary metaphor detection model
-    4. Fine-tuned model - secondary model for IN/DT/RB/RP words that HiTZ misses
+    4. Clause model - secondary model for IN/DT/RB/RP words that HiTZ marks as non-metaphor
     """
     
     def __init__(
@@ -215,7 +215,7 @@ class MIPVUAnnotator:
                 }
             }
         
-        annotated_sentences = []
+        annotated_sentences: List[Dict[str, Any]] = []
         total_tokens = 0
         metaphor_tokens = 0
         source_counts = {
@@ -224,6 +224,45 @@ class MIPVUAnnotator:
             'hitz': 0,
             'finetuned': 0,
             'unknown': 0
+        }
+        # POS-grouped statistics (overall + function words vs others)
+        pos_groups = {
+            'ALL': {
+                'total_tokens': 0,
+                'metaphor_tokens': 0,
+                'literal_tokens': 0,
+                'metaphor_rate': 0.0,
+            },
+            'IN': {
+                'total_tokens': 0,
+                'metaphor_tokens': 0,
+                'literal_tokens': 0,
+                'metaphor_rate': 0.0,
+            },
+            'DT': {
+                'total_tokens': 0,
+                'metaphor_tokens': 0,
+                'literal_tokens': 0,
+                'metaphor_rate': 0.0,
+            },
+            'RB': {
+                'total_tokens': 0,
+                'metaphor_tokens': 0,
+                'literal_tokens': 0,
+                'metaphor_rate': 0.0,
+            },
+            'RP': {
+                'total_tokens': 0,
+                'metaphor_tokens': 0,
+                'literal_tokens': 0,
+                'metaphor_rate': 0.0,
+            },
+            'OTHER': {
+                'total_tokens': 0,
+                'metaphor_tokens': 0,
+                'literal_tokens': 0,
+                'metaphor_rate': 0.0,
+            },
         }
         
         total_sentences = len(sentences)
@@ -236,16 +275,36 @@ class MIPVUAnnotator:
                 })
                 continue
             
-            # Annotate sentence
+            # Annotate sentence (treated as a clause for the clause model)
             annotated_tokens = self.annotate_sentence(tokens, progress_callback)
             
             # Update statistics
             for token in annotated_tokens:
-                if token.get('word', '').isalpha():  # Only count alphabetic words
+                word = token.get('word', '')
+                if word and word.isalpha():  # Only count alphabetic words
                     total_tokens += 1
-                    if token.get('is_metaphor', False):
-                        metaphor_tokens += 1
+                    is_met = bool(token.get('is_metaphor', False))
                     
+                    # Determine POS group based on Penn tag
+                    tag = token.get('tag', '')
+                    if tag in SpaCyRuleFilter.TARGET_POS:
+                        group_key = tag if tag in ('IN', 'DT', 'RB', 'RP') else 'OTHER'
+                    else:
+                        group_key = 'OTHER'
+                    
+                    # Update overall group
+                    pos_groups['ALL']['total_tokens'] += 1
+                    if is_met:
+                        metaphor_tokens += 1
+                        pos_groups['ALL']['metaphor_tokens'] += 1
+                    
+                    # Update POS-specific group
+                    if group_key in pos_groups:
+                        pos_groups[group_key]['total_tokens'] += 1
+                        if is_met:
+                            pos_groups[group_key]['metaphor_tokens'] += 1
+                    
+                    # Update source distribution
                     source = token.get('metaphor_source', 'unknown')
                     if source.startswith('rule:'):
                         source_counts['rule'] += 1
@@ -267,6 +326,14 @@ class MIPVUAnnotator:
         literal_tokens = total_tokens - metaphor_tokens
         metaphor_rate = metaphor_tokens / total_tokens if total_tokens > 0 else 0.0
         
+        # Finalize POS-group statistics
+        for key, stats in pos_groups.items():
+            tt = stats['total_tokens']
+            mt = stats['metaphor_tokens']
+            lt = tt - mt
+            stats['literal_tokens'] = lt
+            stats['metaphor_rate'] = mt / tt if tt > 0 else 0.0
+        
         return {
             'success': True,
             'sentences': annotated_sentences,
@@ -275,7 +342,8 @@ class MIPVUAnnotator:
                 'metaphor_tokens': metaphor_tokens,
                 'literal_tokens': literal_tokens,
                 'metaphor_rate': metaphor_rate,
-                'source_counts': source_counts
+                'source_counts': source_counts,
+                'pos_group_stats': pos_groups,
             }
         }
     

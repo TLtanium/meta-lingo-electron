@@ -1,4 +1,4 @@
-import { api, API_BASE_URL } from './client'
+import { api, API_BASE_URL, TASK_POLLING_TIMEOUT } from './client'
 import type { 
   Corpus,
   CorpusCreate,
@@ -419,10 +419,13 @@ export const corpusApi = {
 
   // ==================== Task Status ====================
   
-  // Get processing task status
+  // Get processing task status (longer timeout when backend is busy with SpaCy/USAS/MIPVU)
   getTaskStatus: async (taskId: string): Promise<{ success: boolean; data?: ProcessingTask; message?: string }> => {
     try {
-      const response = await api.get<{ success: boolean; data: ProcessingTask }>(`${API_BASE}/tasks/${taskId}`)
+      const response = await api.get<{ success: boolean; data: ProcessingTask }>(
+        `${API_BASE}/tasks/${taskId}`,
+        { timeout: TASK_POLLING_TIMEOUT }
+      )
       if (response.success && response.data) {
         const inner = response.data as any
         if (inner.success !== undefined) {
