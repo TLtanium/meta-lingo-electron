@@ -2661,6 +2661,7 @@
     "reset": "Reset",
     "import": "Import",
     "save": "Save",
+    "saving": "Saving...",
     "cancel": "Cancel",
     "confirm": "Confirm",
     "delete": "Delete",
