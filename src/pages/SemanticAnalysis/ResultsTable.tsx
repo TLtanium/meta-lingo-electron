@@ -130,7 +130,8 @@ export default function ResultsTable({
             ...(libraryId && selectionMode === 'selected' && selectedEntryIds?.length && { selectedEntryIds }),
             autoSearch: true,
             semanticDomain: domain,
-            semanticDomainMatch: 'contains'
+            semanticDomainMatch: 'contains',
+            ignoreCase: true
           }
         }
       })

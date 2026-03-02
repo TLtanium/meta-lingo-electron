@@ -76,6 +76,9 @@ export interface CrossLinkParams {
   /** Match mode for semantic domain in CQL: exact or contains */
   semanticDomainMatch?: 'exact' | 'contains'
 
+  /** When linking to Collocation: default "ignore case" (忽略大小写) to checked */
+  ignoreCase?: boolean
+
   // Other modules → Semantic domain analysis (2026-02)
   /** Open semantic in "by domain" mode with search */
   semanticResultMode?: 'domain'

@@ -2,7 +2,7 @@
  * Results Table for Keyness Analysis
  */
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef } from 'react'
 import {
   Box,
   Table,
@@ -21,7 +21,11 @@ import {
   Chip,
   Typography,
   LinearProgress,
-  Checkbox
+  Checkbox,
+  Menu,
+  MenuItem,
+  ListItemIcon,
+  ListItemText
 } from '@mui/material'
 import SearchIcon from '@mui/icons-material/Search'
 import FileDownloadIcon from '@mui/icons-material/FileDownload'
@@ -30,10 +34,13 @@ import SelectAllIcon from '@mui/icons-material/SelectAll'
 import DeselectIcon from '@mui/icons-material/Deselect'
 import TrendingUpIcon from '@mui/icons-material/TrendingUp'
 import TrendingDownIcon from '@mui/icons-material/TrendingDown'
+import LinkIcon from '@mui/icons-material/Link'
+import MoreVertIcon from '@mui/icons-material/MoreVert'
 import { useTranslation } from 'react-i18next'
 import type { KeynessKeyword, KeynessStatistic, ComparisonMode } from '../../../types/keyword'
 import type { SelectionMode } from '../../../types/crossLink'
 import { WordActionMenu } from '../../../components/common'
+import { useTabStore } from '../../../stores/tabStore'
 
 interface ResultsTableProps {
   results: KeynessKeyword[]
@@ -70,7 +77,39 @@ export default function ResultsTable({
 }: ResultsTableProps) {
   const { t, i18n } = useTranslation()
   const isZh = i18n.language === 'zh'
-  
+  const { openTab } = useTabStore()
+
+  // Domain mode cross-link menu state (same pattern as SemanticAnalysis ResultsTable)
+  const [domainMenuAnchor, setDomainMenuAnchor] = useState<null | HTMLElement>(null)
+  const [domainMenuCode, setDomainMenuCode] = useState<string | null>(null)
+  const pendingDomainLinkRef = useRef<string | null>(null)
+
+  const handleDomainMenuExited = () => {
+    if (pendingDomainLinkRef.current) {
+      const domainCode = pendingDomainLinkRef.current
+      pendingDomainLinkRef.current = null
+      openTab({
+        type: 'collocation',
+        title: `${t('collocation.title')} - ${domainCode}`,
+        props: {
+          crossLinkParams: {
+            searchWord: domainCode,
+            corpusId: corpusId!,
+            textIds: textIds || 'all',
+            selectionMode,
+            selectedTags,
+            autoSearch: true,
+            semanticDomain: domainCode,
+            semanticDomainMatch: 'contains',
+            ignoreCase: true,
+            ...(libraryId && { libraryId }),
+            ...(libraryId && selectionMode === 'selected' && selectedEntryIds?.length && { selectedEntryIds })
+          }
+        }
+      })
+    }
+  }
+
   const [searchQuery, setSearchQuery] = useState('')
   const [page, setPage] = useState(0)
   const [rowsPerPage, setRowsPerPage] = useState(25)
@@ -489,17 +528,34 @@ export default function ResultsTable({
                   </TableCell>
                   {corpusId && (
                     <TableCell align="center" onClick={(e) => e.stopPropagation()}>
-                      <WordActionMenu
-                        word={result.keyword}
-                        corpusId={corpusId}
-                        textIds={textIds || 'all'}
-                        selectionMode={selectionMode}
-                        selectedTags={selectedTags}
-                        libraryId={libraryId}
-                        selectedEntryIds={selectedEntryIds}
-                        showCollocation={true}
-                        showWordSketch={true}
-                      />
+                      {comparisonMode === 'domain' ? (
+                        // Domain mode: three-dots menu with only co-occurrence option,
+                        // using [usas="code"] CQL – same pattern as SemanticAnalysis ResultsTable
+                        <Tooltip title={t('crossLink.viewInOtherModules')}>
+                          <IconButton
+                            size="small"
+                            onClick={(e) => {
+                              setDomainMenuAnchor(e.currentTarget)
+                              setDomainMenuCode(result.keyword)
+                            }}
+                            sx={{ opacity: 0.6, '&:hover': { opacity: 1 } }}
+                          >
+                            <MoreVertIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      ) : (
+                        <WordActionMenu
+                          word={result.keyword}
+                          corpusId={corpusId}
+                          textIds={textIds || 'all'}
+                          selectionMode={selectionMode}
+                          selectedTags={selectedTags}
+                          libraryId={libraryId}
+                          selectedEntryIds={selectedEntryIds}
+                          showCollocation={true}
+                          showWordSketch={true}
+                        />
+                      )}
                     </TableCell>
                   )}
                 </TableRow>
@@ -532,6 +588,37 @@ export default function ResultsTable({
           setPage(0)
         }}
       />
+
+      {/* Domain mode cross-link menu (single instance outside table, same pattern as SemanticAnalysis) */}
+      {comparisonMode === 'domain' && corpusId && (
+        <Menu
+          anchorEl={domainMenuAnchor}
+          open={Boolean(domainMenuAnchor)}
+          onClose={() => {
+            setDomainMenuAnchor(null)
+            setDomainMenuCode(null)
+          }}
+          onClick={(e) => e.stopPropagation()}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+          transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+          TransitionProps={{ onExited: handleDomainMenuExited }}
+        >
+          <MenuItem
+            onClick={() => {
+              if (domainMenuCode) {
+                pendingDomainLinkRef.current = domainMenuCode
+                setDomainMenuAnchor(null)
+                setDomainMenuCode(null)
+              }
+            }}
+          >
+            <ListItemIcon>
+              <LinkIcon fontSize="small" />
+            </ListItemIcon>
+            <ListItemText primary={t('crossLink.viewCollocation')} />
+          </MenuItem>
+        </Menu>
+      )}
     </Box>
   )
 }

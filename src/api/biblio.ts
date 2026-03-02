@@ -72,7 +72,7 @@ export async function uploadRefworksFile(
 
 // ==================== Entry Management ====================
 
-export type BiblioEntrySortColumn = 'title' | 'year' | 'journal' | 'citation_count'
+export type BiblioEntrySortColumn = 'title' | 'year' | 'journal' | 'citation_count' | 'relevance'
 export type BiblioEntrySortDir = 'asc' | 'desc'
 
 export interface ListEntriesParams {
@@ -118,6 +118,23 @@ export async function getEntry(entryId: string): Promise<ApiResponse<BiblioEntry
 
 export async function deleteEntry(entryId: string): Promise<ApiResponse<{ success: boolean }>> {
   return api.delete<{ success: boolean }>(`${BASE_URL}/entries/${entryId}`)
+}
+
+export interface BiblioEntryUpdatePayload {
+  relevance?: number
+  tags?: string[]
+  notes?: string
+}
+
+export async function updateEntry(
+  entryId: string,
+  payload: BiblioEntryUpdatePayload
+): Promise<ApiResponse<BiblioEntry>> {
+  return api.patch<BiblioEntry>(`${BASE_URL}/entries/${entryId}`, payload)
+}
+
+export async function deleteEntriesBatch(entryIds: string[]): Promise<ApiResponse<{ deleted: number }>> {
+  return api.post<{ deleted: number }>(`${BASE_URL}/entries/batch-delete`, { entry_ids: entryIds })
 }
 
 // ==================== Statistics & Filter Options ====================

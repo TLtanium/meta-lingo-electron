@@ -204,6 +204,17 @@ def init_database():
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_biblio_entries_doi ON biblio_entries(doi)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_biblio_entries_unique_id ON biblio_entries(unique_id)")
     
+    # Migration: add relevance, tags, notes to biblio_entries (0-5 stars, JSON array, plain text)
+    for col_def in [
+        "ALTER TABLE biblio_entries ADD COLUMN relevance INTEGER DEFAULT 0",
+        "ALTER TABLE biblio_entries ADD COLUMN tags TEXT DEFAULT '[]'",
+        "ALTER TABLE biblio_entries ADD COLUMN notes TEXT",
+    ]:
+        try:
+            cursor.execute(col_def)
+        except sqlite3.OperationalError:
+            pass  # Column already exists
+    
     # biblio_entry_abstracts: links biblio entry to shadow corpus text (abstract)
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS biblio_entry_abstracts (
@@ -997,9 +1008,9 @@ class BiblioEntryDB:
                     id, library_id, title, authors, institutions, countries,
                     journal, year, volume, issue, pages, doi, keywords,
                     abstract, doc_type, language, citation_count, source_url,
-                    unique_id, raw_data
+                    unique_id, raw_data, relevance, tags, notes
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 entry_data['id'],
                 entry_data['library_id'],
@@ -1020,7 +1031,10 @@ class BiblioEntryDB:
                 entry_data.get('citation_count', 0),
                 entry_data.get('source_url'),
                 entry_data.get('unique_id'),
-                json.dumps(entry_data.get('raw_data', {}), ensure_ascii=False)
+                json.dumps(entry_data.get('raw_data', {}), ensure_ascii=False),
+                entry_data.get('relevance', 0),
+                json.dumps(entry_data.get('tags', []), ensure_ascii=False),
+                entry_data.get('notes'),
             ))
             conn.commit()
             return BiblioEntryDB.get_by_id(entry_data['id'])
@@ -1038,9 +1052,9 @@ class BiblioEntryDB:
                             id, library_id, title, authors, institutions, countries,
                             journal, year, volume, issue, pages, doi, keywords,
                             abstract, doc_type, language, citation_count, source_url,
-                            unique_id, raw_data
+                            unique_id, raw_data, relevance, tags, notes
                         )
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """, (
                         entry['id'],
                         entry['library_id'],
@@ -1061,7 +1075,10 @@ class BiblioEntryDB:
                         entry.get('citation_count', 0),
                         entry.get('source_url'),
                         entry.get('unique_id'),
-                        json.dumps(entry.get('raw_data', {}), ensure_ascii=False)
+                        json.dumps(entry.get('raw_data', {}), ensure_ascii=False),
+                        entry.get('relevance', 0),
+                        json.dumps(entry.get('tags', []), ensure_ascii=False),
+                        entry.get('notes'),
                     ))
                     count += 1
                 except sqlite3.IntegrityError:
@@ -1079,16 +1096,68 @@ class BiblioEntryDB:
             if row:
                 entry = row_to_dict(row)
                 # Parse JSON fields
-                for field in ['authors', 'institutions', 'countries', 'keywords', 'raw_data']:
-                    if entry.get(field):
+                for field in ['authors', 'institutions', 'countries', 'keywords', 'raw_data', 'tags']:
+                    if entry.get(field) is not None and entry.get(field) != '':
                         try:
                             entry[field] = json.loads(entry[field])
                         except (json.JSONDecodeError, TypeError):
-                            entry[field] = []
+                            entry[field] = [] if field == 'tags' else []
+                    elif field == 'tags':
+                        entry[field] = []
+                if entry.get('relevance') is None:
+                    entry['relevance'] = 0
                 return entry
             return None
     
-    _SORT_COLUMNS = frozenset({'title', 'year', 'journal', 'citation_count'})
+    @staticmethod
+    def update(entry_id: str, data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """Update relevance, tags, and/or notes for an entry."""
+        allowed = {'relevance', 'tags', 'notes'}
+        updates = {k: v for k, v in data.items() if k in allowed}
+        if not updates:
+            return BiblioEntryDB.get_by_id(entry_id)
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            set_parts = []
+            params = []
+            if 'relevance' in updates:
+                set_parts.append("relevance = ?")
+                params.append(updates['relevance'])
+            if 'tags' in updates:
+                set_parts.append("tags = ?")
+                params.append(json.dumps(updates['tags'], ensure_ascii=False))
+            if 'notes' in updates:
+                set_parts.append("notes = ?")
+                params.append(updates['notes'])
+            params.append(entry_id)
+            cursor.execute("UPDATE biblio_entries SET " + ", ".join(set_parts) + " WHERE id = ?", params)
+            conn.commit()
+        return BiblioEntryDB.get_by_id(entry_id)
+    
+    @staticmethod
+    def delete_batch(entry_ids: List[str]) -> int:
+        """Delete multiple entries and their abstract texts. Returns number of entries deleted."""
+        if not entry_ids:
+            return 0
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            deleted = 0
+            for entry_id in entry_ids:
+                cursor.execute("SELECT text_id FROM biblio_entry_abstracts WHERE entry_id = ?", (entry_id,))
+                row = cursor.fetchone()
+                text_id = row[0] if row else None
+                cursor.execute("DELETE FROM biblio_entry_abstracts WHERE entry_id = ?", (entry_id,))
+                if text_id:
+                    cursor.execute("DELETE FROM text_tags WHERE text_id = ?", (text_id,))
+                    cursor.execute("DELETE FROM processing_tasks WHERE text_id = ?", (text_id,))
+                    cursor.execute("DELETE FROM texts WHERE id = ?", (text_id,))
+                cursor.execute("DELETE FROM biblio_entries WHERE id = ?", (entry_id,))
+                if cursor.rowcount > 0:
+                    deleted += 1
+            conn.commit()
+            return deleted
+    
+    _SORT_COLUMNS = frozenset({'title', 'year', 'journal', 'citation_count', 'relevance'})
 
     @staticmethod
     def list_by_library(library_id: str, filters: Optional[Dict[str, Any]] = None, 
@@ -1157,7 +1226,7 @@ class BiblioEntryDB:
             # Order by (whitelist columns); SQLite: use "col IS NULL, col" to put nulls last
             if order_by and order_by in BiblioEntryDB._SORT_COLUMNS and order_dir in ('asc', 'desc'):
                 direction = 'ASC' if order_dir == 'asc' else 'DESC'
-                if order_by in ('year', 'citation_count'):
+                if order_by in ('year', 'citation_count', 'relevance'):
                     query += f" ORDER BY {order_by} IS NULL, {order_by} {direction}, title ASC"
                 else:
                     query += f" ORDER BY {order_by} {direction}, title ASC"
@@ -1172,12 +1241,16 @@ class BiblioEntryDB:
             entries = []
             for row in rows:
                 entry = row_to_dict(row)
-                for field in ['authors', 'institutions', 'countries', 'keywords', 'raw_data']:
-                    if entry.get(field):
+                for field in ['authors', 'institutions', 'countries', 'keywords', 'raw_data', 'tags']:
+                    if entry.get(field) is not None and entry.get(field) != '':
                         try:
                             entry[field] = json.loads(entry[field])
                         except (json.JSONDecodeError, TypeError):
-                            entry[field] = []
+                            entry[field] = [] if field == 'tags' else []
+                    elif field == 'tags':
+                        entry[field] = []
+                if entry.get('relevance') is None:
+                    entry['relevance'] = 0
                 entries.append(entry)
             
             return {
@@ -1273,12 +1346,16 @@ class BiblioEntryDB:
             entries = []
             for row in rows:
                 entry = row_to_dict(row)
-                for field in ['authors', 'institutions', 'countries', 'keywords', 'raw_data']:
-                    if entry.get(field):
+                for field in ['authors', 'institutions', 'countries', 'keywords', 'raw_data', 'tags']:
+                    if entry.get(field) is not None and entry.get(field) != '':
                         try:
                             entry[field] = json.loads(entry[field])
                         except (json.JSONDecodeError, TypeError):
-                            entry[field] = []
+                            entry[field] = [] if field == 'tags' else []
+                    elif field == 'tags':
+                        entry[field] = []
+                if entry.get('relevance') is None:
+                    entry['relevance'] = 0
                 entries.append(entry)
             
             return entries

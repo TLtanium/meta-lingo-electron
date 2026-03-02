@@ -18,6 +18,7 @@ from models import (
     BiblioLibraryUpdate,
     BiblioLibrary,
     BiblioEntry,
+    BiblioEntryUpdate,
     BiblioFilter,
     BiblioListRequest,
     NetworkVisualizationRequest,
@@ -275,7 +276,7 @@ async def list_entries(
     journal: Optional[str] = None,
     doc_type: Optional[str] = None,
     title_search: Optional[str] = None,
-    order_by: Optional[str] = Query(None, description="Sort column: title, year, journal, citation_count"),
+    order_by: Optional[str] = Query(None, description="Sort column: title, year, journal, citation_count, relevance"),
     order_dir: Optional[str] = Query(None, description="Sort direction: asc, desc"),
     include_status: bool = Query(True, description="Include text_id and task status per entry")
 ):
@@ -383,6 +384,39 @@ async def delete_entry(entry_id: str):
         BiblioLibraryDB.update_entry_count(library_id)
     
     return {"success": success}
+
+
+class BatchDeleteRequest(BaseModel):
+    """Request body for batch delete"""
+    entry_ids: List[str]
+
+
+@router.patch("/entries/{entry_id}", response_model=BiblioEntry)
+async def update_entry(entry_id: str, request: BiblioEntryUpdate):
+    """Update relevance, tags, and/or notes for an entry"""
+    existing = BiblioEntryDB.get_by_id(entry_id)
+    if not existing:
+        raise HTTPException(status_code=404, detail="Entry not found")
+    payload = request.model_dump(exclude_unset=True)
+    updated = BiblioEntryDB.update(entry_id, payload)
+    return updated
+
+
+@router.post("/entries/batch-delete")
+async def batch_delete_entries(request: BatchDeleteRequest):
+    """Delete multiple entries by ID. Returns number of deleted entries."""
+    if not request.entry_ids:
+        return {"deleted": 0}
+    # Collect library_ids before delete so we can update counts
+    library_ids = set()
+    for eid in request.entry_ids:
+        entry = BiblioEntryDB.get_by_id(eid)
+        if entry:
+            library_ids.add(entry['library_id'])
+    deleted = BiblioEntryDB.delete_batch(request.entry_ids)
+    for library_id in library_ids:
+        BiblioLibraryDB.update_entry_count(library_id)
+    return {"deleted": deleted}
 
 
 # ==================== Statistics & Filter Options ====================

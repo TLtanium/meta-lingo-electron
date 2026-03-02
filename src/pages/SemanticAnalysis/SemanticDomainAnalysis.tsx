@@ -447,7 +447,8 @@ export default function SemanticDomainAnalysis({ crossLinkParams }: SemanticDoma
                       ...(corpusSelection.libraryId && { libraryId: corpusSelection.libraryId }),
                       autoSearch: true,
                       semanticDomain: domain,
-                      semanticDomainMatch: 'contains'
+                      semanticDomainMatch: 'contains',
+                      ignoreCase: true
                     }
                   }
                 })

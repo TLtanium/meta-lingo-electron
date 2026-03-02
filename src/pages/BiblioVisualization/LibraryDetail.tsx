@@ -28,7 +28,8 @@ import {
   InputAdornment,
   Checkbox,
   Stack,
-  CircularProgress
+  CircularProgress,
+  Link
 } from '@mui/material'
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import DeleteIcon from '@mui/icons-material/Delete'
@@ -39,6 +40,9 @@ import SearchIcon from '@mui/icons-material/Search'
 import SmartToyIcon from '@mui/icons-material/SmartToy'
 import CategoryIcon from '@mui/icons-material/Category'
 import AutoGraphIcon from '@mui/icons-material/AutoGraph'
+import StarIcon from '@mui/icons-material/Star'
+import StarBorderIcon from '@mui/icons-material/StarBorder'
+import FileDownloadIcon from '@mui/icons-material/FileDownload'
 import { useTranslation } from 'react-i18next'
 import type { BiblioLibrary, BiblioEntry, BiblioFilter, BiblioStatistics } from '../../types/biblio'
 import type { BiblioEntrySortColumn, BiblioEntrySortDir } from '../../api/biblio'
@@ -186,9 +190,8 @@ export default function LibraryDetail({ library, onBack, onUpload }: LibraryDeta
     setDetailDialogOpen(true)
   }
 
-  const toggleSelectEntry = (entryId: string, hasTextId: boolean) => (e: React.MouseEvent) => {
+  const toggleSelectEntry = (entryId: string) => (e: React.MouseEvent) => {
     e.stopPropagation()
-    if (!hasTextId) return
     setSelectedEntryIds(prev => {
       const next = new Set(prev)
       if (next.has(entryId)) next.delete(entryId)
@@ -200,6 +203,82 @@ export default function LibraryDetail({ library, onBack, onUpload }: LibraryDeta
   const selectAllWithAbstract = () => {
     const withText = entries.filter(e => e.text_id).map(e => e.id)
     setSelectedEntryIds(prev => (prev.size === withText.length ? new Set() : new Set(withText)))
+  }
+
+  const selectAllOnPage = () => {
+    const allOnPage = entries.map(e => e.id)
+    setSelectedEntryIds(prev => (prev.size === allOnPage.length ? new Set() : new Set(allOnPage)))
+  }
+
+  const handleBulkDelete = async () => {
+    if (selectedEntryIds.size === 0) return
+    if (!confirm(t('biblio.bulkDeleteConfirm', { count: selectedEntryIds.size }))) return
+    const response = await biblioApi.deleteEntriesBatch(Array.from(selectedEntryIds))
+    if (response.success && response.data) {
+      await loadEntries()
+      loadStatistics()
+      setSelectedEntryIds(new Set())
+    } else {
+      setError(response.error || t('biblio.loadFailed'))
+    }
+  }
+
+  const handleExportCsv = async () => {
+    const response = await biblioApi.listEntries({
+      libraryId: library.id,
+      page: 1,
+      pageSize: total || 9999,
+      filters,
+      titleSearch: titleSearch.trim() || undefined,
+      orderBy: sortBy,
+      orderDir: sortOrder,
+      includeStatus: false
+    })
+    if (!response.success || !response.data) return
+    const list = response.data.entries
+    const escapeCsv = (v: string) => {
+      if (v == null || v === undefined) return ''
+      const s = String(v).replace(/"/g, '""')
+      return /[,\n"]/.test(s) ? `"${s}"` : s
+    }
+    const relevanceToStars = (n: number) => {
+      const v = Math.min(5, Math.max(0, n))
+      return '★'.repeat(v) + '☆'.repeat(5 - v)
+    }
+    const headers = [
+      t('biblio.relevance'),
+      t('biblio.year'),
+      t('biblio.authors'),
+      t('biblio.entryTitle'),
+      t('biblio.doi'),
+      t('biblio.journal'),
+      t('biblio.abstract'),
+      t('biblio.tags'),
+      t('biblio.notes')
+    ]
+    const rows = list.map((e: BiblioEntry) => [
+      relevanceToStars(e.relevance ?? 0),
+      e.year ?? '',
+      (e.authors || []).join('; '),
+      e.title ?? '',
+      e.doi ? `https://doi.org/${e.doi}` : '',
+      e.journal ?? '',
+      e.abstract ?? '',
+      (e.tags || []).join('; '),
+      e.notes ?? ''
+    ])
+    const csvContent = [
+      headers.join(','),
+      ...rows.map((row: (string | number)[]) => row.map(c => escapeCsv(String(c))).join(','))
+    ].join('\n')
+    const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    const safeName = (library.name || 'biblio').replace(/[<>:"/\\|?*]/g, '_')
+    link.download = `${safeName}_${new Date().toISOString().slice(0, 10)}.csv`
+    link.click()
+    URL.revokeObjectURL(url)
   }
 
   const handleReAnnotate = async (type: 'spacy' | 'usas' | 'mipvu') => {
@@ -306,6 +385,23 @@ export default function LibraryDetail({ library, onBack, onUpload }: LibraryDeta
               <RefreshIcon />
             </IconButton>
           </Tooltip>
+          {selectedEntryIds.size > 0 && (
+            <Button
+              variant="outlined"
+              color="error"
+              startIcon={<DeleteIcon />}
+              onClick={handleBulkDelete}
+            >
+              {t('biblio.bulkDelete')} ({selectedEntryIds.size})
+            </Button>
+          )}
+          <Button
+            variant="outlined"
+            startIcon={<FileDownloadIcon />}
+            onClick={handleExportCsv}
+          >
+            {t('biblio.exportCsv')}
+          </Button>
           <Button variant="outlined" startIcon={<CloudUploadIcon />} onClick={onUpload}>
             {t('biblio.addMore')}
           </Button>
@@ -386,12 +482,21 @@ export default function LibraryDetail({ library, onBack, onUpload }: LibraryDeta
               <TableRow>
                 <TableCell padding="checkbox" sx={{ width: 48, fontWeight: 600, bgcolor: (theme) => theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.02)', borderBottom: '2px solid', borderColor: 'divider' }}>
                 <Checkbox
-                  indeterminate={selectedEntryIds.size > 0 && selectedEntryIds.size < entries.filter(e => e.text_id).length}
-                  checked={entries.filter(e => e.text_id).length > 0 && selectedEntryIds.size === entries.filter(e => e.text_id).length}
-                  onChange={selectAllWithAbstract}
+                  indeterminate={selectedEntryIds.size > 0 && selectedEntryIds.size < entries.length}
+                  checked={entries.length > 0 && selectedEntryIds.size === entries.length}
+                  onChange={selectAllOnPage}
                 />
                 </TableCell>
-                <TableCell sx={{ fontWeight: 600, bgcolor: (theme) => theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.02)', borderBottom: '2px solid', borderColor: 'divider' }}>
+                <TableCell sx={{ fontWeight: 600, width: 120, minWidth: 120, bgcolor: (theme) => theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.02)', borderBottom: '2px solid', borderColor: 'divider' }}>
+                  <TableSortLabel
+                    active={sortBy === 'relevance'}
+                    direction={sortBy === 'relevance' ? sortOrder : 'desc'}
+                    onClick={() => handleSort('relevance')}
+                  >
+                    {t('biblio.relevance')}
+                  </TableSortLabel>
+                </TableCell>
+                <TableCell sx={{ fontWeight: 600, width: '22%', minWidth: 160, bgcolor: (theme) => theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.02)', borderBottom: '2px solid', borderColor: 'divider' }}>
                   <TableSortLabel
                     active={sortBy === 'title'}
                     direction={sortBy === 'title' ? sortOrder : 'asc'}
@@ -399,6 +504,9 @@ export default function LibraryDetail({ library, onBack, onUpload }: LibraryDeta
                   >
                     {t('biblio.title')}
                   </TableSortLabel>
+                </TableCell>
+                <TableCell sx={{ fontWeight: 600, width: 90, minWidth: 90, maxWidth: 90, bgcolor: (theme) => theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.02)', borderBottom: '2px solid', borderColor: 'divider' }}>
+                  {t('biblio.doi')}
                 </TableCell>
                 <TableCell 
                   sx={{ 
@@ -473,6 +581,12 @@ export default function LibraryDetail({ library, onBack, onUpload }: LibraryDeta
                     {t('biblio.citations')}
                   </TableSortLabel>
                 </TableCell>
+                <TableCell sx={{ fontWeight: 600, width: '8%', minWidth: 72, bgcolor: (theme) => theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.02)', borderBottom: '2px solid', borderColor: 'divider' }}>
+                  {t('biblio.tags')}
+                </TableCell>
+                <TableCell sx={{ fontWeight: 600, width: '8%', minWidth: 72, bgcolor: (theme) => theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.02)', borderBottom: '2px solid', borderColor: 'divider' }}>
+                  {t('biblio.notes')}
+                </TableCell>
                 <TableCell sx={{ fontWeight: 600, width: 100, minWidth: 80, bgcolor: (theme) => theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.02)', borderBottom: '2px solid', borderColor: 'divider' }}>
                   {t('common.actions')}
                 </TableCell>
@@ -502,11 +616,19 @@ export default function LibraryDetail({ library, onBack, onUpload }: LibraryDeta
                   }}
                   onClick={() => handleEntryClick(entry)}
                 >
-                  <TableCell padding="checkbox" onClick={e => toggleSelectEntry(entry.id, !!entry.text_id)(e)}>
-                    <Checkbox
-                      checked={selectedEntryIds.has(entry.id)}
-                      disabled={!entry.text_id}
-                    />
+                  <TableCell padding="checkbox" onClick={e => toggleSelectEntry(entry.id)(e)}>
+                    <Checkbox checked={selectedEntryIds.has(entry.id)} />
+                  </TableCell>
+                  <TableCell sx={{ width: 120, minWidth: 120 }}>
+                    <Box component="span" sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>
+                      {[1, 2, 3, 4, 5].map(star => (
+                        (entry.relevance ?? 0) >= star ? (
+                          <StarIcon key={star} sx={{ fontSize: 18, color: 'warning.main' }} />
+                        ) : (
+                          <StarBorderIcon key={star} sx={{ fontSize: 18, color: 'action.disabled' }} />
+                        )
+                      ))}
+                    </Box>
                   </TableCell>
                   <TableCell>
                     <Typography
@@ -557,6 +679,21 @@ export default function LibraryDetail({ library, onBack, onUpload }: LibraryDeta
                       <Chip size="small" label={t('biblio.failed')} color="error" variant="outlined" sx={{ mt: 0.5 }} />
                     )}
                   </TableCell>
+                  <TableCell sx={{ width: 90, minWidth: 90, maxWidth: 90 }}>
+                    {entry.doi ? (
+                      <Link
+                        href={`https://doi.org/${entry.doi}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        variant="body2"
+                        sx={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                      >
+                        {entry.doi}
+                      </Link>
+                    ) : (
+                      <Typography variant="body2" color="text.secondary">-</Typography>
+                    )}
+                  </TableCell>
                   <TableCell>
                     <Typography 
                       variant="body2" 
@@ -580,6 +717,21 @@ export default function LibraryDetail({ library, onBack, onUpload }: LibraryDeta
                   <TableCell>
                     <Typography variant="body2">
                       {entry.citation_count || 0}
+                    </Typography>
+                  </TableCell>
+                  <TableCell>
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                      {(entry.tags || []).slice(0, 2).map(tag => (
+                        <Chip key={tag} label={tag} size="small" variant="outlined" sx={{ fontSize: '0.7rem', height: 20 }} />
+                      ))}
+                      {(entry.tags || []).length > 2 && (
+                        <Chip label={`+${(entry.tags || []).length - 2}`} size="small" variant="outlined" sx={{ fontSize: '0.7rem', height: 20 }} />
+                      )}
+                    </Box>
+                  </TableCell>
+                  <TableCell>
+                    <Typography variant="body2" noWrap sx={{ maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {entry.notes ? (entry.notes.length > 30 ? entry.notes.slice(0, 30) + '…' : entry.notes) : '-'}
                     </Typography>
                   </TableCell>
                   <TableCell>
@@ -624,7 +776,7 @@ export default function LibraryDetail({ library, onBack, onUpload }: LibraryDeta
               
               {entries.length === 0 && !loading && (
                 <TableRow>
-                  <TableCell colSpan={7} align="center" sx={{ py: 6 }}>
+                  <TableCell colSpan={11} align="center" sx={{ py: 6 }}>
                     <Typography color="text.secondary" variant="body1">
                       {t('biblio.noEntries')}
                     </Typography>
@@ -655,6 +807,11 @@ export default function LibraryDetail({ library, onBack, onUpload }: LibraryDeta
         entry={selectedEntry}
         open={detailDialogOpen}
         onClose={() => setDetailDialogOpen(false)}
+        existingTags={Array.from(new Set(entries.flatMap(e => e.tags || [])))}
+        onEntryUpdated={updated => {
+          setSelectedEntry(updated)
+          setEntries(prev => prev.map(e => (e.id === updated.id ? updated : e)))
+        }}
       />
     </Box>
   )

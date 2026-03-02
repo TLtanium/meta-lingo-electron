@@ -331,6 +331,7 @@ export default function WordActionMenu({
       kwicHighlightLemma: isFromWordSketch ? kwicHighlight : undefined,
       // Source module for default settings
       sourceModule,
+      ignoreCase: true,
       ...(libraryId && { libraryId }),
       ...(libraryId && selectionMode === 'selected' && selectedEntryIds?.length && { selectedEntryIds })
     }

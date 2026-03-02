@@ -296,6 +296,7 @@ export default function CollocationResultsTable({
       sourceModule: 'collocationAnalysis' as any,
       contextSize: span,
       matchMode: matchMode,
+      ignoreCase: true,
       ...(libraryId && { libraryId }),
       ...(libraryId && selectionMode === 'selected' && selectedEntryIds?.length && { selectedEntryIds })
     }

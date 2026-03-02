@@ -79,6 +79,16 @@ class BiblioEntryBase(BaseModel):
     citation_count: int = 0
     source_url: Optional[str] = None
     unique_id: Optional[str] = None
+    relevance: Optional[int] = 0  # 0-5 stars
+    tags: Optional[List[str]] = []
+    notes: Optional[str] = None
+
+
+class BiblioEntryUpdate(BaseModel):
+    """Update payload for relevance, tags, notes"""
+    relevance: Optional[int] = None
+    tags: Optional[List[str]] = None
+    notes: Optional[str] = None
 
 
 class BiblioEntry(BiblioEntryBase):

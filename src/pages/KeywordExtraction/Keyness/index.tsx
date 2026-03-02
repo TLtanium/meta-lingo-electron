@@ -689,7 +689,8 @@ export default function KeynessTab({ crossLinkParams }: KeynessTabProps = {}) {
                       selectionMode: studySelection.selectionMode === 'keywords' ? 'tags' : studySelection.selectionMode,
                       selectedTags: studySelection.selectedKeywords ?? studySelection.selectedTags ?? [],
                       ...(studySelection.libraryId && { libraryId: studySelection.libraryId }),
-                      autoSearch: true
+                      autoSearch: true,
+                      ignoreCase: true
                     }
                   }
                 })

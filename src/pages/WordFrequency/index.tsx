@@ -378,7 +378,8 @@ export default function WordFrequency({ crossLinkParams }: WordFrequencyProps = 
                       selectedTags: corpusSelection.selectedKeywords ?? corpusSelection.selectedTags ?? [],
                       ...(corpusSelection.libraryId && { libraryId: corpusSelection.libraryId }),
                       ...(corpusSelection.libraryId && corpusSelection.selectionMode === 'selected' && corpusSelection.selectedEntryIds?.length && { selectedEntryIds: corpusSelection.selectedEntryIds }),
-                      autoSearch: true
+                      autoSearch: true,
+                      ignoreCase: true
                     }
                   }
                 })

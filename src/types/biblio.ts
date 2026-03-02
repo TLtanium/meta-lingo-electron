@@ -82,6 +82,12 @@ export interface BiblioEntry {
   unique_id?: string
   raw_data?: Record<string, any>
   created_at?: string
+  /** 0-5 stars, default 0 */
+  relevance?: number
+  /** User-defined tags */
+  tags?: string[]
+  /** User-defined notes (plain text) */
+  notes?: string
   /** Set when listing with include_status (abstract text id in shadow corpus) */
   text_id?: string
   task_id?: string

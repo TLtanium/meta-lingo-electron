@@ -365,6 +365,7 @@ export default function Collocation({ crossLinkParams }: CollocationProps) {
     }
     if (crossLinkParams.sourceModule === 'metaphor') setShowMetaphorHighlight(true)
     if (crossLinkParams.targetSubTab !== undefined) setRightTab(crossLinkParams.targetSubTab)
+    if (crossLinkParams.ignoreCase === true) setLowercase(true)
     if (crossLinkParams.autoSearch) pendingAutoSearchRef.current = true
   }, [crossLinkParams])
 

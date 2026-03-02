@@ -346,7 +346,7 @@ export default function AnnotationTable({
     const params = buildCrossLinkParams(menuAnn)
     const title = `${t('collocation.title', '搭配分析')} - ${menuAnn.text || menuAnn.label}`
     pendingActionRef.current = () => {
-      openTab({ type: 'collocation' as TabType, title, props: { crossLinkParams: { ...params, targetSubTab: 0 } } })
+      openTab({ type: 'collocation' as TabType, title, props: { crossLinkParams: { ...params, targetSubTab: 0, ignoreCase: true } } })
     }
     handleMenuClose()
   }

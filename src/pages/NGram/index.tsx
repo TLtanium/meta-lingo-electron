@@ -496,7 +496,8 @@ export default function NGram({ crossLinkParams }: NGramProps = {}) {
                       selectionMode: corpusSelection.selectionMode === 'keywords' ? 'tags' : corpusSelection.selectionMode,
                       selectedTags: corpusSelection.selectedKeywords ?? corpusSelection.selectedTags ?? [],
                       ...(corpusSelection.libraryId && { libraryId: corpusSelection.libraryId }),
-                      autoSearch: true
+                      autoSearch: true,
+                      ignoreCase: true
                     }
                   }
                 })

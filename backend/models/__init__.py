@@ -51,6 +51,7 @@ from .biblio import (
     BiblioLibrary,
     BiblioEntryBase,
     BiblioEntry,
+    BiblioEntryUpdate,
     BiblioFilter,
     BiblioListRequest,
     VisualizationRequest,

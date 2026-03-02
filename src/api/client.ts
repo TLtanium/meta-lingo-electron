@@ -103,6 +103,18 @@ export const api = {
     }
   },
 
+  patch: async <T>(url: string, data?: any, config?: AxiosRequestConfig): Promise<ApiResponse<T>> => {
+    try {
+      const response = await apiClient.patch<T>(url, data, config)
+      return { success: true, data: response.data }
+    } catch (error: any) {
+      return { 
+        success: false, 
+        error: error.response?.data?.detail || error.message 
+      }
+    }
+  },
+
   delete: async <T>(url: string, config?: AxiosRequestConfig): Promise<ApiResponse<T>> => {
     try {
       const response = await apiClient.delete<T>(url, config)
