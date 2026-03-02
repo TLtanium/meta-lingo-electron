@@ -1251,6 +1251,7 @@
     "bulkDelete": "批量删除",
     "bulkDeleteConfirm": "确定删除选中的 {{count}} 条文献？",
     "exportCsv": "导出 CSV",
+    "exportingCsv": "导出中…",
     "addTag": "添加标签",
     "addTagWithHint": "添加标签（可输入或选择已有）",
     "notesPlaceholder": "输入备注…",

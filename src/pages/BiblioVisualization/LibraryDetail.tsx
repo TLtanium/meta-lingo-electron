@@ -78,6 +78,7 @@ export default function LibraryDetail({ library, onBack, onUpload }: LibraryDeta
   const [totalProcessingCount, setTotalProcessingCount] = useState(0)
   const [sortBy, setSortBy] = useState<BiblioEntrySortColumn>('year')
   const [sortOrder, setSortOrder] = useState<BiblioEntrySortDir>('desc')
+  const [exportingCsv, setExportingCsv] = useState(false)
 
   const handleSort = (column: BiblioEntrySortColumn) => {
     const isAsc = sortBy === column && sortOrder === 'asc'
@@ -224,18 +225,41 @@ export default function LibraryDetail({ library, onBack, onUpload }: LibraryDeta
   }
 
   const handleExportCsv = async () => {
-    const response = await biblioApi.listEntries({
-      libraryId: library.id,
-      page: 1,
-      pageSize: total || 9999,
-      filters,
-      titleSearch: titleSearch.trim() || undefined,
-      orderBy: sortBy,
-      orderDir: sortOrder,
-      includeStatus: false
-    })
-    if (!response.success || !response.data) return
-    const list = response.data.entries
+    setExportingCsv(true)
+    const PAGE_SIZE = 500
+    let list: BiblioEntry[] = []
+    try {
+      if (selectedEntryIds.size > 0) {
+        const response = await biblioApi.getEntriesByIds(Array.from(selectedEntryIds))
+        if (!response.success || !response.data) {
+          setExportingCsv(false)
+          return
+        }
+        list = response.data.entries
+      } else {
+        let page = 1
+        for (;;) {
+          const response = await biblioApi.listEntries({
+            libraryId: library.id,
+            page,
+            pageSize: PAGE_SIZE,
+            filters,
+            titleSearch: titleSearch.trim() || undefined,
+            orderBy: sortBy,
+            orderDir: sortOrder,
+            includeStatus: false
+          })
+          if (!response.success || !response.data) break
+          const { entries: chunk, total_pages } = response.data
+          list.push(...chunk)
+          if (page >= total_pages || chunk.length < PAGE_SIZE) break
+          page += 1
+        }
+      }
+      if (list.length === 0) {
+        setExportingCsv(false)
+        return
+      }
     const escapeCsv = (v: string) => {
       if (v == null || v === undefined) return ''
       const s = String(v).replace(/"/g, '""')
@@ -267,18 +291,21 @@ export default function LibraryDetail({ library, onBack, onUpload }: LibraryDeta
       (e.tags || []).join('; '),
       e.notes ?? ''
     ])
-    const csvContent = [
-      headers.join(','),
-      ...rows.map((row: (string | number)[]) => row.map(c => escapeCsv(String(c))).join(','))
-    ].join('\n')
-    const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' })
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    const safeName = (library.name || 'biblio').replace(/[<>:"/\\|?*]/g, '_')
-    link.download = `${safeName}_${new Date().toISOString().slice(0, 10)}.csv`
-    link.click()
-    URL.revokeObjectURL(url)
+      const csvContent = [
+        headers.join(','),
+        ...rows.map((row: (string | number)[]) => row.map(c => escapeCsv(String(c))).join(','))
+      ].join('\n')
+      const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      const safeName = (library.name || 'biblio').replace(/[<>:"/\\|?*]/g, '_')
+      link.download = `${safeName}_${new Date().toISOString().slice(0, 10)}.csv`
+      link.click()
+      URL.revokeObjectURL(url)
+    } finally {
+      setExportingCsv(false)
+    }
   }
 
   const handleReAnnotate = async (type: 'spacy' | 'usas' | 'mipvu') => {
@@ -397,10 +424,11 @@ export default function LibraryDetail({ library, onBack, onUpload }: LibraryDeta
           )}
           <Button
             variant="outlined"
-            startIcon={<FileDownloadIcon />}
+            startIcon={exportingCsv ? <CircularProgress size={16} color="inherit" /> : <FileDownloadIcon />}
             onClick={handleExportCsv}
+            disabled={exportingCsv}
           >
-            {t('biblio.exportCsv')}
+            {exportingCsv ? t('biblio.exportingCsv') : t('biblio.exportCsv')}
           </Button>
           <Button variant="outlined" startIcon={<CloudUploadIcon />} onClick={onUpload}>
             {t('biblio.addMore')}

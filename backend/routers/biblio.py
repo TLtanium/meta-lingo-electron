@@ -391,6 +391,20 @@ class BatchDeleteRequest(BaseModel):
     entry_ids: List[str]
 
 
+class EntriesByIdsRequest(BaseModel):
+    """Request body for fetching entries by IDs"""
+    entry_ids: List[str]
+
+
+@router.post("/entries/by-ids")
+async def get_entries_by_ids(request: EntriesByIdsRequest):
+    """Get full entry data for a list of entry IDs. Returns entries in the same order as requested."""
+    if not request.entry_ids:
+        return {"entries": []}
+    entries = BiblioEntryDB.get_by_ids(request.entry_ids)
+    return {"entries": entries}
+
+
 @router.patch("/entries/{entry_id}", response_model=BiblioEntry)
 async def update_entry(entry_id: str, request: BiblioEntryUpdate):
     """Update relevance, tags, and/or notes for an entry"""

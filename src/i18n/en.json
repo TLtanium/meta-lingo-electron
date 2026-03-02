@@ -1243,6 +1243,7 @@
     "bulkDelete": "Bulk delete",
     "bulkDeleteConfirm": "Delete the selected {{count}} entries?",
     "exportCsv": "Export CSV",
+    "exportingCsv": "Exporting…",
     "addTag": "Add tag",
     "addTagWithHint": "Add tag (type or select existing)",
     "notesPlaceholder": "Enter notes…",

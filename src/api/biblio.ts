@@ -137,6 +137,10 @@ export async function deleteEntriesBatch(entryIds: string[]): Promise<ApiRespons
   return api.post<{ deleted: number }>(`${BASE_URL}/entries/batch-delete`, { entry_ids: entryIds })
 }
 
+export async function getEntriesByIds(entryIds: string[]): Promise<ApiResponse<{ entries: BiblioEntry[] }>> {
+  return api.post<{ entries: BiblioEntry[] }>(`${BASE_URL}/entries/by-ids`, { entry_ids: entryIds })
+}
+
 // ==================== Statistics & Filter Options ====================
 
 export async function getStatistics(libraryId: string): Promise<ApiResponse<BiblioStatistics>> {

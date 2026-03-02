@@ -1110,6 +1110,37 @@ class BiblioEntryDB:
             return None
     
     @staticmethod
+    def get_by_ids(entry_ids: List[str]) -> List[Dict[str, Any]]:
+        """Get multiple entries by IDs. Returns entries in the same order as entry_ids (skips missing)."""
+        if not entry_ids:
+            return []
+        seen = set()
+        unique_ids = [x for x in entry_ids if x and x not in seen and not seen.add(x)]
+        with get_db_readonly() as conn:
+            cursor = conn.cursor()
+            placeholders = ",".join("?" * len(unique_ids))
+            cursor.execute(
+                f"SELECT * FROM biblio_entries WHERE id IN ({placeholders})",
+                unique_ids
+            )
+            rows = cursor.fetchall()
+        id_to_entry = {}
+        for row in rows:
+            entry = row_to_dict(row)
+            for field in ['authors', 'institutions', 'countries', 'keywords', 'raw_data', 'tags']:
+                if entry.get(field) is not None and entry.get(field) != '':
+                    try:
+                        entry[field] = json.loads(entry[field])
+                    except (json.JSONDecodeError, TypeError):
+                        entry[field] = [] if field == 'tags' else []
+                elif field == 'tags':
+                    entry[field] = []
+            if entry.get('relevance') is None:
+                entry['relevance'] = 0
+            id_to_entry[entry['id']] = entry
+        return [id_to_entry[eid] for eid in unique_ids if eid in id_to_entry]
+    
+    @staticmethod
     def update(entry_id: str, data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         """Update relevance, tags, and/or notes for an entry."""
         allowed = {'relevance', 'tags', 'notes'}
