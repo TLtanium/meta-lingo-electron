@@ -1,7 +1,7 @@
 /**
  * Library Detail Component for Bibliographic Visualization
  *
- * Shows entries list with filtering, progress bars, re-annotation (SpaCy/USAS/MIPVU)
+ * Shows entries list with filtering, progress bars, re-annotation (SpaCy/USAS/MIPVU/NRC)
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react'
@@ -29,7 +29,14 @@ import {
   Checkbox,
   Stack,
   CircularProgress,
-  Link
+  Link,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Popover,
+  FormGroup,
+  FormControlLabel
 } from '@mui/material'
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import DeleteIcon from '@mui/icons-material/Delete'
@@ -40,14 +47,18 @@ import SearchIcon from '@mui/icons-material/Search'
 import SmartToyIcon from '@mui/icons-material/SmartToy'
 import CategoryIcon from '@mui/icons-material/Category'
 import AutoGraphIcon from '@mui/icons-material/AutoGraph'
+import TheaterComedyIcon from '@mui/icons-material/TheaterComedy'
 import StarIcon from '@mui/icons-material/Star'
 import StarBorderIcon from '@mui/icons-material/StarBorder'
 import FileDownloadIcon from '@mui/icons-material/FileDownload'
+import ViewColumnIcon from '@mui/icons-material/ViewColumn'
 import { useTranslation } from 'react-i18next'
 import type { BiblioLibrary, BiblioEntry, BiblioFilter, BiblioStatistics } from '../../types/biblio'
+import { BIBLIO_AI_SECTION_KEYS } from '../../types/biblio'
 import type { BiblioEntrySortColumn, BiblioEntrySortDir } from '../../api/biblio'
 import * as biblioApi from '../../api/biblio'
 import { corpusApi } from '../../api'
+import { useSettingsStore } from '../../stores/settingsStore'
 import FilterPanel from './FilterPanel'
 import EntryDetailDialog from './EntryDetailDialog'
 
@@ -70,15 +81,36 @@ export default function LibraryDetail({ library, onBack, onUpload }: LibraryDeta
   const [titleSearch, setTitleSearch] = useState('')
   const [statistics, setStatistics] = useState<BiblioStatistics | null>(null)
   const [selectedEntryIds, setSelectedEntryIds] = useState<Set<string>>(new Set())
-  const [reAnnotating, setReAnnotating] = useState<'spacy' | 'usas' | 'mipvu' | null>(null)
+  const [reAnnotating, setReAnnotating] = useState<'spacy' | 'usas' | 'mipvu' | 'nrc' | null>(null)
 
   const [selectedEntry, setSelectedEntry] = useState<BiblioEntry | null>(null)
   const [detailDialogOpen, setDetailDialogOpen] = useState(false)
-  /** Total entries (matching filters) still in SpaCy/USAS/MIPVU processing; from list API */
+  /** Total entries (matching filters) still in SpaCy/USAS/MIPVU/NRC processing; from list API */
   const [totalProcessingCount, setTotalProcessingCount] = useState(0)
   const [sortBy, setSortBy] = useState<BiblioEntrySortColumn>('year')
   const [sortOrder, setSortOrder] = useState<BiblioEntrySortDir>('desc')
   const [exportingCsv, setExportingCsv] = useState(false)
+  const [pdfUploadingEntryId, setPdfUploadingEntryId] = useState<string | null>(null)
+  const [thumbnailLoadFailedIds, setThumbnailLoadFailedIds] = useState<Set<string>>(new Set())
+  const pdfInputRef = useRef<HTMLInputElement>(null)
+  const [batchAiLanguageOpen, setBatchAiLanguageOpen] = useState(false)
+  const [batchAiGenerating, setBatchAiGenerating] = useState(false)
+  const settings = useSettingsStore()
+
+  // AI column visibility — persisted in localStorage
+  const [visibleAiCols, setVisibleAiCols] = useState<Set<string>>(() => {
+    try {
+      const saved = localStorage.getItem('biblio_visible_ai_cols')
+      if (saved) return new Set<string>(JSON.parse(saved) as string[])
+    } catch {}
+    return new Set<string>(BIBLIO_AI_SECTION_KEYS as readonly string[])
+  })
+  const [colSettingsAnchor, setColSettingsAnchor] = useState<HTMLElement | null>(null)
+
+  const updateVisibleAiCols = (next: Set<string>) => {
+    setVisibleAiCols(next)
+    try { localStorage.setItem('biblio_visible_ai_cols', JSON.stringify([...next])) } catch {}
+  }
 
   const handleSort = (column: BiblioEntrySortColumn) => {
     const isAsc = sortBy === column && sortOrder === 'asc'
@@ -87,13 +119,14 @@ export default function LibraryDetail({ library, onBack, onUpload }: LibraryDeta
     setPage(0)
   }
 
-  // Derive stage label from task_message for progress display (same pipeline as corpus: spacy -> usas -> mipvu)
+  // Derive stage label from task_message for progress display (same pipeline as corpus: spacy -> usas -> mipvu -> nrc)
   const getStageLabel = (message?: string | null): string => {
     if (!message) return 'Processing'
     const m = message.toLowerCase()
     if (m.includes('spacy')) return 'SpaCy'
     if (m.includes('usas')) return 'USAS'
     if (m.includes('mipvu')) return 'MIPVU'
+    if (m.includes('nrc')) return 'NRC'
     return 'Processing'
   }
 
@@ -115,7 +148,7 @@ export default function LibraryDetail({ library, onBack, onUpload }: LibraryDeta
     setLoading(false)
 
     if (response.success && response.data) {
-      setEntries(response.data.entries)
+      setEntries(response.data.entries ?? [])
       setTotal(response.data.total)
       setTotalProcessingCount(response.data.processing_count ?? 0)
     } else {
@@ -269,25 +302,32 @@ export default function LibraryDetail({ library, onBack, onUpload }: LibraryDeta
       const v = Math.min(5, Math.max(0, n))
       return '★'.repeat(v) + '☆'.repeat(5 - v)
     }
+    const visibleAiKeys = BIBLIO_AI_SECTION_KEYS.filter(key => visibleAiCols.has(key))
     const headers = [
       t('biblio.relevance'),
-      t('biblio.year'),
-      t('biblio.authors'),
       t('biblio.entryTitle'),
       t('biblio.doi'),
+      t('biblio.authors'),
+      t('biblio.year'),
       t('biblio.journal'),
       t('biblio.abstract'),
+      t('biblio.keywords'),
+      t('biblio.citations'),
+      ...visibleAiKeys.map(key => t(`biblio.section.${key}`)),
       t('biblio.tags'),
       t('biblio.notes')
     ]
     const rows = list.map((e: BiblioEntry) => [
       relevanceToStars(e.relevance ?? 0),
-      e.year ?? '',
-      (e.authors || []).join('; '),
       e.title ?? '',
       e.doi ? `https://doi.org/${e.doi}` : '',
+      (e.authors || []).join('; '),
+      e.year ?? '',
       e.journal ?? '',
       e.abstract ?? '',
+      (e.keywords || []).join('; '),
+      String(e.citation_count ?? 0),
+      ...visibleAiKeys.map(key => (e.ai_sections?.[key]?.value ?? '').trim()),
       (e.tags || []).join('; '),
       e.notes ?? ''
     ])
@@ -308,7 +348,7 @@ export default function LibraryDetail({ library, onBack, onUpload }: LibraryDeta
     }
   }
 
-  const handleReAnnotate = async (type: 'spacy' | 'usas' | 'mipvu') => {
+  const handleReAnnotate = async (type: 'spacy' | 'usas' | 'mipvu' | 'nrc') => {
     const corpusId = library.corpus_id
     if (!corpusId) return
     const selected = entries.filter(e => selectedEntryIds.has(e.id) && e.text_id)
@@ -318,7 +358,8 @@ export default function LibraryDetail({ library, onBack, onUpload }: LibraryDeta
       for (const entry of selected) {
         if (type === 'spacy') await corpusApi.reAnnotateSpacy(corpusId, entry.text_id!)
         else if (type === 'usas') await corpusApi.reAnnotateUsas(corpusId, entry.text_id!)
-        else await corpusApi.reAnnotateMipvu(corpusId, entry.text_id!)
+        else if (type === 'mipvu') await corpusApi.reAnnotateMipvu(corpusId, entry.text_id!)
+        else await corpusApi.reAnnotateNrc(corpusId, entry.text_id!)
       }
       await loadEntries()
       setSelectedEntryIds(new Set())
@@ -337,11 +378,66 @@ export default function LibraryDetail({ library, onBack, onUpload }: LibraryDeta
     }
   }
 
+  const handlePdfUploadClick = (entryId: string, e: React.MouseEvent) => {
+    e.stopPropagation()
+    setPdfUploadingEntryId(entryId)
+    pdfInputRef.current?.click()
+  }
+
+  const handlePdfFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const entryId = pdfUploadingEntryId
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!entryId || !file?.name?.toLowerCase().endsWith('.pdf')) {
+      setPdfUploadingEntryId(null)
+      return
+    }
+    const res = await biblioApi.uploadEntryPdf(entryId, file)
+    setPdfUploadingEntryId(null)
+    if (res.success && res.data) {
+      const pdfPath = res.data.pdf_path
+      const thumbPath = res.data.thumbnail_path ?? undefined
+      setThumbnailLoadFailedIds(prev => { const next = new Set(prev); next.delete(entryId); return next })
+      setEntries(prev => prev.map(entry => entry.id === entryId ? { ...entry, pdf_path: pdfPath, pdf_thumbnail_path: thumbPath } : entry))
+      await loadEntries()
+      if (selectedEntry?.id === entryId) setSelectedEntry(prev => prev ? { ...prev, pdf_path: pdfPath, pdf_thumbnail_path: thumbPath } : null)
+    }
+  }
+
+  const handleBatchAiGenerate = async (language: 'zh' | 'en') => {
+    setBatchAiLanguageOpen(false)
+    const ids = Array.from(selectedEntryIds)
+    if (!ids.length) return
+    setBatchAiGenerating(true)
+    const res = await biblioApi.generateEntryAiSections({
+      entryIds: ids,
+      language,
+      ollama_url: settings.ollamaUrl || undefined,
+      ollama_model: settings.ollamaModel || undefined,
+      openai_base_url: settings.openaiApiEnabled ? settings.openaiApiBaseUrl : undefined,
+      openai_api_key: settings.openaiApiEnabled ? settings.openaiApiKey : undefined,
+      openai_model: settings.openaiApiEnabled ? settings.openaiApiModel : undefined,
+      use_openai_first: settings.openaiApiEnabled
+    })
+    setBatchAiGenerating(false)
+    if (res.success) {
+      loadEntries()
+      setSelectedEntryIds(new Set())
+    }
+  }
+
   const canMipvu = (library.language || '').toLowerCase() === 'english' || (library.language || '').toLowerCase() === 'en'
   const selectedWithText = entries.filter(e => selectedEntryIds.has(e.id) && e.text_id).length
 
   return (
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+      <input
+        type="file"
+        ref={pdfInputRef}
+        accept=".pdf,application/pdf"
+        style={{ display: 'none' }}
+        onChange={handlePdfFileChange}
+      />
       {/* Header */}
       <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider' }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
@@ -406,6 +502,17 @@ export default function LibraryDetail({ library, onBack, onUpload }: LibraryDeta
                 </Button>
               </span>
             </Tooltip>
+            <Tooltip title={selectedWithText === 0 ? t('corpus.selectTextsFirst', '请先选择文献') : t('corpus.nrcReAnnotate', 'NRC 情感重新标注')}>
+              <span>
+                <Button
+                  onClick={() => handleReAnnotate('nrc')}
+                  disabled={selectedWithText === 0 || reAnnotating !== null || !library.corpus_id}
+                  startIcon={reAnnotating === 'nrc' ? <CircularProgress size={16} /> : <TheaterComedyIcon />}
+                >
+                  NRC
+                </Button>
+              </span>
+            </Tooltip>
           </ButtonGroup>
           <Tooltip title={t('common.refresh')}>
             <IconButton onClick={() => { loadEntries(); loadStatistics() }}>
@@ -413,14 +520,24 @@ export default function LibraryDetail({ library, onBack, onUpload }: LibraryDeta
             </IconButton>
           </Tooltip>
           {selectedEntryIds.size > 0 && (
-            <Button
-              variant="outlined"
-              color="error"
-              startIcon={<DeleteIcon />}
-              onClick={handleBulkDelete}
-            >
-              {t('biblio.bulkDelete')} ({selectedEntryIds.size})
-            </Button>
+            <>
+              <Button
+                variant="outlined"
+                color="error"
+                startIcon={<DeleteIcon />}
+                onClick={handleBulkDelete}
+              >
+                {t('biblio.bulkDelete')} ({selectedEntryIds.size})
+              </Button>
+              <Button
+                variant="outlined"
+                startIcon={batchAiGenerating ? <CircularProgress size={16} color="inherit" /> : <SmartToyIcon />}
+                onClick={() => setBatchAiLanguageOpen(true)}
+                disabled={batchAiGenerating}
+              >
+                {t('biblio.aiGenerate')} ({selectedEntryIds.size})
+              </Button>
+            </>
           )}
           <Button
             variant="outlined"
@@ -445,23 +562,80 @@ export default function LibraryDetail({ library, onBack, onUpload }: LibraryDeta
           onFiltersChange={handleFiltersChange}
         />
 
-        {/* Search by title */}
-        <TextField
-          size="small"
-          placeholder={t('biblio.searchByTitle')}
-          value={titleSearch}
-          onChange={e => setTitleSearch(e.target.value)}
-          onBlur={() => setPage(0)}
-          fullWidth
-          sx={{ mt: 2 }}
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <SearchIcon />
-              </InputAdornment>
-            )
-          }}
-        />
+        {/* Search by title + Column settings */}
+        <Box sx={{ mt: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+          <TextField
+            size="small"
+            placeholder={t('biblio.searchByTitle')}
+            value={titleSearch}
+            onChange={e => setTitleSearch(e.target.value)}
+            onBlur={() => setPage(0)}
+            sx={{ flex: 1 }}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon />
+                </InputAdornment>
+              )
+            }}
+          />
+          <Tooltip title={t('biblio.columnSettings', '显示列设置')}>
+            <IconButton onClick={(e) => setColSettingsAnchor(e.currentTarget)}>
+              <ViewColumnIcon />
+            </IconButton>
+          </Tooltip>
+        </Box>
+
+        {/* AI column visibility popover */}
+        <Popover
+          open={Boolean(colSettingsAnchor)}
+          anchorEl={colSettingsAnchor}
+          onClose={() => setColSettingsAnchor(null)}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+          transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+        >
+          <Box sx={{ p: 2, minWidth: 240 }}>
+            <Typography variant="subtitle2" gutterBottom>
+              {t('biblio.aiColumns', 'AI 生成列')}
+            </Typography>
+            <FormGroup>
+              {BIBLIO_AI_SECTION_KEYS.map(key => (
+                <FormControlLabel
+                  key={key}
+                  control={
+                    <Checkbox
+                      size="small"
+                      checked={visibleAiCols.has(key)}
+                      onChange={(e) => {
+                        const next = new Set(visibleAiCols)
+                        if (e.target.checked) next.add(key)
+                        else next.delete(key)
+                        updateVisibleAiCols(next)
+                      }}
+                    />
+                  }
+                  label={<Typography variant="body2">{t(`biblio.section.${key}`)}</Typography>}
+                />
+              ))}
+            </FormGroup>
+            <Box sx={{ mt: 1.5, display: 'flex', gap: 1 }}>
+              <Button
+                size="small"
+                variant="outlined"
+                onClick={() => updateVisibleAiCols(new Set<string>(BIBLIO_AI_SECTION_KEYS as readonly string[]))}
+              >
+                {t('common.selectAll', '全选')}
+              </Button>
+              <Button
+                size="small"
+                variant="outlined"
+                onClick={() => updateVisibleAiCols(new Set<string>())}
+              >
+                {t('common.clearAll', '全不选')}
+              </Button>
+            </Box>
+          </Box>
+        </Popover>
         
         {/* Loading */}
         {loading && <LinearProgress sx={{ my: 2 }} />}
@@ -494,28 +668,73 @@ export default function LibraryDetail({ library, onBack, onUpload }: LibraryDeta
         )}
         
         {/* Entries Table — table and header stretch with container width */}
-        <TableContainer 
+        <TableContainer
           component={Paper}
-          sx={{ 
+          sx={{
             mt: 3,
-            borderRadius: 2,
             border: '1px solid',
             borderColor: 'divider',
             overflow: 'auto',
             width: '100%'
           }}
         >
-          <Table size="small" sx={{ width: '100%', tableLayout: 'fixed' }}>
+          <Table
+            sx={{
+              minWidth: 1400 + visibleAiCols.size * 90,
+              '& .MuiTableHead-root .MuiTableCell-root': {
+                borderRight: '1px solid',
+                borderColor: 'divider',
+                whiteSpace: 'nowrap'
+              },
+              '& .MuiTableHead-root .MuiTableCell-root:last-of-type': {
+                borderRight: 'none'
+              },
+              '& .MuiTableBody-root .MuiTableCell-root': {
+                borderRight: '1px solid',
+                borderBottom: '1px solid',
+                borderColor: 'divider'
+              },
+              '& .MuiTableBody-root .MuiTableCell-root:last-of-type': {
+                borderRight: 'none'
+              }
+            }}
+          >
             <TableHead>
               <TableRow>
-                <TableCell padding="checkbox" sx={{ width: 48, fontWeight: 600, bgcolor: (theme) => theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.02)', borderBottom: '2px solid', borderColor: 'divider' }}>
-                <Checkbox
-                  indeterminate={selectedEntryIds.size > 0 && selectedEntryIds.size < entries.length}
-                  checked={entries.length > 0 && selectedEntryIds.size === entries.length}
-                  onChange={selectAllOnPage}
-                />
+                <TableCell
+                  padding="checkbox"
+                  sx={{
+                    width: 48,
+                    fontWeight: 600,
+                    bgcolor: (theme) =>
+                      theme.palette.mode === 'dark'
+                        ? 'rgba(255, 255, 255, 0.05)'
+                        : 'rgba(0, 0, 0, 0.02)',
+                    borderBottom: '2px solid',
+                    borderColor: 'divider'
+                  }}
+                >
+                  <Checkbox
+                    indeterminate={selectedEntryIds.size > 0 && selectedEntryIds.size < entries.length}
+                    checked={entries.length > 0 && selectedEntryIds.size === entries.length}
+                    onChange={selectAllOnPage}
+                    sx={{ ml: 0.5 }}
+                  />
                 </TableCell>
-                <TableCell sx={{ fontWeight: 600, width: 120, minWidth: 120, bgcolor: (theme) => theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.02)', borderBottom: '2px solid', borderColor: 'divider' }}>
+                <TableCell
+                  sx={{
+                    fontWeight: 600,
+                    width: 120,
+                    minWidth: 120,
+                    pl: 2,
+                    bgcolor: (theme) =>
+                      theme.palette.mode === 'dark'
+                        ? 'rgba(255, 255, 255, 0.05)'
+                        : 'rgba(0, 0, 0, 0.02)',
+                    borderBottom: '2px solid',
+                    borderColor: 'divider'
+                  }}
+                >
                   <TableSortLabel
                     active={sortBy === 'relevance'}
                     direction={sortBy === 'relevance' ? sortOrder : 'desc'}
@@ -524,13 +743,16 @@ export default function LibraryDetail({ library, onBack, onUpload }: LibraryDeta
                     {t('biblio.relevance')}
                   </TableSortLabel>
                 </TableCell>
-                <TableCell sx={{ fontWeight: 600, width: '22%', minWidth: 160, bgcolor: (theme) => theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.02)', borderBottom: '2px solid', borderColor: 'divider' }}>
+                <TableCell sx={{ fontWeight: 600, width: 100, minWidth: 100, bgcolor: (theme) => theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.02)', borderBottom: '2px solid', borderColor: 'divider' }}>
+                  {t('biblio.paper')}
+                </TableCell>
+                <TableCell sx={{ fontWeight: 600, width: '18%', minWidth: 180, bgcolor: (theme) => theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.02)', borderBottom: '2px solid', borderColor: 'divider' }}>
                   <TableSortLabel
                     active={sortBy === 'title'}
                     direction={sortBy === 'title' ? sortOrder : 'asc'}
                     onClick={() => handleSort('title')}
                   >
-                    {t('biblio.title')}
+                    {t('biblio.entryTitle')}
                   </TableSortLabel>
                 </TableCell>
                 <TableCell sx={{ fontWeight: 600, width: 90, minWidth: 90, maxWidth: 90, bgcolor: (theme) => theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.02)', borderBottom: '2px solid', borderColor: 'divider' }}>
@@ -590,10 +812,16 @@ export default function LibraryDetail({ library, onBack, onUpload }: LibraryDeta
                     {t('biblio.journal')}
                   </TableSortLabel>
                 </TableCell>
+                <TableCell sx={{ fontWeight: 600, width: '12%', minWidth: 140, bgcolor: (theme) => theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.02)', borderBottom: '2px solid', borderColor: 'divider' }}>
+                  {t('biblio.abstract')}
+                </TableCell>
+                <TableCell sx={{ fontWeight: 600, width: '10%', minWidth: 100, bgcolor: (theme) => theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.02)', borderBottom: '2px solid', borderColor: 'divider' }}>
+                  {t('biblio.keywords')}
+                </TableCell>
                 <TableCell
                   sx={{
                     fontWeight: 600,
-                    width: '10%',
+                    width: '8%',
                     minWidth: 80,
                     whiteSpace: 'nowrap',
                     bgcolor: (theme) => theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.02)',
@@ -609,6 +837,11 @@ export default function LibraryDetail({ library, onBack, onUpload }: LibraryDeta
                     {t('biblio.citations')}
                   </TableSortLabel>
                 </TableCell>
+                {BIBLIO_AI_SECTION_KEYS.filter(key => visibleAiCols.has(key)).map(key => (
+                  <TableCell key={key} sx={{ fontWeight: 600, width: 90, minWidth: 90, bgcolor: (theme) => theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.02)', borderBottom: '2px solid', borderColor: 'divider' }}>
+                    {t(`biblio.section.${key}`)}
+                  </TableCell>
+                ))}
                 <TableCell sx={{ fontWeight: 600, width: '8%', minWidth: 72, bgcolor: (theme) => theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.02)', borderBottom: '2px solid', borderColor: 'divider' }}>
                   {t('biblio.tags')}
                 </TableCell>
@@ -644,10 +877,13 @@ export default function LibraryDetail({ library, onBack, onUpload }: LibraryDeta
                   }}
                   onClick={() => handleEntryClick(entry)}
                 >
-                  <TableCell padding="checkbox" onClick={e => toggleSelectEntry(entry.id)(e)}>
-                    <Checkbox checked={selectedEntryIds.has(entry.id)} />
+                  <TableCell
+                    padding="checkbox"
+                    onClick={e => toggleSelectEntry(entry.id)(e)}
+                  >
+                    <Checkbox checked={selectedEntryIds.has(entry.id)} sx={{ ml: 0.5 }} />
                   </TableCell>
-                  <TableCell sx={{ width: 120, minWidth: 120 }}>
+                  <TableCell sx={{ width: 120, minWidth: 120, pl: 2 }}>
                     <Box component="span" sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>
                       {[1, 2, 3, 4, 5].map(star => (
                         (entry.relevance ?? 0) >= star ? (
@@ -656,6 +892,23 @@ export default function LibraryDetail({ library, onBack, onUpload }: LibraryDeta
                           <StarBorderIcon key={star} sx={{ fontSize: 18, color: 'action.disabled' }} />
                         )
                       ))}
+                    </Box>
+                  </TableCell>
+                  <TableCell sx={{ width: 100, minWidth: 100, p: 0.5, verticalAlign: 'middle' }} onClick={e => handlePdfUploadClick(entry.id, e)}>
+                    <Box sx={{ width: '100%', minHeight: 100, border: '1px dashed', borderColor: 'divider', borderRadius: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', bgcolor: 'action.hover', boxSizing: 'border-box' }}>
+                      {pdfUploadingEntryId === entry.id ? (
+                        <CircularProgress size={28} />
+                      ) : entry.pdf_path && !thumbnailLoadFailedIds.has(entry.id) ? (
+                        <Box
+                          component="img"
+                          src={biblioApi.getEntryThumbnailUrl(entry.id, entry.pdf_path || entry.pdf_thumbnail_path)}
+                          alt=""
+                          sx={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                          onError={() => setThumbnailLoadFailedIds(prev => new Set(prev).add(entry.id))}
+                        />
+                      ) : (
+                        <CloudUploadIcon sx={{ fontSize: 48, color: 'text.secondary' }} />
+                      )}
                     </Box>
                   </TableCell>
                   <TableCell>
@@ -742,11 +995,41 @@ export default function LibraryDetail({ library, onBack, onUpload }: LibraryDeta
                       {entry.journal || '-'}
                     </Typography>
                   </TableCell>
+                  <TableCell sx={{ minWidth: 140, maxWidth: 200 }}>
+                    <Typography variant="body2" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', lineHeight: 1.4 }}>
+                      {entry.abstract ? (entry.abstract.length > 120 ? entry.abstract.slice(0, 120) + '…' : entry.abstract) : '-'}
+                    </Typography>
+                  </TableCell>
+                  <TableCell sx={{ minWidth: 120 }}>
+                    {(entry.keywords || []).length ? (
+                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                        {(entry.keywords || []).slice(0, 3).map((kw, ki) => (
+                          <Chip key={ki} label={kw} size="small" variant="outlined" sx={{ height: 20, fontSize: '0.68rem' }} />
+                        ))}
+                        {(entry.keywords || []).length > 3 && (
+                          <Chip label={`+${(entry.keywords || []).length - 3}`} size="small" sx={{ height: 20, fontSize: '0.68rem' }} />
+                        )}
+                      </Box>
+                    ) : (
+                      <Typography variant="body2" color="text.disabled">-</Typography>
+                    )}
+                  </TableCell>
                   <TableCell>
                     <Typography variant="body2">
                       {entry.citation_count || 0}
                     </Typography>
                   </TableCell>
+                  {BIBLIO_AI_SECTION_KEYS.filter(key => visibleAiCols.has(key)).map(key => {
+                    const section = (entry.ai_sections || {})[key]
+                    const val = section?.value ?? ''
+                    return (
+                      <TableCell key={key} sx={{ minWidth: 90, maxWidth: 120 }}>
+                        <Typography variant="body2" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', lineHeight: 1.3 }}>
+                          {val ? (val.length > 40 ? val.slice(0, 40) + '…' : val) : '-'}
+                        </Typography>
+                      </TableCell>
+                    )
+                  })}
                   <TableCell>
                     <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
                       {(entry.tags || []).slice(0, 2).map(tag => (
@@ -804,7 +1087,7 @@ export default function LibraryDetail({ library, onBack, onUpload }: LibraryDeta
               
               {entries.length === 0 && !loading && (
                 <TableRow>
-                  <TableCell colSpan={11} align="center" sx={{ py: 6 }}>
+                  <TableCell colSpan={14 + visibleAiCols.size} align="center" sx={{ py: 6 }}>
                     <Typography color="text.secondary" variant="body1">
                       {t('biblio.noEntries')}
                     </Typography>
@@ -830,6 +1113,17 @@ export default function LibraryDetail({ library, onBack, onUpload }: LibraryDeta
         </TableContainer>
       </Box>
       
+      {/* Batch AI language choice */}
+      <Dialog open={batchAiLanguageOpen} onClose={() => setBatchAiLanguageOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>{t('biblio.generateLanguage')}</DialogTitle>
+        <DialogContent><Typography variant="body2" color="text.secondary">{t('biblio.generateLanguage')}</Typography></DialogContent>
+        <DialogActions>
+          <Button onClick={() => handleBatchAiGenerate('zh')}>{t('biblio.generateLanguageZh')}</Button>
+          <Button onClick={() => handleBatchAiGenerate('en')}>{t('biblio.generateLanguageEn')}</Button>
+          <Button onClick={() => setBatchAiLanguageOpen(false)}>{t('common.cancel')}</Button>
+        </DialogActions>
+      </Dialog>
+
       {/* Entry Detail Dialog */}
       <EntryDetailDialog
         entry={selectedEntry}

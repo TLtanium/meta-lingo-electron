@@ -56,6 +56,7 @@ import type {
   CorpusResource,
   ComparisonMode
 } from '../types/keyword'
+import type { SentimentRequest, SentimentResponse } from '../types/sentiment'
 
 // ==================== Keyword Extraction Types ====================
 
@@ -127,6 +128,10 @@ export const analysisApi = {
   // Get available POS tags
   getPosTags: () =>
     api.get<POSTagInfo[]>('/api/analysis/pos-tags'),
+
+  // Sentiment analysis (NRC)
+  sentiment: (request: SentimentRequest) =>
+    api.post<SentimentResponse>('/api/analysis/sentiment', request),
 
   // Legacy word frequency API (deprecated)
   wordFrequencyLegacy: (selection: CorpusSelection) =>

@@ -84,6 +84,8 @@ export default function CollocationSearchPanel({
         return isZh ? '输入字符或字符串... (如: ck, ing)' : 'Enter character or string... (e.g., ck, ing)'
       case 'cql':
         return isZh ? '输入CQL查询...' : 'Enter CQL query...'
+      case 'wordlist':
+        return t('collocation.search.wordlistPlaceholder')
       default:
         return ''
     }
@@ -103,6 +105,21 @@ export default function CollocationSearchPanel({
           value={searchValue}
           onChange={onSearchValueChange}
           disabled={disabled}
+        />
+      )
+    }
+
+    if (searchMode === 'wordlist') {
+      return (
+        <TextField
+          fullWidth
+          size="small"
+          placeholder={getPlaceholder()}
+          value={searchValue}
+          onChange={(e) => onSearchValueChange(e.target.value)}
+          disabled={disabled}
+          multiline
+          rows={6}
         />
       )
     }

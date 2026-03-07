@@ -22,6 +22,7 @@ export type TabType =
   | 'biblio'
   | 'annotation'
   | 'topic'
+  | 'sentiment'
   | 'settings'
   | 'help'
 

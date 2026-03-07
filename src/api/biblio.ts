@@ -2,7 +2,7 @@
  * Bibliographic Visualization API Client
  */
 
-import { api } from './client'
+import { api, API_BASE_URL } from './client'
 import type {
   BiblioLibrary,
   BiblioLibraryCreate,
@@ -21,10 +21,12 @@ import type {
   BurstDetectionData,
   LandscapeVisualizationData,
   DualMapVisualizationData,
+  WordCloudVisualizationData,
   NetworkVisualizationRequest,
   ClusterVisualizationRequest,
   TimeVisualizationRequest,
   BurstDetectionRequest,
+  WordCloudVisualizationRequest,
   BaseVisualizationRequest
 } from '../types/biblio'
 import type { ApiResponse } from '../types'
@@ -120,10 +122,36 @@ export async function deleteEntry(entryId: string): Promise<ApiResponse<{ succes
   return api.delete<{ success: boolean }>(`${BASE_URL}/entries/${entryId}`)
 }
 
+/** Upload a PDF for an entry. Returns pdf_path and thumbnail_path on success. */
+export async function uploadEntryPdf(
+  entryId: string,
+  file: File,
+  onProgress?: (progress: number) => void
+): Promise<ApiResponse<{ success: boolean; pdf_path?: string; thumbnail_path?: string }>> {
+  const formData = new FormData()
+  formData.append('file', file)
+  return api.upload<{ success: boolean; pdf_path?: string; thumbnail_path?: string }>(
+    `${BASE_URL}/entries/${entryId}/upload-pdf`,
+    formData,
+    onProgress
+  )
+}
+
+/**
+ * URL for the entry's PDF thumbnail image (use as img src).
+ * Pass `version` (e.g. pdf_thumbnail_path) to append a cache-busting query param so the
+ * browser fetches a fresh image when the thumbnail changes instead of reusing a cached 404.
+ */
+export function getEntryThumbnailUrl(entryId: string, version?: string): string {
+  const base = `${API_BASE_URL}${BASE_URL}/entries/${entryId}/thumbnail`
+  return version ? `${base}?v=${encodeURIComponent(version)}` : base
+}
+
 export interface BiblioEntryUpdatePayload {
   relevance?: number
   tags?: string[]
   notes?: string
+  ai_sections?: Record<string, { value: string; hidden: boolean }>
 }
 
 export async function updateEntry(
@@ -131,6 +159,39 @@ export async function updateEntry(
   payload: BiblioEntryUpdatePayload
 ): Promise<ApiResponse<BiblioEntry>> {
   return api.patch<BiblioEntry>(`${BASE_URL}/entries/${entryId}`, payload)
+}
+
+export interface GenerateEntryAiParams {
+  entryIds: string[]
+  language: 'zh' | 'en'
+  ollama_url?: string
+  ollama_model?: string
+  openai_base_url?: string
+  openai_api_key?: string
+  openai_model?: string
+  use_openai_first?: boolean
+}
+
+export interface AiGenerateResultItem {
+  entry_id: string
+  success: boolean
+  ai_sections?: Record<string, { value: string; hidden: boolean }>
+  error?: string
+}
+
+export async function generateEntryAiSections(
+  params: GenerateEntryAiParams
+): Promise<ApiResponse<{ results: AiGenerateResultItem[] }>> {
+  return api.postLong<{ results: AiGenerateResultItem[] }>(`${BASE_URL}/entries/ai-generate`, {
+    entry_ids: params.entryIds,
+    language: params.language,
+    ollama_url: params.ollama_url,
+    ollama_model: params.ollama_model,
+    openai_base_url: params.openai_base_url,
+    openai_api_key: params.openai_api_key,
+    openai_model: params.openai_model,
+    use_openai_first: params.use_openai_first ?? true
+  })
 }
 
 export async function deleteEntriesBatch(entryIds: string[]): Promise<ApiResponse<{ deleted: number }>> {
@@ -197,6 +258,17 @@ export async function getDualMapOverlay(request: BaseVisualizationRequest): Prom
   return api.post<DualMapVisualizationData>(`${BASE_URL}/visualization/dual-map`, request)
 }
 
+export async function getWordCloudVisualization(
+  request: WordCloudVisualizationRequest
+): Promise<ApiResponse<WordCloudVisualizationData>> {
+  return api.post<WordCloudVisualizationData>(`${BASE_URL}/visualization/wordcloud`, {
+    library_id: request.library_id,
+    filters: request.filters,
+    source: request.source ?? 'abstract',
+    max_words: request.max_words ?? 100
+  })
+}
+
 // ==================== Utility Functions ====================
 
 export type VisualizationType = 
@@ -209,6 +281,7 @@ export type VisualizationType =
   | 'timeline'
   | 'timezone'
   | 'burst'
+  | 'wordcloud'
   | 'landscape'
   | 'dual-map'
 
@@ -247,6 +320,8 @@ export async function getVisualization(
       return getLandscapeView(request as BaseVisualizationRequest)
     case 'dual-map':
       return getDualMapOverlay(request as BaseVisualizationRequest)
+    case 'wordcloud':
+      return getWordCloudVisualization(request as WordCloudVisualizationRequest)
     default:
       throw new Error(`Unknown visualization type: ${type}`)
   }

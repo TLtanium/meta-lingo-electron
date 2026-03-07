@@ -22,6 +22,7 @@ import {
   IconButton,
   Chip
 } from '@mui/material'
+import type { SentimentAnalysisMode } from '../../types/sentiment'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import SearchIcon from '@mui/icons-material/Search'
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline'
@@ -41,6 +42,9 @@ interface SearchConfigPanelProps {
   disabled?: boolean
   corpusLanguage?: string
   hideSearchTarget?: boolean  // Hide the Word/Lemma selection
+  /** When set, show Analysis Mode dropdown + help (for Sentiment module) */
+  analysisMode?: 'polarity' | 'dimension'
+  onAnalysisModeChange?: (mode: 'polarity' | 'dimension') => void
 }
 
 const SEARCH_TYPES: { value: SearchType; labelKey: string }[] = [
@@ -63,7 +67,9 @@ export default function SearchConfigPanel({
   onLowercaseChange,
   disabled = false,
   corpusLanguage = 'english',
-  hideSearchTarget = false
+  hideSearchTarget = false,
+  analysisMode,
+  onAnalysisModeChange
 }: SearchConfigPanelProps) {
   const { t } = useTranslation()
   const [expanded, setExpanded] = useState(true)
@@ -198,23 +204,36 @@ export default function SearchConfigPanel({
           sx={{ mb: 2 }}
         />
 
-        {/* Search Target: Word or Lemma */}
+        {/* Search Target: Word / Lemma (or USAS when in sentiment mode) */}
         {!hideSearchTarget && (
           <>
             <FormControl fullWidth size="small" sx={{ mb: 2 }}>
-              <InputLabel>{t('wordFrequency.search.searchTarget')}</InputLabel>
+              <InputLabel>
+                {analysisMode !== undefined
+                  ? t('wordFrequency.search.searchMode')
+                  : t('wordFrequency.search.searchTarget')}
+              </InputLabel>
               <Select
                 value={config.searchTarget}
-                label={t('wordFrequency.search.searchTarget')}
+                label={
+                  analysisMode !== undefined
+                    ? t('wordFrequency.search.searchMode')
+                    : t('wordFrequency.search.searchTarget')
+                }
                 onChange={(e) => onChange({ ...config, searchTarget: e.target.value as SearchTarget })}
               >
                 <MenuItem value="word">{t('wordFrequency.search.targetWord')}</MenuItem>
                 <MenuItem value="lemma">{t('wordFrequency.search.targetLemma')}</MenuItem>
+                {analysisMode !== undefined && (
+                  <MenuItem value="usas">{t('wordFrequency.search.targetUsas')}</MenuItem>
+                )}
               </Select>
             </FormControl>
             <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 2, mt: -1 }}>
-              {config.searchTarget === 'lemma' 
-                ? t('wordFrequency.search.lemmaDesc') 
+              {config.searchTarget === 'lemma'
+                ? t('wordFrequency.search.lemmaDesc')
+                : config.searchTarget === 'usas'
+                ? t('wordFrequency.search.usasDesc')
                 : t('wordFrequency.search.wordDesc')}
             </Typography>
           </>
@@ -316,6 +335,28 @@ export default function SearchConfigPanel({
           placeholder={t('wordFrequency.search.excludeWordsPlaceholder')}
           helperText={t('wordFrequency.search.excludeWordsHelp')}
         />
+
+        {/* Analysis Mode (Sentiment only) */}
+        {analysisMode !== undefined && onAnalysisModeChange && (
+          <Stack direction="row" alignItems="center" spacing={0.5} sx={{ mt: 2 }}>
+            <FormControl fullWidth size="small">
+              <InputLabel>{t('sentiment.mode.label')}</InputLabel>
+              <Select
+                value={analysisMode}
+                label={t('sentiment.mode.label')}
+                onChange={(e) => onAnalysisModeChange(e.target.value as SentimentAnalysisMode)}
+              >
+                <MenuItem value="polarity">{t('sentiment.mode.polarity')}</MenuItem>
+                <MenuItem value="dimension">{t('sentiment.mode.dimension')}</MenuItem>
+              </Select>
+            </FormControl>
+            <Tooltip title={analysisMode === 'polarity' ? t('sentiment.mode.polarityHelp') : t('sentiment.mode.dimensionHelp')}>
+              <IconButton size="small" sx={{ color: 'text.secondary' }} aria-label={t('sentiment.mode.label')}>
+                <HelpOutlineIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          </Stack>
+        )}
       </AccordionDetails>
     </Accordion>
   )

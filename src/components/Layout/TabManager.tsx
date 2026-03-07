@@ -25,6 +25,7 @@ import HubIcon from '@mui/icons-material/Hub'
 import AutoGraphIcon from '@mui/icons-material/AutoGraph'
 import EditNoteIcon from '@mui/icons-material/EditNote'
 import TopicIcon from '@mui/icons-material/Topic'
+import TheaterComedyIcon from '@mui/icons-material/TheaterComedy'
 import SettingsIcon from '@mui/icons-material/Settings'
 import HelpIcon from '@mui/icons-material/Help'
 import { useTranslation } from 'react-i18next'
@@ -45,6 +46,7 @@ const WordSketch = lazy(() => import('../../pages/WordSketch'))
 const BiblioVisualization = lazy(() => import('../../pages/BiblioVisualization'))
 const Annotation = lazy(() => import('../../pages/Annotation'))
 const TopicModeling = lazy(() => import('../../pages/TopicModeling'))
+const SentimentAnalysis = lazy(() => import('../../pages/SentimentAnalysis'))
 const Settings = lazy(() => import('../../pages/Settings'))
 const Help = lazy(() => import('../../pages/Help'))
 
@@ -83,6 +85,7 @@ const tabIcons: Record<TabTypeEnum, React.ReactNode> = {
   biblio: <AutoGraphIcon fontSize="small" />,
   annotation: <EditNoteIcon fontSize="small" />,
   topic: <TopicIcon fontSize="small" />,
+  sentiment: <TheaterComedyIcon fontSize="small" />,
   settings: <SettingsIcon fontSize="small" />,
   help: <HelpIcon fontSize="small" />
 }
@@ -117,6 +120,8 @@ function TabContent({ tab }: { tab: TabType }) {
       return <Annotation />
     case 'topic':
       return <TopicModeling crossLinkParams={crossLinkParams} />
+    case 'sentiment':
+      return <SentimentAnalysis crossLinkParams={crossLinkParams} />
     case 'settings':
       return <Settings />
     case 'help':

@@ -30,12 +30,13 @@ Meta-Lingo is built with the following technologies:
 
 ## Feature Overview
 
-Meta-Lingo provides 12 core functional modules:
+Meta-Lingo provides 13 core functional modules:
 
 | Module | Description |
 |--------|-------------|
 | **Corpus Management** | Upload, organize and manage multimodal corpus data |
 | **Word Frequency** | Word frequency analysis, POS filtering, multi-dimensional visualization |
+| **Sentiment Analysis** | NRC lexicon-based sentiment polarity and emotional dimension analysis |
 | **Synonym Analysis** | WordNet-based synonym relationship analysis |
 | **Keyword Extraction** | TF-IDF, TextRank, YAKE, RAKE and other algorithms |
 | **N-gram Analysis** | 2-6 gram combination frequency statistics and pattern discovery |
@@ -267,6 +268,14 @@ After selecting one or more texts, you can perform batch re-annotation:
 #### USAS Re-annotation
 - Re-run semantic domain tagging
 - Uses latest priority domain settings
+
+#### MIPVU Re-annotation
+- Re-run metaphor identification (Clause model full annotation)
+- English-only
+
+#### NRC Re-annotation
+- Re-run NRC emotion lexicon annotation (anger, anticipation, disgust, fear, joy, sadness, surprise, trust, positive, negative)
+- Depends on SpaCy output; run after SpaCy annotation is complete
 
 ### Viewing Text Content
 
@@ -3003,18 +3012,16 @@ MIPVU (Metaphor Identification Procedure VU) is a metaphor identification method
 **Reference**:
 - Steen, G., Dorst, L., Herrmann, J., Kaal, A., Krennmayr, T., & Pasma, T. (2010). *A method for linguistic metaphor identification: From MIP to MIPVU*. John Benjamins Publishing.
 
-#### HiTZ Metaphor Detection Model
+#### Clause-Level Metaphor Detection Model
 
-This system uses the pre-trained metaphor detection model developed by the HiTZ research team (University of the Basque Country) as a core component.
+This system uses a clause-level DeBERTa model fine-tuned from Microsoft DeBERTa-v3-large for full-coverage metaphor annotation across all word types.
 
 **Model Information**:
-- **Model Name**: deberta-large-metaphor-detection-en
-- **Base Architecture**: DeBERTa-large
-- **Task Type**: Token Classification
-- **Source**: [HuggingFace - HiTZ/deberta-large-metaphor-detection-en](https://huggingface.co/HiTZ/deberta-large-metaphor-detection-en)
-
-**Reference**:
-- Sanchez-Bayona, E., & Agerri, R. (2022). Leveraging a New Spanish Corpus for Multilingual and Cross-lingual Metaphor Detection. *Proceedings of the 26th Conference on Computational Natural Language Learning (CoNLL)*, 228-240.
+- **Model Name**: deberta-v3-large-clause-metaphor
+- **Base Architecture**: microsoft/deberta-v3-large (0.4B parameters)
+- **Task Type**: Token Classification (binary: non_metaphor / metaphor)
+- **Training Data**: VUA-20 (VUAMC) dataset, trained at the clause level using SpaCy clause segmentation
+- **Source**: [HuggingFace - tommyleo2077/deberta-v3-large-clause-metaphor](https://huggingface.co/tommyleo2077/deberta-v3-large-clause-metaphor)
 
 #### DeBERTa Model
 
@@ -3023,7 +3030,7 @@ This system uses the pre-trained metaphor detection model developed by the HiTZ 
 
 ### Detection Method
 
-Meta-Lingo employs a four-step hybrid detection approach, combining rule filtering and dual-model integration:
+Meta-Lingo employs a three-step detection approach combining rule filtering and full-coverage Clause model annotation:
 
 #### Step 1: Word Form Filtering
 
@@ -3061,60 +3068,47 @@ Rules based on dependency relations and word forms (literal rate > 99%):
 
 **Note**: Demonstrative pronouns (this, that, these, those) have metaphor rates of 73-87% and will **not** be filtered by rules.
 
-#### Step 3: HiTZ Model Prediction
+#### Step 3: Clause Model Full Annotation
 
-Uses the HiTZ pre-trained model for metaphor judgment:
-- **Input**: Complete sentence
-- **Output**: Metaphor label for each word
-- **Label Mapping**:
-  - LABEL_0 / LABEL_1 -> Metaphor
-  - LABEL_2 -> Non-metaphor (pending)
+All words that pass the previous two steps are processed by the Clause model. The complete sentence is passed as input to provide clause-level context:
 
-#### Step 4: Clause Model Secondary Detection (Hybrid)
-
-Addresses the HiTZ model's limitations on function words with a clause-level DeBERTa model, trained specifically on SpaCy clauses and focused on IN, DT, RB, RP POS tags:
-
-**Trigger Conditions**:
-- Step 3 judged as non-metaphor by HiTZ
-- POS is IN (preposition), DT (determiner), RB (adverb), or RP (particle)
-
-**Clause Model**:
-- **Model Name**: deberta-v3-large-clause-metaphor
-- **Base Architecture**: microsoft/deberta-v3-large
-- **Target POS**: IN, DT, RB, RP
+- **Input**: Complete sentence (for clause-level context)
+- **Output**: Binary prediction per word (non_metaphor / metaphor)
 - **Judgment Threshold**: P(LABEL_1) >= 0.5
-- **Source**: [HuggingFace - tommyleo2077/deberta-v3-large-clause-metaphor](https://huggingface.co/tommyleo2077/deberta-v3-large-clause-metaphor)
+- **Max Sequence Length**: 192 tokens (matches model training configuration)
+- **Source Labels** (for UI color distinction):
+  - Function words IN/DT/RB/RP → **orange** label (indirect metaphor)
+  - Non-function words (other POS) → **green** label (indirect metaphor)
 
 ### Detection Reliability
 
-Evaluation results based on VUA corpus test set (10 files, 23,588 words; alphabetic tokens only):
+Evaluation results based on the VUA-20 dataset:
 
-#### Overall Performance Comparison
+#### Overall Performance
 
-| Approach | F1 | Precision | Recall | Accuracy |
-|----------|-----|-----------|--------|----------|
-| HiTZ Single Model | 60.6% | 89.90% | 45.67% | 93.56% |
-| Clause Single Model | 75.2% | 80.04% | 70.86% | 94.93% |
-| **Hybrid Approach** | **84.8%** | 89.59% | **80.53%** | **96.88%** |
-| **vs. HiTZ** | **+24.2%** | -0.31% | **+34.86%** | +3.32% |
+| Metric | Value |
+|--------|-------|
+| **F1 Score** | **75.83** |
+| Precision | 78.08% |
+| Recall | 73.69% |
+| Validation F1 | ~79.05% |
 
-#### Analysis by POS
+#### Performance by POS
 
-| Evaluation Scope | Precision | Recall | F1 |
-|------------------|-----------|--------|-----|
-| HiTZ on IN/DT/RB/RP (four function-word POS) | 100.00% | 4.25% | **8.2%** |
-| Clause on IN/DT/RB/RP | 89.55% | 81.93% | **85.6%** |
-| **Hybrid on IN/DT/RB/RP** | 89.67% | 83.08% | **86.3%** |
-| HiTZ on other POS (non–function words) | 89.51% | 78.51% | **83.7%** |
-| Hybrid on other POS | 89.51% | 78.51% | **83.7%** |
+| POS | F1 |
+|-----|----|
+| DT (Determiners) | **90.87** |
+| IN (Prepositions) | **87.87** |
+| RP (Particles) | **78.57** |
+| RB (Adverbs) | **68.57** |
+| Other (non-function words) | **67.16** |
 
-#### Key Findings
+#### Key Characteristics
 
-1. **HiTZ limitations**: On the four function-word POS (IN/DT/RB/RP), F1 is only **8.2%** and recall is very low (4.25%); on non–function words it performs well (F1≈83.7%).
-2. **Clause model**: Targets IN/DT/RB/RP; F1 on these POS reaches **85.6%**, and single-model overall F1 **75.2%**.
-3. **Hybrid advantages**: Non–function words use HiTZ; function words use Clause when HiTZ predicts non-metaphor. Overall F1 rises from 60.6% (HiTZ) to **84.8%**, function-word F1 to **86.3%**, with non–function-word F1 unchanged at 83.7%.
-4. **Across text types**: On all 10 test files (news, academic, fiction, spoken), hybrid F1 is consistently better than HiTZ or Clause alone.
-5. **Inference speed**: About **7.22 s/1k tokens** on M3 Pro (MPS), suitable for offline annotation and analysis.
+1. **Full POS coverage**: The model annotates all word types uniformly, including both function words (IN/DT/RB/RP) and content words.
+2. **Clause-level training**: Trained on SpaCy clause segments for better contextual understanding.
+3. **Binary classification**: Direct non_metaphor / metaphor output with no multi-label post-processing.
+4. **Strong function-word performance**: DT and IN reach F1 of 90.87 and 87.87 respectively.
 
 ### Interface Layout
 
@@ -4529,7 +4523,7 @@ logDice is a statistical method for measuring word collocation strength, calcula
 
 ## Overview
 
-The Bibliographic Visualization module is used to manage and analyze academic literature data. It supports importing Refworks format literature data from Web of Science (WOS) and CNKI (China National Knowledge Infrastructure), and provides various visualization analysis functions, including collaboration networks, keyword co-occurrence, timezone views, and burst detection.
+The Bibliographic Visualization module manages and analyzes academic literature data, supporting Refworks format import from Web of Science (WOS) and CNKI. It supports uploading PDFs per entry with first-page thumbnails, and 11 AI-generated fields (research objective, research design, etc.) from PDF or abstract; relevance star rating (including no rating; click current star to clear), tags and notes editing; CSV export (without the Paper column) and detail PDF export. Visualization includes collaboration networks, keyword co-occurrence, timezone views, and burst detection.
 
 ## Interface Layout
 
@@ -4575,23 +4569,43 @@ In the "Libraries" tab:
 
 In the "Library Detail" tab:
 
-- **Header Information**:
-  - Library name
-  - Source type label
-  - Total entries
-  - Year range (if available)
-  - "Add More" button: Upload more literature to this library
+- **Header**:
+  - Library name, source type label, total entries, year range (if available)
+  - **Refresh**, **Export CSV**, **Add More** (upload more literature)
+  - When multiple entries are selected: **Batch Delete**, **AI Generate** (choose language Chinese/English, then batch-generate 11 AI fields)
+  - **SpaCy / USAS / MIPVU / NRC** re-annotation (select entries with abstracts first; MIPVU is English-only)
 
-- **Filter Panel**: Provides various filter conditions (see below)
+- **Filter Panel**: Various filter conditions (see "Filtering" below)
 
 - **Entry Table**:
-  - **Columns**: Title, Authors, Year, Journal, Citations, Actions
-  - **Pagination**: Supports pagination (10/25/50/100 entries per page)
-  - **Actions**:
-    - **View Details**: Click row or view button to view entry details
-    - **Delete**: Delete a single entry
+  - **Columns**: Checkbox, **Relevance** (0–5 stars, including no rating; click current star to clear), **Paper** (click cell to upload PDF; first-page thumbnail when PDF exists), Title, DOI, Authors, Year, Journal, **Abstract** (truncated), **Keywords** (chips), Citations, **11 AI columns** (research objective, research question, research design, etc.; visibility controlled by column settings), **Tags**, **Notes** (truncated), Actions
+  - **Column settings**: Column icon next to search opens a Popover to show/hide the 11 AI columns; settings saved in browser storage
+  - **Pagination**: 10/25/50/100 entries per page
+  - **Actions**: Click row or "View Details" to open detail dialog; delete single entry
 
-- **Re-annotation**: Header buttons provide SpaCy, USAS, and MIPVU re-annotation. These use the same backend as Corpus Management; MIPVU is the HiTZ + Clause hybrid pipeline and is English-only.
+- **Export CSV**: Exports by current filters and visible columns; **does not include the Paper column**; header order: Relevance, Title, DOI, Authors, Year, Journal, Abstract, Keywords, Citations, visible AI columns, Tags, Notes (UTF-8 BOM).
+
+- **Re-annotation**: Same backend as Corpus Management; MIPVU uses Clause model full annotation (English-only); NRC supports Chinese and English.
+
+### Entry Detail Dialog
+
+Opened by clicking a row or "View Details"; view and edit:
+
+- **Relevance**: 0–5 stars (including no rating); hover to preview, click to set; **click the current star to clear** and return to no rating.
+- **Metadata** (read-only): Authors, institution, journal, year, DOI, keywords, abstract.
+- **11 AI fields** (research objective, research question, research design, conclusion, theoretical mechanism, theoretical contribution, limitations, application value, academic dialogue, future direction, literature summary): Each has an eye icon to hide/show (hidden items are excluded from PDF export) and an editable input; save on blur.
+- **AI Generate**: Choose language (Chinese/English); uses OpenAI-compatible API from settings if available, otherwise Ollama; sends entry PDF or abstract to the model and parses level-2 headings into the 11 fields.
+- **Export PDF**: Exports visible dialog content (including unhidden AI fields) in order as an A4 PDF.
+- **Tags**: Chips with delete; add-tag input **clears after adding** so the next tag can be entered without leftover text.
+- **Notes**: Multi-line text; save on blur.
+
+### Relevance Rating and Notes
+
+In library detail you can set, for each entry:
+
+- **Relevance**: 0–5 stars (including 0 for no rating); set from the table column or in the detail dialog; **click the current star to clear** the rating.
+- **Tags**: Add/remove in the detail dialog; the input clears after adding a tag for easy repeated entry.
+- **Notes**: Free-text in the detail dialog; multi-line; save on blur.
 
 ## Uploading Literature
 
@@ -4610,7 +4624,7 @@ In the "Library Detail" tab:
    - Number of skipped entries (if any)
    - Parse errors (if any)
 
-**Abstract annotation pipeline**: Each entry with an abstract is written to the shadow corpus and runs the same pipeline as Corpus Management: SpaCy → USAS → MIPVU. MIPVU uses the same hybrid pipeline (HiTZ + Clause model) as in corpus management, with overall and POS-grouped statistics (IN/DT/RB/RP/other).
+**Abstract annotation pipeline**: Each entry with an abstract is written to the shadow corpus and runs the same pipeline as Corpus Management: SpaCy → USAS → MIPVU → NRC. MIPVU uses the Clause model (deberta-v3-large-clause-metaphor) for full-coverage metaphor annotation; NRC emotion annotation uses NRC-EmoLex and supports Chinese and English, providing data for the Sentiment Analysis module.
 
 ### File Formats
 
@@ -6744,6 +6758,149 @@ NMF visualization panel provides various charts:
 - Export functions may take time when data volume is large
 - BERTopic embedding files can be reused to avoid repeated computation
 - LDA and NMF topic number optimization can help find optimal topic number
+
+# Sentiment Analysis
+
+## Overview
+
+The Sentiment Analysis module uses the NRC Emotion Lexicon to analyze sentiment polarity and emotional dimensions for words in your corpus. It supports three search modes: by word form, by lemma, or by **USAS semantic domain** (aggregating the sentiment scores of all words belonging to each domain). The interface layout and parameters match the Word Frequency module: the left panel for corpus/library selection and filters, the right panel for the results table and visualizations.
+
+## Interface Layout
+
+The module uses a left–right split layout:
+
+- **Left panel** (about 400px): Configuration area with corpus selection, POS filter, search config, analysis mode dropdown, and the "Start analysis" button.
+- **Right panel** (flex width): Results area with two tabs
+  - **Results table**: Shows sentiment category statistics per word or semantic domain
+  - **Visualization**: Shows pie/radar chart or word cloud depending on the current analysis mode
+
+## Data Requirements and Prerequisites
+
+### NRC Annotation
+
+- Analysis requires that the corpus has **NRC emotion lexicon annotation**. If the corpus is not annotated, results will be empty or unreliable.
+- **Automatic annotation**: When you upload texts in Corpus Management or Bibliographic Visualization, or run a full pipeline such as "SpaCy re-annotation", the system runs NRC annotation automatically after MIPVU.
+- **Re-run only NRC**: In corpus detail or library detail, you can select texts and click the "NRC" re-annotation button to update only NRC annotation.
+
+### Lexicons and Dimensions
+
+- The system uses lexicon files under `saves/nrc/` that match the corpus language (e.g. English: English-NRC-EmoLex.txt, Chinese: Chinese-Simplified-NRC-EmoLex.txt).
+- Each word that matches the lexicon receives scores for 10 dimensions: **anger**, **anticipation**, **disgust**, **fear**, **joy**, **sadness**, **surprise**, **trust**, **positive**, **negative**.
+- Words not in the lexicon have zero on all dimensions; in Polarity mode they are classified as neutral, in Dimension mode as others.
+
+## Corpus Selection
+
+As in the Word Frequency module, you can use either **corpus** or **library** as the data source:
+
+- **Corpus mode**: After selecting a corpus, you can use "All texts", "Filter by tags", or "Manual selection" for a subset.
+- **Library mode**: After selecting a library, the same options apply; analysis is performed on the abstract texts in the shadow corpus linked to that library.
+
+The left panel shows the number of selected texts/entries and corpus language.
+
+## POS Filtering
+
+- Same as Word Frequency: **Keep mode** and **Filter mode**.
+- **Keep mode**: Only words with the selected POS (e.g. noun, verb, adjective, adverb) are counted.
+- **Filter mode**: Selected POS are excluded; the rest are counted.
+- POS list comes from SpaCy annotation, so you can focus on content or function words.
+
+## Search Configuration
+
+The search configuration area includes the following options:
+
+- **Frequency range**: Set minimum/maximum frequency; only words/domains in that range are included.
+- **Case**: Whether to normalize to lowercase (usually recommended).
+- **Search mode**: Selects the basic unit of aggregation, with three options:
+  - **Word form**: Count by each word as it appears in text, consistent with Word Frequency.
+  - **Lemma**: Use the SpaCy-annotated lemma (base form), merging inflected forms of the same word.
+  - **Semantic Domain (USAS)**: Group by USAS semantic domain—all words belonging to the same domain have their sentiment scores summed together. Results are aggregated by domain. Requires USAS annotation on the corpus.
+- **Search type and value**: "All", "Starts with", "Ends with", "Contains", "Regex", "Wordlist", etc., filtering which words/domains are analyzed.
+- **Exclude words**: List words to exclude (one per line).
+
+These options match Word Frequency, so you can run word frequency first and then run sentiment analysis under the same filters to compare frequency and sentiment.
+
+## Analysis Modes
+
+Two modes are available in the "Analysis mode" dropdown on the left.
+
+### Sentiment Polarity
+
+- **Meaning**: Words/domains are classified as **positive**, **negative**, or **neutral**.
+- **Rule**: Based on NRC positive/negative scores; words with no clear polarity or no lexicon match are neutral.
+- **Use case**: Quick overview of overall positive/negative tendency and comparison across subsets.
+- **Visualization**: Table shows counts and percentages for positive/negative/neutral; visualization tab offers **pie chart** and **word cloud**.
+
+### Emotional Dimensions
+
+- **Meaning**: Eight basic emotions are counted: **anger**, **anticipation**, **disgust**, **fear**, **joy**, **sadness**, **surprise**, **trust**, plus **others** (no dominant dimension or unmatched).
+- **Rule**: Each word is assigned a dominant emotion from NRC dimension scores; others is used when there is no dominant dimension or no match.
+- **Use case**: Fine-grained emotion distribution and multi-dimensional sentiment research.
+- **Visualization**: Table shows counts and percentages per dimension and others; visualization tab offers **radar chart** and **word cloud**.
+
+## Running Analysis
+
+1. After setting corpus selection, POS filter, search config, and analysis mode, click "Start analysis" on the left.
+2. A progress indicator is shown; when finished, the right panel shows the results table.
+3. If analysis fails (e.g. missing NRC or USAS annotation, server error), an error message is shown; check annotation status or try again.
+
+## Results Table
+
+### Summary
+
+- Above the table, summary information (total tokens, unique words/domains) is displayed.
+
+### Columns
+
+**Word form / Lemma mode:**
+- **Word**, **Total**, **Percentage**, and counts for each sentiment dimension.
+
+**Semantic Domain (USAS) mode:**
+- **Semantic Domain (USAS)**: Shows the domain code (e.g. `A1.1`); hover over the code to see the full domain name in a tooltip.
+- **Total**, **Percentage**, and sentiment dimension counts (same as other modes).
+- CSV export includes an extra `domain_name` column.
+
+All modes support sorting by column, in-table search/filter (USAS mode can search by domain code or name), pagination, and row selection.
+
+### Export and Selection
+
+- **Export CSV**: Export current results for use in Excel or other tools.
+- **Select words/domains**: Check entries for cross-module links or further analysis.
+
+## Visualization
+
+- **Polarity**: Pie chart for positive/negative/neutral share; word cloud by category or frequency.
+- **Dimensions**: Radar chart for the eight emotions and others; word cloud by dimension or overall frequency.
+- **Semantic Domain mode word cloud**: The word cloud uses domain names (e.g. "General actions, making etc.") as the display text rather than domain codes.
+- **Word cloud**: Two engines—default D3.js; legacy engine supports custom mask shapes (select in visualization settings).
+
+Charts can be exported as images.
+
+## Cross-Module Links
+
+### Word form / Lemma mode
+
+As in Word Frequency, words in the results table can be linked to:
+
+- **Co-occurrence**: View co-occurrence and context in the corpus.
+- **Collocation analysis**: Collocation and statistics.
+- **Word sketch**: Word graph and grammatical patterns.
+- **N-gram analysis**: N-gram distribution including the word.
+- **Semantic domain analysis**: USAS semantic domain analysis.
+
+### Semantic Domain (USAS) mode
+
+In USAS mode, each row represents a semantic domain, and cross-module links are **limited to co-occurrence only** (consistent with the Keyness comparison's semantic domain mode):
+
+- **Co-occurrence**: Opens the collocation/concordance module with a CQL query `[usas="domain_code"]`, showing the context of all words in that semantic domain, so you can examine actual usage within the domain.
+
+## Tips and Notes
+
+- **Before analysis**: Ensure the corpus or library has NRC annotation (Word/Lemma mode); for Semantic Domain mode, also ensure USAS annotation is complete.
+- **Mode choice**: Use Polarity for a quick positive/negative overview; use Dimensions for fine-grained emotion distribution and comparison.
+- **Semantic Domain mode**: Useful for examining sentiment distribution by semantic category, e.g. comparing "interpersonal relations" words versus "economic" words.
+- **With word frequency**: Run word frequency first to identify high-frequency or target words, then run sentiment analysis on the same corpus and filters to compare frequency and sentiment.
+- **Large corpora**: Analysis may take time; export or word cloud generation may also take time with large data.
+- **Word cloud mask**: For custom-shaped word clouds, select the legacy word cloud engine and configure the mask in visualization settings.
 
 # Dictionary Lookup
 

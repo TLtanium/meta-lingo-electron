@@ -98,11 +98,12 @@ export interface MetaphorWordsResponse {
 
 // ==================== Source Types ====================
 
-export type MetaphorSource = 
+export type MetaphorSource =
   | 'filter'      // Word filter
   | 'rule'        // Rule-based filter
-  | 'hitz'        // HiTZ model prediction
-  | 'finetuned'   // Fine-tuned model prediction
+  | 'clause'      // Clause model – non-function words (green in UI)
+  | 'finetuned'   // Clause model – function words IN/DT/RB/RP (orange in UI)
+  | 'hitz'        // Legacy: HiTZ model (backward compat with existing annotations)
   | 'unknown';    // Unknown source
 
 export interface MetaphorSourceInfo {
@@ -252,17 +253,19 @@ export interface MetaphorExportOptions {
 export const METAPHOR_SOURCE_COLORS: Record<MetaphorSource, string> = {
   filter: '#9E9E9E',      // Gray
   rule: '#2196F3',        // Blue
-  hitz: '#4CAF50',        // Green
-  finetuned: '#FF9800',   // Orange
+  clause: '#4CAF50',      // Green – Clause model, non-function words
+  finetuned: '#FF9800',   // Orange – Clause model, function words (IN/DT/RB/RP)
+  hitz: '#4CAF50',        // Green – legacy HiTZ annotations (same as clause)
   unknown: '#607D8B',     // Blue Gray
 };
 
 export const METAPHOR_SOURCE_LABELS: Record<MetaphorSource, { en: string; zh: string }> = {
   filter: { en: 'Word Filter', zh: '词表过滤' },
   rule: { en: 'Rule Filter', zh: '规则过滤' },
-  // Both HiTZ and clause model outputs are presented as "indirect metaphor" in the UI;
-  // colors are used to distinguish their internal sources.
-  hitz: { en: 'indirect', zh: '间接隐喻' },
+  // Clause model outputs are presented as "indirect metaphor" in the UI;
+  // colors distinguish function words (finetuned/orange) from non-function words (clause/green).
+  clause: { en: 'indirect', zh: '间接隐喻' },
   finetuned: { en: 'indirect', zh: '间接隐喻' },
+  hitz: { en: 'indirect', zh: '间接隐喻' },  // legacy
   unknown: { en: 'Unknown', zh: '未知' },
 };

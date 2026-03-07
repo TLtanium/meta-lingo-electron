@@ -1,11 +1,10 @@
 """
 MIPVU Metaphor Identification Service Module
 
-This module provides MIPVU-based metaphor detection using a hybrid approach:
+This module provides MIPVU-based metaphor detection using a three-step pipeline:
 1. Word form filtering (metaphor_filter.json)
 2. SpaCy-based rule filtering (POS, dependency, high-confidence rules)
-3. HiTZ model prediction
-4. Fine-tuned model for IN/DT/RB/RP POS tags
+3. Clause model full annotation (deberta-v3-large-clause-metaphor) for all remaining tokens
 """
 
 from .filter import MetaphorFilter

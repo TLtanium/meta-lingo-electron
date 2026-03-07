@@ -360,6 +360,18 @@ class CorpusService:
             except Exception as e:
                 logger.warning(f"Failed to regenerate MIPVU annotations: {e}")
             
+            # Regenerate NRC annotations after MIPVU (uses SpaCy tokens)
+            if spacy_result:
+                try:
+                    self._annotate_text_with_nrc(
+                        spacy_result,
+                        corpus_language,
+                        content_path.parent,
+                        content_path.stem,
+                    )
+                except Exception as e:
+                    logger.warning(f"Failed to regenerate NRC annotations: {e}")
+            
             return {
                 "success": True, 
                 "message": "Content updated", 
@@ -526,6 +538,14 @@ class CorpusService:
                             Path(safe_filename).stem,
                             spacy_result
                         )
+                        # NRC emotion annotation after MIPVU (uses same SpaCy tokens)
+                        if spacy_result:
+                            self._annotate_text_with_nrc(
+                                spacy_result,
+                                corpus_language,
+                                save_dir,
+                                Path(safe_filename).stem,
+                            )
                 except Exception as e:
                     logger.warning(f"Annotation failed: {e}")
             elif media_type == MediaType.AUDIO:
@@ -797,6 +817,77 @@ class CorpusService:
             logger.error(f"MIPVU segment annotation error: {e}")
             return None
     
+    def _annotate_text_with_nrc(
+        self,
+        spacy_data: Optional[Dict[str, Any]],
+        language: str,
+        output_dir: Path,
+        base_name: str,
+        search_target: str = "word",
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Run NRC emotion annotation on SpaCy tokens and save to {base_name}.nrc.json.
+        """
+        try:
+            from services.nrc_service import get_nrc_service
+            nrc_svc = get_nrc_service()
+            if not nrc_svc.is_available(language):
+                logger.info(f"NRC lexicon not available for {language}")
+                return None
+            tokens = spacy_data.get("tokens") if spacy_data else []
+            if not tokens:
+                return None
+            token_scores = nrc_svc.annotate_tokens(tokens, language, search_target)
+            out = {
+                "success": True,
+                "language": language,
+                "token_scores": token_scores,
+            }
+            nrc_path = output_dir / f"{base_name}.nrc.json"
+            with open(nrc_path, "w", encoding="utf-8") as f:
+                json.dump(out, f, ensure_ascii=False, indent=2)
+            logger.info(f"Saved NRC annotation: {nrc_path}")
+            return {"path": str(nrc_path), "tokens": len(token_scores)}
+        except Exception as e:
+            logger.warning(f"NRC annotation error: {e}")
+            return None
+    
+    def _annotate_segments_with_nrc(
+        self,
+        segments: List[Dict],
+        language: str,
+        search_target: str = "word",
+    ) -> Optional[List[Dict[str, Any]]]:
+        """
+        Run NRC on each segment's SpaCy tokens. segments must have spacy_data with 'tokens'.
+        Returns list of { "id": seg_id, "token_scores": [...] }.
+        """
+        try:
+            from services.nrc_service import get_nrc_service
+            nrc_svc = get_nrc_service()
+            if not nrc_svc.is_available(language):
+                logger.info(f"NRC lexicon not available for {language}")
+                return None
+            result = []
+            for seg in segments:
+                seg_id = seg.get("id", 0)
+                spacy_data = seg.get("spacy_data") or {}
+                sentences = spacy_data.get("sentences", [])
+                tokens = []
+                for sent in sentences:
+                    tokens.extend(sent.get("tokens", []))
+                if not tokens:
+                    result.append({"id": seg_id, "token_scores": []})
+                    continue
+                token_scores = nrc_svc.annotate_tokens(tokens, language, search_target)
+                result.append({"id": seg_id, "token_scores": token_scores})
+            if result:
+                logger.info(f"NRC annotated {len(result)} segments")
+            return result if result else None
+        except Exception as e:
+            logger.warning(f"NRC segment annotation error: {e}")
+            return None
+    
     def process_audio(
         self,
         text_id: str,
@@ -897,6 +988,19 @@ class CorpusService:
                                 "segments": mipvu_result
                             }
                             logger.info(f"Added MIPVU annotations to transcript")
+                        
+                        # NRC annotation after MIPVU: build segment list with spacy_data from spacy_annotations
+                        spacy_segments = spacy_result.get("segments", {}) if spacy_result else {}
+                        segs_for_nrc = []
+                        for seg in segments:
+                            seg_id = seg.get("id", 0)
+                            seg_spacy = spacy_segments.get(seg_id, spacy_segments.get(str(seg_id), {}))
+                            tokens = seg_spacy.get("tokens", [])
+                            segs_for_nrc.append({"id": seg_id, "spacy_data": {"sentences": [{"tokens": tokens}]}})
+                        nrc_result = self._annotate_segments_with_nrc(segs_for_nrc, spacy_lang)
+                        if nrc_result:
+                            transcript_data["nrc_annotations"] = {"success": True, "segments": nrc_result}
+                            logger.info(f"Added NRC annotations to transcript")
                         
                         # Save updated transcript with annotations
                         with open(json_path, 'w', encoding='utf-8') as f:
@@ -1050,6 +1154,19 @@ class CorpusService:
                                             "segments": mipvu_result
                                         }
                                         logger.info(f"Added MIPVU annotations to video transcript")
+                                    
+                                    # NRC annotation after MIPVU
+                                    spacy_segments = spacy_result.get("segments", {}) if spacy_result else {}
+                                    segs_for_nrc = []
+                                    for seg in segments:
+                                        seg_id = seg.get("id", 0)
+                                        seg_spacy = spacy_segments.get(seg_id, spacy_segments.get(str(seg_id), {}))
+                                        tokens = seg_spacy.get("tokens", [])
+                                        segs_for_nrc.append({"id": seg_id, "spacy_data": {"sentences": [{"tokens": tokens}]}})
+                                    nrc_result = self._annotate_segments_with_nrc(segs_for_nrc, spacy_lang)
+                                    if nrc_result:
+                                        transcript_data["nrc_annotations"] = {"success": True, "segments": nrc_result}
+                                        logger.info(f"Added NRC annotations to video transcript")
                                     
                                     # Save updated transcript with annotations
                                     with open(json_path, 'w', encoding='utf-8') as f:

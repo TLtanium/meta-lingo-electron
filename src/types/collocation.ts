@@ -8,14 +8,15 @@ export interface POSFilterConfig {
   keepMode: boolean
 }
 
-// Search Modes - 6 modes based on Sketch Engine
+// Search Modes - 7 modes (6 from Sketch Engine + wordlist)
 // simple: word/lemma match with wildcards (*, ?, |, --)
 // lemma: lemma-based search with regex support
 // phrase: exact phrase match with regex support
 // word: exact word form match with regex support
 // character: contains specific character/string
 // cql: Corpus Query Language
-export type SearchMode = 'simple' | 'lemma' | 'phrase' | 'word' | 'character' | 'cql'
+// wordlist: multiple words/phrases, one per line; results for all that exist (missing entries do not affect others)
+export type SearchMode = 'simple' | 'lemma' | 'phrase' | 'word' | 'character' | 'cql' | 'wordlist'
 
 // Sort Modes
 export type SortMode = 'left_context' | 'right_context' | 'position' | 'frequency' | 'random'
@@ -172,6 +173,12 @@ export const SEARCH_MODE_LABELS: Record<SearchMode, { en: string; zh: string; de
     zh: '字符搜索',
     desc_en: 'Find tokens containing specific characters.',
     desc_zh: '查找包含特定字符或字符串的词。'
+  },
+  wordlist: { 
+    en: 'Word List Search', 
+    zh: '词表搜索',
+    desc_en: 'One word or phrase per line. Results show all that exist in the corpus; missing entries do not affect others.',
+    desc_zh: '一行一个词或词组。结果展示所有在语料中存在的条目；词表中不存在的条目不影响其他条目的搜索。'
   },
   cql: { 
     en: 'CQL', 

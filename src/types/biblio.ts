@@ -28,6 +28,7 @@ export type VisualizationType =
   | 'timeline'
   | 'timezone'
   | 'burst'
+  | 'wordcloud'
   | 'landscape'
   | 'dual-map'
 
@@ -94,7 +95,28 @@ export interface BiblioEntry {
   task_status?: string
   task_progress?: number
   task_message?: string
+  /** Path to uploaded PDF (relative); thumbnail at pdf_thumbnail_path */
+  pdf_path?: string
+  pdf_thumbnail_path?: string
+  /** AI-generated sections: key -> { value, hidden } */
+  ai_sections?: Record<string, { value: string; hidden: boolean }>
 }
+
+/** Keys for the 11 AI-generated entry sections (same order as table/dialog) */
+export const BIBLIO_AI_SECTION_KEYS = [
+  'research_objective',
+  'research_question',
+  'research_design',
+  'research_conclusion',
+  'theoretical_mechanism',
+  'theoretical_contribution',
+  'limitations',
+  'application_value',
+  'academic_dialogue',
+  'future_direction',
+  'literature_summary'
+] as const
+export type BiblioAiSectionKey = typeof BIBLIO_AI_SECTION_KEYS[number]
 
 // ==================== Filter Models ====================
 
@@ -289,6 +311,19 @@ export interface DualMapVisualizationData {
   links: DualMapLink[]
 }
 
+// ==================== Word Cloud Visualization ====================
+
+export interface WordCloudWord {
+  word: string
+  frequency: number
+  percentage?: number
+  rank?: number
+}
+
+export interface WordCloudVisualizationData {
+  words: WordCloudWord[]
+}
+
 // ==================== API Response Models ====================
 
 export interface BiblioLibraryListResponse {
@@ -344,6 +379,13 @@ export interface BurstDetectionRequest {
   burst_type?: 'keyword' | 'author'
   min_frequency?: number
   gamma?: number
+}
+
+export interface WordCloudVisualizationRequest {
+  library_id: string
+  filters?: BiblioFilter
+  source?: 'title' | 'abstract'
+  max_words?: number
 }
 
 export interface BaseVisualizationRequest {

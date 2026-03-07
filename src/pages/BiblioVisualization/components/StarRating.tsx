@@ -19,7 +19,12 @@ export default function StarRating({ value, onChange, readOnly = false }: StarRa
 
   const handleClick = (star: number) => {
     if (readOnly || !onChange) return
-    onChange(star)
+    // Clicking the current rating clears it (back to 0 / no rating)
+    if (star === (value ?? 0)) {
+      onChange(0)
+    } else {
+      onChange(star)
+    }
   }
 
   return (

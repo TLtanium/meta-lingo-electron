@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, shell, screen } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, shell, screen } from 'electron'
 import path from 'path'
 import { spawn, ChildProcess, execSync } from 'child_process'
 import fs from 'fs'
@@ -573,4 +573,45 @@ ipcMain.handle('save-file-dialog', async (_event, options) => {
   const { dialog } = await import('electron')
   const result = await dialog.showSaveDialog(mainWindow!, options)
   return result
+})
+
+// Export HTML content to PDF using Electron's printToPDF (native quality, CJK support)
+ipcMain.handle('export-to-pdf', async (_event, htmlContent: string, defaultFilename: string) => {
+  // Ask user where to save
+  const saveResult = await dialog.showSaveDialog(mainWindow!, {
+    defaultPath: defaultFilename,
+    filters: [{ name: 'PDF', extensions: ['pdf'] }]
+  })
+  if (saveResult.canceled || !saveResult.filePath) return { success: false, canceled: true }
+
+  // Create a hidden off-screen window to render the HTML
+  const printWin = new BrowserWindow({
+    show: false,
+    width: 900,
+    height: 1200,
+    webPreferences: { nodeIntegration: false, contextIsolation: true }
+  })
+  // Write HTML to a temp file — data: URLs are limited to ~2 MB in Chromium
+  // and silently produce a blank page for larger documents.
+  const tmpHtmlPath = path.join(app.getPath('temp'), `ml-pdf-${Date.now()}.html`)
+  fs.writeFileSync(tmpHtmlPath, htmlContent, 'utf-8')
+  try {
+    // loadFile() bypasses the data-URL size limit
+    await printWin.loadFile(tmpHtmlPath)
+    // Give CSS/fonts time to settle before printing
+    await new Promise(resolve => setTimeout(resolve, 500))
+    const pdfBuffer = await printWin.webContents.printToPDF({
+      pageSize: 'A4',
+      printBackground: true,
+      margins: { marginType: 'custom', top: 0.5, bottom: 0.5, left: 0.5, right: 0.5 }
+    })
+    fs.writeFileSync(saveResult.filePath, pdfBuffer)
+    return { success: true, filePath: saveResult.filePath }
+  } catch (err: any) {
+    return { success: false, error: err?.message || String(err) }
+  } finally {
+    printWin.destroy()
+    // Clean up the temp HTML file (best-effort)
+    try { fs.unlinkSync(tmpHtmlPath) } catch {}
+  }
 })

@@ -280,7 +280,7 @@ export default function UploadPanel({
         ) : (
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             <Alert severity="info">
-              {t('biblio.uploadingTo')}: <strong>{selectedLibrary.name}</strong> ({selectedLibrary.source_type})
+              {t('biblio.uploadingTo')}: <strong>{selectedLibrary.name}</strong> ({selectedLibrary.source_type}). {t('biblio.uploadProcessingHint')}
             </Alert>
 
             <Box

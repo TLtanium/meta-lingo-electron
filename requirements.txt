@@ -64,6 +64,9 @@ pydantic_core==2.41.5
 python-dotenv==1.0.0
 pillow==12.0.0
 
+# PDF (biblio: extract text and first-page thumbnail)
+pymupdf==1.24.10
+
 # Inter-coder Reliability Analysis
 # krippendorff==0.8.2  # 已移除：Krippendorff's Alpha 使用手动实现，不再依赖此库
 scikit-learn==1.8.0

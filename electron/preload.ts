@@ -14,19 +14,23 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getAppPath: () => ipcRenderer.invoke('get-app-path'),
   getUserDataPath: () => ipcRenderer.invoke('get-user-data-path'),
   getResourcePath: (relativePath: string) => ipcRenderer.invoke('get-resource-path', relativePath),
-  
+
   // Help files
   readHelpFiles: () => ipcRenderer.invoke('read-help-files'),
-  
+
   // File dialogs
-  openFileDialog: (options: Electron.OpenDialogOptions) => 
+  openFileDialog: (options: Electron.OpenDialogOptions) =>
     ipcRenderer.invoke('open-file-dialog', options),
-  saveFileDialog: (options: Electron.SaveDialogOptions) => 
+  saveFileDialog: (options: Electron.SaveDialogOptions) =>
     ipcRenderer.invoke('save-file-dialog', options),
-  
+
+  // Export HTML content to PDF via Electron printToPDF (native quality, full CJK support)
+  exportToPdf: (htmlContent: string, defaultFilename: string) =>
+    ipcRenderer.invoke('export-to-pdf', htmlContent, defaultFilename),
+
   // Platform info
   platform: process.platform,
-  
+
   // Fullscreen state
   isFullscreen: () => ipcRenderer.invoke('is-fullscreen'),
   onFullscreenChange: (callback: (isFullscreen: boolean) => void) => {
@@ -39,7 +43,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
       ipcRenderer.removeListener('fullscreen-changed', listener)
     }
   },
-  
+
   // 启动状态相关
   getStartupStatus: (): Promise<StartupStatus> => ipcRenderer.invoke('get-startup-status'),
   retryBackend: (): Promise<boolean> => ipcRenderer.invoke('retry-backend'),
@@ -63,6 +67,8 @@ export interface ElectronAPI {
   readHelpFiles: () => Promise<Array<{ filename: string; content: string }>>
   openFileDialog: (options: Electron.OpenDialogOptions) => Promise<Electron.OpenDialogReturnValue>
   saveFileDialog: (options: Electron.SaveDialogOptions) => Promise<Electron.SaveDialogReturnValue>
+  /** Export HTML content to PDF via Electron printToPDF. Returns success/filePath/error. */
+  exportToPdf: (htmlContent: string, defaultFilename: string) => Promise<{ success: boolean; filePath?: string; canceled?: boolean; error?: string }>
   platform: NodeJS.Platform
   isFullscreen: () => Promise<boolean>
   onFullscreenChange: (callback: (isFullscreen: boolean) => void) => () => void
@@ -77,4 +83,3 @@ declare global {
     electronAPI: ElectronAPI
   }
 }
-

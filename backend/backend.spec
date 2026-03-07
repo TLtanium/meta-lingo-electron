@@ -150,6 +150,10 @@ hiddenimports = [
     'plotly.graph_objects',
     'plotly.express',
     
+    # PDF (biblio: thumbnail + text extraction)
+    'fitz',
+    'fitz._fitz',
+
     # 其他
     'PIL',
     'PIL.Image',
@@ -196,6 +200,14 @@ try:
     datas += pymusas_zh_datas
 except Exception as e:
     print(f"Warning: Could not collect cmn_dual_upos2usas_contextual: {e}")
+
+# PyMuPDF (biblio: PDF thumbnail + text extraction)
+try:
+    fitz_datas = collect_data_files('fitz')
+    fitz_datas = [d for d in fitz_datas if not os.path.basename(d[0]).startswith('._')]
+    datas += fitz_datas
+except Exception as e:
+    print(f"Warning: Could not collect fitz data: {e}")
 
 # spacy_pkuseg 字典文件 (中文分词需要)
 try:
@@ -269,6 +281,11 @@ if os.path.exists(saves_dict_path):
 saves_metaphor_path = os.path.join(SAVES_PATH, 'metaphor')
 if os.path.exists(saves_metaphor_path):
     datas.append((saves_metaphor_path, 'saves/metaphor'))
+
+# NRC 情感词典
+saves_nrc_path = os.path.join(SAVES_PATH, 'nrc')
+if os.path.exists(saves_nrc_path):
+    datas.append((saves_nrc_path, 'saves/nrc'))
 
 # help 目录
 if os.path.exists(HELP_PATH):

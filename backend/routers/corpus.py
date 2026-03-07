@@ -582,6 +582,13 @@ async def reannotate_spacy(
                     else:
                         send_progress_sync(task_id, "mipvu", 95, "MIPVU not available for this language, skipping...")
                     
+                    # NRC emotion annotation after MIPVU (text file)
+                    try:
+                        corpus_svc = get_corpus_service()
+                        corpus_svc._annotate_text_with_nrc(result, language, output_dir, base_name)
+                    except Exception as nrc_err:
+                        logger.warning(f"NRC annotation failed: {nrc_err}")
+                    
                     token_count = len(result.get("tokens", []))
                     entity_count = len(result.get("entities", []))
                     send_progress_sync(task_id, "completed", 100, 
@@ -685,6 +692,22 @@ async def reannotate_spacy(
                             send_progress_sync(task_id, "mipvu", 95, "MIPVU returned empty result")
                     else:
                         send_progress_sync(task_id, "mipvu", 95, "MIPVU not available for this language, skipping...")
+                    
+                    # NRC emotion annotation after MIPVU (media: build segments with spacy_data from spacy_result)
+                    try:
+                        corpus_svc = get_corpus_service()
+                        spacy_segments = spacy_result.get("segments", {})
+                        segs_for_nrc = []
+                        for seg in segments:
+                            seg_id = seg.get("id", 0)
+                            seg_spacy = spacy_segments.get(seg_id, spacy_segments.get(str(seg_id), {}))
+                            tokens = seg_spacy.get("tokens", [])
+                            segs_for_nrc.append({"id": seg_id, "spacy_data": {"sentences": [{"tokens": tokens}]}})
+                        nrc_result = corpus_svc._annotate_segments_with_nrc(segs_for_nrc, language)
+                        if nrc_result:
+                            transcript_data["nrc_annotations"] = {"success": True, "segments": nrc_result}
+                    except Exception as nrc_err:
+                        logger.warning(f"NRC annotation failed: {nrc_err}")
                     
                     # Save all annotations to transcript JSON
                     with open(transcript_path, 'w', encoding='utf-8') as f:
@@ -917,6 +940,12 @@ async def factory_reset(data: dict):
             from models.database import init_database
             init_database()
             deleted_items.append("Database reinitialized")
+
+            # Clean up bibliographic PDF / thumbnail files (orphaned after DB reset)
+            biblio_dir = DATA_DIR / "biblio"
+            if biblio_dir.exists():
+                shutil.rmtree(biblio_dir, ignore_errors=True)
+                deleted_items.append("Bibliographic PDF files and thumbnails")
         
         # Reset corpora
         if reset_corpora:
@@ -2424,6 +2453,13 @@ async def reannotate_mipvu(
                     with open(mipvu_path, 'w', encoding='utf-8') as f:
                         json.dump(result, f, ensure_ascii=False, indent=2)
                     
+                    # NRC emotion annotation after MIPVU (text file)
+                    try:
+                        corpus_svc = get_corpus_service()
+                        corpus_svc._annotate_text_with_nrc(spacy_data, language, output_dir, base_name)
+                    except Exception as nrc_err:
+                        logger.warning(f"NRC annotation failed: {nrc_err}")
+                    
                     stats = result.get("statistics", {})
                     metaphor_count = stats.get("metaphor_tokens", 0)
                     total_count = stats.get("total_tokens", 0)
@@ -2503,10 +2539,25 @@ async def reannotate_mipvu(
                         "segments": result
                     }
                     
+                    # NRC emotion annotation after MIPVU (media)
+                    try:
+                        corpus_svc = get_corpus_service()
+                        segs_for_nrc = []
+                        for seg in segments:
+                            seg_id = seg.get("id", 0)
+                            seg_spacy = spacy_segments.get(seg_id, spacy_segments.get(str(seg_id), {}))
+                            tokens = seg_spacy.get("tokens", [])
+                            segs_for_nrc.append({"id": seg_id, "spacy_data": {"sentences": [{"tokens": tokens}]}})
+                        nrc_result = corpus_svc._annotate_segments_with_nrc(segs_for_nrc, language)
+                        if nrc_result:
+                            transcript_data["nrc_annotations"] = {"success": True, "segments": nrc_result}
+                    except Exception as nrc_err:
+                        logger.warning(f"NRC annotation failed: {nrc_err}")
+                    
                     with open(transcript_path, 'w', encoding='utf-8') as f:
                         json.dump(transcript_data, f, ensure_ascii=False, indent=2)
                     
-                    send_progress_sync(task_id, "completed", 100, 
+                    send_progress_sync(task_id, "completed", 100,
                                       f"MIPVU annotation completed: {len(result)} segments",
                                       status="completed",
                                       result={"segments": len(result)})
@@ -2526,6 +2577,69 @@ async def reannotate_mipvu(
         "task_id": task_id,
         "message": "MIPVU re-annotation started"
     }
+
+
+@router.post("/{corpus_id}/texts/{text_id}/reannotate-nrc")
+async def reannotate_nrc(corpus_id: str, text_id: str):
+    """
+    Re-run NRC emotion annotation only (requires SpaCy annotation to exist).
+    Writes .nrc.json for plain text or nrc_annotations in transcript for audio/video.
+    """
+    from models.database import TextDB, CorpusDB
+    text = TextDB.get_by_id(text_id)
+    if not text:
+        raise HTTPException(status_code=404, detail="Text not found")
+    corpus = CorpusDB.get_by_id(corpus_id)
+    if not corpus:
+        raise HTTPException(status_code=404, detail="Corpus not found")
+    language = corpus.get("language", "english")
+    media_type = text.get("media_type", "text")
+    corpus_svc = get_corpus_service()
+    try:
+        if media_type == "text":
+            content_path = text.get("content_path")
+            if not content_path or not os.path.exists(content_path):
+                return {"success": False, "error": "Content file not found"}
+            spacy_path = Path(content_path).with_suffix("").with_suffix(".spacy.json")
+            if not spacy_path.exists():
+                return {"success": False, "error": "SpaCy annotation not found. Run SpaCy annotation first."}
+            with open(spacy_path, "r", encoding="utf-8") as f:
+                spacy_data = json.load(f)
+            base_name = Path(content_path).stem
+            output_dir = Path(content_path).parent
+            result = corpus_svc._annotate_text_with_nrc(spacy_data, language, output_dir, base_name)
+            if result:
+                return {"success": True, "message": "NRC annotation saved"}
+            return {"success": False, "error": "NRC annotation failed or lexicon not available for language"}
+        else:
+            transcript_path = text.get("transcript_json_path")
+            if not transcript_path or not os.path.exists(transcript_path):
+                return {"success": False, "error": "Transcript file not found"}
+            with open(transcript_path, "r", encoding="utf-8") as f:
+                transcript_data = json.load(f)
+            if "spacy_annotations" not in transcript_data:
+                return {"success": False, "error": "SpaCy annotations not found in transcript."}
+            segments = transcript_data.get("segments", [])
+            if not segments:
+                return {"success": False, "error": "No transcript segments found"}
+            spacy_result = transcript_data["spacy_annotations"]
+            spacy_segments = spacy_result.get("segments", {})
+            segs_for_nrc = []
+            for seg in segments:
+                seg_id = seg.get("id", 0)
+                seg_spacy = spacy_segments.get(seg_id, spacy_segments.get(str(seg_id), {}))
+                tokens = seg_spacy.get("tokens", [])
+                segs_for_nrc.append({"id": seg_id, "spacy_data": {"sentences": [{"tokens": tokens}]}})
+            nrc_result = corpus_svc._annotate_segments_with_nrc(segs_for_nrc, language)
+            if nrc_result:
+                transcript_data["nrc_annotations"] = {"success": True, "segments": nrc_result}
+                with open(transcript_path, "w", encoding="utf-8") as f:
+                    json.dump(transcript_data, f, ensure_ascii=False, indent=2)
+                return {"success": True, "message": "NRC annotation saved"}
+            return {"success": False, "error": "NRC annotation failed or lexicon not available"}
+    except Exception as e:
+        logger.exception("NRC re-annotation error")
+        return {"success": False, "error": str(e)}
 
 
 def get_yolo_track_color(class_name: str) -> str:
@@ -2837,6 +2951,15 @@ def process_text_spacy_sync(
                     mipvu_error = mipvu_result.get("error", "Unknown error")
                     logger.warning(f"MIPVU annotation failed: {mipvu_error}")
                     logger.warning(f"MIPVU result: {mipvu_result}")
+            
+            # NRC emotion annotation after MIPVU (uses SpaCy result)
+            send_progress_sync(task_id, "nrc", 98, "Running NRC annotation...")
+            try:
+                corpus_svc = get_corpus_service()
+                corpus_svc._annotate_text_with_nrc(result, language, output_dir, base_name)
+            except Exception as nrc_err:
+                logger.warning(f"NRC annotation failed: {nrc_err}")
+            send_progress_sync(task_id, "nrc", 99, "NRC annotation done.")
             
             send_progress_sync(task_id, "completed", 100, 
                               f"SpaCy annotation complete ({spacy_info['tokens']} tokens, {spacy_info['entities']} entities)",

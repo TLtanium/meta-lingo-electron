@@ -60,6 +60,7 @@ import SmartToyIcon from '@mui/icons-material/SmartToy'
 import ImageSearchIcon from '@mui/icons-material/ImageSearch'
 import CategoryIcon from '@mui/icons-material/Category'
 import AutoGraphIcon from '@mui/icons-material/AutoGraph'
+import TheaterComedyIcon from '@mui/icons-material/TheaterComedy'
 import { useTranslation } from 'react-i18next'
 import { corpusApi } from '../../api'
 import type { 
@@ -811,6 +812,37 @@ export default function CorpusDetail({ corpus, onBack, onUpload }: CorpusDetailP
     }
   }
 
+  // Handle NRC re-annotation for selected texts (sync API, no task polling)
+  const handleNrcReAnnotate = async () => {
+    if (selectedTextIds.size === 0) return
+    const selectedTexts = texts.filter(t => selectedTextIds.has(t.id))
+    if (selectedTexts.length === 0) return
+    setReAnnotating('nrc')
+    setSnackbarMessage(t('corpus.nrcReAnnotateStarted', 'NRC annotation started for {{count}} texts...', { count: selectedTexts.length }))
+    setSnackbarOpen(true)
+    let successCount = 0
+    let failedCount = 0
+    for (const text of selectedTexts) {
+      try {
+        const response = await corpusApi.reAnnotateNrc(corpus.id, text.id)
+        if (response.success) successCount++
+        else failedCount++
+      } catch {
+        failedCount++
+      }
+    }
+    setReAnnotating(null)
+    setSelectedTextIds(new Set())
+    loadTexts()
+    if (successCount > 0) {
+      setSnackbarMessage(t('corpus.nrcReAnnotateSuccess', 'NRC annotation completed for {{count}} texts', { count: successCount }))
+      setSnackbarOpen(true)
+    }
+    if (failedCount > 0) {
+      setError(`${failedCount} ${t('corpus.nrcReAnnotateFailed', 'NRC annotation failed')}`)
+    }
+  }
+
   // Calculate if selection contains videos
   const selectedHasVideos = texts.some(t => selectedTextIds.has(t.id) && t.mediaType === 'video')
   
@@ -1118,6 +1150,17 @@ export default function CorpusDetail({ corpus, onBack, onUpload }: CorpusDetailP
                   startIcon={reAnnotating === 'mipvu' ? <CircularProgress size={16} /> : <AutoGraphIcon />}
                 >
                   MIPVU
+                </Button>
+              </span>
+            </Tooltip>
+            <Tooltip title={selectedTextIds.size === 0 ? t('corpus.selectTextsFirst', '请先选择文本') : t('corpus.nrcReAnnotate', 'NRC 情感重新标注')}>
+              <span>
+                <Button
+                  onClick={handleNrcReAnnotate}
+                  disabled={selectedTextIds.size === 0 || reAnnotating !== null}
+                  startIcon={reAnnotating === 'nrc' ? <CircularProgress size={16} /> : <TheaterComedyIcon />}
+                >
+                  NRC
                 </Button>
               </span>
             </Tooltip>

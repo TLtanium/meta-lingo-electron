@@ -9,7 +9,7 @@ export type SelectionMode = 'all' | 'selected' | 'tags'
 export type MatchMode = 'word' | 'lemma'
 
 /** Source module for cross-link */
-export type SourceModule = 'wordFrequency' | 'semantic' | 'metaphor' | 'wordSketch' | 'ngram' | 'keyword' | 'synonym' | 'collocationAnalysis'
+export type SourceModule = 'wordFrequency' | 'semantic' | 'metaphor' | 'wordSketch' | 'ngram' | 'keyword' | 'synonym' | 'collocationAnalysis' | 'sentiment'
 
 /**
  * Parameters passed when opening a new tab from another module

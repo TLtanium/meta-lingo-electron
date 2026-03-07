@@ -27,6 +27,7 @@ import {
 import BubbleChartIcon from '@mui/icons-material/BubbleChart'
 import ViewTimelineIcon from '@mui/icons-material/ViewTimeline'
 import TrendingUpIcon from '@mui/icons-material/TrendingUp'
+import CloudIcon from '@mui/icons-material/Cloud'
 import InsertChartIcon from '@mui/icons-material/InsertChart'
 import SaveAltIcon from '@mui/icons-material/SaveAlt'
 import ImageIcon from '@mui/icons-material/Image'
@@ -37,13 +38,16 @@ import type {
   BiblioFilter,
   NetworkVisualizationData,
   TimezoneVisualizationData,
-  BurstDetectionData
+  BurstDetectionData,
+  WordCloudVisualizationData
 } from '../../types/biblio'
 import * as biblioApi from '../../api/biblio'
 import FilterPanel from './FilterPanel'
 import NetworkGraph from './components/d3/NetworkGraph'
 import TimezoneView from './components/d3/TimezoneView'
 import BurstChart from './components/d3/BurstChart'
+import WordCloudBarChart from './components/d3/WordCloudBarChart'
+import WordCloud from './components/d3/WordCloud'
 
 type VisualizationType = 
   | 'co-author'
@@ -52,8 +56,9 @@ type VisualizationType =
   | 'keyword-cooccur'
   | 'timezone'
   | 'burst'
+  | 'wordcloud'
 
-type ChartCategory = 'network' | 'timezone' | 'burst'
+type ChartCategory = 'network' | 'timezone' | 'burst' | 'wordcloud'
 
 interface VisualizationPanelProps {
   library: BiblioLibrary
@@ -99,6 +104,9 @@ export default function VisualizationPanel({ library }: VisualizationPanelProps)
   const [burstType, setBurstType] = useState<'keyword' | 'author'>('keyword')
   const [timeSlice, setTimeSlice] = useState(1)
   const [topN, setTopN] = useState(10)
+  const [wordCloudSource, setWordCloudSource] = useState<'title' | 'abstract'>('abstract')
+  const [wordCloudMaxItems, setWordCloudMaxItems] = useState(100)
+  const [wordCloudColormap, setWordCloudColormap] = useState<'viridis' | 'inferno' | 'plasma' | 'autumn' | 'winter' | 'rainbow' | 'ocean' | 'forest' | 'sunset'>('viridis')
   
   // Loading and error states
   const [loading, setLoading] = useState(false)
@@ -108,6 +116,7 @@ export default function VisualizationPanel({ library }: VisualizationPanelProps)
   const [networkData, setNetworkData] = useState<NetworkVisualizationData | null>(null)
   const [timezoneData, setTimezoneData] = useState<TimezoneVisualizationData | null>(null)
   const [burstData, setBurstData] = useState<BurstDetectionData | null>(null)
+  const [wordCloudData, setWordCloudData] = useState<WordCloudVisualizationData | null>(null)
   
   // Get current visualization type
   const currentVizType = useMemo((): VisualizationType => {
@@ -194,6 +203,18 @@ export default function VisualizationPanel({ library }: VisualizationPanelProps)
             setBurstData(response.data)
           }
           break
+
+        case 'wordcloud':
+          response = await biblioApi.getWordCloudVisualization({
+            library_id: library.id,
+            filters,
+            source: wordCloudSource,
+            max_words: wordCloudMaxItems
+          })
+          if (response.success && response.data) {
+            setWordCloudData(response.data)
+          }
+          break
       }
       
       if (response && !response.success) {
@@ -210,7 +231,7 @@ export default function VisualizationPanel({ library }: VisualizationPanelProps)
     }
     
     setLoading(false)
-  }, [library.id, currentVizType, filters, minWeight, maxNodes, burstType, timeSlice, topN, t])
+  }, [library.id, currentVizType, filters, minWeight, maxNodes, burstType, timeSlice, topN, wordCloudSource, wordCloudMaxItems, t])
   
   // Use JSON.stringify to ensure deep comparison of filters object
   const filtersKey = JSON.stringify(filters)
@@ -219,7 +240,7 @@ export default function VisualizationPanel({ library }: VisualizationPanelProps)
   useEffect(() => {
     loadVisualization()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [library.id, currentVizType, filtersKey, minWeight, maxNodes, burstType, timeSlice, topN])
+  }, [library.id, currentVizType, filtersKey, minWeight, maxNodes, burstType, timeSlice, topN, wordCloudSource, wordCloudMaxItems])
   
   // Handle tab change
   const handleTabChange = (_: React.SyntheticEvent, newValue: ChartCategory) => {
@@ -407,7 +428,9 @@ export default function VisualizationPanel({ library }: VisualizationPanelProps)
       ? networkData && networkData.nodes.length > 0
       : chartCategory === 'timezone'
         ? timezoneData && timezoneData.slices.length > 0
-        : burstData && burstData.bursts.length > 0
+        : chartCategory === 'burst'
+          ? burstData && burstData.bursts.length > 0
+          : wordCloudData?.words?.length > 0
     
     if (!hasData) {
       return (
@@ -465,6 +488,17 @@ export default function VisualizationPanel({ library }: VisualizationPanelProps)
             />
           </Box>
         )
+
+      case 'wordcloud':
+        return (
+          <Box sx={{ height: '100%', display: 'flex' }}>
+            <WordCloud
+              data={wordCloudData!.words}
+              maxItems={wordCloudMaxItems}
+              colormap={wordCloudColormap}
+            />
+          </Box>
+        )
         
       default:
         return null
@@ -496,6 +530,12 @@ export default function VisualizationPanel({ library }: VisualizationPanelProps)
             value="burst" 
             icon={<TrendingUpIcon />} 
             label={t('biblio.vizType.burst')} 
+            iconPosition="start"
+          />
+          <Tab 
+            value="wordcloud" 
+            icon={<CloudIcon />} 
+            label={t('biblio.vizType.wordcloud')} 
             iconPosition="start"
           />
         </Tabs>
@@ -547,6 +587,35 @@ export default function VisualizationPanel({ library }: VisualizationPanelProps)
               </Select>
             </FormControl>
           )}
+
+          {/* Word Cloud: data source, max words (same range as Word Frequency: 5–500, default 100), colormap */}
+          {chartCategory === 'wordcloud' && (
+            <>
+              <FormControl size="small" sx={{ minWidth: 160 }}>
+                <InputLabel>{t('biblio.wordCloudSource')}</InputLabel>
+                <Select
+                  value={wordCloudSource}
+                  label={t('biblio.wordCloudSource')}
+                  onChange={(e) => setWordCloudSource(e.target.value as 'title' | 'abstract')}
+                >
+                  <MenuItem value="title">{t('biblio.wordCloudSourceTitle')}</MenuItem>
+                  <MenuItem value="abstract">{t('biblio.wordCloudSourceAbstract')}</MenuItem>
+                </Select>
+              </FormControl>
+              <NumberInput
+                label={t('wordFrequency.viz.maxWords')}
+                size="small"
+                value={wordCloudMaxItems}
+                onChange={setWordCloudMaxItems}
+                min={5}
+                max={500}
+                step={10}
+                integer
+                defaultValue={100}
+                sx={{ width: 180 }}
+              />
+            </>
+          )}
           
           {/* Network Settings */}
           {chartCategory === 'network' && (
@@ -595,29 +664,43 @@ export default function VisualizationPanel({ library }: VisualizationPanelProps)
             />
           )}
           
-          {/* Color Scheme */}
+          {/* Color Scheme: colormap for wordcloud (same as Word Frequency), otherwise blue/green/etc. */}
           <FormControl size="small" sx={{ minWidth: 150 }}>
             <InputLabel>{t('wordFrequency.viz.colorScheme')}</InputLabel>
             <Select
-              value={colorScheme}
+              value={chartCategory === 'wordcloud' ? wordCloudColormap : colorScheme}
               label={t('wordFrequency.viz.colorScheme')}
-              onChange={(e) => setColorScheme(e.target.value)}
+              onChange={(e) => {
+                if (chartCategory === 'wordcloud') {
+                  setWordCloudColormap(e.target.value as typeof wordCloudColormap)
+                } else {
+                  setColorScheme(e.target.value)
+                }
+              }}
             >
-              {COLOR_SCHEMES.map(scheme => (
-                <MenuItem key={scheme.value} value={scheme.value}>
-                  <Stack direction="row" spacing={1} alignItems="center">
-                    <Box 
-                      sx={{ 
-                        width: 16, 
-                        height: 16, 
-                        borderRadius: 0.5,
-                        bgcolor: getColorFromScheme(scheme.value)
-                      }} 
-                    />
-                    <span>{scheme.label}</span>
-                  </Stack>
-                </MenuItem>
-              ))}
+              {chartCategory === 'wordcloud' ? (
+                ['viridis', 'inferno', 'plasma', 'autumn', 'winter', 'rainbow', 'ocean', 'forest', 'sunset'].map(scheme => (
+                  <MenuItem key={scheme} value={scheme}>
+                    <Typography variant="body2" sx={{ textTransform: 'capitalize' }}>{scheme}</Typography>
+                  </MenuItem>
+                ))
+              ) : (
+                COLOR_SCHEMES.map(scheme => (
+                  <MenuItem key={scheme.value} value={scheme.value}>
+                    <Stack direction="row" spacing={1} alignItems="center">
+                      <Box 
+                        sx={{ 
+                          width: 16, 
+                          height: 16, 
+                          borderRadius: 0.5,
+                          bgcolor: getColorFromScheme(scheme.value)
+                        }} 
+                      />
+                      <span>{scheme.label}</span>
+                    </Stack>
+                  </MenuItem>
+                ))
+              )}
             </Select>
           </FormControl>
         </Stack>

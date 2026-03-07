@@ -9,6 +9,7 @@ Search Modes:
 - word: Exact word form match with regex support
 - character: Contains specific character/string
 - cql: Corpus Query Language
+- wordlist: Multiple words/phrases, one per line; results for all that exist (missing entries do not affect others)
 """
 
 import os
@@ -39,6 +40,7 @@ class KWICService:
     MODE_WORD = 'word'
     MODE_CHARACTER = 'character'
     MODE_CQL = 'cql'
+    MODE_WORDLIST = 'wordlist'
     
     # Sort mode constants
     SORT_LEFT_CONTEXT = 'left_context'
@@ -468,6 +470,8 @@ class KWICService:
         """
         if search_mode == self.MODE_CQL:
             return self._search_cql(tokens, search_value, context_size, pos_filter)
+        elif search_mode == self.MODE_WORDLIST:
+            return self._search_wordlist(tokens, search_value, context_size, lowercase, pos_filter)
         elif search_mode == self.MODE_SIMPLE:
             return self._search_simple(tokens, search_value, context_size, lowercase, pos_filter)
         elif search_mode == self.MODE_LEMMA:
@@ -481,6 +485,36 @@ class KWICService:
         else:
             # Default to simple search
             return self._search_simple(tokens, search_value, context_size, lowercase, pos_filter)
+
+    def _search_wordlist(
+        self,
+        tokens: List[Dict[str, Any]],
+        search_value: str,
+        context_size: int,
+        lowercase: bool,
+        pos_filter: Optional[POSFilter]
+    ) -> List[Dict[str, Any]]:
+        """
+        Wordlist search: one word or phrase per line. For each non-empty line,
+        run phrase search (if line contains space) or simple search (single token).
+        Aggregate all results; entries not found in corpus do not affect others.
+        """
+        lines = [line.strip() for line in search_value.splitlines() if line.strip()]
+        if not lines:
+            return []
+        results = []
+        for line in lines:
+            if ' ' in line:
+                # Multi-word: use phrase search
+                results.extend(
+                    self._search_phrase(tokens, line, context_size, lowercase, pos_filter)
+                )
+            else:
+                # Single word: use simple search
+                results.extend(
+                    self._search_simple(tokens, line, context_size, lowercase, pos_filter)
+                )
+        return results
     
     def _wildcard_to_regex(self, pattern: str) -> str:
         """

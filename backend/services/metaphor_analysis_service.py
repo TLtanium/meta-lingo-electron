@@ -32,8 +32,12 @@ class MetaphorAnalysisService:
     SOURCE_NAMES = {
         'filter': {'en': 'Word Filter', 'zh': '词表过滤'},
         'rule': {'en': 'Rule Filter', 'zh': '规则过滤'},
-        'hitz': {'en': 'HiTZ Model', 'zh': 'HiTZ模型'},
-        'finetuned': {'en': 'Fine-tuned Model', 'zh': '微调模型'},
+        # Clause model – non-function words (green in UI)
+        'clause': {'en': 'indirect', 'zh': '间接隐喻'},
+        # Clause model – function words IN/DT/RB/RP (orange in UI)
+        'finetuned': {'en': 'indirect', 'zh': '间接隐喻'},
+        # Legacy: HiTZ model results in existing annotations (treated same as clause)
+        'hitz': {'en': 'indirect', 'zh': '间接隐喻'},
         'unknown': {'en': 'Unknown', 'zh': '未知'},
     }
     
@@ -205,7 +209,7 @@ class MetaphorAnalysisService:
         source = source.lower()
         if source.startswith('rule:'):
             return 'rule'
-        if source in ('filter', 'rule', 'hitz', 'finetuned'):
+        if source in ('filter', 'rule', 'hitz', 'finetuned', 'clause'):
             return source
         return 'unknown'
     

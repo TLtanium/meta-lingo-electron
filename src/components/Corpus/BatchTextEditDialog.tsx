@@ -58,7 +58,7 @@ export interface BatchTextItem {
 }
 
 // 标注阶段类型
-type AnnotationStage = 'idle' | 'saving' | 'spacy' | 'usas' | 'mipvu' | 'complete' | 'error'
+type AnnotationStage = 'idle' | 'saving' | 'spacy' | 'usas' | 'mipvu' | 'nrc' | 'complete' | 'error'
 
 interface BatchTextEditDialogProps {
   open: boolean
@@ -500,6 +500,10 @@ export default function BatchTextEditDialog({
         if (mipvuResponse.success && mipvuResponse.task_id) {
           await pollTaskUntilComplete(mipvuResponse.task_id)
         }
+        setAnnotationProgress(90)
+        // NRC 情感标注 (MIPVU 之后)
+        setAnnotationStage('nrc')
+        await corpusApi.reAnnotateNrc(corpusId, textId)
         setAnnotationProgress(100)
         
       } catch (err) {
@@ -636,6 +640,7 @@ export default function BatchTextEditDialog({
                   {annotationStage === 'spacy' && t('corpus.batchEdit.stageSpacy')}
                   {annotationStage === 'usas' && t('corpus.batchEdit.stageUsas')}
                   {annotationStage === 'mipvu' && t('corpus.batchEdit.stageMipvu')}
+                  {annotationStage === 'nrc' && t('corpus.batchEdit.stageNrc')}
                 </Typography>
                 
                 <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
@@ -658,20 +663,26 @@ export default function BatchTextEditDialog({
                   <Chip 
                     label="SpaCy" 
                     size="small"
-                    color={annotationStage === 'spacy' ? 'primary' : (['usas', 'mipvu'].includes(annotationStage) ? 'success' : 'default')}
-                    variant={['spacy', 'usas', 'mipvu'].includes(annotationStage) ? 'filled' : 'outlined'}
+                    color={annotationStage === 'spacy' ? 'primary' : (['usas', 'mipvu', 'nrc'].includes(annotationStage) ? 'success' : 'default')}
+                    variant={['spacy', 'usas', 'mipvu', 'nrc'].includes(annotationStage) ? 'filled' : 'outlined'}
                   />
                   <Chip 
                     label="USAS" 
                     size="small"
-                    color={annotationStage === 'usas' ? 'primary' : (annotationStage === 'mipvu' ? 'success' : 'default')}
-                    variant={['usas', 'mipvu'].includes(annotationStage) ? 'filled' : 'outlined'}
+                    color={annotationStage === 'usas' ? 'primary' : (['mipvu', 'nrc'].includes(annotationStage) ? 'success' : 'default')}
+                    variant={['usas', 'mipvu', 'nrc'].includes(annotationStage) ? 'filled' : 'outlined'}
                   />
                   <Chip 
                     label="MIPVU" 
                     size="small"
-                    color={annotationStage === 'mipvu' ? 'primary' : 'default'}
-                    variant={annotationStage === 'mipvu' ? 'filled' : 'outlined'}
+                    color={annotationStage === 'mipvu' ? 'primary' : (annotationStage === 'nrc' ? 'success' : 'default')}
+                    variant={['mipvu', 'nrc'].includes(annotationStage) ? 'filled' : 'outlined'}
+                  />
+                  <Chip 
+                    label="NRC" 
+                    size="small"
+                    color={annotationStage === 'nrc' ? 'primary' : 'default'}
+                    variant={annotationStage === 'nrc' ? 'filled' : 'outlined'}
                   />
                 </Stack>
               </Box>

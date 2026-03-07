@@ -17,7 +17,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-v3.8.98-blue.svg" alt="Version">
+  <img src="https://img.shields.io/badge/version-v3.9.56-blue.svg" alt="Version">
   <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Windows-lightgrey.svg" alt="Platform">
   <img src="https://img.shields.io/badge/license-Non--Commercial-green.svg" alt="License">
 </p>
@@ -61,7 +61,7 @@
 | **Collocation** | KWIC search with 6 modes, CQL query language, CQL Builder |
 | **Synonym Analysis** | WordNet integration with network visualization |
 | **Semantic Domain** | USAS-based analysis with dual view (by domain/by word) |
-| **Metaphor Analysis** | MIPVU-based detection with HiTZ and fine-tuned models |
+| **Metaphor Analysis** | MIPVU-based detection; 3-step pipeline (word filter → rules → Clause model); source color-coding by POS |
 | **Word Sketch** | Grammar pattern analysis (50 relations), logDice scoring, difference comparison |
 | **Topic Modeling** | BERTopic, LDA, LSA, NMF with dynamic topic analysis |
 | **Bibliography** | Refworks parsing (WOS/CNKI), shadow corpus for abstracts, network visualization, burst detection; analysis modules support corpus/literature toggle and library selection (all / by keyword / manual). |
@@ -248,8 +248,7 @@ Meta-Lingo integrates several pre-trained models:
 | YOLOv8 | Object detection | Ultralytics |
 | CLIP ViT-Large-Patch14 | Image classification | OpenAI |
 | SpaCy en/zh_core_web_lg | NLP processing | Explosion |
-| HiTZ DeBERTa | Metaphor detection | [HiTZ](https://huggingface.co/HiTZ/deberta-large-metaphor-detection-en) |
-| Clause DeBERTa | Clause-level metaphor | [tommyleo2077](https://huggingface.co/tommyleo2077/deberta-v3-large-clause-metaphor) |
+| DeBERTa-v3-large-clause-metaphor | MIPVU metaphor detection (F1 75.83) | [tommyleo2077](https://huggingface.co/tommyleo2077/deberta-v3-large-clause-metaphor) |
 | Sentence-BERT | Text embeddings | sentence-transformers |
 
 ## Contributing
@@ -258,86 +257,49 @@ This project is currently maintained for academic research purposes. For bug rep
 
 ## Changelog
 
-### v3.8.98 (2026-01-29)
-- **Fix**: Inter-coder reliability gold standard validation error
-  - Backend `/api/reliability/calculate` now returns `summary` field
-  - Fix `_annotation_to_key` field access logic for `None` values
-  - Fix `goldIndex` calculation based on actually loaded archives
-  - Add missing `reliability.archives` translation key
+### v3.9.56 (2026-03-07)
+- **Metaphor Analysis — Clause-only pipeline**: Removed HiTZ model entirely. All tokens now annotated by a single `deberta-v3-large-clause-metaphor` model using full-sentence context (max_length=192). 3-step pipeline: word-form filter → SpaCy rule filter → Clause model. Function words (IN/DT/RB/RP) keep orange tag (`finetuned`); other words use green tag (`clause`). Legacy `hitz` source in existing annotations treated as `clause` (green). Help docs updated with Clause model accuracy (Precision 78.08%, Recall 73.69%, F1 75.83; DT F1 90.87, IN F1 87.87).
 
-### v3.8.97 (2026-01-29)
-- **Dark Theme Enhancement**: Comprehensive dark theme support for all Topic Modeling visualizations
-  - LDA/LSA/NMF: Topic distribution, document distribution, similarity heatmap charts
-  - BERTopic: Term rank plot, hierarchy plot, intertopic distance, similarity heatmap
-  - D3.js components: Topic word bars, similarity heatmap with proper title/axis/legend colors
-  - Plotly.js components: Force override for backend-generated chart colors
-- **Topic Card Keywords**: Proper dark theme colors for bold keywords in all topic modeling methods
+### v3.9.55 (2026-03-07)
+- **Sentiment Analysis — USAS mode**: Search panel adds "USAS Semantic Domain" mode; results aggregate sentiment scores by domain code with full domain name tooltip; word cloud uses domain names; CSV export adds `domain_name` column.
 
-### v3.8.96 (2026-01-28)
-- **Audio Waveform Annotation**: Wavesurfer.js waveform with word-level alignment overlay
-- **Pitch Curve Display**: TorchCrepe F0 visualization on waveform
-- **Audio Box Drawing**: Draw annotation boxes on waveform canvas (similar to video annotation)
-- **Audio History Visualization**: SVG export with waveform, pitch, and annotation boxes
-- **Dark Mode**: Full dark mode support for all visualizations and table headers
-- **Inter-coder Reliability**: Restricted to plain text archives only, validation for uploaded JSON files
-- **Chinese Audio Restriction**: Chinese audio only available in plain text annotation mode (no waveform)
+### v3.9.54–v3.9.51 (2026-03-06)
+- **Bibliography Visualization**: PDF export rewritten via Electron IPC (`printToPDF`) to fix blank-page issue on large documents. Paper column with PDF upload and first-page thumbnail. 11 AI-generated fields per entry (research goal, questions, design, conclusions, mechanism, contribution, limitations, value, dialogue, future work, summary). Batch AI generation for multiple entries. Column visibility control. Export to styled PDF report.
 
-### v3.8.95 (2026-01-28)
-- Syntax visualization support for audio/video transcripts
-- Disable auto-annotation for audio/video transcripts (segment-based data complexity)
-- Fix MIPVU data loading from segment-based format
+### v3.9.46 (2026-03-04)
+- **Sentiment Analysis (NRC)**: Full NRC-EmoLex annotation added to corpus pipeline after MIPVU. New analysis page with polarity (pie chart + word cloud) and emotion dimensions (radar chart + word cloud). Result table cross-links to collocation/word sketch/N-gram/semantic domain. Backend: `nrc_service.py`, `sentiment_analysis_service.py`, `POST /api/analysis/sentiment`.
 
-### v3.8.94 (2026-01-28)
-- Full annotation pipeline for audio/video transcripts (SpaCy + USAS + MIPVU)
-- Progress display for upload and re-annotation stages
+### v3.9.44–v3.9.45 (2026-03-02)
+- Cross-module links default to case-insensitive search. Collocation wordlist search mode (multi-word input, one per line).
 
-### v3.8.93 (2026-01-28)
-- **Keyword Extraction**: Stopword filtering, corpus resource support (BNC/Brown/NOW/OANC), statistical thresholds
-- New corpus resource service with pre-built frequency data
+### v3.9.43 (2026-03-02)
+- **Bibliography**: Bulk delete for selected entries. Relevance rating (0–5 stars), tags, and notes columns added to entry table and detail dialog. CSV export.
 
-### v3.8.92 (2026-01-28)
-- **Auto-annotation button**: MIPVU metaphor and Theme/Rheme auto-annotation
-- Theme/Rheme analysis service based on SFL theory
+### v3.9.36 (2026-02-27)
+- **Metaphor Analysis**: Added Clause model (`deberta-v3-large-clause-metaphor`) to MIPVU pipeline for function-word annotation. POS-group statistics (IN/DT/RB/RP/OTHER metaphor rates) shown in results table header.
 
-### v3.8.91 (2026-01-28)
-- Documentation: Metaphor analysis guide with MIPVU methodology
-- Documentation: Collocation and semantic domain metaphor highlighting
+### v3.9.34–v3.9.35 (2026-02-26–27)
+- Cross-module corpus selection sync across all analysis modules. Topic modeling bibliography mode with publication year for dynamic analysis.
 
-### v3.8.89 (2026-01-25)
-- **Custom wallpaper**: Upload, preview, transparency adjustment
-- **Word frequency**: Stopword removal with NLTK support (20+ languages)
+### v3.9.27–v3.9.33 (2026-02-24–26)
+- **AI Assistant**: Robot icon in all analysis modules' left panel (requires Ollama or OpenAI-compatible API); sends current page state as context. OpenAI-compatible API support in Settings (address / key / model). Cross-module library-mode link sync fixes.
 
-### v3.8.88 (2026-01-24)
-- **USAS annotation modes**: Rule-based / Neural / Hybrid
-- PyMUSAS-Neural-Multilingual-Base-BEM model integration
+### v3.9.22–v3.9.26 (2026-02-24)
+- Semantic domain analysis: CQL cross-link, word cloud, domain name display. Collocation network expand on click, MinSense fix, Word Sketch Difference word-form/lemma mode. Topic modeling: N-gram preprocessing mode, LDA/LSA/NMF dynamic topic analysis.
 
-### v3.8.87 (2026-01-21)
-- LDA/LSA/NMF CSV export with topic name column
+### v3.9.15–v3.9.18 (2026-02-17–22)
+- **Praat acoustic analysis**: Spectrogram, formants (F1–F5), intensity, HNR, jitter, shimmer. Chinese audio full visualization support. Corpus building script (`saves/corpus/corpus_building.py`) for 13 English corpora.
 
-### v3.8.86 (2026-01-18)
-- **Topic naming**: Ollama LLM naming for LDA/LSA/NMF topics
-- Custom label editing for all topic modeling methods
+### v3.9.0–v3.9.14 (2026-02-08–16)
+- Ridge plot SVG/PNG full export, CQL top-level OR operator and template auto-fill. Collocation search mode (lemma/word form). Result table search fix across all modules. Unified UI spacing and labeling. Cross-module N-gram link.
 
-### v3.8.78
-- Fix license display in packaged app
-- Fix pyLDAvis slow loading (70s → few seconds)
+### v3.8.96–v3.8.99 (2026-01-28–2026-02-08)
+- Audio waveform annotation (Wavesurfer.js + TorchCrepe pitch + box drawing). Full annotation pipeline for audio/video transcripts. Inter-coder reliability gold standard fix. CQL distance selector fix.
 
-### v3.8.77 (2026-01-11)
-- Fix framework management: delete button, category colors, reset function
+### v3.8.86–v3.8.95 (2026-01-18–28)
+- LLM topic naming (Ollama). USAS annotation modes (rule / neural / hybrid). Stopword removal (20+ languages). Custom wallpaper. Keyword extraction enhancements. Theme/Rheme auto-annotation. Dark theme for all topic modeling visualizations.
 
-### v3.8.76
-- Improve PNG export clarity (2x → 3x scale) for all D3 visualizations
-
-### v3.8.74 (2026-01-10)
-- Fix BERTopic hierarchy visualization (only showing one level)
-
-### v3.8.73 (2026-01-10)
-- Real-time regex validation in text editor
-
-### v3.8.72 (2026-01-10)
-- Fix large text upload progress and annotation issues
-
-For more details, please contact the author.
+For the full version history, see [PROJECT.md](PROJECT.md) or the Git commit log.
 
 ## License
 

@@ -18,13 +18,13 @@ export interface POSTagInfo {
 // ==================== Search Config ====================
 
 export type SearchType = 'all' | 'starts' | 'ends' | 'contains' | 'regex' | 'wordlist'
-export type SearchTarget = 'word' | 'lemma'  // word=词形, lemma=词元
+export type SearchTarget = 'word' | 'lemma' | 'usas'  // word=词形, lemma=词元, usas=语义域
 
 export interface SearchConfig {
   searchType: SearchType
   searchValue: string
   excludeWords: string[]
-  searchTarget: SearchTarget  // 搜索目标: word=词形, lemma=词元
+  searchTarget: SearchTarget  // 搜索模式: word=词形, lemma=词元, usas=语义域
   removeStopwords: boolean  // 移除停用词 (基于语料语言)
 }
 

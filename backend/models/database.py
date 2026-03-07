@@ -214,6 +214,17 @@ def init_database():
             cursor.execute(col_def)
         except sqlite3.OperationalError:
             pass  # Column already exists
+
+    # Migration: add pdf_path, pdf_thumbnail_path, ai_sections for PDF upload and AI-generated sections
+    for col_def in [
+        "ALTER TABLE biblio_entries ADD COLUMN pdf_path TEXT",
+        "ALTER TABLE biblio_entries ADD COLUMN pdf_thumbnail_path TEXT",
+        "ALTER TABLE biblio_entries ADD COLUMN ai_sections TEXT",
+    ]:
+        try:
+            cursor.execute(col_def)
+        except sqlite3.OperationalError:
+            pass  # Column already exists
     
     # biblio_entry_abstracts: links biblio entry to shadow corpus text (abstract)
     cursor.execute("""
@@ -1104,6 +1115,13 @@ class BiblioEntryDB:
                             entry[field] = [] if field == 'tags' else []
                     elif field == 'tags':
                         entry[field] = []
+                if entry.get('ai_sections') is not None and entry.get('ai_sections') != '':
+                    try:
+                        entry['ai_sections'] = json.loads(entry['ai_sections'])
+                    except (json.JSONDecodeError, TypeError):
+                        entry['ai_sections'] = {}
+                elif entry.get('ai_sections') is None:
+                    entry['ai_sections'] = {}
                 if entry.get('relevance') is None:
                     entry['relevance'] = 0
                 return entry
@@ -1135,6 +1153,13 @@ class BiblioEntryDB:
                         entry[field] = [] if field == 'tags' else []
                 elif field == 'tags':
                     entry[field] = []
+            if entry.get('ai_sections') is not None and entry.get('ai_sections') != '':
+                try:
+                    entry['ai_sections'] = json.loads(entry['ai_sections'])
+                except (json.JSONDecodeError, TypeError):
+                    entry['ai_sections'] = {}
+            else:
+                entry['ai_sections'] = {}
             if entry.get('relevance') is None:
                 entry['relevance'] = 0
             id_to_entry[entry['id']] = entry
@@ -1142,8 +1167,8 @@ class BiblioEntryDB:
     
     @staticmethod
     def update(entry_id: str, data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-        """Update relevance, tags, and/or notes for an entry."""
-        allowed = {'relevance', 'tags', 'notes'}
+        """Update relevance, tags, notes, pdf paths, and/or ai_sections for an entry."""
+        allowed = {'relevance', 'tags', 'notes', 'pdf_path', 'pdf_thumbnail_path', 'ai_sections'}
         updates = {k: v for k, v in data.items() if k in allowed}
         if not updates:
             return BiblioEntryDB.get_by_id(entry_id)
@@ -1160,6 +1185,15 @@ class BiblioEntryDB:
             if 'notes' in updates:
                 set_parts.append("notes = ?")
                 params.append(updates['notes'])
+            if 'pdf_path' in updates:
+                set_parts.append("pdf_path = ?")
+                params.append(updates['pdf_path'])
+            if 'pdf_thumbnail_path' in updates:
+                set_parts.append("pdf_thumbnail_path = ?")
+                params.append(updates['pdf_thumbnail_path'])
+            if 'ai_sections' in updates:
+                set_parts.append("ai_sections = ?")
+                params.append(json.dumps(updates['ai_sections'], ensure_ascii=False) if updates['ai_sections'] is not None else None)
             params.append(entry_id)
             cursor.execute("UPDATE biblio_entries SET " + ", ".join(set_parts) + " WHERE id = ?", params)
             conn.commit()
@@ -1280,6 +1314,13 @@ class BiblioEntryDB:
                             entry[field] = [] if field == 'tags' else []
                     elif field == 'tags':
                         entry[field] = []
+                if entry.get('ai_sections') is not None and entry.get('ai_sections') != '':
+                    try:
+                        entry['ai_sections'] = json.loads(entry['ai_sections'])
+                    except (json.JSONDecodeError, TypeError):
+                        entry['ai_sections'] = {}
+                else:
+                    entry['ai_sections'] = {}
                 if entry.get('relevance') is None:
                     entry['relevance'] = 0
                 entries.append(entry)
@@ -1385,6 +1426,13 @@ class BiblioEntryDB:
                             entry[field] = [] if field == 'tags' else []
                     elif field == 'tags':
                         entry[field] = []
+                if entry.get('ai_sections') is not None and entry.get('ai_sections') != '':
+                    try:
+                        entry['ai_sections'] = json.loads(entry['ai_sections'])
+                    except (json.JSONDecodeError, TypeError):
+                        entry['ai_sections'] = {}
+                else:
+                    entry['ai_sections'] = {}
                 if entry.get('relevance') is None:
                     entry['relevance'] = 0
                 entries.append(entry)

@@ -33,6 +33,7 @@ const getDefaultTitle = (type: TabType): string => {
     biblio: 'biblio.title',
     annotation: 'annotation.title',
     topic: 'topicModeling.title',
+    sentiment: 'sentiment.title',
     settings: 'settings.title',
     help: 'help.title'
   }

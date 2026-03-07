@@ -7,8 +7,9 @@ as well as visualization data generation.
 
 import uuid
 from pathlib import Path
-from typing import Optional, List
+from typing import Optional, List, Literal
 from fastapi import APIRouter, HTTPException, UploadFile, File, Form, Query, BackgroundTasks
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 from models import (
@@ -37,10 +38,13 @@ from services.biblio import (
     validate_source_type,
     generate_visualization
 )
+from services.biblio.wordcloud_service import build_wordcloud
 
 import sys
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from config import CORPORA_DIR
+from config import CORPORA_DIR, DATA_DIR
+from services.biblio.pdf_utils import render_first_page_thumbnail
+from services.biblio.entry_ai_service import generate_sections_for_entry
 
 router = APIRouter(prefix="/api/biblio", tags=["Bibliographic"])
 
@@ -369,26 +373,142 @@ async def get_entry(entry_id: str):
     return entry
 
 
-@router.delete("/entries/{entry_id}")
-async def delete_entry(entry_id: str):
-    """Delete a single entry"""
+def _biblio_pdf_dirs(library_id: str, entry_id: str):
+    """Return (pdf_dir, thumb_dir, pdf_path, thumb_path) under DATA_DIR/biblio/{library_id}/."""
+    base = DATA_DIR / "biblio" / library_id
+    pdf_dir = base / "pdfs"
+    thumb_dir = base / "thumbnails"
+    pdf_path = pdf_dir / f"{entry_id}.pdf"
+    thumb_path = thumb_dir / f"{entry_id}.png"
+    return pdf_dir, thumb_dir, pdf_path, thumb_path
+
+
+@router.post("/entries/{entry_id}/upload-pdf")
+async def upload_entry_pdf(entry_id: str, file: UploadFile = File(...)):
+    """Upload a PDF for a bibliographic entry. Saves file and generates first-page thumbnail."""
     entry = BiblioEntryDB.get_by_id(entry_id)
     if not entry:
         raise HTTPException(status_code=404, detail="Entry not found")
-    
+    if not file.filename or not file.filename.lower().endswith(".pdf"):
+        raise HTTPException(status_code=400, detail="File must be a PDF")
+    library_id = entry["library_id"]
+    pdf_dir, thumb_dir, pdf_path, thumb_path = _biblio_pdf_dirs(library_id, entry_id)
+    pdf_dir.mkdir(parents=True, exist_ok=True)
+    thumb_dir.mkdir(parents=True, exist_ok=True)
+    content = await file.read()
+    try:
+        pdf_path.write_bytes(content)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to save PDF: {e}")
+    thumb_ok = render_first_page_thumbnail(pdf_path, thumb_path)
+    # Store paths relative to DATA_DIR so they work when DATA_DIR changes (e.g. packaged)
+    rel_pdf = str(Path("biblio") / library_id / "pdfs" / f"{entry_id}.pdf")
+    rel_thumb = str(Path("biblio") / library_id / "thumbnails" / f"{entry_id}.png") if thumb_ok else None
+    BiblioEntryDB.update(entry_id, {"pdf_path": rel_pdf, "pdf_thumbnail_path": rel_thumb})
+    return {"success": True, "pdf_path": rel_pdf, "thumbnail_path": rel_thumb}
+
+
+@router.get("/entries/{entry_id}/thumbnail")
+async def get_entry_thumbnail(entry_id: str):
+    """Return the first-page thumbnail image for an entry's PDF. Generates on-the-fly if missing."""
+    entry = BiblioEntryDB.get_by_id(entry_id)
+    if not entry:
+        raise HTTPException(status_code=404, detail="Entry not found")
+    pdf_rel = entry.get("pdf_path")
+    thumb_rel = entry.get("pdf_thumbnail_path")
+    library_id = entry.get("library_id")
+    if not library_id or not pdf_rel:
+        raise HTTPException(status_code=404, detail="No PDF for this entry")
+    _, _, pdf_path, thumb_path = _biblio_pdf_dirs(library_id, entry_id)
+    pdf_exists = pdf_path.exists()
+    thumb_exists = thumb_path.exists()
+    if not pdf_exists:
+        raise HTTPException(status_code=404, detail="PDF file not found")
+    # If thumbnail missing or file gone, generate from PDF and persist
+    if not thumb_rel or not thumb_exists:
+        thumb_path.parent.mkdir(parents=True, exist_ok=True)
+        gen_ok = render_first_page_thumbnail(pdf_path, thumb_path)
+        if gen_ok:
+            rel_thumb = str(Path("biblio") / library_id / "thumbnails" / f"{entry_id}.png")
+            BiblioEntryDB.update(entry_id, {"pdf_thumbnail_path": rel_thumb})
+        else:
+            raise HTTPException(status_code=503, detail="Thumbnail generation failed")
+    return FileResponse(thumb_path, media_type="image/png")
+
+
+def _delete_entry_pdf_files(library_id: str, entry_id: str) -> None:
+    """Remove PDF and thumbnail files for an entry if they exist (best-effort)."""
+    _, _, pdf_path, thumb_path = _biblio_pdf_dirs(library_id, entry_id)
+    for p in (pdf_path, thumb_path):
+        try:
+            if p.exists():
+                p.unlink()
+        except Exception:
+            pass  # Non-fatal; file may already be removed or inaccessible
+
+
+@router.delete("/entries/{entry_id}")
+async def delete_entry(entry_id: str):
+    """Delete a single entry and its associated PDF / thumbnail files."""
+    entry = BiblioEntryDB.get_by_id(entry_id)
+    if not entry:
+        raise HTTPException(status_code=404, detail="Entry not found")
+
     library_id = entry['library_id']
+    # Remove PDF and thumbnail before deleting the DB record
+    _delete_entry_pdf_files(library_id, entry_id)
     success = BiblioEntryDB.delete(entry_id)
-    
+
     # Update library entry count
     if success:
         BiblioLibraryDB.update_entry_count(library_id)
-    
+
     return {"success": success}
 
 
 class BatchDeleteRequest(BaseModel):
     """Request body for batch delete"""
     entry_ids: List[str]
+
+
+class AiGenerateRequest(BaseModel):
+    """Request body for AI-generated entry sections"""
+    entry_ids: List[str]
+    language: str  # "zh" | "en"
+    ollama_url: Optional[str] = None
+    ollama_model: Optional[str] = None
+    openai_base_url: Optional[str] = None
+    openai_api_key: Optional[str] = None
+    openai_model: Optional[str] = None
+    use_openai_first: bool = True  # If True and OpenAI config present, use API first; else Ollama
+
+
+@router.post("/entries/ai-generate")
+async def ai_generate_entries(request: AiGenerateRequest):
+    """Generate the 11 AI sections for each entry. Uses OpenAI-compatible API if configured and use_openai_first, else Ollama."""
+    use_openai = request.use_openai_first and bool(
+        (request.openai_base_url or "").strip() and ((request.openai_api_key or "").strip() or (request.openai_base_url or "").strip())
+    )
+    results = []
+    for entry_id in request.entry_ids:
+        try:
+            ai_sections = await generate_sections_for_entry(
+                entry_id,
+                request.language,
+                data_dir=DATA_DIR,
+                use_openai=use_openai,
+                openai_base_url=(request.openai_base_url or "").strip() or None,
+                openai_api_key=(request.openai_api_key or "").strip() or None,
+                openai_model=(request.openai_model or "").strip() or None,
+                ollama_url=(request.ollama_url or "").strip() or None,
+                ollama_model=(request.ollama_model or "").strip() or None,
+                get_entry_fn=BiblioEntryDB.get_by_id,
+                update_entry_fn=lambda eid, data: BiblioEntryDB.update(eid, data),
+            )
+            results.append({"entry_id": entry_id, "success": True, "ai_sections": ai_sections})
+        except Exception as e:
+            results.append({"entry_id": entry_id, "success": False, "error": str(e)})
+    return {"results": results}
 
 
 class EntriesByIdsRequest(BaseModel):
@@ -418,15 +538,16 @@ async def update_entry(entry_id: str, request: BiblioEntryUpdate):
 
 @router.post("/entries/batch-delete")
 async def batch_delete_entries(request: BatchDeleteRequest):
-    """Delete multiple entries by ID. Returns number of deleted entries."""
+    """Delete multiple entries by ID (with PDF / thumbnail cleanup). Returns number deleted."""
     if not request.entry_ids:
         return {"deleted": 0}
-    # Collect library_ids before delete so we can update counts
+    # Collect library_ids and clean up PDF files before deleting DB records
     library_ids = set()
     for eid in request.entry_ids:
         entry = BiblioEntryDB.get_by_id(eid)
         if entry:
             library_ids.add(entry['library_id'])
+            _delete_entry_pdf_files(entry['library_id'], eid)
     deleted = BiblioEntryDB.delete_batch(request.entry_ids)
     for library_id in library_ids:
         BiblioLibraryDB.update_entry_count(library_id)
@@ -490,6 +611,11 @@ class BurstRequest(VisualizationBaseRequest):
     burst_type: str = "keyword"
     min_frequency: int = 2
     gamma: float = 1.0
+
+
+class WordCloudRequest(VisualizationBaseRequest):
+    source: Literal["title", "abstract"] = "abstract"
+    max_words: int = 100
 
 
 def _get_filtered_entries(library_id: str, filters: Optional[BiblioFilter] = None):
@@ -652,4 +778,18 @@ async def get_dual_map_overlay(request: VisualizationBaseRequest):
         return {"citing_nodes": [], "cited_nodes": [], "links": []}
     
     return generate_visualization(entries, 'dual-map')
+
+
+@router.post("/visualization/wordcloud")
+async def get_wordcloud_visualization(request: WordCloudRequest):
+    """Get word cloud (word frequency) data from title or abstract of filtered entries"""
+    entries = _get_filtered_entries(request.library_id, request.filters)
+    if not entries:
+        return {"words": []}
+    words = build_wordcloud(
+        entries,
+        source=request.source,
+        max_words=request.max_words,
+    )
+    return {"words": words}
 

@@ -85,10 +85,13 @@ class BiblioEntryBase(BaseModel):
 
 
 class BiblioEntryUpdate(BaseModel):
-    """Update payload for relevance, tags, notes"""
+    """Update payload for relevance, tags, notes, pdf paths, ai_sections"""
     relevance: Optional[int] = None
     tags: Optional[List[str]] = None
     notes: Optional[str] = None
+    pdf_path: Optional[str] = None
+    pdf_thumbnail_path: Optional[str] = None
+    ai_sections: Optional[Dict[str, Dict[str, Any]]] = None  # e.g. {"research_objective": {"value": "...", "hidden": false}, ...}
 
 
 class BiblioEntry(BiblioEntryBase):
@@ -97,6 +100,9 @@ class BiblioEntry(BiblioEntryBase):
     library_id: str
     raw_data: Optional[Dict[str, Any]] = None
     created_at: Optional[str] = None
+    pdf_path: Optional[str] = None
+    pdf_thumbnail_path: Optional[str] = None
+    ai_sections: Optional[Dict[str, Dict[str, Any]]] = None  # e.g. {"research_objective": {"value": "...", "hidden": false}, ...}
 
     class Config:
         from_attributes = True

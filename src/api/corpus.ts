@@ -827,6 +827,21 @@ export const corpusApi = {
     }
   },
 
+  reAnnotateNrc: async (corpusId: string, textId: string): Promise<{ success: boolean; message?: string }> => {
+    try {
+      const response = await api.post<{ success: boolean; message?: string; error?: string }>(
+        `${API_BASE}/${corpusId}/texts/${textId}/reannotate-nrc`
+      )
+      if (response.success && response.data) {
+        const d = response.data as { success: boolean; message?: string; error?: string }
+        return { success: !!d.success, message: d.error || d.message }
+      }
+      return { success: false, message: response.error }
+    } catch (error) {
+      return { success: false, message: String(error) }
+    }
+  },
+
   // Re-annotate audio with Wav2Vec2 alignment and TorchCrepe pitch extraction (async - returns task_id)
   reAnnotateAlignment: async (corpusId: string, textId: string): Promise<{
     success: boolean

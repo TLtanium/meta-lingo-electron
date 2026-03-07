@@ -18,7 +18,7 @@ import HubIcon from '@mui/icons-material/Hub'
 import AutoGraphIcon from '@mui/icons-material/AutoGraph'
 import EditNoteIcon from '@mui/icons-material/EditNote'
 import TopicIcon from '@mui/icons-material/Topic'
-import SettingsIcon from '@mui/icons-material/Settings'
+import TheaterComedyIcon from '@mui/icons-material/TheaterComedy'
 import { useTranslation } from 'react-i18next'
 import { useTabStore } from '../../stores/tabStore'
 import { useSettingsStore } from '../../stores/settingsStore'
@@ -111,11 +111,11 @@ const features: FeatureCard[] = [
     color: '#00796b'
   },
   {
-    type: 'settings',
-    titleKey: 'settings.title',
-    descriptionKey: 'settings.description',
-    icon: <SettingsIcon sx={{ fontSize: 52 }} />,
-    color: '#455a64'
+    type: 'sentiment',
+    titleKey: 'sentiment.title',
+    descriptionKey: 'sentiment.description',
+    icon: <TheaterComedyIcon sx={{ fontSize: 52 }} />,
+    color: '#e91e63'
   }
 ]
 

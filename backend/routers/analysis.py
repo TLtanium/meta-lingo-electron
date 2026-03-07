@@ -8,6 +8,7 @@ from typing import List, Optional, Dict, Any
 from pydantic import BaseModel
 
 from services.word_frequency_service import get_word_frequency_service
+from services.sentiment_analysis_service import get_sentiment_analysis_service
 from services.ngram_service import get_ngram_service
 from services.synonym_service import get_synonym_service
 from services.semantic_analysis_service import get_semantic_analysis_service
@@ -64,6 +65,27 @@ class WordFrequencyResponse(BaseModel):
     results: List[WordFrequencyResult]
     total_tokens: int = 0
     unique_words: int = 0
+    error: Optional[str] = None
+
+
+class SentimentRequest(BaseModel):
+    """Sentiment analysis request (aligned with word frequency + analysis_mode)"""
+    corpus_id: str
+    text_ids: List[str] | str = "all"
+    pos_filter: Optional[POSFilterConfig] = None
+    search_config: Optional[SearchConfig] = None
+    min_freq: int = 1
+    max_freq: Optional[int] = None
+    lowercase: bool = True
+    analysis_mode: str = "polarity"  # "polarity" | "dimension"
+
+
+class SentimentResponse(BaseModel):
+    """Sentiment analysis response"""
+    success: bool
+    summary: Dict[str, Any] = {}
+    results: List[Dict[str, Any]] = []
+    analysis_mode: str = "polarity"
     error: Optional[str] = None
 
 
@@ -355,6 +377,37 @@ async def word_frequency(request: WordFrequencyRequest):
     )
     
     return WordFrequencyResponse(**result)
+
+
+@router.post("/sentiment", response_model=SentimentResponse)
+async def sentiment_analysis(request: SentimentRequest):
+    """
+    Sentiment analysis from NRC emotion annotations.
+    analysis_mode: "polarity" (positive/negative/neutral) or "dimension" (8 emotions + others).
+    """
+    service = get_sentiment_analysis_service()
+    language = "english"
+    try:
+        corpus = CorpusDB.get_by_id(request.corpus_id)
+        if corpus and corpus.get("language"):
+            language = corpus.get("language")
+    except Exception:
+        pass
+    pos_filter = request.pos_filter.model_dump() if request.pos_filter else None
+    search_config = request.search_config.model_dump() if request.search_config else None
+    result = service.analyze(
+        corpus_id=request.corpus_id,
+        text_ids=request.text_ids,
+        pos_filter=pos_filter,
+        search_config=search_config,
+        min_freq=request.min_freq,
+        max_freq=request.max_freq,
+        lowercase=request.lowercase,
+        search_target=search_config.get("searchTarget", "word") if search_config else "word",
+        language=language,
+        analysis_mode=request.analysis_mode,
+    )
+    return SentimentResponse(**result)
 
 
 @router.get("/pos-tags", response_model=List[POSTagInfo])
