@@ -3,7 +3,7 @@
  * Configure BERTopic analysis parameters including representation models
  */
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   Box,
   Typography,
@@ -59,6 +59,18 @@ interface AnalysisPanelProps {
   outlierCount?: number  // Current outlier count from analysis result
   /** When in library mode, pass for dynamic topic to use biblio entry year */
   libraryId?: string
+  /** Optional callback to expose current analysis config for AI assistant context */
+  onAnalysisConfigSnapshot?: (snapshot: BERTopicAnalysisConfigSnapshot) => void
+}
+
+/** Snapshot of BERTopic analysis config for AI context */
+export interface BERTopicAnalysisConfigSnapshot {
+  dimReduction: DimReductionConfig
+  clustering: ClusteringConfig
+  vectorizer: VectorizerConfig
+  representationModel: RepresentationModelConfig
+  outlierConfig: OutlierConfig
+  removeStopwords: boolean
 }
 
 export default function AnalysisPanel({
@@ -70,7 +82,8 @@ export default function AnalysisPanel({
   corpusLanguage = 'english',
   resultId = null,
   outlierCount = 0,
-  libraryId
+  libraryId,
+  onAnalysisConfigSnapshot
 }: AnalysisPanelProps) {
   const { t } = useTranslation()
   const [analyzing, setAnalyzing] = useState(false)
@@ -136,6 +149,18 @@ export default function AnalysisPanel({
     strategy: 'distributions',
     threshold: 0.0
   })
+
+  // Expose config snapshot to parent for AI assistant context
+  useEffect(() => {
+    onAnalysisConfigSnapshot?.({
+      dimReduction,
+      clustering,
+      vectorizer,
+      representationModel,
+      outlierConfig,
+      removeStopwords
+    })
+  }, [dimReduction, clustering, vectorizer, representationModel, outlierConfig, removeStopwords, onAnalysisConfigSnapshot])
 
   // Representation model type change handler
   const handleRepresentationTypeChange = (type: RepresentationType) => {

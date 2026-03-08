@@ -23,6 +23,7 @@ import ContentCopyIcon from '@mui/icons-material/ContentCopy'
 import { useTranslation } from 'react-i18next'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import rehypeRaw from 'rehype-raw'
 import type { LLMChatMessage } from '../../api'
 
 interface ChatDialogProps {
@@ -119,6 +120,7 @@ export default function ChatDialog({
                     <Box sx={{ flex: 1, minWidth: 0 }}>
                       <ReactMarkdown
                         remarkPlugins={[remarkGfm]}
+                        rehypePlugins={[rehypeRaw]}
                         components={{
                           p: ({ children }) => <Typography component="span" variant="body2" display="block" sx={{ mb: 0.5 }}>{children}</Typography>,
                           strong: ({ children }) => <strong>{children}</strong>,

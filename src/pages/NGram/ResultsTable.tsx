@@ -54,6 +54,8 @@ interface ResultsTableProps {
   onSelectionChange: (ngrams: string[]) => void
   isLoading?: boolean
   nestMode?: boolean
+  tableFilter?: string
+  onTableFilterChange?: (value: string) => void
   // Cross-link props
   corpusId?: string
   textIds?: string[] | 'all'
@@ -234,6 +236,8 @@ export default function ResultsTable({
   onSelectionChange,
   isLoading = false,
   nestMode = false,
+  tableFilter: controlledTableFilter,
+  onTableFilterChange,
   corpusId,
   textIds,
   selectionMode = 'all',
@@ -242,7 +246,9 @@ export default function ResultsTable({
   selectedEntryIds
 }: ResultsTableProps) {
   const { t } = useTranslation()
-  const [tableFilter, setTableFilter] = useState('')
+  const [internalTableFilter, setInternalTableFilter] = useState('')
+  const tableFilter = controlledTableFilter !== undefined ? controlledTableFilter : internalTableFilter
+  const setTableFilter = onTableFilterChange ?? setInternalTableFilter
 
   // Filter results by table search
   const filteredResults = useMemo(() => {

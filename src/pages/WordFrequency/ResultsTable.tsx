@@ -49,6 +49,9 @@ interface ResultsTableProps {
   onSortChange: (config: TableSortConfig) => void
   onPaginationChange: (config: TablePaginationConfig) => void
   onSelectionChange: (selected: string[]) => void
+  /** Optional controlled filter for results table search box (used by AI context) */
+  tableFilter?: string
+  onTableFilterChange?: (value: string) => void
   isLoading?: boolean
   // Cross-link props
   corpusId?: string
@@ -72,6 +75,8 @@ export default function ResultsTable({
   onSortChange,
   onPaginationChange,
   onSelectionChange,
+  tableFilter: controlledTableFilter,
+  onTableFilterChange,
   isLoading = false,
   corpusId,
   textIds,
@@ -81,7 +86,9 @@ export default function ResultsTable({
   selectedEntryIds
 }: ResultsTableProps) {
   const { t } = useTranslation()
-  const [tableFilter, setTableFilter] = useState('')
+  const [internalFilter, setInternalFilter] = useState('')
+  const tableFilter = controlledTableFilter !== undefined ? controlledTableFilter : internalFilter
+  const setTableFilter = onTableFilterChange ?? setInternalFilter
 
   // Filter results by table search
   const filteredResults = useMemo(() => {

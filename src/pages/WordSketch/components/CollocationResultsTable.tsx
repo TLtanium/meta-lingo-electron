@@ -67,6 +67,8 @@ interface CollocationResultsTableProps {
   onSortChange: (config: CollocationTableSortConfig) => void
   onPaginationChange: (config: CollocationTablePaginationConfig) => void
   onSelectionChange: (selected: string[]) => void
+  tableFilter?: string
+  onTableFilterChange?: (value: string) => void
   onOpenStatisticsDialog: () => void
   isLoading?: boolean
   corpusId?: string
@@ -92,6 +94,8 @@ export default function CollocationResultsTable({
   onSortChange,
   onPaginationChange,
   onSelectionChange,
+  tableFilter: tableFilterProp,
+  onTableFilterChange,
   onOpenStatisticsDialog,
   isLoading = false,
   corpusId,
@@ -104,7 +108,16 @@ export default function CollocationResultsTable({
   const { t, i18n } = useTranslation()
   const isZh = i18n.language === 'zh'
   const { openTab } = useTabStore()
-  const [tableFilter, setTableFilter] = useState('')
+  const [tableFilterInternal, setTableFilterInternal] = useState('')
+  const tableFilter = tableFilterProp ?? tableFilterInternal
+  const setTableFilter = (value: string) => {
+    if (onTableFilterChange) {
+      onTableFilterChange(value)
+    } else {
+      setTableFilterInternal(value)
+    }
+    onPaginationChange({ ...paginationConfig, page: 0 })
+  }
 
   // Three-dot menu state
   const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null)

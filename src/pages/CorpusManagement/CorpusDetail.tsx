@@ -1306,15 +1306,15 @@ export default function CorpusDetail({ corpus, onBack, onUpload }: CorpusDetailP
               <Table size="small" stickyHeader>
                 <TableHead>
                   <TableRow>
-                    <TableCell padding="checkbox" width={40}>
+                    <TableCell padding="checkbox" width={40} sx={{ whiteSpace: 'nowrap' }}>
                       <Checkbox
                         indeterminate={selectedTextIds.size > 0 && selectedTextIds.size < filteredTexts.length}
                         checked={filteredTexts.length > 0 && selectedTextIds.size === filteredTexts.length}
                         onChange={handleSelectAll}
                       />
                     </TableCell>
-                    <TableCell width={50}>{t('corpus.type')}</TableCell>
-                    <TableCell sortDirection={sortBy === 'filename' ? sortDirection : false}>
+                    <TableCell width={50} sx={{ whiteSpace: 'nowrap' }}>{t('corpus.type')}</TableCell>
+                    <TableCell sortDirection={sortBy === 'filename' ? sortDirection : false} sx={{ whiteSpace: 'nowrap' }}>
                       <TableSortLabel
                         active={sortBy === 'filename'}
                         direction={sortBy === 'filename' ? sortDirection : 'asc'}
@@ -1323,7 +1323,7 @@ export default function CorpusDetail({ corpus, onBack, onUpload }: CorpusDetailP
                         {t('corpus.filename')}
                       </TableSortLabel>
                     </TableCell>
-                    <TableCell width={80} sortDirection={sortBy === 'wordCount' ? sortDirection : false}>
+                    <TableCell width={80} sortDirection={sortBy === 'wordCount' ? sortDirection : false} sx={{ whiteSpace: 'nowrap' }}>
                       <TableSortLabel
                         active={sortBy === 'wordCount'}
                         direction={sortBy === 'wordCount' ? sortDirection : 'asc'}
@@ -1332,7 +1332,7 @@ export default function CorpusDetail({ corpus, onBack, onUpload }: CorpusDetailP
                         {t('corpus.words')}
                       </TableSortLabel>
                     </TableCell>
-                    <TableCell width={80} sortDirection={sortBy === 'duration' ? sortDirection : false}>
+                    <TableCell width={80} sortDirection={sortBy === 'duration' ? sortDirection : false} sx={{ whiteSpace: 'nowrap' }}>
                       <TableSortLabel
                         active={sortBy === 'duration'}
                         direction={sortBy === 'duration' ? sortDirection : 'asc'}
@@ -1341,7 +1341,7 @@ export default function CorpusDetail({ corpus, onBack, onUpload }: CorpusDetailP
                         {t('corpus.duration')}
                       </TableSortLabel>
                     </TableCell>
-                    <TableCell width={100} sortDirection={sortBy === 'date' ? sortDirection : false}>
+                    <TableCell width={100} sortDirection={sortBy === 'date' ? sortDirection : false} sx={{ whiteSpace: 'nowrap' }}>
                       <TableSortLabel
                         active={sortBy === 'date'}
                         direction={sortBy === 'date' ? sortDirection : 'asc'}
@@ -1350,7 +1350,7 @@ export default function CorpusDetail({ corpus, onBack, onUpload }: CorpusDetailP
                         {t('corpus.date')}
                       </TableSortLabel>
                     </TableCell>
-                    <TableCell width={100} sortDirection={sortBy === 'author' ? sortDirection : false}>
+                    <TableCell width={100} sortDirection={sortBy === 'author' ? sortDirection : false} sx={{ whiteSpace: 'nowrap' }}>
                       <TableSortLabel
                         active={sortBy === 'author'}
                         direction={sortBy === 'author' ? sortDirection : 'asc'}
@@ -1359,7 +1359,7 @@ export default function CorpusDetail({ corpus, onBack, onUpload }: CorpusDetailP
                         {t('corpus.author')}
                       </TableSortLabel>
                     </TableCell>
-                    <TableCell width={100} sortDirection={sortBy === 'source' ? sortDirection : false}>
+                    <TableCell width={100} sortDirection={sortBy === 'source' ? sortDirection : false} sx={{ whiteSpace: 'nowrap' }}>
                       <TableSortLabel
                         active={sortBy === 'source'}
                         direction={sortBy === 'source' ? sortDirection : 'asc'}
@@ -1368,7 +1368,7 @@ export default function CorpusDetail({ corpus, onBack, onUpload }: CorpusDetailP
                         {t('corpus.source')}
                       </TableSortLabel>
                     </TableCell>
-                    <TableCell width={100} sortDirection={sortBy === 'textType' ? sortDirection : false}>
+                    <TableCell width={100} sortDirection={sortBy === 'textType' ? sortDirection : false} sx={{ whiteSpace: 'nowrap' }}>
                       <TableSortLabel
                         active={sortBy === 'textType'}
                         direction={sortBy === 'textType' ? sortDirection : 'asc'}
@@ -1377,8 +1377,8 @@ export default function CorpusDetail({ corpus, onBack, onUpload }: CorpusDetailP
                         {t('corpus.textType')}
                       </TableSortLabel>
                     </TableCell>
-                    <TableCell>{t('corpus.tags')}</TableCell>
-                    <TableCell align="right" width={150}>{t('common.actions')}</TableCell>
+                    <TableCell sx={{ whiteSpace: 'nowrap' }}>{t('corpus.tags')}</TableCell>
+                    <TableCell align="right" width={150} sx={{ whiteSpace: 'nowrap' }}>{t('common.actions')}</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>

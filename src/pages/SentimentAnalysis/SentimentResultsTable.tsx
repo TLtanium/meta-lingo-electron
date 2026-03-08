@@ -49,7 +49,7 @@ import type { SearchTarget } from '../../types/wordFrequency'
 const POLARITY_COLS = ['positive', 'negative', 'neutral']
 const DIMENSION_COLS = ['anger', 'anticipation', 'disgust', 'fear', 'joy', 'sadness', 'surprise', 'trust', 'others']
 
-type SortColumn = 'word' | 'total' | 'percentage'
+type SortColumn = string  // 'word' | 'total' | 'percentage' | emotion keys (positive/negative/neutral or anger/.../others)
 type SortDirection = 'asc' | 'desc'
 
 interface SentimentResultsTableProps {
@@ -63,6 +63,12 @@ interface SentimentResultsTableProps {
   onSelectionChange: (words: string[]) => void
   paginationConfig: { page: number; rowsPerPage: number }
   onPaginationChange: (config: { page: number; rowsPerPage: number }) => void
+  /** Optional controlled state for AI context consistency */
+  tableFilter?: string
+  onTableFilterChange?: (value: string) => void
+  sortColumn?: SortColumn
+  sortDirection?: SortDirection
+  onSortChange?: (column: SortColumn, direction: SortDirection) => void
   isLoading?: boolean
   emotionFilterPolarity: SentimentEmotionFilterPolarity
   emotionFilterDimension: SentimentEmotionFilterDimension
@@ -81,6 +87,11 @@ export default function SentimentResultsTable({
   onSelectionChange,
   paginationConfig,
   onPaginationChange,
+  tableFilter: controlledTableFilter,
+  onTableFilterChange,
+  sortColumn: controlledSortColumn,
+  sortDirection: controlledSortDirection,
+  onSortChange,
   isLoading = false,
   emotionFilterPolarity,
   emotionFilterDimension,
@@ -89,9 +100,22 @@ export default function SentimentResultsTable({
 }: SentimentResultsTableProps) {
   const { t } = useTranslation()
   const { openTab } = useTabStore()
-  const [tableFilter, setTableFilter] = useState('')
-  const [sortColumn, setSortColumn] = useState<SortColumn>('total')
-  const [sortDirection, setSortDirection] = useState<SortDirection>('desc')
+  const [internalFilter, setInternalFilter] = useState('')
+  const [internalSortColumn, setInternalSortColumn] = useState<SortColumn>('total')
+  const [internalSortDirection, setInternalSortDirection] = useState<SortDirection>('desc')
+
+  const tableFilter = controlledTableFilter !== undefined ? controlledTableFilter : internalFilter
+  const setTableFilter = onTableFilterChange ?? setInternalFilter
+  const sortColumn = controlledSortColumn !== undefined ? controlledSortColumn : internalSortColumn
+  const sortDirection = controlledSortDirection !== undefined ? controlledSortDirection : internalSortDirection
+  const setSort = (col: SortColumn, dir: SortDirection) => {
+    if (onSortChange) {
+      onSortChange(col, dir)
+    } else {
+      setInternalSortColumn(col)
+      setInternalSortDirection(dir)
+    }
+  }
 
   // Domain mode cross-link menu state (USAS mode only — same pattern as Keyness ResultsTable)
   const [domainMenuAnchor, setDomainMenuAnchor] = useState<null | HTMLElement>(null)
@@ -155,12 +179,18 @@ export default function SentimentResultsTable({
   const sortedResults = useMemo(() => {
     const sorted = [...filteredResults]
     sorted.sort((a, b) => {
-      const aVal = a[sortColumn] as number | string
-      const bVal = b[sortColumn] as number | string
-      if (typeof aVal === 'string' && typeof bVal === 'string') {
-        return sortDirection === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal)
+      const aVal = a[sortColumn] as number | string | undefined
+      const bVal = b[sortColumn] as number | string | undefined
+      const isWordCol = sortColumn === 'word'
+      if (isWordCol) {
+        const aStr = typeof aVal === 'string' ? aVal : String(aVal ?? '')
+        const bStr = typeof bVal === 'string' ? bVal : String(bVal ?? '')
+        return sortDirection === 'asc' ? aStr.localeCompare(bStr) : bStr.localeCompare(aStr)
       }
-      return sortDirection === 'asc' ? (aVal as number) - (bVal as number) : (bVal as number) - (aVal as number)
+      // total, percentage, or emotion column: treat as number, missing/undefined as 0
+      const aNum = typeof aVal === 'number' && !Number.isNaN(aVal) ? aVal : Number(aVal) || 0
+      const bNum = typeof bVal === 'number' && !Number.isNaN(bVal) ? bVal : Number(bVal) || 0
+      return sortDirection === 'asc' ? aNum - bNum : bNum - aNum
     })
     return sorted
   }, [filteredResults, sortColumn, sortDirection])
@@ -172,8 +202,8 @@ export default function SentimentResultsTable({
 
   const handleSort = (column: SortColumn) => {
     const isAsc = sortColumn === column && sortDirection === 'asc'
-    setSortColumn(column)
-    setSortDirection(isAsc ? 'desc' : 'asc')
+    const nextDir = isAsc ? 'desc' : 'asc'
+    setSort(column, nextDir)
   }
 
   const handleSelectRow = (word: string) => {
@@ -351,7 +381,13 @@ export default function SentimentResultsTable({
               </TableCell>
               {colsToShow.map((c) => (
                 <TableCell key={c} align="right" sx={{ whiteSpace: 'nowrap', minWidth: 64 }}>
-                  {t(`sentiment.${analysisMode === 'polarity' ? 'polarity' : 'dimension'}.${c}`)}
+                  <TableSortLabel
+                    active={sortColumn === c}
+                    direction={sortColumn === c ? sortDirection : 'desc'}
+                    onClick={() => handleSort(c)}
+                  >
+                    {t(`sentiment.${analysisMode === 'polarity' ? 'polarity' : 'dimension'}.${c}`)}
+                  </TableSortLabel>
                 </TableCell>
               ))}
               {corpusSelection?.corpusId && (

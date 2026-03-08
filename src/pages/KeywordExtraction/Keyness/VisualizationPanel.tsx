@@ -37,6 +37,11 @@ import WordCloud from '../components/WordCloud'
 interface VisualizationPanelProps {
   data: KeynessKeyword[]
   onKeywordClick?: (keyword: string) => void
+  comparisonMode?: ComparisonMode
+  activeTab?: KeywordChartType
+  onActiveTabChange?: (tab: KeywordChartType) => void
+  positiveOnly?: boolean
+  onPositiveOnlyChange?: (value: boolean) => void
 }
 
 const COLOR_SCHEMES = [
@@ -54,10 +59,19 @@ const WORDCLOUD_COLORMAPS = [
 export default function VisualizationPanel({
   data,
   onKeywordClick,
-  comparisonMode = 'word'
+  comparisonMode = 'word',
+  activeTab: controlledActiveTab,
+  onActiveTabChange,
+  positiveOnly: controlledPositiveOnly,
+  onPositiveOnlyChange
 }: VisualizationPanelProps) {
   const { t } = useTranslation()
-  const [activeTab, setActiveTab] = useState<KeywordChartType>('bar')
+  const [internalActiveTab, setInternalActiveTab] = useState<KeywordChartType>('bar')
+  const [internalPositiveOnly, setInternalPositiveOnly] = useState(true)
+  const activeTab = controlledActiveTab ?? internalActiveTab
+  const setActiveTab = onActiveTabChange ?? setInternalActiveTab
+  const positiveOnly = controlledPositiveOnly ?? internalPositiveOnly
+  const setPositiveOnly = onPositiveOnlyChange ?? setInternalPositiveOnly
   const chartContainerRef = useRef<HTMLDivElement>(null)
 
   // Chart configs
@@ -66,7 +80,6 @@ export default function VisualizationPanel({
   const [showPercentage, setShowPercentage] = useState(false)
   const [maxWords, setMaxWords] = useState(100)
   const [wordCloudColormap, setWordCloudColormap] = useState('viridis')
-  const [positiveOnly, setPositiveOnly] = useState(true)
 
   // Handle tab change
   const handleTabChange = (_: React.SyntheticEvent, newValue: KeywordChartType) => {

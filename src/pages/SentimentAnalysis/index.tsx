@@ -23,6 +23,7 @@ import { analysisApi } from '../../api'
 import type { POSFilterConfig, SearchConfig, POSTagInfo } from '../../types/wordFrequency'
 import type {
   SentimentResultRow,
+  SentimentAnalysisMode,
   SentimentEmotionFilterPolarity,
   SentimentEmotionFilterDimension
 } from '../../types/sentiment'
@@ -38,6 +39,9 @@ import type { CrossLinkParams } from '../../types/crossLink'
 import SentimentResultsTable from './SentimentResultsTable'
 import SentimentVisualizationPanel from './SentimentVisualizationPanel'
 import SentimentFilterDialog from './SentimentFilterDialog'
+import { buildSentimentAIContext } from './buildAIContext'
+import AnalysisAIAssistant from '../../components/AnalysisAIAssistant'
+import { useSettingsStore } from '../../stores/settingsStore'
 
 interface SentimentAnalysisProps {
   crossLinkParams?: CrossLinkParams
@@ -45,6 +49,7 @@ interface SentimentAnalysisProps {
 
 export default function SentimentAnalysis({ crossLinkParams }: SentimentAnalysisProps = {}) {
   const { t } = useTranslation()
+  const { ollamaConnected, openaiApiEnabled } = useSettingsStore()
   const [corpusSelection, setCorpusSelection] = useState<CorpusOrLibrarySelection | null>(null)
   const [posTags, setPosTags] = useState<POSTagInfo[]>([])
   const [posFilter, setPosFilter] = useState<POSFilterConfig>(DEFAULT_POS_FILTER)
@@ -61,6 +66,10 @@ export default function SentimentAnalysis({ crossLinkParams }: SentimentAnalysis
   const [selectedWords, setSelectedWords] = useState<string[]>([])
   const [tablePage, setTablePage] = useState(0)
   const [tableRowsPerPage, setTableRowsPerPage] = useState(25)
+  const [tableFilter, setTableFilter] = useState('')
+  const [tableSortColumn, setTableSortColumn] = useState<string>('total')
+  const [tableSortDirection, setTableSortDirection] = useState<'asc' | 'desc'>('desc')
+  const [vizTab, setVizTab] = useState<'chart' | 'wordcloud'>('chart')
   const [emotionFilterPolarity, setEmotionFilterPolarity] = useState<SentimentEmotionFilterPolarity>(
     DEFAULT_EMOTION_FILTER_POLARITY
   )
@@ -139,6 +148,7 @@ export default function SentimentAnalysis({ crossLinkParams }: SentimentAnalysis
         setResults(Array.isArray(data.results) ? data.results : [])
         setSelectedWords([])
         setTablePage(0)
+        setTableFilter('')
         setEmotionFilterPolarity(DEFAULT_EMOTION_FILTER_POLARITY)
         setEmotionFilterDimension(DEFAULT_EMOTION_FILTER_DIMENSION)
       } else {
@@ -165,6 +175,34 @@ export default function SentimentAnalysis({ crossLinkParams }: SentimentAnalysis
       <Box sx={{ width: 400, borderRight: 1, borderColor: 'divider', overflow: 'auto', p: 2, display: 'flex', flexDirection: 'column' }}>
         <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
           <Typography variant="h6">{t('sentiment.title')}</Typography>
+          <AnalysisAIAssistant
+            enabled={ollamaConnected || openaiApiEnabled}
+            moduleLabel={t('sentiment.title')}
+            getContext={() =>
+              buildSentimentAIContext({
+                t,
+                corpusSelection,
+                posFilter,
+                searchConfig,
+                minFreq,
+                maxFreq,
+                lowercase,
+                analysisMode,
+                emotionFilterPolarity,
+                emotionFilterDimension,
+                results: filteredResults,
+                summary,
+                totalTokens: filteredResults.reduce((s, r) => s + r.total, 0),
+                uniqueWords: filteredResults.length,
+                rightTab,
+                tableFilter,
+                sortColumn: tableSortColumn,
+                sortDirection: tableSortDirection,
+                paginationConfig: { page: tablePage, rowsPerPage: tableRowsPerPage },
+                vizTab
+              })
+            }
+          />
         </Stack>
         <Stack direction="row" spacing={1} mb={2} flexWrap="wrap">
           <Chip label="NRC" size="small" color="primary" variant="outlined" />
@@ -238,7 +276,18 @@ export default function SentimentAnalysis({ crossLinkParams }: SentimentAnalysis
                 selectedWords={selectedWords}
                 onSelectionChange={setSelectedWords}
                 paginationConfig={{ page: tablePage, rowsPerPage: tableRowsPerPage }}
-                onPaginationChange={(c) => { setTablePage(c.page); setTableRowsPerPage(c.rowsPerPage) }}
+                onPaginationChange={(c) => {
+                  setTablePage(c.page)
+                  setTableRowsPerPage(c.rowsPerPage)
+                }}
+                tableFilter={tableFilter}
+                onTableFilterChange={setTableFilter}
+                sortColumn={tableSortColumn}
+                sortDirection={tableSortDirection}
+                onSortChange={(col, dir) => {
+                  setTableSortColumn(col)
+                  setTableSortDirection(dir)
+                }}
                 isLoading={isLoading}
                 emotionFilterPolarity={emotionFilterPolarity}
                 emotionFilterDimension={emotionFilterDimension}
@@ -275,6 +324,8 @@ export default function SentimentAnalysis({ crossLinkParams }: SentimentAnalysis
               emotionFilterPolarity={emotionFilterPolarity}
               emotionFilterDimension={emotionFilterDimension}
               searchTarget={searchConfig.searchTarget}
+              activeTab={vizTab}
+              onActiveTabChange={setVizTab}
             />
           )}
         </Box>

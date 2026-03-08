@@ -54,6 +54,7 @@ import AnalysisAIAssistant from '../../components/AnalysisAIAssistant'
 import CorpusOrLibrarySelector, { type CorpusOrLibrarySelection } from '../../components/Corpus/CorpusOrLibrarySelector'
 import { useSettingsStore } from '../../stores/settingsStore'
 import type { CrossLinkParams } from '../../types/crossLink'
+import { buildWordSketchDiffAIContext } from './buildWordSketchDiffAIContext'
 
 // Interface for merged collocations (must be outside component)
 interface MergedCollocation {
@@ -72,7 +73,7 @@ interface WordSketchDiffTabProps {
 }
 
 export default function WordSketchDiffTab({ crossLinkParams }: WordSketchDiffTabProps = {}) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const { ollamaConnected, openaiApiEnabled } = useSettingsStore()
 
   // Data source: corpus or library (unified selector)
@@ -402,16 +403,19 @@ export default function WordSketchDiffTab({ crossLinkParams }: WordSketchDiffTab
           <AnalysisAIAssistant
             enabled={ollamaConnected || openaiApiEnabled}
             moduleLabel={t('wordsketch.sketchDifference')}
-            getContext={() => {
-              const hint = t('aiAssistant.wordSketchDiffContextHint')
-              const corpusInfo = corpusSelection ? `Corpus: ${corpusSelection.dataSource === 'corpus' ? 'corpus' : 'library'}, ${corpusSelection.textIds === 'all' ? 'all' : corpusSelection.textIds.length} texts` : 'Corpus: (none)'
-              const params = `word1=${word1}, word2=${word2}, minFrequency=${minFrequency}`
-              if (!result) return `${hint}\n\n${corpusInfo}\n${params}\n${t('aiAssistant.noAnalysisResult')}`
-              const common = result.summary?.common_relations ?? 0
-              const relLines = (result.relations || []).slice(0, 12).map((r: any) => `- ${r.relation_name}: ${(r.word1_collocates || []).slice(0, 3).map((c: any) => c.word || c).join(', ')} | ${(r.word2_collocates || []).slice(0, 3).map((c: any) => c.word || c).join(', ')}`).join('\n')
-              const view = `Sketch diff: "${result.word1}" vs "${result.word2}", ${common} common relations\n${relLines}`
-              return `${hint}\n\n${corpusInfo}\n${params}\n${view}`
-            }}
+            getContext={() => buildWordSketchDiffAIContext({
+              t,
+              corpusSelection,
+              word1,
+              word2,
+              posFilter,
+              minFrequency,
+              compareMode,
+              result,
+              rightTab,
+              selectedVisualizationRelation,
+              lang: i18n.language === 'zh' ? 'zh' : 'en'
+            })}
           />
         </Stack>
 

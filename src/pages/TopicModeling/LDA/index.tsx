@@ -43,6 +43,7 @@ import LDAResultsPanel from './LDAResultsPanel'
 import LDAVisualizationPanel from './LDAVisualizationPanel'
 import AnalysisAIAssistant from '../../../components/AnalysisAIAssistant'
 import type { CrossLinkParams } from '../../../types/crossLink'
+import { buildTopicModelingAIContext } from '../buildTopicModelingAIContext'
 
 interface LDATabProps {
   crossLinkParams?: CrossLinkParams
@@ -203,20 +204,30 @@ export default function LDATab({ crossLinkParams }: LDATabProps = {}) {
           <AnalysisAIAssistant
             enabled={ollamaConnected || openaiApiEnabled}
             moduleLabel={t('topicModeling.lda.title', 'LDA')}
-            getContext={() => {
-              const hint = t('aiAssistant.topicModelingLdaContextHint')
-              const corpusInfo = corpusId ? `CorpusId: ${corpusId}, ${textIds.length} texts, language: ${corpusLanguage}` : 'Corpus: (none)'
-              const params = `num_topics=${dynamicConfig.n_topics}, passes=${dynamicConfig.passes}, alpha=${dynamicConfig.alpha}`
-              const topics = analysisResult?.result?.topics ?? analysisResult?.topics ?? []
-              if (!topics.length) return `${hint}\n\n${corpusInfo}\n${params}\n${t('aiAssistant.noAnalysisResult')}`
-              const toWords = (kw: any) => (typeof kw === 'string' ? kw : (kw?.word ?? '')).trim()
-              const topicSummary = topics.slice(0, 15).map((topic: any, i: number) => {
-                const kws = (topic.keywords || []).slice(0, 5).map(toWords).filter(Boolean)
-                return `${i + 1}. ${topic.custom_label ?? topic.name ?? topic.topic_id}: ${kws.join(', ')}`
-              }).join('\n')
-              const viewLabel = rightTab === 1 ? `${t('topicModeling.visualization.title')}. ` : ''
-              return `${hint}\n\n${corpusInfo}\n${params}\n${viewLabel}Topics (${topics.length}):\n${topicSummary}`
-            }}
+            getContext={() => buildTopicModelingAIContext({
+              t,
+              method: 'lda',
+              corpus: corpusSelection ? {
+                corpusId: corpusSelection.corpusId,
+                textIds: corpusSelection.textIds,
+                textCount: Array.isArray(textIds) ? textIds.length : (corpusSelection.textIds === 'all' ? 0 : 0),
+                selectionMode,
+                selectedTags,
+                libraryId,
+                selectedEntryIds: corpusSelection.dataSource === 'library' && corpusSelection.selectionMode === 'selected' ? corpusSelection.selectedEntryIds : undefined,
+                corpusLanguage
+              } : null,
+              ldaPreprocess: preprocessConfig,
+              ldaConfig: ldaConfig,
+              ldaDynamic: dynamicConfig,
+              topics: (analysisResult?.result?.topics ?? analysisResult?.topics ?? []).map((topic: any) => ({
+                topic_id: topic.topic_id,
+                name: topic.name,
+                custom_label: topic.custom_label,
+                keywords: topic.keywords
+              })),
+              rightTab
+            })}
           />
         </Stack>
         

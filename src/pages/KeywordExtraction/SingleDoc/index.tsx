@@ -57,6 +57,7 @@ import {
 import POSFilterPanel from '../POSFilterPanel'
 import AlgorithmConfigPanel from './AlgorithmConfigPanel'
 import ResultsTable from './ResultsTable'
+import { buildSingleDocKeywordAIContext } from './buildAIContext'
 import AnalysisAIAssistant from '../../../components/AnalysisAIAssistant'
 import CorpusOrLibrarySelector, { type CorpusOrLibrarySelection } from '../../../components/Corpus/CorpusOrLibrarySelector'
 import { useSettingsStore } from '../../../stores/settingsStore'
@@ -100,6 +101,14 @@ export default function SingleDocTab({ crossLinkParams }: SingleDocTabProps = {}
 
   // Right panel tabs
   const [rightTab, setRightTab] = useState(0)
+
+  // Lifted table state (for AI context)
+  const [tableFilter, setTableFilter] = useState('')
+  const [tableOrderBy, setTableOrderBy] = useState<'rank' | 'keyword' | 'score' | 'frequency'>('rank')
+  const [tableOrder, setTableOrder] = useState<'asc' | 'desc'>('asc')
+  const [tablePage, setTablePage] = useState(0)
+  const [tableRowsPerPage, setTableRowsPerPage] = useState(25)
+  const [vizTab, setVizTab] = useState<'bar' | 'pie' | 'wordcloud'>('bar')
 
   // Sync corpus/library selection from cross-link so selector shows same source
   useEffect(() => {
@@ -244,18 +253,25 @@ export default function SingleDocTab({ crossLinkParams }: SingleDocTabProps = {}
           <AnalysisAIAssistant
             enabled={ollamaConnected || openaiApiEnabled}
             moduleLabel={t('keyword.singleDoc.title', 'Single Document Keywords')}
-            getContext={() => {
-              const hint = t('aiAssistant.keywordSingleDocContextHint')
-              const corpusInfo = corpusSelection ? `Corpus: ${corpusSelection.dataSource === 'corpus' ? 'corpus' : 'library'}, ${corpusSelection.textIds === 'all' ? 'all' : corpusSelection.textIds.length} texts` : 'Corpus: (none)'
-              const params = `algorithm=${algorithm}, topN=${config.top_n}, lowercase=${lowercase}`
-              if (results.length === 0) return `${hint}\n\n${corpusInfo}\n${params}\n${t('aiAssistant.noAnalysisResult')}`
-              const slice = results.slice(0, 25)
-              const header = `序号\t${t('keyword.keyword', 'Word')}\t${t('keyword.results.score', 'Score')}`
-              const lines = slice.map((r, i) => `${i + 1}\t${r.word}\t${(r as any).score ?? ''}`).join('\n')
-              const vizTop = results.slice(0, 25).map((r, i) => `${i + 1}\t${r.word}\t${(r as any).score ?? ''}`).join('\n')
-              const view = rightTab === 0 ? `${t('keyword.results.title', 'Results')} (rows 1-${slice.length}):\n${header}\n${lines}` : `${t('keyword.visualization.title', 'Visualization')}. Top 25:\n${header}\n${vizTop}`
-              return `${hint}\n\n${corpusInfo}\n${params}\n${view}`
-            }}
+            getContext={() =>
+              buildSingleDocKeywordAIContext({
+                t,
+                corpusSelection,
+                posFilter,
+                stopwordsConfig,
+                algorithm,
+                config,
+                lowercase,
+                results,
+                totalKeywords,
+                rightTab,
+                tableFilter,
+                sortColumn: tableOrderBy,
+                sortDirection: tableOrder,
+                paginationConfig: { page: tablePage, rowsPerPage: tableRowsPerPage },
+                vizTab
+              })
+            }
           />
         </Stack>
 
@@ -394,6 +410,21 @@ export default function SingleDocTab({ crossLinkParams }: SingleDocTabProps = {}
                 totalKeywords={totalKeywords}
                 algorithm={algorithm}
                 isLoading={isLoading}
+                searchQuery={tableFilter}
+                orderBy={tableOrderBy}
+                order={tableOrder}
+                page={tablePage}
+                rowsPerPage={tableRowsPerPage}
+                onSearchQueryChange={setTableFilter}
+                onSortChange={(by, dir) => {
+                  setTableOrderBy(by)
+                  setTableOrder(dir)
+                }}
+                onPageChange={setTablePage}
+                onRowsPerPageChange={(v) => {
+                  setTableRowsPerPage(v)
+                  setTablePage(0)
+                }}
                 corpusId={corpusSelection?.corpusId}
                 textIds={corpusSelection?.textIds}
                 selectionMode={corpusSelection?.selectionMode === 'keywords' ? 'tags' : (corpusSelection?.selectionMode ?? 'all')}
@@ -424,6 +455,8 @@ export default function SingleDocTab({ crossLinkParams }: SingleDocTabProps = {}
             <Suspense fallback={<Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 200 }}><CircularProgress /></Box>}>
               <VisualizationPanel
                 data={results}
+                activeTab={vizTab}
+                onActiveTabChange={setVizTab}
                 onKeywordClick={corpusSelection ? (keyword) => {
                   openTab({
                     type: 'collocation',

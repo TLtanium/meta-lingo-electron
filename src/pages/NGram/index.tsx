@@ -49,6 +49,7 @@ import type {
   NGramResult,
   NGramRequest,
   NGramVisualizationConfig,
+  NGramChartType,
   TableSortConfig,
   TablePaginationConfig
 } from '../../types/ngram'
@@ -65,6 +66,7 @@ import POSFilterPanel from './POSFilterPanel'
 import SearchConfigPanel from './SearchConfigPanel'
 import ResultsTable from './ResultsTable'
 import VisualizationPanel from './VisualizationPanel'
+import { buildNgramAIContext } from './buildAIContext'
 import AnalysisAIAssistant from '../../components/AnalysisAIAssistant'
 import CorpusOrLibrarySelector, { type CorpusOrLibrarySelection } from '../../components/Corpus/CorpusOrLibrarySelector'
 import { useSettingsStore } from '../../stores/settingsStore'
@@ -108,6 +110,10 @@ export default function NGram({ crossLinkParams }: NGramProps = {}) {
 
   // Visualization state
   const [vizConfig, setVizConfig] = useState<NGramVisualizationConfig>(DEFAULT_VIZ_CONFIG)
+  
+  // Lifted table filter and viz tab for AI context
+  const [tableFilter, setTableFilter] = useState('')
+  const [vizTab, setVizTab] = useState<NGramChartType>(DEFAULT_VIZ_CONFIG.chartType)
   
   // Right panel tabs
   const [rightTab, setRightTab] = useState(0)
@@ -291,25 +297,27 @@ export default function NGram({ crossLinkParams }: NGramProps = {}) {
           <AnalysisAIAssistant
             enabled={ollamaConnected || openaiApiEnabled}
             moduleLabel={t('ngram.title')}
-            getContext={() => {
-              const hint = t('aiAssistant.ngramContextHint')
-              const corpusInfo = corpusSelection ? `Corpus: ${corpusSelection.dataSource === 'corpus' ? 'corpus' : 'library'}, ${corpusSelection.textIds === 'all' ? 'all' : corpusSelection.textIds.length} texts` : 'Corpus: (none)'
-              const params = `nValues=${ngramConfig.nValues.join(',')}, minFreq=${ngramConfig.minFreq}, maxFreq=${ngramConfig.maxFreq ?? 'null'}, lowercase=${ngramConfig.lowercase}`
-              if (results.length === 0) return `${hint}\n\n${corpusInfo}\n${params}\n${t('aiAssistant.noAnalysisResult')}`
-              if (rightTab === 0) {
-                const page = paginationConfig.page
-                const pageSize = paginationConfig.pageSize
-                const start = (page - 1) * pageSize
-                const slice = results.slice(start, start + pageSize)
-                const header = `序号\t${t('ngram.results.ngram')}\t${t('ngram.results.frequency')}`
-                const lines = slice.map((r, i) => `${start + i + 1}\t${(r as NGramResult).ngram}\t${(r as NGramResult).frequency}`).join('\n')
-                return `${hint}\n\n${corpusInfo}\n${params}\n${t('ngram.results.title')} (rows ${start + 1}-${start + slice.length}):\n${header}\n${lines}`
-              }
-              const chartLabel = vizConfig.chartType ?? 'bar'
-              const header = `${t('ngram.results.ngram')}\t${t('ngram.results.frequency')}`
-              const top = results.slice(0, 50).map((r: NGramResult) => `${r.ngram}\t${r.frequency}`).join('\n')
-              return `${hint}\n\n${corpusInfo}\n${params}\n${t('ngram.visualization.title')}: ${chartLabel}. Top 50:\n${header}\n${top}`
-            }}
+            getContext={() =>
+              buildNgramAIContext({
+                t,
+                corpusSelection,
+                posFilter,
+                searchConfig,
+                ngramConfig,
+                minFreq,
+                maxFreq,
+                lowercase,
+                results,
+                totalNgrams,
+                uniqueNgrams,
+                rightTab,
+                tableFilter,
+                sortConfig,
+                paginationConfig,
+                vizTab,
+                vizConfig
+              })
+            }
           />
         </Stack>
 
@@ -453,6 +461,8 @@ export default function NGram({ crossLinkParams }: NGramProps = {}) {
                 onSelectionChange={setSelectedNgrams}
                 isLoading={isLoading}
                 nestMode={ngramConfig.nestNgram}
+                tableFilter={tableFilter}
+                onTableFilterChange={setTableFilter}
                 corpusId={corpusSelection?.corpusId}
                 textIds={corpusSelection?.textIds}
                 selectionMode={corpusSelection?.selectionMode === 'keywords' ? 'tags' : (corpusSelection?.selectionMode ?? 'all')}
@@ -483,7 +493,12 @@ export default function NGram({ crossLinkParams }: NGramProps = {}) {
             <VisualizationPanel
               data={results}
               config={vizConfig}
-              onConfigChange={setVizConfig}
+              onConfigChange={(next) => {
+                setVizConfig(next)
+                setVizTab(next.chartType)
+              }}
+              activeTab={vizTab}
+              onActiveTabChange={setVizTab}
               onNgramClick={corpusSelection ? (ngram) => {
                 openTab({
                   type: 'collocation',

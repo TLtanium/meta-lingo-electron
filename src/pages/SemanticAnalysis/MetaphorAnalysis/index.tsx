@@ -39,6 +39,7 @@ import AnalysisAIAssistant from '../../../components/AnalysisAIAssistant'
 import CorpusOrLibrarySelector, { type CorpusOrLibrarySelection } from '../../../components/Corpus/CorpusOrLibrarySelector'
 import { useSettingsStore } from '../../../stores/settingsStore'
 import type { CrossLinkParams } from '../../../types/crossLink'
+import { buildMetaphorAIContext } from './buildMetaphorAIContext'
 
 const DEFAULT_POS_FILTER: POSFilterConfig = {
   selectedPOS: [],
@@ -82,8 +83,13 @@ export default function MetaphorAnalysis({ crossLinkParams }: MetaphorAnalysisPr
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // Table state
+  // Table state (lifted for AI context)
   const [selectedWords, setSelectedWords] = useState<string[]>([])
+  const [sortField, setSortField] = useState<'word' | 'frequency' | 'percentage' | 'pos' | 'is_metaphor' | 'source'>('frequency')
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc')
+  const [tablePage, setTablePage] = useState(0)
+  const [tableRowsPerPage, setTableRowsPerPage] = useState(50)
+  const [tableFilter, setTableFilter] = useState('')
 
   // Right panel tabs
   const [rightTab, setRightTab] = useState(0)
@@ -205,18 +211,24 @@ export default function MetaphorAnalysis({ crossLinkParams }: MetaphorAnalysisPr
           <AnalysisAIAssistant
             enabled={ollamaConnected || openaiApiEnabled}
             moduleLabel={isZh ? '隐喻分析' : 'Metaphor Analysis'}
-            getContext={() => {
-              const hint = t('aiAssistant.metaphorContextHint')
-              const corpusInfo = corpusSelection ? `Corpus: ${corpusSelection.dataSource === 'corpus' ? 'corpus' : 'library'}, ${corpusSelection.textIds === 'all' ? 'all' : corpusSelection.textIds.length} texts` : 'Corpus: (none)'
-              const params = `minFreq=${minFreq}, maxFreq=${maxFreq ?? 'null'}, lowercase=${lowercase}`
-              if (results.length === 0) return `${hint}\n\n${corpusInfo}\n${params}\n${t('aiAssistant.noAnalysisResult')}`
-              const slice = results.slice(0, 25)
-              const lines = slice.map((r, i) => `${i + 1}\t${(r as MetaphorResult).word}\t${(r as MetaphorResult).frequency}\t${(r as MetaphorResult).is_metaphor ? 'Y' : 'N'}`).join('\n')
-              const header = '序号\t词\t频次\t隐喻'
-              const vizSlice = results.slice(0, 20).map((r, i) => `${i + 1}\t${(r as MetaphorResult).word}\t${(r as MetaphorResult).frequency}\t${(r as MetaphorResult).is_metaphor ? 'Y' : 'N'}`).join('\n')
-              const view = rightTab === 0 ? `Results (rows 1-${slice.length}):\n${header}\n${lines}` : `Visualization (metaphor). Top 20:\n${header}\n${vizSlice}`
-              return `${hint}\n\n${corpusInfo}\n${params}\n${view}`
-            }}
+            getContext={() => buildMetaphorAIContext({
+              t,
+              corpusSelection,
+              posFilter,
+              searchConfig,
+              minFreq,
+              maxFreq,
+              lowercase,
+              results,
+              statistics,
+              sortField,
+              sortDirection,
+              tableFilter,
+              page: tablePage,
+              rowsPerPage: tableRowsPerPage,
+              rightTab,
+              vizConfig
+            })}
           />
         </Stack>
 
@@ -307,6 +319,24 @@ export default function MetaphorAnalysis({ crossLinkParams }: MetaphorAnalysisPr
                 selectedWords={selectedWords}
                 onSelectionChange={setSelectedWords}
                 isLoading={isLoading}
+                sortField={sortField}
+                sortDirection={sortDirection}
+                onSortChange={(field, direction) => {
+                  setSortField(field)
+                  setSortDirection(direction)
+                }}
+                page={tablePage}
+                rowsPerPage={tableRowsPerPage}
+                onPageChange={setTablePage}
+                onRowsPerPageChange={(v) => {
+                  setTableRowsPerPage(v)
+                  setTablePage(0)
+                }}
+                tableFilter={tableFilter}
+                onTableFilterChange={(v) => {
+                  setTableFilter(v)
+                  setTablePage(0)
+                }}
                 corpusId={corpusSelection?.corpusId}
                 textIds={corpusSelection?.textIds}
                 selectionMode={corpusSelection?.selectionMode === 'keywords' ? 'tags' : (corpusSelection?.selectionMode ?? 'all')}

@@ -42,6 +42,9 @@ import type { SelectionMode } from '../../../types/crossLink'
 import { WordActionMenu } from '../../../components/common'
 import { useTabStore } from '../../../stores/tabStore'
 
+type SortColumn = 'rank' | 'keyword' | 'study_freq' | 'ref_freq' | 'score' | 'effect_size'
+type SortDirection = 'asc' | 'desc'
+
 interface ResultsTableProps {
   results: KeynessKeyword[]
   studySize: number
@@ -49,6 +52,15 @@ interface ResultsTableProps {
   statistic: KeynessStatistic
   isLoading?: boolean
   comparisonMode?: ComparisonMode
+  searchQuery?: string
+  orderBy?: SortColumn
+  order?: SortDirection
+  page?: number
+  rowsPerPage?: number
+  onSearchQueryChange?: (value: string) => void
+  onSortChange?: (orderBy: SortColumn, order: SortDirection) => void
+  onPageChange?: (page: number) => void
+  onRowsPerPageChange?: (rowsPerPage: number) => void
   // Cross-link props
   corpusId?: string
   textIds?: string[] | 'all'
@@ -58,9 +70,6 @@ interface ResultsTableProps {
   selectedEntryIds?: string[]
 }
 
-type SortColumn = 'rank' | 'keyword' | 'study_freq' | 'ref_freq' | 'score' | 'effect_size'
-type SortDirection = 'asc' | 'desc'
-
 export default function ResultsTable({
   results,
   studySize,
@@ -68,6 +77,15 @@ export default function ResultsTable({
   statistic,
   isLoading = false,
   comparisonMode = 'word',
+  searchQuery: controlledSearchQuery,
+  orderBy: controlledOrderBy,
+  order: controlledOrder,
+  page: controlledPage,
+  rowsPerPage: controlledRowsPerPage,
+  onSearchQueryChange,
+  onSortChange,
+  onPageChange,
+  onRowsPerPageChange,
   corpusId,
   textIds,
   selectionMode = 'all',
@@ -78,6 +96,23 @@ export default function ResultsTable({
   const { t, i18n } = useTranslation()
   const isZh = i18n.language === 'zh'
   const { openTab } = useTabStore()
+
+  const [internalSearchQuery, setInternalSearchQuery] = useState('')
+  const [internalPage, setInternalPage] = useState(0)
+  const [internalRowsPerPage, setInternalRowsPerPage] = useState(25)
+  const [internalOrderBy, setInternalOrderBy] = useState<SortColumn>('rank')
+  const [internalOrder, setInternalOrder] = useState<SortDirection>('asc')
+  const [selectedKeywords, setSelectedKeywords] = useState<string[]>([])
+
+  const isControlled = controlledSearchQuery !== undefined
+  const searchQuery = isControlled ? controlledSearchQuery : internalSearchQuery
+  const setSearchQuery = onSearchQueryChange ?? setInternalSearchQuery
+  const orderBy = (isControlled ? controlledOrderBy : internalOrderBy) ?? 'rank'
+  const order = (isControlled ? controlledOrder : internalOrder) ?? 'asc'
+  const page = (isControlled ? controlledPage : internalPage) ?? 0
+  const rowsPerPage = (isControlled ? controlledRowsPerPage : internalRowsPerPage) ?? 25
+  const setPage = onPageChange ?? setInternalPage
+  const setRowsPerPage = onRowsPerPageChange ?? setInternalRowsPerPage
 
   // Domain mode cross-link menu state (same pattern as SemanticAnalysis ResultsTable)
   const [domainMenuAnchor, setDomainMenuAnchor] = useState<null | HTMLElement>(null)
@@ -110,13 +145,6 @@ export default function ResultsTable({
     }
   }
 
-  const [searchQuery, setSearchQuery] = useState('')
-  const [page, setPage] = useState(0)
-  const [rowsPerPage, setRowsPerPage] = useState(25)
-  const [orderBy, setOrderBy] = useState<SortColumn>('rank')
-  const [order, setOrder] = useState<SortDirection>('asc')
-  const [selectedKeywords, setSelectedKeywords] = useState<string[]>([])
-
   // Get statistic display name
   const statisticNames: Record<KeynessStatistic, { en: string; zh: string }> = {
     log_likelihood: { en: 'Log-Likelihood', zh: '对数似然比' },
@@ -133,8 +161,13 @@ export default function ResultsTable({
   // Handle sort
   const handleSort = (property: SortColumn) => {
     const isAsc = orderBy === property && order === 'asc'
-    setOrder(isAsc ? 'desc' : 'asc')
-    setOrderBy(property)
+    const nextOrder: SortDirection = isAsc ? 'desc' : 'asc'
+    if (onSortChange) {
+      onSortChange(property, nextOrder)
+    } else {
+      setInternalOrderBy(property)
+      setInternalOrder(nextOrder)
+    }
   }
 
   // Filter and sort results
@@ -152,7 +185,6 @@ export default function ResultsTable({
         return r.keyword.toLowerCase().includes(query)
       })
     }
-    
     filtered = [...filtered].sort((a, b) => {
       let aVal: any = a[orderBy]
       let bVal: any = b[orderBy]
@@ -166,7 +198,6 @@ export default function ResultsTable({
       if (aVal > bVal) return order === 'asc' ? 1 : -1
       return 0
     })
-    
     return filtered
   }, [results, searchQuery, orderBy, order])
 
@@ -212,7 +243,13 @@ export default function ResultsTable({
   // Get max absolute score for normalization
   const maxScore = useMemo(() => {
     if (results.length === 0) return 1
-    return Math.max(...results.map(r => Math.abs(r.score)))
+    // Avoid Math.max(...arr) with huge arrays — spread exceeds call stack (e.g. 996k items)
+    let max = 0
+    for (let i = 0; i < results.length; i++) {
+      const v = Math.abs(results[i].score)
+      if (v > max) max = v
+    }
+    return max || 1
   }, [results])
 
   // Get paginated results
@@ -312,7 +349,8 @@ export default function ResultsTable({
           value={searchQuery}
           onChange={(e) => {
             setSearchQuery(e.target.value)
-            setPage(0)
+            if (onPageChange) onPageChange(0)
+            else setInternalPage(0)
           }}
           sx={{ width: 200 }}
           InputProps={{
@@ -582,10 +620,19 @@ export default function ResultsTable({
         count={filteredResults.length}
         rowsPerPage={rowsPerPage}
         page={page}
-        onPageChange={(_, newPage) => setPage(newPage)}
+        onPageChange={(_, newPage) => {
+          if (onPageChange) onPageChange(newPage)
+          else setInternalPage(newPage)
+        }}
         onRowsPerPageChange={(e) => {
-          setRowsPerPage(parseInt(e.target.value, 10))
-          setPage(0)
+          const val = parseInt(e.target.value, 10)
+          if (onRowsPerPageChange) {
+            onRowsPerPageChange(val)
+            onPageChange?.(0)
+          } else {
+            setInternalRowsPerPage(val)
+            setInternalPage(0)
+          }
         }}
       />
 

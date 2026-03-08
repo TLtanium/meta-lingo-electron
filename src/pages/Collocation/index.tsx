@@ -42,6 +42,7 @@ import CollocationPOSFilter from './components/CollocationPOSFilter'
 import CollocationSearchPanel from './components/CollocationSearchPanel'
 import CollocationResultsTable from './components/CollocationResultsTable'
 import CollocationVisualization from './components/CollocationVisualization'
+import { buildCollocationAIContext } from './buildAIContext'
 import AnalysisAIAssistant from '../../components/AnalysisAIAssistant'
 import CorpusOrLibrarySelector, { type CorpusOrLibrarySelection } from '../../components/Corpus/CorpusOrLibrarySelector'
 import { useSettingsStore } from '../../stores/settingsStore'
@@ -259,6 +260,11 @@ export default function Collocation({ crossLinkParams }: CollocationProps) {
   const [rightTab, setRightTab] = useState(0)
   const tabsActionRef = useRef<TabsActions>(null)
   const tabsContainerRef = useRef<HTMLDivElement>(null)
+
+  // Lifted table pagination and viz tab for AI context
+  const [tablePage, setTablePage] = useState(0)
+  const [tableRowsPerPage, setTableRowsPerPage] = useState(20)
+  const [vizTab, setVizTab] = useState<'densityPlot' | 'ridgePlot'>('densityPlot')
 
   // Track if cross-link has been processed
   const crossLinkProcessedRef = useRef(false)
@@ -553,19 +559,26 @@ export default function Collocation({ crossLinkParams }: CollocationProps) {
           <AnalysisAIAssistant
             enabled={ollamaConnected || openaiApiEnabled}
             moduleLabel={t('collocation.title')}
-            getContext={() => {
-              const hint = t('aiAssistant.collocationContextHint')
-              const corpusInfo = corpusSelection ? `Corpus: ${corpusSelection.dataSource === 'corpus' ? 'corpus' : 'library'}, ${corpusSelection.textIds === 'all' ? 'all' : corpusSelection.textIds.length} texts` : 'Corpus: (none)'
-              const params = `searchMode=${searchMode}, searchValue=${searchValue}, contextSize=${contextSize}, lowercase=${lowercase}`
-              if (results.length === 0) return `${hint}\n\n${corpusInfo}\n${params}\n${t('aiAssistant.noAnalysisResult')}`
-              const slice = results.slice(0, 25)
-              const leftStr = (r: KWICResult) => (r.left_context || []).map((t: { text?: string }) => t?.text ?? '').join(' ').trim()
-              const rightStr = (r: KWICResult) => (r.right_context || []).map((t: { text?: string }) => t?.text ?? '').join(' ').trim()
-              const lines = slice.map((r: KWICResult, i: number) => `${i + 1}. ${leftStr(r)} [${r.keyword ?? ''}] ${rightStr(r)}`).join('\n')
-              const vizSample = results.slice(0, 15).map((r: KWICResult, i: number) => `${i + 1}. ${leftStr(r)} [${r.keyword ?? ''}] ${rightStr(r)}`).join('\n')
-              const view = rightTab === 0 ? `KWIC results (rows 1-${slice.length}):\n${lines}` : `Visualization (KWIC). Sample 15:\n${vizSample}`
-              return `${hint}\n\n${corpusInfo}\n${params}\n${view}`
-            }}
+            getContext={() =>
+              buildCollocationAIContext({
+                t,
+                corpusSelection,
+                posFilter,
+                searchMode,
+                searchValue,
+                contextSize,
+                lowercase,
+                sortBy,
+                sortLevels,
+                sortDescending,
+                results,
+                totalCount,
+                rightTab,
+                page: tablePage,
+                rowsPerPage: tableRowsPerPage,
+                vizTab
+              })
+            }
           />
         </Stack>
 
@@ -659,6 +672,13 @@ export default function Collocation({ crossLinkParams }: CollocationProps) {
                 onSortDescendingChange={handleSortDescendingChange}
                 onResort={handleSearch}
                 onSortChangeAndResort={handleSortChangeAndResort}
+                page={tablePage}
+                rowsPerPage={tableRowsPerPage}
+                onPageChange={setTablePage}
+                onRowsPerPageChange={(v) => {
+                  setTableRowsPerPage(v)
+                  setTablePage(0)
+                }}
                 highlightWords={highlightWords}
                 showMetaphorHighlight={showMetaphorHighlight}
                 onShowMetaphorHighlightChange={setShowMetaphorHighlight}
@@ -686,6 +706,8 @@ export default function Collocation({ crossLinkParams }: CollocationProps) {
             <CollocationVisualization
               results={results}
               corpusId={corpusSelection?.corpusId || ''}
+              activeTab={vizTab}
+              onActiveTabChange={setVizTab}
             />
           )}
         </Box>

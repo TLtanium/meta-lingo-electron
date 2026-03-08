@@ -31,6 +31,7 @@ import POSFilterPanel from './POSFilterPanel'
 import SearchConfigPanel from './SearchConfigPanel'
 import ResultsTable from './ResultsTable'
 import VisualizationPanel from './VisualizationPanel'
+import { buildSynonymAIContext } from './buildAIContext'
 import AnalysisAIAssistant from '../../components/AnalysisAIAssistant'
 import CorpusOrLibrarySelector, { type CorpusOrLibrarySelection } from '../../components/Corpus/CorpusOrLibrarySelector'
 import { useSettingsStore } from '../../stores/settingsStore'
@@ -66,6 +67,15 @@ export default function SynonymAnalysis({ crossLinkParams }: SynonymAnalysisProp
 
   // Visualization state
   const [vizConfig, setVizConfig] = useState<SynonymVizConfig>(DEFAULT_VIZ_CONFIG)
+  
+  // Lifted table state (for AI context: filter, sort, pagination)
+  const [tableFilter, setTableFilter] = useState('')
+  const [tableSortField, setTableSortField] = useState<'word' | 'frequency' | 'synonym_count'>('frequency')
+  const [tableSortDirection, setTableSortDirection] = useState<'asc' | 'desc'>('desc')
+  const [tablePage, setTablePage] = useState(0)
+  const [tableRowsPerPage, setTableRowsPerPage] = useState(25)
+  // Lifted viz tab (network | tree) for AI context
+  const [vizTab, setVizTab] = useState<'network' | 'tree'>('network')
   
   // Right panel tabs
   const [rightTab, setRightTab] = useState(0)
@@ -164,24 +174,27 @@ export default function SynonymAnalysis({ crossLinkParams }: SynonymAnalysisProp
           <AnalysisAIAssistant
             enabled={ollamaConnected || openaiApiEnabled}
             moduleLabel={t('synonym.title')}
-            getContext={() => {
-              const corpusInfo = corpusSelection
-                ? `${t('synonym.corpus.title')}: ${corpusSelection.dataSource === 'corpus' ? 'corpus' : 'library'}, ${corpusSelection.textIds === 'all' ? 'all' : corpusSelection.textIds.length} ${t('corpus.textsCount')}`
-                : t('synonym.corpus.title') + ': (none)'
-              const params = `searchQuery=${searchQuery}, minFreq=${minFreq}, maxResults=${maxResults}, lowercase=${lowercase}, posFilter=${posFilter}`
-              if (results.length === 0) return `${corpusInfo}\n${params}\n${t('aiAssistant.noAnalysisResult')}`
-              const taskHint = t('aiAssistant.synonymContextHint')
-              if (rightTab === 0) {
-                const slice = results.slice(0, 25)
-                const header = `序号\t${t('synonym.results.word')}\t${t('synonym.results.posTags')}\t${t('synonym.results.synonyms')}`
-                const lines = slice.map((r, i) =>
-                  `${i + 1}\t${r.word}\t${(r.pos_tags || []).join(',')}\t${(r.all_synonyms || []).slice(0, 8).join(', ')}`
-                ).join('\n')
-                return `${taskHint}\n\n${corpusInfo}\n${params}\n\n${t('synonym.results.title')} (rows 1-${slice.length}):\n${header}\n${lines}`
-              }
-              const top = results.slice(0, 30).map(r => `${r.word}: ${(r.all_synonyms || []).length} ${t('synonym.results.synonyms')}`).join('; ')
-              return `${taskHint}\n\n${corpusInfo}\n${params}\n${t('synonym.visualization.title')}: ${vizConfig.chartType}\n${top}`
-            }}
+            getContext={() =>
+              buildSynonymAIContext({
+                t,
+                corpusSelection,
+                posFilter,
+                searchQuery,
+                minFreq,
+                maxResults,
+                lowercase,
+                results,
+                totalWords,
+                uniqueWords,
+                rightTab,
+                tableFilter,
+                sortField: tableSortField,
+                sortDirection: tableSortDirection,
+                paginationConfig: { page: tablePage, rowsPerPage: tableRowsPerPage },
+                vizTab,
+                vizConfig
+              })
+            }
           />
         </Stack>
 
@@ -270,6 +283,21 @@ export default function SynonymAnalysis({ crossLinkParams }: SynonymAnalysisProp
                 selectedWords={selectedWords}
                 onSelectionChange={setSelectedWords}
                 isLoading={isLoading}
+                searchFilter={tableFilter}
+                sortField={tableSortField}
+                sortDirection={tableSortDirection}
+                page={tablePage}
+                rowsPerPage={tableRowsPerPage}
+                onSearchFilterChange={setTableFilter}
+                onSortChange={(field, direction) => {
+                  setTableSortField(field)
+                  setTableSortDirection(direction)
+                }}
+                onPageChange={setTablePage}
+                onRowsPerPageChange={(v) => {
+                  setTableRowsPerPage(v)
+                  setTablePage(0)
+                }}
                 corpusId={corpusSelection?.corpusId}
                 textIds={corpusSelection?.textIds}
                 selectionMode={corpusSelection?.selectionMode === 'keywords' ? 'tags' : (corpusSelection?.selectionMode ?? 'all')}
@@ -300,7 +328,12 @@ export default function SynonymAnalysis({ crossLinkParams }: SynonymAnalysisProp
             <VisualizationPanel
               data={results}
               config={vizConfig}
-              onConfigChange={setVizConfig}
+              onConfigChange={(next) => {
+                setVizConfig(next)
+                setVizTab(next.type)
+              }}
+              activeTab={vizTab}
+              onActiveTabChange={setVizTab}
               onWordClick={(word) => {
                 // Find all entries matching this word (may have multiple POS)
                 const matchingKeys = results

@@ -64,6 +64,9 @@ interface SentimentVisualizationPanelProps {
   emotionFilterPolarity: SentimentEmotionFilterPolarity
   emotionFilterDimension: SentimentEmotionFilterDimension
   searchTarget?: string
+  /** Optional controlled viz tab for AI context */
+  activeTab?: VizTab
+  onActiveTabChange?: (tab: VizTab) => void
 }
 
 export default function SentimentVisualizationPanel({
@@ -73,10 +76,17 @@ export default function SentimentVisualizationPanel({
   corpusSelection,
   emotionFilterPolarity,
   emotionFilterDimension,
-  searchTarget = 'word'
+  searchTarget = 'word',
+  activeTab: controlledActiveTab,
+  onActiveTabChange
 }: SentimentVisualizationPanelProps) {
   const { t } = useTranslation()
-  const [activeTab, setActiveTab] = useState<VizTab>('chart')
+  const [internalActiveTab, setInternalActiveTab] = useState<VizTab>('chart')
+  const activeTab = controlledActiveTab !== undefined ? controlledActiveTab : internalActiveTab
+  const setActiveTab = (v: VizTab) => {
+    if (onActiveTabChange) onActiveTabChange(v)
+    else setInternalActiveTab(v)
+  }
   const [chartMaxItems, setChartMaxItems] = useState(10)
   const [colorScheme, setColorScheme] = useState('blue')
   const [showPercentage, setShowPercentage] = useState(true)

@@ -41,6 +41,8 @@ import LSATab from './LSA'
 import NMFTab from './NMF'
 import AnalysisAIAssistant from '../../components/AnalysisAIAssistant'
 import type { CrossLinkParams } from '../../types/crossLink'
+import { buildTopicModelingAIContext } from './buildTopicModelingAIContext'
+import type { BERTopicAnalysisConfigSnapshot } from './AnalysisPanel'
 
 interface TopicModelingProps {
   crossLinkParams?: CrossLinkParams
@@ -50,6 +52,7 @@ export default function TopicModeling({ crossLinkParams }: TopicModelingProps = 
   const { t } = useTranslation()
   const { ollamaConnected, openaiApiEnabled, ollamaUrl, ollamaModel, openaiApiBaseUrl, openaiApiKey, openaiApiModel } = useSettingsStore()
   const tabsActionRef = useRef<TabsActions>(null)
+  const bertopicAnalysisConfigRef = useRef<BERTopicAnalysisConfigSnapshot | null>(null)
   
   // Main tab (BERTopic / LDA)
   const [mainTab, setMainTab] = useState(0)
@@ -158,6 +161,12 @@ export default function TopicModeling({ crossLinkParams }: TopicModelingProps = 
     }
   }
 
+  // Resolve text IDs for preview/embedding: when "all" is selected we have texts but textIds is []
+  const effectiveTextIds = useMemo(() => {
+    if (selectionMode === 'all' && texts.length > 0) return texts.map(t => t.id)
+    return textIds
+  }, [selectionMode, texts, textIds])
+
   // Handle analysis complete
   const handleAnalysisComplete = (result: TopicAnalysisResult) => {
     setAnalysisResult(result)
@@ -226,30 +235,34 @@ export default function TopicModeling({ crossLinkParams }: TopicModelingProps = 
                 <AnalysisAIAssistant
                   enabled={ollamaConnected || openaiApiEnabled}
                   moduleLabel={t('topicModeling.bertopic.title', 'BERTopic')}
-                  getContext={() => {
-                    const hint = t('aiAssistant.topicModelingBertopicContextHint')
-                    const corpusInfo = corpusId ? `CorpusId: ${corpusId}, ${textIds.length} texts, language: ${corpusLanguage}` : 'Corpus: (none)'
-                    const params = `preprocess: remove_stopwords=${preprocessConfig.remove_stopwords}, lemmatize=${preprocessConfig.lemmatize}, chunking=${chunkingConfig.strategy}`
-                    if (!analysisResult?.topics?.length) return `${hint}\n\n${corpusInfo}\n${params}\n${t('aiAssistant.noAnalysisResult')}`
-                    const toWords = (kw: any) => (typeof kw === 'string' ? kw : (kw?.word ?? '')).trim()
-                    const topicSummary = (analysisResult.topics || []).slice(0, 15).map((topic: TopicItem & { topic_id?: number; keywords?: any[] }, i: number) => {
-                      const arr = topic.words ?? topic.keywords ?? []
-                      const kws = arr.slice(0, 5).map(toWords).filter(Boolean)
-                      return `${i + 1}. ${topic.custom_label ?? topic.name ?? topic.topic_id ?? topic.id}: ${kws.join(', ')}`
-                    }).join('\n')
-                    let view = rightTab === 0 ? `Topics (${analysisResult.topics?.length ?? 0}):\n${topicSummary}` : `Visualization (${analysisResult.topics?.length ?? 0} topics). Topic list:\n${topicSummary}`
-                    if (rightTab === 1 && analysisResult.has_dynamic_topics && analysisResult.topics_over_time?.length) {
-                      const byTs = (analysisResult.topics_over_time as { timestamp: string; topic_name: string; words: string; frequency: number; topic?: number }[]).reduce<Record<string, string[]>>((acc, item) => {
-                        const ts = item.timestamp ?? ''
-                        if (!acc[ts]) acc[ts] = []
-                        acc[ts].push(`${item.topic_name} (${(item.words ?? '').slice(0, 80)}) freq=${item.frequency ?? 0}`)
-                        return acc
-                      }, {})
-                      const dynamicLines = Object.entries(byTs).map(([ts, lines]) => `${ts}:\n  ${lines.join('\n  ')}`).join('\n\n')
-                      view += `\n\n${t('aiAssistant.topicModelingDynamicTopicsSection')}\n${dynamicLines}`
-                    }
-                    return `${hint}\n\n${corpusInfo}\n${params}\n${view}`
-                  }}
+                  getContext={() => buildTopicModelingAIContext({
+                    t,
+                    method: 'bertopic',
+                    corpus: corpusId ? {
+                      corpusId,
+                      textIds: textIds as string[],
+                      textCount: textIds.length,
+                      selectionMode,
+                      selectedTags,
+                      libraryId,
+                      selectedEntryIds,
+                      corpusLanguage
+                    } : null,
+                    bertopicPreprocess: preprocessConfig,
+                    bertopicChunking: chunkingConfig,
+                    bertopicDynamic: dynamicTopicConfig,
+                    bertopicAnalysis: bertopicAnalysisConfigRef.current,
+                    topics: (analysisResult?.topics ?? []).map((topic: TopicItem & { topic_id?: number; keywords?: any[] }) => ({
+                      id: topic.id,
+                      topic_id: (topic as any).topic_id ?? topic.id,
+                      name: topic.name,
+                      custom_label: topic.custom_label,
+                      words: topic.words
+                    })),
+                    topicsOverTime: analysisResult?.topics_over_time,
+                    hasDynamicTopics: analysisResult?.has_dynamic_topics,
+                    rightTab
+                  })}
                 />
               </Stack>
 
@@ -295,7 +308,7 @@ export default function TopicModeling({ crossLinkParams }: TopicModelingProps = 
               {/* 2. Preprocess Panel */}
               <PreprocessPanel
                 corpusId={corpusId}
-                textIds={textIds}
+                textIds={effectiveTextIds}
                 config={preprocessConfig}
                 onConfigChange={setPreprocessConfig}
                 chunkingConfig={chunkingConfig}
@@ -306,7 +319,7 @@ export default function TopicModeling({ crossLinkParams }: TopicModelingProps = 
               {/* 3. Embedding Panel */}
               <EmbeddingPanel
                 corpusId={corpusId}
-                textIds={textIds}
+                textIds={effectiveTextIds}
                 preprocessConfig={preprocessConfig}
                 chunkingConfig={chunkingConfig}
                 selectedEmbedding={selectedEmbedding}
@@ -336,6 +349,7 @@ export default function TopicModeling({ crossLinkParams }: TopicModelingProps = 
                 resultId={analysisResult?.result_id}
                 outlierCount={analysisResult?.stats?.outlier_count ?? 0}
                 libraryId={libraryId}
+                onAnalysisConfigSnapshot={(snapshot) => { bertopicAnalysisConfigRef.current = snapshot }}
               />
             </Box>
 

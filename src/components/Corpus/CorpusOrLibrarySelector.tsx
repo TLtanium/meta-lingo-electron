@@ -69,6 +69,8 @@ interface CorpusOrLibrarySelectorProps {
   compact?: boolean
   /** When set (e.g. from crossLinkParams), sync selector to this selection so corpus/library choice is visible */
   externalSelection?: CorpusOrLibrarySelection | null
+  /** When set (e.g. 10000), do not include allTexts in selection when text count exceeds this (avoids huge arrays for keyness reference corpus) */
+  capAllTextsAt?: number
 }
 
 const PAGE_SIZE_ENTRIES = 500
@@ -77,7 +79,8 @@ export default function CorpusOrLibrarySelector({
   onSelectionChange,
   sectionTitle,
   compact = false,
-  externalSelection = null
+  externalSelection = null,
+  capAllTextsAt
 }: CorpusOrLibrarySelectorProps) {
   const { t } = useTranslation()
 
@@ -328,7 +331,7 @@ export default function CorpusOrLibrarySelector({
     if (!selectedCorpus) return 'all'
     switch (corpusSelectionMode) {
       case 'all':
-        return texts.map(t => t.id)
+        return 'all'
       case 'tags':
         return filteredTexts.map(t => t.id)
       case 'selected':
@@ -336,13 +339,13 @@ export default function CorpusOrLibrarySelector({
       default:
         return []
     }
-  }, [selectedCorpus, corpusSelectionMode, texts, filteredTexts, selectedTextIds])
+  }, [selectedCorpus, corpusSelectionMode, filteredTexts, selectedTextIds])
 
   const libraryTextIds = useMemo((): string[] | 'all' => {
     if (!selectedLibrary?.corpus_id) return 'all'
     switch (librarySelectionMode) {
       case 'all':
-        return entriesWithTextId.map(e => e.text_id!).filter(Boolean)
+        return 'all'
       case 'keywords':
         return filteredEntries.map(e => e.text_id!).filter(Boolean)
       case 'selected':
@@ -370,7 +373,7 @@ export default function CorpusOrLibrarySelector({
           dataSource: 'corpus',
           selectionMode: corpusSelectionMode,
           selectedTags: corpusSelectionMode === 'tags' ? selectedTags : undefined,
-          allTexts: texts
+          ...(capAllTextsAt == null || texts.length <= capAllTextsAt ? { allTexts: texts } : {})
         }
         const idsKey = ids === 'all' ? `all:${texts.length}` : (ids as string[]).slice(0, 10).join(',') + `:${(ids as string[]).length}`
         key = `corpus:${selectedCorpus.id}:${corpusSelectionMode}:${idsKey}`
@@ -419,7 +422,8 @@ export default function CorpusOrLibrarySelector({
       lastEmittedRef.current = key
       onSelectionChange(next)
     }
-  }, [dataSource, selectedCorpus, selectedLibrary, corpusTextIds, libraryTextIds, corpusSelectionMode, librarySelectionMode, selectedTags, selectedKeywordFilters, selectedTextIds, selectedEntryIds, texts, texts.length, entriesWithTextId.length, filteredEntries])
+    // Use stable deps only: avoid texts / filteredEntries (new ref every render) to prevent effect loop and stack overflow
+  }, [dataSource, selectedCorpus, selectedLibrary, corpusTextIds, libraryTextIds, corpusSelectionMode, librarySelectionMode, selectedTags, selectedKeywordFilters, selectedTextIds, selectedEntryIds, texts.length, entriesWithTextId.length])
 
   const handleCorpusChange = (e: SelectChangeEvent<string>) => {
     const c = corpora.find(x => x.id === e.target.value)

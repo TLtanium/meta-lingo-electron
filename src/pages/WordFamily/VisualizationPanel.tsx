@@ -39,6 +39,9 @@ interface VisualizationPanelProps {
   config: SynonymVizConfig
   onConfigChange: (config: SynonymVizConfig) => void
   onWordClick: (word: string) => void
+  /** Optional controlled tab (network | tree) for AI context sync */
+  activeTab?: ChartType
+  onActiveTabChange?: (tab: ChartType) => void
 }
 
 type ChartType = 'network' | 'tree'
@@ -55,12 +58,16 @@ export default function VisualizationPanel({
   data,
   config,
   onConfigChange,
-  onWordClick
+  onWordClick,
+  activeTab: controlledActiveTab,
+  onActiveTabChange
 }: VisualizationPanelProps) {
   const { t } = useTranslation()
   const theme = useTheme()
   const isDarkMode = theme.palette.mode === 'dark'
-  const [activeTab, setActiveTab] = useState<ChartType>(config.type)
+  const [internalActiveTab, setInternalActiveTab] = useState<ChartType>(config.type)
+  const activeTab = controlledActiveTab ?? internalActiveTab
+  const setActiveTab = onActiveTabChange ?? setInternalActiveTab
   const chartContainerRef = useRef<HTMLDivElement>(null)
   // Separate SVG refs for each chart type
   const networkSvgRef = useRef<SVGSVGElement | null>(null)
@@ -87,7 +94,6 @@ export default function VisualizationPanel({
     const newMaxNodesByType = {
       ...(config.maxNodesByType || {}),
       [activeTab]: currentMaxNodes,
-      // Ensure new chart type has its own value
       [newValue]: newChartMaxNodes
     }
     
@@ -95,7 +101,7 @@ export default function VisualizationPanel({
     onConfigChange({ 
       ...config, 
       type: newValue,
-      maxNodes: newChartMaxNodes,  // Update main maxNodes for backward compatibility
+      maxNodes: newChartMaxNodes,
       maxNodesByType: newMaxNodesByType
     })
   }

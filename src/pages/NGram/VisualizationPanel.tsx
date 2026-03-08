@@ -43,6 +43,8 @@ interface VisualizationPanelProps {
   config: NGramVisualizationConfig
   onConfigChange: (config: NGramVisualizationConfig) => void
   onNgramClick?: (ngram: string) => void
+  activeTab?: NGramChartType
+  onActiveTabChange?: (tab: NGramChartType) => void
 }
 
 const COLOR_SCHEMES = [
@@ -58,12 +60,16 @@ export default function VisualizationPanel({
   data,
   config,
   onConfigChange,
-  onNgramClick
+  onNgramClick,
+  activeTab: controlledActiveTab,
+  onActiveTabChange
 }: VisualizationPanelProps) {
   const { t } = useTranslation()
   const theme = useTheme()
   const isDarkMode = theme.palette.mode === 'dark'
-  const [activeTab, setActiveTab] = useState<NGramChartType>(config.chartType)
+  const [internalActiveTab, setInternalActiveTab] = useState<NGramChartType>(config.chartType)
+  const activeTab = controlledActiveTab ?? internalActiveTab
+  const setActiveTab = onActiveTabChange ?? setInternalActiveTab
   const chartContainerRef = useRef<HTMLDivElement>(null)
 
   // Get maxItems for current chart type

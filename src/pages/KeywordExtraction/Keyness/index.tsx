@@ -56,6 +56,7 @@ import POSFilterPanel from '../POSFilterPanel'
 import StatisticsConfigPanel from './StatisticsConfigPanel'
 import ResultsTable from './ResultsTable'
 import VisualizationPanel from './VisualizationPanel'
+import { buildKeynessAIContext } from './buildAIContext'
 import AnalysisAIAssistant from '../../../components/AnalysisAIAssistant'
 import { useSettingsStore } from '../../../stores/settingsStore'
 import type { CrossLinkParams } from '../../../types/crossLink'
@@ -109,6 +110,15 @@ export default function KeynessTab({ crossLinkParams }: KeynessTabProps = {}) {
 
   // Right panel tabs
   const [rightTab, setRightTab] = useState(0)
+
+  // Lifted table state (for AI context)
+  const [tableFilter, setTableFilter] = useState('')
+  const [tableOrderBy, setTableOrderBy] = useState<'rank' | 'keyword' | 'study_freq' | 'ref_freq' | 'score' | 'effect_size'>('rank')
+  const [tableOrder, setTableOrder] = useState<'asc' | 'desc'>('asc')
+  const [tablePage, setTablePage] = useState(0)
+  const [tableRowsPerPage, setTableRowsPerPage] = useState(25)
+  const [vizTab, setVizTab] = useState<'bar' | 'pie' | 'wordcloud'>('bar')
+  const [vizPositiveOnly, setVizPositiveOnly] = useState(true)
 
   // Sync study corpus/library selection from cross-link so selector shows same source
   useEffect(() => {
@@ -336,23 +346,34 @@ export default function KeynessTab({ crossLinkParams }: KeynessTabProps = {}) {
           <AnalysisAIAssistant
             enabled={ollamaConnected || openaiApiEnabled}
             moduleLabel={t('keyword.keyness.title', 'Keyness Comparison')}
-            getContext={() => {
-              const hint = t('aiAssistant.keynessContextHint')
-              const study = studySelection ? `${studySelection.dataSource === 'corpus' ? 'corpus' : 'library'}, ${studySelection.textIds === 'all' ? 'all' : studySelection.textIds.length} texts` : '(none)'
-              const ref = useCorpusResource 
-                ? (selectedResource ? `resource: ${selectedResource.name}` : '(none)')
-                : (refSelection ? `${refSelection.dataSource === 'corpus' ? 'corpus' : 'library'}, ${refSelection.textIds === 'all' ? 'all' : refSelection.textIds.length} texts` : '(none)')
-              const params = `statistic=${keynessConfig.statistic}, minThreshold=${keynessConfig.min_threshold}`
-              if (results.length === 0) return `${hint}\n\nStudy: ${study}\nReference: ${ref}\n${params}\n${t('aiAssistant.noAnalysisResult')}`
-              const slice = results.slice(0, 25)
-              const labelCol = comparisonMode === 'domain' ? t('keyword.results.semanticDomain', 'Semantic Domain') : t('keyword.keyword', 'Word')
-              const header = `序号\t${labelCol}\t${t('keyword.results.score', 'Score')}`
-              const label = (r: KeynessKeyword) => (comparisonMode === 'domain' && r.domain_name) ? r.domain_name : r.keyword
-              const lines = slice.map((r, i) => `${i + 1}\t${label(r)}\t${r.score ?? ''}`).join('\n')
-              const vizTop = results.slice(0, 25).map((r, i) => `${i + 1}\t${label(r)}\t${r.score ?? ''}`).join('\n')
-              const view = rightTab === 0 ? `Results (rows 1-${slice.length}):\n${header}\n${lines}` : `Visualization. Top 25:\n${header}\n${vizTop}`
-              return `${hint}\n\nStudy: ${study}\nReference: ${ref}\n${params}\n${view}`
-            }}
+            getContext={() =>
+              buildKeynessAIContext({
+                t,
+                studySelection,
+                refSelection,
+                useCorpusResource,
+                selectedResource,
+                posFilter,
+                stopwordsConfig,
+                comparisonMode,
+                statistic,
+                keynessConfig,
+                useThreshold,
+                thresholdConfig,
+                lowercase,
+                results,
+                totalKeywords,
+                studySize,
+                refSize,
+                rightTab,
+                tableFilter,
+                sortColumn: tableOrderBy,
+                sortDirection: tableOrder,
+                paginationConfig: { page: tablePage, rowsPerPage: tableRowsPerPage },
+                vizTab,
+                positiveOnly: vizPositiveOnly
+              })
+            }
           />
         </Stack>
 
@@ -426,6 +447,7 @@ export default function KeynessTab({ crossLinkParams }: KeynessTabProps = {}) {
             <CorpusOrLibrarySelector
               sectionTitle={t('keyword.keyness.refCorpus', 'Reference Corpus')}
               onSelectionChange={setRefSelection}
+              capAllTextsAt={10000}
             />
           )}
         </Paper>
@@ -647,6 +669,21 @@ export default function KeynessTab({ crossLinkParams }: KeynessTabProps = {}) {
                 statistic={statistic}
                 comparisonMode={comparisonMode}
                 isLoading={isLoading}
+                searchQuery={tableFilter}
+                orderBy={tableOrderBy}
+                order={tableOrder}
+                page={tablePage}
+                rowsPerPage={tableRowsPerPage}
+                onSearchQueryChange={setTableFilter}
+                onSortChange={(by, dir) => {
+                  setTableOrderBy(by)
+                  setTableOrder(dir)
+                }}
+                onPageChange={setTablePage}
+                onRowsPerPageChange={(v) => {
+                  setTableRowsPerPage(v)
+                  setTablePage(0)
+                }}
                 corpusId={studySelection?.corpusId}
                 textIds={studySelection?.textIds}
                 selectionMode={studySelection?.selectionMode === 'keywords' ? 'tags' : (studySelection?.selectionMode ?? 'all')}
@@ -677,6 +714,10 @@ export default function KeynessTab({ crossLinkParams }: KeynessTabProps = {}) {
             <VisualizationPanel
               data={results}
               comparisonMode={comparisonMode}
+              activeTab={vizTab}
+              onActiveTabChange={setVizTab}
+              positiveOnly={vizPositiveOnly}
+              onPositiveOnlyChange={setVizPositiveOnly}
               onKeywordClick={studySelection ? (keyword) => {
                 openTab({
                   type: 'collocation',

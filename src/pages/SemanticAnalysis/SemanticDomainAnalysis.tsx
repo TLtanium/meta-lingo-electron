@@ -33,7 +33,6 @@ import type {
   SearchConfig,
   SemanticAnalysisFilters,
   SemanticDomainResult,
-  SemanticWordResult,
   SemanticAnalysisResponse,
   SortConfig,
   VisualizationConfig,
@@ -47,6 +46,7 @@ import VisualizationPanel from './VisualizationPanel'
 import AnalysisAIAssistant from '../../components/AnalysisAIAssistant'
 import CorpusOrLibrarySelector, { type CorpusOrLibrarySelection } from '../../components/Corpus/CorpusOrLibrarySelector'
 import { useSettingsStore } from '../../stores/settingsStore'
+import { buildSemanticDomainAIContext } from './buildSemanticDomainAIContext'
 
 interface SemanticDomainAnalysisProps {
   crossLinkParams?: CrossLinkParams
@@ -90,6 +90,7 @@ export default function SemanticDomainAnalysis({ crossLinkParams }: SemanticDoma
   })
   const [page, setPage] = useState(0)
   const [rowsPerPage, setRowsPerPage] = useState(25)
+  const [tableFilter, setTableFilter] = useState('')
 
   // Visualization state
   const [vizConfig, setVizConfig] = useState<VisualizationConfig>({
@@ -262,19 +263,23 @@ export default function SemanticDomainAnalysis({ crossLinkParams }: SemanticDoma
           <AnalysisAIAssistant
             enabled={ollamaConnected || openaiApiEnabled}
             moduleLabel={t('semantic.title')}
-            getContext={() => {
-              const hint = t('aiAssistant.semanticDomainContextHint')
-              const corpusInfo = corpusSelection ? `Corpus: ${corpusSelection.dataSource === 'corpus' ? 'corpus' : 'library'}, ${corpusSelection.textIds === 'all' ? 'all' : corpusSelection.textIds.length} texts` : 'Corpus: (none)'
-              const params = `searchType=${searchConfig.searchType}, searchContent=${searchConfig.searchContent}, minFreq=${minFreq}, maxFreq=${maxFreq ?? 'null'}`
-              if (!results || !results.results || results.results.length === 0) return `${hint}\n\n${corpusInfo}\n${params}\n${t('aiAssistant.noAnalysisResult')}`
-              const slice = results.results.slice(0, 25)
-              const lines = slice.map((r: SemanticWordResult, i: number) => `${i + 1}\t${r.word}\t${r.frequency}\t${r.domain_name ?? r.domain ?? ''}`).join('\n')
-              const header = '序号\t词\t频次\t语义域'
-              const vizSlice = results.results.slice(0, 20)
-              const vizLines = vizSlice.map((r: SemanticWordResult, i: number) => `${i + 1}\t${r.word}\t${r.frequency}\t${r.domain_name ?? r.domain ?? ''}`).join('\n')
-              const view = rightTab === 0 ? `Results (rows 1-${slice.length}):\n${header}\n${lines}` : `Visualization (semantic domains). Top 20:\n${header}\n${vizLines}`
-              return `${hint}\n\n${corpusInfo}\n${params}\n${view}`
-            }}
+            getContext={() => buildSemanticDomainAIContext({
+              t,
+              corpusSelection,
+              posFilter,
+              searchConfig,
+              minFreq,
+              maxFreq,
+              lowercase,
+              resultMode,
+              results,
+              sortConfig,
+              tableFilter,
+              page,
+              rowsPerPage,
+              rightTab,
+              vizConfig
+            })}
           />
         </Stack>
 
@@ -397,6 +402,8 @@ export default function SemanticDomainAnalysis({ crossLinkParams }: SemanticDoma
                 rowsPerPage={rowsPerPage}
                 onPageChange={setPage}
                 onRowsPerPageChange={setRowsPerPage}
+                tableFilter={tableFilter}
+                onTableFilterChange={setTableFilter}
                 corpusId={corpusSelection?.corpusId || ''}
                 textIds={corpusSelection?.textIds}
                 lowercase={lowercase}

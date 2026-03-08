@@ -33,11 +33,23 @@ import type { SingleDocKeyword, SingleDocAlgorithm } from '../../../types/keywor
 import type { SelectionMode } from '../../../types/crossLink'
 import { WordActionMenu } from '../../../components/common'
 
+type SortColumn = 'rank' | 'keyword' | 'score' | 'frequency'
+type SortDirection = 'asc' | 'desc'
+
 interface ResultsTableProps {
   results: SingleDocKeyword[]
   totalKeywords: number
   algorithm: SingleDocAlgorithm
   isLoading?: boolean
+  searchQuery?: string
+  orderBy?: SortColumn
+  order?: SortDirection
+  page?: number
+  rowsPerPage?: number
+  onSearchQueryChange?: (value: string) => void
+  onSortChange?: (orderBy: SortColumn, order: SortDirection) => void
+  onPageChange?: (page: number) => void
+  onRowsPerPageChange?: (rowsPerPage: number) => void
   // Cross-link props
   corpusId?: string
   textIds?: string[] | 'all'
@@ -47,14 +59,20 @@ interface ResultsTableProps {
   selectedEntryIds?: string[]
 }
 
-type SortColumn = 'rank' | 'keyword' | 'score' | 'frequency'
-type SortDirection = 'asc' | 'desc'
-
 export default function ResultsTable({
   results,
   totalKeywords,
   algorithm,
   isLoading = false,
+  searchQuery: controlledSearchQuery,
+  orderBy: controlledOrderBy,
+  order: controlledOrder,
+  page: controlledPage,
+  rowsPerPage: controlledRowsPerPage,
+  onSearchQueryChange,
+  onSortChange,
+  onPageChange,
+  onRowsPerPageChange,
   corpusId,
   textIds,
   selectionMode = 'all',
@@ -64,18 +82,33 @@ export default function ResultsTable({
 }: ResultsTableProps) {
   const { t } = useTranslation()
   
-  const [searchQuery, setSearchQuery] = useState('')
-  const [page, setPage] = useState(0)
-  const [rowsPerPage, setRowsPerPage] = useState(25)
-  const [orderBy, setOrderBy] = useState<SortColumn>('rank')
-  const [order, setOrder] = useState<SortDirection>('asc')
+  const [internalSearchQuery, setInternalSearchQuery] = useState('')
+  const [internalPage, setInternalPage] = useState(0)
+  const [internalRowsPerPage, setInternalRowsPerPage] = useState(25)
+  const [internalOrderBy, setInternalOrderBy] = useState<SortColumn>('rank')
+  const [internalOrder, setInternalOrder] = useState<SortDirection>('asc')
   const [selectedKeywords, setSelectedKeywords] = useState<string[]>([])
+
+  const isControlled = controlledSearchQuery !== undefined
+  const searchQuery = isControlled ? controlledSearchQuery : internalSearchQuery
+  const setSearchQuery = onSearchQueryChange ?? setInternalSearchQuery
+  const orderBy = (isControlled ? controlledOrderBy : internalOrderBy) ?? 'rank'
+  const order = (isControlled ? controlledOrder : internalOrder) ?? 'asc'
+  const page = (isControlled ? controlledPage : internalPage) ?? 0
+  const rowsPerPage = (isControlled ? controlledRowsPerPage : internalRowsPerPage) ?? 25
+  const setPage = onPageChange ?? setInternalPage
+  const setRowsPerPage = onRowsPerPageChange ?? setInternalRowsPerPage
 
   // Handle sort
   const handleSort = (property: SortColumn) => {
     const isAsc = orderBy === property && order === 'asc'
-    setOrder(isAsc ? 'desc' : 'asc')
-    setOrderBy(property)
+    const nextOrder: SortDirection = isAsc ? 'desc' : 'asc'
+    if (onSortChange) {
+      onSortChange(property, nextOrder)
+    } else {
+      setInternalOrderBy(property)
+      setInternalOrder(nextOrder)
+    }
   }
 
   // Filter and sort results
@@ -223,7 +256,8 @@ export default function ResultsTable({
           value={searchQuery}
           onChange={(e) => {
             setSearchQuery(e.target.value)
-            setPage(0)
+            if (onPageChange) onPageChange(0)
+            else setInternalPage(0)
           }}
           sx={{ width: 200 }}
           InputProps={{
@@ -403,10 +437,19 @@ export default function ResultsTable({
         count={filteredResults.length}
         rowsPerPage={rowsPerPage}
         page={page}
-        onPageChange={(_, newPage) => setPage(newPage)}
+        onPageChange={(_, newPage) => {
+          if (onPageChange) onPageChange(newPage)
+          else setInternalPage(newPage)
+        }}
         onRowsPerPageChange={(e) => {
-          setRowsPerPage(parseInt(e.target.value, 10))
-          setPage(0)
+          const val = parseInt(e.target.value, 10)
+          if (onRowsPerPageChange) {
+            onRowsPerPageChange(val)
+            onPageChange?.(0)
+          } else {
+            setInternalRowsPerPage(val)
+            setInternalPage(0)
+          }
         }}
       />
     </Box>

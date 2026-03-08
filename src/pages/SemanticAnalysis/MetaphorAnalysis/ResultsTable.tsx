@@ -45,7 +45,15 @@ interface ResultsTableProps {
   selectedWords: string[]
   onSelectionChange: (words: string[]) => void
   isLoading: boolean
-  // Cross-link props
+  sortField?: SortField
+  sortDirection?: SortDirection
+  onSortChange?: (field: SortField, direction: SortDirection) => void
+  page?: number
+  rowsPerPage?: number
+  onPageChange?: (page: number) => void
+  onRowsPerPageChange?: (rowsPerPage: number) => void
+  tableFilter?: string
+  onTableFilterChange?: (value: string) => void
   corpusId?: string
   textIds?: string[] | 'all'
   selectionMode?: SelectionMode
@@ -63,6 +71,15 @@ export default function ResultsTable({
   selectedWords,
   onSelectionChange,
   isLoading,
+  sortField: sortFieldProp,
+  sortDirection: sortDirectionProp,
+  onSortChange: onSortChangeProp,
+  page: pageProp,
+  rowsPerPage: rowsPerPageProp,
+  onPageChange: onPageChangeProp,
+  onRowsPerPageChange: onRowsPerPageChangeProp,
+  tableFilter: tableFilterProp,
+  onTableFilterChange: onTableFilterChangeProp,
   corpusId,
   textIds,
   selectionMode = 'all',
@@ -73,16 +90,41 @@ export default function ResultsTable({
   const { t, i18n } = useTranslation()
   const isZh = i18n.language === 'zh'
 
-  // Sort state
-  const [sortField, setSortField] = useState<SortField>('frequency')
-  const [sortDirection, setSortDirection] = useState<SortDirection>('desc')
+  // Internal state when not controlled
+  const [sortFieldInternal, setSortFieldInternal] = useState<SortField>('frequency')
+  const [sortDirectionInternal, setSortDirectionInternal] = useState<SortDirection>('desc')
+  const [pageInternal, setPageInternal] = useState(0)
+  const [rowsPerPageInternal, setRowsPerPageInternal] = useState(50)
+  const [tableFilterInternal, setTableFilterInternal] = useState('')
 
-  // Pagination state
-  const [page, setPage] = useState(0)
-  const [rowsPerPage, setRowsPerPage] = useState(50)
+  const sortField = sortFieldProp ?? sortFieldInternal
+  const sortDirection = sortDirectionProp ?? sortDirectionInternal
+  const page = pageProp ?? pageInternal
+  const rowsPerPage = rowsPerPageProp ?? rowsPerPageInternal
+  const tableFilter = tableFilterProp ?? tableFilterInternal
 
-  // Table filter state
-  const [tableFilter, setTableFilter] = useState('')
+  const setPage = (p: number) => {
+    if (onPageChangeProp) onPageChangeProp(p)
+    else setPageInternal(p)
+  }
+  const setRowsPerPage = (r: number) => {
+    if (onRowsPerPageChangeProp) {
+      onRowsPerPageChangeProp(r)
+      if (onPageChangeProp) onPageChangeProp(0)
+    } else {
+      setRowsPerPageInternal(r)
+      setPageInternal(0)
+    }
+  }
+  const setTableFilter = (v: string) => {
+    if (onTableFilterChangeProp) {
+      onTableFilterChangeProp(v)
+      if (onPageChangeProp) onPageChangeProp(0)
+    } else {
+      setTableFilterInternal(v)
+      setPageInternal(0)
+    }
+  }
 
   // Filter results by table search
   const filteredResults = useMemo(() => {
@@ -141,11 +183,18 @@ export default function ResultsTable({
   }, [sortedResults, page, rowsPerPage])
 
   const handleSort = (field: SortField) => {
-    if (sortField === field) {
-      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')
+    if (field === sortField) {
+      const nextDir = sortDirection === 'asc' ? 'desc' : 'asc'
+      if (onSortChangeProp) onSortChangeProp(field, nextDir)
+      else {
+        setSortDirectionInternal(nextDir)
+      }
     } else {
-      setSortField(field)
-      setSortDirection('desc')
+      if (onSortChangeProp) onSortChangeProp(field, 'desc')
+      else {
+        setSortFieldInternal(field)
+        setSortDirectionInternal('desc')
+      }
     }
   }
 

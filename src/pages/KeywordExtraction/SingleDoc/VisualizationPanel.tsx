@@ -37,6 +37,8 @@ import WordCloud from '../components/WordCloud'
 interface VisualizationPanelProps {
   data: SingleDocKeyword[]
   onKeywordClick?: (keyword: string) => void
+  activeTab?: KeywordChartType
+  onActiveTabChange?: (tab: KeywordChartType) => void
 }
 
 const COLOR_SCHEMES = [
@@ -53,10 +55,14 @@ const WORDCLOUD_COLORMAPS = [
 
 export default function VisualizationPanel({
   data,
-  onKeywordClick
+  onKeywordClick,
+  activeTab: controlledActiveTab,
+  onActiveTabChange
 }: VisualizationPanelProps) {
   const { t } = useTranslation()
-  const [activeTab, setActiveTab] = useState<KeywordChartType>('bar')
+  const [internalActiveTab, setInternalActiveTab] = useState<KeywordChartType>('bar')
+  const activeTab = controlledActiveTab ?? internalActiveTab
+  const setActiveTab = onActiveTabChange ?? setInternalActiveTab
   const chartContainerRef = useRef<HTMLDivElement>(null)
 
   // Chart configs

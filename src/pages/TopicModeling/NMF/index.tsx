@@ -40,6 +40,7 @@ import NMFResultsPanel from './NMFResultsPanel'
 import NMFVisualizationPanel from './NMFVisualizationPanel'
 import AnalysisAIAssistant from '../../../components/AnalysisAIAssistant'
 import type { CrossLinkParams } from '../../../types/crossLink'
+import { buildTopicModelingAIContext } from '../buildTopicModelingAIContext'
 
 interface NMFTabProps {
   crossLinkParams?: CrossLinkParams
@@ -206,20 +207,30 @@ export default function NMFTab({ crossLinkParams }: NMFTabProps = {}) {
           <AnalysisAIAssistant
             enabled={ollamaConnected || openaiApiEnabled}
             moduleLabel={t('topicModeling.nmf.title', 'NMF')}
-            getContext={() => {
-              const hint = t('aiAssistant.topicModelingNmfContextHint')
-              const corpusInfo = corpusId ? `CorpusId: ${corpusId}, ${textIds.length} texts, language: ${corpusLanguage}` : 'Corpus: (none)'
-              const params = `num_topics=${nmfConfig.n_components}, max_iter=${nmfConfig.max_iter}`
-              const topics = analysisResult?.topics ?? []
-              if (!topics.length) return `${hint}\n\n${corpusInfo}\n${params}\n${t('aiAssistant.noAnalysisResult')}`
-              const toWords = (kw: any) => (typeof kw === 'string' ? kw : (kw?.word ?? '')).trim()
-              const topicSummary = topics.slice(0, 15).map((topic: any, i: number) => {
-                const kws = (topic.keywords || []).slice(0, 5).map(toWords).filter(Boolean)
-                return `${i + 1}. ${topic.custom_label ?? topic.name ?? topic.topic_id}: ${kws.join(', ')}`
-              }).join('\n')
-              const viewLabel = rightTab === 1 ? `${t('topicModeling.visualization.title')}. ` : ''
-              return `${hint}\n\n${corpusInfo}\n${params}\n${viewLabel}Topics (${topics.length}):\n${topicSummary}`
-            }}
+            getContext={() => buildTopicModelingAIContext({
+              t,
+              method: 'nmf',
+              corpus: corpusSelection ? {
+                corpusId: corpusSelection.corpusId,
+                textIds: corpusSelection.textIds,
+                textCount: Array.isArray(textIds) ? textIds.length : 0,
+                selectionMode,
+                selectedTags,
+                libraryId,
+                selectedEntryIds: corpusSelection.dataSource === 'library' && corpusSelection.selectionMode === 'selected' ? corpusSelection.selectedEntryIds : undefined,
+                corpusLanguage
+              } : null,
+              nmfPreprocess: preprocessConfig,
+              nmfConfig: nmfConfig,
+              nmfDynamic: dynamicConfig,
+              topics: (analysisResult?.topics ?? []).map((topic: any) => ({
+                topic_id: topic.topic_id,
+                name: topic.name,
+                custom_label: topic.custom_label,
+                keywords: topic.keywords
+              })),
+              rightTab
+            })}
           />
         </Stack>
 

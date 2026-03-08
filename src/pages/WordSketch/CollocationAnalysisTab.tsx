@@ -60,6 +60,7 @@ import CollocationVisualizationPanel from './components/CollocationVisualization
 import AnalysisAIAssistant from '../../components/AnalysisAIAssistant'
 import CorpusOrLibrarySelector, { type CorpusOrLibrarySelection } from '../../components/Corpus/CorpusOrLibrarySelector'
 import { useSettingsStore } from '../../stores/settingsStore'
+import { buildCollocationAnalysisAIContext } from './buildCollocationAnalysisAIContext'
 
 interface CollocationAnalysisTabProps {
   crossLinkParams?: CrossLinkParams
@@ -102,6 +103,7 @@ export default function CollocationAnalysisTab({ crossLinkParams }: CollocationA
   // Table state
   const [sortConfig, setSortConfig] = useState<CollocationTableSortConfig>(DEFAULT_COLLOCATION_TABLE_SORT)
   const [paginationConfig, setPaginationConfig] = useState<CollocationTablePaginationConfig>(DEFAULT_COLLOCATION_TABLE_PAGINATION)
+  const [tableFilter, setTableFilter] = useState('')
   const [selectedWords, setSelectedWords] = useState<string[]>([])
 
   // Visualization
@@ -289,20 +291,26 @@ export default function CollocationAnalysisTab({ crossLinkParams }: CollocationA
           <AnalysisAIAssistant
             enabled={ollamaConnected || openaiApiEnabled}
             moduleLabel={t('wordsketch.collocationAnalysisTab')}
-            getContext={() => {
-              const hint = t('aiAssistant.collocationAnalysisContextHint')
-              const corpusInfo = corpusSelection ? `Corpus: ${corpusSelection.dataSource === 'corpus' ? 'corpus' : 'library'}, ${corpusSelection.textIds === 'all' ? 'all' : corpusSelection.textIds.length} texts` : 'Corpus: (none)'
-              const params = `nodeWord=${nodeWord}, span=${span}, minFreq=${minFreq}, matchMode=${matchMode}`
-              if (results.length === 0) return `${hint}\n\n${corpusInfo}\n${params}\n${t('aiAssistant.noAnalysisResult')}`
-              const slice = results.slice(0, 25)
-              const scoreVal = (r: CollocationAnalysisResult) => r.logdice ?? r.mi ?? r.ll ?? r.deltap1 ?? r.deltap2 ?? (r as any).stat_value ?? ''
-              const header = '序号\t搭配词\t共现频次\t关联度'
-              const lines = slice.map((r, i) => `${i + 1}\t${(r as CollocationAnalysisResult).collocate}\t${(r as CollocationAnalysisResult).collocation_freq}\t${scoreVal(r as CollocationAnalysisResult)}`).join('\n')
-              const vizSlice = results.slice(0, 20)
-              const vizLines = vizSlice.map((r, i) => `${i + 1}\t${(r as CollocationAnalysisResult).collocate}\t${(r as CollocationAnalysisResult).collocation_freq}\t${scoreVal(r as CollocationAnalysisResult)}`).join('\n')
-              const view = rightTab === 0 ? `Results (rows 1-${slice.length}):\n${header}\n${lines}` : `Visualization (network/bar). Top 20:\n${header}\n${vizLines}`
-              return `${hint}\n\n${corpusInfo}\n${params}\n${view}`
-            }}
+            getContext={() => buildCollocationAnalysisAIContext({
+              t,
+              corpusSelection,
+              posFilter,
+              matchMode,
+              nodeWord,
+              span,
+              minFreq,
+              maxFreq,
+              lowercase,
+              removeStopwords,
+              excludeWords: getExcludeWords(),
+              results,
+              statConfigs,
+              sortConfig,
+              tableFilter,
+              paginationConfig,
+              rightTab,
+              vizConfig
+            })}
           />
         </Stack>
 
@@ -493,6 +501,8 @@ export default function CollocationAnalysisTab({ crossLinkParams }: CollocationA
                 onSortChange={setSortConfig}
                 onPaginationChange={setPaginationConfig}
                 onSelectionChange={setSelectedWords}
+                tableFilter={tableFilter}
+                onTableFilterChange={setTableFilter}
                 onOpenStatisticsDialog={() => setStatsDialogOpen(true)}
                 isLoading={isLoading}
                 corpusId={corpusSelection?.corpusId}

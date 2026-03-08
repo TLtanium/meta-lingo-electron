@@ -53,6 +53,10 @@ interface CollocationResultsTableProps {
   onSortDescendingChange: (descending: boolean) => void
   onResort: () => void
   onSortChangeAndResort?: (sortBy: SortMode, sortLevels: string[], sortDescending: boolean) => void
+  page?: number
+  rowsPerPage?: number
+  onPageChange?: (page: number) => void
+  onRowsPerPageChange?: (rowsPerPage: number) => void
   /** Words to highlight in context (e.g., collocate words from Word Sketch) */
   highlightWords?: string[]
   /** Show metaphor highlighting */
@@ -341,6 +345,10 @@ export default function CollocationResultsTable({
   onSortDescendingChange,
   onResort,
   onSortChangeAndResort,
+  page: controlledPage,
+  rowsPerPage: controlledRowsPerPage,
+  onPageChange,
+  onRowsPerPageChange,
   highlightWords = [],
   showMetaphorHighlight = false,
   onShowMetaphorHighlightChange
@@ -348,9 +356,12 @@ export default function CollocationResultsTable({
   const { t, i18n } = useTranslation()
   const isZh = i18n.language === 'zh'
 
-  // Pagination state
-  const [page, setPage] = useState(0)
-  const [rowsPerPage, setRowsPerPage] = useState(20)
+  const [internalPage, setInternalPage] = useState(0)
+  const [internalRowsPerPage, setInternalRowsPerPage] = useState(20)
+  const page = controlledPage !== undefined ? controlledPage : internalPage
+  const rowsPerPage = controlledRowsPerPage !== undefined ? controlledRowsPerPage : internalRowsPerPage
+  const setPage = onPageChange ?? setInternalPage
+  const setRowsPerPage = onRowsPerPageChange ?? setInternalRowsPerPage
 
   // Row expansion state
   const [expandedRowId, setExpandedRowId] = useState<string | null>(null)
@@ -486,14 +497,21 @@ export default function CollocationResultsTable({
 
   // Handle page change
   const handleChangePage = (_: unknown, newPage: number) => {
-    setPage(newPage)
+    if (onPageChange) onPageChange(newPage)
+    else setInternalPage(newPage)
     setExpandedRowId(null)
   }
 
   // Handle rows per page change
   const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setRowsPerPage(parseInt(event.target.value, 10))
-    setPage(0)
+    const val = parseInt(event.target.value, 10)
+    if (onRowsPerPageChange) {
+      onRowsPerPageChange(val)
+      onPageChange?.(0)
+    } else {
+      setInternalRowsPerPage(val)
+      setInternalPage(0)
+    }
     setExpandedRowId(null)
   }
 

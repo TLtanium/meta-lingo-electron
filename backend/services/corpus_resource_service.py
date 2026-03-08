@@ -135,7 +135,7 @@ class CorpusResourceService:
         'journal': 'Journal',
         'letters': 'Letters',
         'non_fiction': 'Non-Fiction',
-        'plos': 'PLOS',
+        'plos': 'Public Library of Science',
         'telephone': 'Telephone',
         'travel_guides': 'Travel Guides',
         # COCA
@@ -189,7 +189,7 @@ class CorpusResourceService:
         'journal': '期刊',
         'letters': '信件',
         'non_fiction': '非虚构',
-        'plos': 'PLOS',
+        'plos': '公共科学',
         'telephone': '电话',
         'travel_guides': '旅游指南',
         # COCA

@@ -69,6 +69,8 @@ interface ResultsTableProps {
   rowsPerPage: number
   onPageChange: (page: number) => void
   onRowsPerPageChange: (rowsPerPage: number) => void
+  tableFilter?: string
+  onTableFilterChange?: (value: string) => void
   corpusId: string
   textIds: string[] | 'all'
   lowercase: boolean
@@ -93,6 +95,8 @@ export default function ResultsTable({
   rowsPerPage,
   onPageChange,
   onRowsPerPageChange,
+  tableFilter: tableFilterProp,
+  onTableFilterChange,
   corpusId,
   textIds,
   lowercase,
@@ -108,7 +112,9 @@ export default function ResultsTable({
   const { t, i18n } = useTranslation()
   const isZh = i18n.language === 'zh'
   const { openTab } = useTabStore()
-  const [tableFilter, setTableFilter] = useState('')
+  const [tableFilterInternal, setTableFilterInternal] = useState('')
+  const tableFilter = tableFilterProp ?? tableFilterInternal
+  const setTableFilter = onTableFilterChange ?? setTableFilterInternal
   const [domainMenuAnchor, setDomainMenuAnchor] = useState<null | HTMLElement>(null)
   const [domainMenuDomain, setDomainMenuDomain] = useState<{ domain: string; domainName: string } | null>(null)
   const pendingDomainLinkRef = useRef<{ domain: string; domainName: string } | null>(null)

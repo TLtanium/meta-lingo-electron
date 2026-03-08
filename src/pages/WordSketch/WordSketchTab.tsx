@@ -56,6 +56,7 @@ import SketchVisualization from './components/SketchVisualization'
 import AnalysisAIAssistant from '../../components/AnalysisAIAssistant'
 import CorpusOrLibrarySelector, { type CorpusOrLibrarySelection } from '../../components/Corpus/CorpusOrLibrarySelector'
 import { useSettingsStore } from '../../stores/settingsStore'
+import { buildWordSketchAIContext } from './buildWordSketchAIContext'
 
 // Search types
 const SEARCH_TYPES = [
@@ -72,7 +73,7 @@ interface WordSketchTabProps {
 }
 
 export default function WordSketchTab({ crossLinkParams }: WordSketchTabProps) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const theme = useTheme()
   const isDarkMode = theme.palette.mode === 'dark'
   const { ollamaConnected, openaiApiEnabled } = useSettingsStore()
@@ -287,15 +288,19 @@ export default function WordSketchTab({ crossLinkParams }: WordSketchTabProps) {
           <AnalysisAIAssistant
             enabled={ollamaConnected || openaiApiEnabled}
             moduleLabel={t('wordsketch.wordSketch')}
-            getContext={() => {
-              const hint = t('aiAssistant.wordSketchContextHint')
-              const corpusInfo = corpusSelection ? `Corpus: ${corpusSelection.dataSource === 'corpus' ? 'corpus' : 'library'}, ${corpusSelection.textIds === 'all' ? 'all' : corpusSelection.textIds.length} texts` : 'Corpus: (none)'
-              const params = `searchWord=${searchWord}, minFrequency=${minFrequency}, resultsPerRelation=${resultsPerRelation}`
-              if (!result) return `${hint}\n\n${corpusInfo}\n${params}\n${t('aiAssistant.noAnalysisResult')}`
-              const relSummary = (result.relations || []).slice(0, 15).map((r: any) => `${r.relation_name}: ${(r.collocates || []).slice(0, 5).map((c: any) => c.word || c).join(', ')}`).join('\n')
-              const view = rightTab === 0 ? `Word Sketch for "${result.word}":\n${relSummary}` : `Visualization for "${result.word}". Relations:\n${relSummary}`
-              return `${hint}\n\n${corpusInfo}\n${params}\n${view}`
-            }}
+            getContext={() => buildWordSketchAIContext({
+              t,
+              corpusSelection,
+              searchWord,
+              posFilter,
+              minFrequency,
+              resultsPerRelation,
+              minScore,
+              result,
+              rightTab,
+              selectedVisualizationRelation,
+              lang: i18n.language === 'zh' ? 'zh' : 'en'
+            })}
           />
         </Stack>
 

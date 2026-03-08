@@ -42,6 +42,7 @@ import POSFilterPanel from './POSFilterPanel'
 import SearchConfigPanel from './SearchConfigPanel'
 import ResultsTable from './ResultsTable'
 import VisualizationPanel from './VisualizationPanel'
+import { buildWordFrequencyContext } from './buildAIContext'
 import AnalysisAIAssistant from '../../components/AnalysisAIAssistant'
 import CorpusOrLibrarySelector, { type CorpusOrLibrarySelection } from '../../components/Corpus/CorpusOrLibrarySelector'
 import { useSettingsStore } from '../../stores/settingsStore'
@@ -80,6 +81,7 @@ export default function WordFrequency({ crossLinkParams }: WordFrequencyProps = 
   const [sortConfig, setSortConfig] = useState<TableSortConfig>(DEFAULT_TABLE_SORT)
   const [paginationConfig, setPaginationConfig] = useState<TablePaginationConfig>(DEFAULT_TABLE_PAGINATION)
   const [selectedWords, setSelectedWords] = useState<string[]>([])
+  const [tableFilter, setTableFilter] = useState('')
 
   // Visualization state
   const [vizConfig, setVizConfig] = useState<VisualizationConfig>(DEFAULT_VIZ_CONFIG)
@@ -173,6 +175,7 @@ export default function WordFrequency({ crossLinkParams }: WordFrequencyProps = 
           setTotalTokens(response.data.total_tokens ?? 0)
           setUniqueWords(response.data.unique_words ?? 0)
           setSelectedWords([])
+          setTableFilter('')
           // Reset pagination
           setPaginationConfig({ ...paginationConfig, page: 0 })
         } else {
@@ -217,29 +220,23 @@ export default function WordFrequency({ crossLinkParams }: WordFrequencyProps = 
           <AnalysisAIAssistant
             enabled={ollamaConnected || openaiApiEnabled}
             moduleLabel={t('wordFrequency.title')}
-            getContext={() => {
-              const hint = t('aiAssistant.wordFrequencyContextHint')
-              const corpusInfo = corpusSelection
-                ? `${t('wordFrequency.corpus.title')}: ${corpusSelection.dataSource === 'corpus' ? 'corpus' : 'library'}, ${corpusSelection.textIds === 'all' ? 'all' : corpusSelection.textIds.length} ${t('corpus.textsCount')}`
-                : t('wordFrequency.corpus.title') + ': (none)'
-              const params = `minFreq=${minFreq}, maxFreq=${maxFreq ?? 'null'}, lowercase=${lowercase}`
-              const stats = `totalTokens=${totalTokens}, uniqueWords=${uniqueWords}`
-              if (results.length === 0) {
-                return `${hint}\n\n${corpusInfo}\n${params}\n${t('aiAssistant.noAnalysisResult')}`
-              }
-              if (rightTab === 0) {
-                const page = Math.max(0, Number(paginationConfig.page) || 0)
-                const pageSize = Math.max(1, Number(paginationConfig.rowsPerPage) || 25)
-                const start = page * pageSize
-                const slice = results.slice(start, start + pageSize)
-                const header = `序号\t${t('wordFrequency.table.word')}\t${t('wordFrequency.table.frequency')}\t${t('wordFrequency.table.percentage')}\t${t('wordFrequency.table.rank')}`
-                const tableLines = slice.map((r, i) => `${start + i + 1}\t${r.word}\t${r.frequency}\t${r.percentage?.toFixed(4) ?? ''}\t${r.rank ?? ''}`).join('\n')
-                return `${hint}\n\n${corpusInfo}\n${params}\n${stats}\n${t('wordFrequency.results.title')} (rows ${start + 1}-${start + slice.length}, total ${results.length}):\n${header}\n${tableLines}`
-              }
-              const chartLabel = vizConfig.chartType === 'bar' ? 'bar' : vizConfig.chartType === 'pie' ? 'pie' : 'wordcloud'
-              const top = results.slice(0, 50).map(r => `${r.word}\t${r.frequency}`).join('\n')
-              return `${hint}\n\n${corpusInfo}\n${params}\n${stats}\n${t('wordFrequency.visualization.title')}: ${chartLabel}. Top 50:\n${t('wordFrequency.table.word')}\t${t('wordFrequency.table.frequency')}\n${top}`
-            }}
+            getContext={() => buildWordFrequencyContext({
+              t,
+              corpusSelection,
+              posFilter,
+              searchConfig,
+              minFreq,
+              maxFreq,
+              lowercase,
+              results,
+              totalTokens,
+              uniqueWords,
+              rightTab,
+              sortConfig,
+              paginationConfig,
+              tableFilter,
+              vizConfig
+            })}
           />
         </Stack>
 
@@ -333,6 +330,8 @@ export default function WordFrequency({ crossLinkParams }: WordFrequencyProps = 
                 onSortChange={setSortConfig}
                 onPaginationChange={setPaginationConfig}
                 onSelectionChange={setSelectedWords}
+                tableFilter={tableFilter}
+                onTableFilterChange={setTableFilter}
                 isLoading={isLoading}
                 corpusId={corpusSelection?.corpusId}
                 textIds={corpusSelection?.textIds}

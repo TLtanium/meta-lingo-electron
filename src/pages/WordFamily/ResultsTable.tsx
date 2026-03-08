@@ -37,6 +37,9 @@ import type { SynonymResult, Synset } from '../../types/synonym'
 import type { SelectionMode } from '../../types/crossLink'
 import { WordActionMenu } from '../../components/common'
 
+type SortField = 'word' | 'frequency' | 'synonym_count'
+type SortDirection = 'asc' | 'desc'
+
 interface ResultsTableProps {
   results: SynonymResult[]
   totalWords: number
@@ -44,6 +47,16 @@ interface ResultsTableProps {
   selectedWords: string[]
   onSelectionChange: (words: string[]) => void
   isLoading: boolean
+  // Optional controlled table state (for AI context sync)
+  searchFilter?: string
+  sortField?: SortField
+  sortDirection?: SortDirection
+  page?: number
+  rowsPerPage?: number
+  onSearchFilterChange?: (value: string) => void
+  onSortChange?: (field: SortField, direction: SortDirection) => void
+  onPageChange?: (page: number) => void
+  onRowsPerPageChange?: (rowsPerPage: number) => void
   // Cross-link props
   corpusId?: string
   textIds?: string[] | 'all'
@@ -53,9 +66,6 @@ interface ResultsTableProps {
   selectedEntryIds?: string[]
 }
 
-type SortField = 'word' | 'frequency' | 'synonym_count'
-type SortDirection = 'asc' | 'desc'
-
 export default function ResultsTable({
   results,
   totalWords,
@@ -63,6 +73,15 @@ export default function ResultsTable({
   selectedWords,
   onSelectionChange,
   isLoading,
+  searchFilter: controlledSearchFilter,
+  sortField: controlledSortField,
+  sortDirection: controlledSortDirection,
+  page: controlledPage,
+  rowsPerPage: controlledRowsPerPage,
+  onSearchFilterChange,
+  onSortChange,
+  onPageChange,
+  onRowsPerPageChange,
   corpusId,
   textIds,
   selectionMode = 'all',
@@ -72,13 +91,23 @@ export default function ResultsTable({
 }: ResultsTableProps) {
   const { t } = useTranslation()
   
-  // State
-  const [page, setPage] = useState(0)
-  const [rowsPerPage, setRowsPerPage] = useState(25)
-  const [sortField, setSortField] = useState<SortField>('frequency')
-  const [sortDirection, setSortDirection] = useState<SortDirection>('desc')
-  const [searchFilter, setSearchFilter] = useState('')
+  // State (used when not controlled)
+  const [internalPage, setInternalPage] = useState(0)
+  const [internalRowsPerPage, setInternalRowsPerPage] = useState(25)
+  const [internalSortField, setInternalSortField] = useState<SortField>('frequency')
+  const [internalSortDirection, setInternalSortDirection] = useState<SortDirection>('desc')
+  const [internalSearchFilter, setInternalSearchFilter] = useState('')
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set())
+
+  const isControlled = controlledSearchFilter !== undefined
+  const searchFilter = isControlled ? controlledSearchFilter : internalSearchFilter
+  const setSearchFilter = onSearchFilterChange ?? setInternalSearchFilter
+  const sortField = (isControlled ? controlledSortField : internalSortField) ?? 'frequency'
+  const sortDirection = (isControlled ? controlledSortDirection : internalSortDirection) ?? 'desc'
+  const page = (isControlled ? controlledPage : internalPage) ?? 0
+  const rowsPerPage = (isControlled ? controlledRowsPerPage : internalRowsPerPage) ?? 25
+  const setPage = onPageChange ?? setInternalPage
+  const setRowsPerPage = onRowsPerPageChange ?? setInternalRowsPerPage
 
   // Filter and sort results
   const filteredResults = useMemo(() => {
@@ -120,11 +149,13 @@ export default function ResultsTable({
 
   // Handle sort
   const handleSort = (field: SortField) => {
-    if (sortField === field) {
-      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc')
+    const nextDirection =
+      sortField === field ? (sortDirection === 'asc' ? 'desc' : 'asc') : 'desc'
+    if (onSortChange) {
+      onSortChange(field, nextDirection)
     } else {
-      setSortField(field)
-      setSortDirection('desc')
+      setInternalSortField(field)
+      setInternalSortDirection(nextDirection)
     }
   }
 
@@ -421,11 +452,20 @@ export default function ResultsTable({
         component="div"
         count={filteredResults.length}
         page={page}
-        onPageChange={(_, newPage) => setPage(newPage)}
+        onPageChange={(_, newPage) => {
+          if (onPageChange) onPageChange(newPage)
+          else setInternalPage(newPage)
+        }}
         rowsPerPage={rowsPerPage}
         onRowsPerPageChange={(e) => {
-          setRowsPerPage(parseInt(e.target.value, 10))
-          setPage(0)
+          const val = parseInt(e.target.value, 10)
+          if (onRowsPerPageChange) {
+            onRowsPerPageChange(val)
+            onPageChange?.(0)
+          } else {
+            setInternalRowsPerPage(val)
+            setInternalPage(0)
+          }
         }}
         rowsPerPageOptions={[10, 25, 50, 100]}
         labelRowsPerPage={t('common.rowsPerPage')}

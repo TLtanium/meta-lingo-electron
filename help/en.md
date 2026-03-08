@@ -6904,168 +6904,209 @@ In USAS mode, each row represents a semantic domain, and cross-module links are 
 
 # Dictionary Lookup
 
+Dictionary lookup is available from the **top-right toolbar**: click the **translate/dictionary icon** to open the dictionary dialog and query one or more dictionaries at once for definitions and usage.
+
 ## Supported Dictionaries
+
+- The app includes **Macmillan** and **Longman Collocations** dictionaries, shown as tabs in the dialog.
+- In the "Select dictionaries" area you can choose which to query; multiple selection is supported, and all are selected by default.
 
 ## Search Features
 
+- **Query input**: Enter a word (Chinese or English) in the top search box and press Enter or click Search to query all selected dictionaries at once.
+- **Suggestions**: As you type, prefix suggestions are shown based on the selected dictionaries to help you pick a word quickly.
+- **Results**: Results are shown per dictionary in tabs; each tab shows whether the word was found and the definition content; fuzzy matches are indicated when applicable.
+- **Breadcrumb**: If dictionary content includes clickable links (e.g. to other entries), you can use the breadcrumb to go back.
+
+## Use Cases
+
+- Look up words quickly while reading or analyzing corpora without switching to an external dictionary.
+- Compare definitions for the same word across multiple dictionaries.
+- Use together with word frequency, collocation, semantic analysis, etc.: open the dictionary from the top bar whenever you need to look up a word from the results.
+
+---
+
+# AI Assistant
+
+Many analysis modules provide an **AI Assistant** button next to the module title (requires Ollama or an OpenAI-compatible API to be configured in Application Settings). You can ask the model questions and get answers based on the **current data and view** on the page.
+
+## How It Works
+
+- For each question you send, the system builds a **context** from the current state and sends it to the model, including:
+  - **Data source**: Currently selected corpus or library and text range.
+  - **Analysis parameters**: Search conditions, filters, sort order, etc. for that module.
+  - **Current view**: If you are on the results table, this includes column descriptions, current sort, pagination, and the visible rows on the current page; if you are on visualization, it includes the current chart type and a summary of the data used for the chart.
+- Context is **single-turn**: no prior conversation history is sent, only the current prompt and your question, so the model always interprets the latest interface state.
+- The UI still shows a multi-turn conversation so you can ask follow-up questions.
+
+## Modules With AI Assistant
+
+| Module | Description |
+|--------|-------------|
+| **Word Frequency** | Data source, POS filter, search and frequency settings; current page of the results table or visualization (word cloud, bar chart, etc.). |
+| **Sentiment Analysis** | Data source, sentiment mode and filters; current results table or visualization. |
+| **Synonym Analysis** | Data source, POS, search; current results table or network/tree visualization. |
+| **Keyword Extraction** | Single-document or Keyness comparison data source and parameters; current results table or visualization. |
+| **N-gram Analysis** | Data source, N values, POS, search; current results table or bar/network/Sankey/word cloud view. |
+| **Collocation (KWIC)** | Data source, POS, search mode and query, sort; current page of KWIC results or density/ridge plot data. |
+| **Semantic Domain Analysis** | Data source, POS, search, frequency, result mode (by domain/word); table sort and current page or chart type and data. |
+| **Metaphor Analysis** | Data source, POS, search, frequency; table sort and current page or chart type and data. |
+| **Collocation Analysis** | Node word, span, frequency, statistics; table sort and current page or bar/pie/network/word cloud data. |
+| **Word Sketch** | Data source, search word, POS, results per relation; relation-grouped collocate samples or visualization. |
+| **Word Sketch Difference** | Data source, two words, POS, frequency; comparison by relation or visualization. |
+| **Topic Modeling** | Four submodules (BERTopic, LDA, LSA, NMF) with many parameters each; see "Topic modeling submodule parameters" below. |
+
+Ensure Ollama or OpenAI API is configured in Application Settings before using the AI Assistant; the button is disabled if not configured.
+
+### Topic modeling submodule parameters
+
+Topic modeling has four submodules: **BERTopic**, **LDA**, **LSA**, and **NMF**. Each has many configuration options; the AI assistant receives the current data source, a summary of that submodule’s analysis parameters, and the current results/visualization summary.
+
+#### BERTopic
+
+- **Data source**: Corpus or library, text range (all / by tags / manual), text count, language.
+- **Preprocessing**: Remove stopwords, remove punctuation, lemmatize, lowercase, min token length, POS filter; **chunking**: enabled, min_tokens, max_tokens, overlap_tokens (long texts are chunked before embedding).
+- **Embedding**: Currently selected embedding ID (matches the above preprocessing and chunking).
+- **Dynamic topics**: Enabled, date format (year only / full date), nr_bins, evolution_tuning, global_tuning.
+- **Analysis parameters**:
+  - **Dimensionality reduction**: Method (UMAP / PCA); UMAP: n_neighbors, n_components, min_dist, metric, random_state, low_memory; PCA: n_components, svd_solver.
+  - **Clustering**: Method (HDBSCAN / BIRCH / K-Means); HDBSCAN: min_cluster_size, min_samples, metric, cluster_selection_method, allow_single_cluster, alpha; BIRCH: threshold, branching_factor, n_clusters; K-Means: n_clusters, init, max_iter, random_state.
+  - **Vectorizer**: Type (CountVectorizer / TfidfVectorizer), min_df, max_df, ngram_range, stop_words (by language).
+  - **Representation model**: Default c-TF-IDF, or KeyBERTInspired (top_n_words, nr_repr_docs, nr_samples, nr_candidate_words), MaximalMarginalRelevance (diversity, top_n_words), PartOfSpeech (model, top_n_words, pos_patterns).
+  - **Outlier reduction**: Enabled, strategy (distributions / probabilities / c-tf-idf / embeddings), threshold; calculate_probabilities.
+- **Current view**: Results table (topic list and keyword sample) or visualization (barchart, intertopic distance, hierarchy, heatmap, document distribution, term rank, topics over time, etc.); if dynamic topics are enabled, includes "topics over time" data.
+
+#### LDA
+
+- **Data source**: Same as above.
+- **Preprocessing**: Remove stopwords, punctuation, lemmatize, lowercase, min word length, POS filter and keep mode, N-gram option and N values, min_df, max_df.
+- **Dynamic topics**: Enabled, date format, nr_bins (for topic evolution and Sankey).
+- **LDA parameters**: num_topics, top_n_keywords, alpha (auto / symmetric / asymmetric / custom array), eta (auto / symmetric / custom), passes, iterations, chunksize, update_every, eval_every, minimum_probability, min_df, max_df, random_state; advanced: per-topic alpha weights.
+- **Current view**: Results table (topics and keywords) or visualization; if dynamic, topic evolution and Sankey summary. Supports topic-number optimization (perplexity, coherence).
+
+#### LSA
+
+- **Data source**: Same as above.
+- **Preprocessing**: Same as LDA (stopwords, punctuation, lemmatize, lowercase, word length, POS, N-gram, min_df, max_df).
+- **Dynamic topics**: Enabled, date format, nr_bins.
+- **LSA parameters**: num_topics, num_keywords, svd_algorithm (randomized / arpack), max_features, min_df, max_df, tol, random_state; advanced (randomized): n_iter, n_oversamples, power_iteration_normalizer.
+- **Current view**: Results table or visualization. Supports topic-number optimization (explained variance curve).
+
+#### NMF
+
+- **Data source**: Same as above.
+- **Preprocessing**: Same as LDA.
+- **Dynamic topics**: Enabled, date format, nr_bins.
+- **NMF parameters**: num_topics, num_keywords, init (nndsvd / nndsvda / nndsvdar / random), solver (cd / mu), max_iter, tol, alpha_W, alpha_H, l1_ratio, beta_loss (when MU: frobenius / kullback-leibler / itakura-saito), shuffle, random_state, max_features, min_df, max_df.
+- **Current view**: Results table or visualization. Supports topic-number optimization (reconstruction error).
+
+---
+
 # Application Settings
 
-The Application Settings module is used to personalize various features and appearance of Meta-Lingo.
+Application Settings let you personalize Meta-Lingo’s behavior and appearance. Open them from the **settings icon** in the top-right. The page includes, in order: **Interface language**, **Theme & wallpaper**, **Ollama connection**, **OpenAI-compatible API**, **USAS tagging mode**, **USAS semantic domain configuration**, **License**, and **Factory reset**.
 
 ## Interface Language
 
-Switch the interface language of the application:
+- Choose **Simplified Chinese (zh)** or **English (en)** via the radio options.
+- After switching, all UI text, prompts, and help content use the selected language.
 
-- **Chinese (zh)**: Simplified Chinese interface
-- **English (en)**: English interface
+## Theme & Wallpaper
 
-After switching, all interface text, prompts, and help documentation will change accordingly.
-
-## Wallpaper Settings
+Theme and wallpaper are in the same settings card.
 
 ### Theme Mode
 
-Select the application theme mode:
-
-- **Light Mode**: White background, suitable for bright environments
-- **Dark Mode**: Dark background, suitable for nighttime use, reduces eye strain
+- **Light mode**: Light background, suited for bright environments.
+- **Dark mode**: Dark background, suited for low light or night use.
+- Use the toggle buttons to switch; changes apply immediately.
 
 ### Custom Wallpaper
 
-Upload a custom wallpaper as application background:
-
-1. Click "Upload Wallpaper" button to select an image file
-2. Supports JPG, PNG and other common image formats
-3. Wallpaper automatically fits window size (proportional scaling, no distortion)
-4. Click "Change Wallpaper" to replace current wallpaper
-5. Click "Remove Wallpaper" to delete wallpaper
-
-### Wallpaper Opacity
-
-Adjust wallpaper opacity:
-
-- **Range**: 5% - 50%
-- **Step**: 5%
-- **Default**: 30%
-- Lower opacity makes wallpaper more subtle, not affecting readability
-- Higher opacity makes wallpaper more prominent
+- Click “Upload wallpaper” to pick a local image (e.g. JPG, PNG) as the app background.
+- Once set, you can “Change wallpaper” or “Remove wallpaper”; the image is scaled to fit the window.
+- **Wallpaper opacity**: Shown only when a wallpaper is set; range 5%–50%, step 5%, default 30%. Lower values make the wallpaper subtler.
 
 ## Ollama Connection
 
-Configure local large language model (LLM) connection for features like topic label generation in topic modeling.
+Configure a local Ollama server for the **AI assistant** in analysis modules and **topic modeling** (e.g. topic label generation).
 
-### Connection Settings
+- **URL**: Ollama service address (default `http://localhost:11434`). Editable when disconnected; after connecting, disconnect first to change it.
+- **Connect / Disconnect**: Click “Connect” to detect and connect to Ollama. When connected, a “Disconnect” button is available.
+- **Model selection**: After connecting, choose an installed model from the dropdown; the selected model is used for topic modeling and the AI assistant.
+- Install and run [Ollama](https://ollama.ai) first, and pull models as needed (e.g. `ollama pull llama2`).
 
-- **URL**: Ollama service address (default: `http://localhost:11434`)
-- **Connection Status**: Shows current connection status (connected/disconnected)
+## OpenAI-Compatible API
 
-### Model Selection
+Optional. Used for the **AI assistant** in analysis modules; you can use either Ollama or this API (or both).
 
-After successful connection, you can select from available models:
+- Turn the **switch** on to enable.
+- When enabled you can set:
+  - **API base URL**: OpenAI-compatible endpoint (default `https://api.openai.com/v1`).
+  - **API key**: Your API key.
+  - **Model name**: Model to call (e.g. `gpt-4o-mini`).
+- Use “Test connection” to verify the configuration.
+- Use this when calling OpenAI, an OpenAI-compatible service, or a local proxy.
 
-- System automatically retrieves models installed in Ollama
-- After selecting a model, topic modeling and other features will use it
+## USAS Tagging Mode
 
-### Usage Instructions
-
-1. Ensure Ollama is installed and running ([https://ollama.ai](https://ollama.ai))
-2. Download required models in Ollama (e.g., `ollama pull llama2`)
-3. Configure connection in Meta-Lingo and select model
-
-## USAS Annotation Mode
-
-Select the method for USAS semantic domain annotation:
+Choose how USAS semantic domain tagging runs: **Rule-based**, **Neural**, or **Hybrid**. The UI shows whether each mode is available in your environment (depends on backend and models).
 
 ### Rule-based Mode
 
-Uses PyMUSAS rule-based tagger:
-
-- Dictionary and rule-based annotation
-- Supports Multi-Word Expression (MWE) recognition
-- Combines discourse domain identification and one-sense-per-discourse disambiguation
-- **Advantages**: Fast, high interpretability
-- **Suitable for**: General scenarios
+- Dictionary- and rule-based tagging; supports multi-word expressions (MWE) and uses discourse domain and one-sense-per-discourse disambiguation.
+- **Pros**: Fast, interpretable; good for general use.
 
 ### Neural Mode
 
-Uses neural network model for annotation:
-
-- Based on pre-trained semantic annotation model
-- Can handle more complex contexts
-- **Advantages**: Strong contextual understanding
-- **Suitable for**: Scenarios requiring more accurate semantic understanding
+- Uses a pre-trained semantic tagging model and context.
+- **Pros**: Strong contextual understanding; good when semantic accuracy matters more.
 
 ### Hybrid Mode
 
-Combines rule-based and neural network methods:
-
-- First uses rule-based method for initial annotation
-- Uses neural network for disambiguation in uncertain cases
-- **Advantages**: Balances speed and accuracy
-- **Suitable for**: Scenarios seeking optimal results
+- Applies rules first, then uses the neural model for uncertain cases.
+- **Pros**: Balances speed and accuracy.
 
 ## USAS Semantic Domain Configuration
 
-Configure priority semantic domains for different text types, used for disambiguation during USAS annotation.
+Set **priority semantic domains** per **text type** for USAS disambiguation. The text type chosen when uploading a corpus or running annotation determines which priorities are used.
 
-### Text Type Configuration
-
-#### Preset Text Types
-
-System presets common text types:
-
-- **GEN** (General text): General configuration
-- Can edit priority semantic domains for each type
-
-#### Custom Text Types
-
-1. Click "Add Type" to create custom text type
-2. Enter type name (e.g., "Medical Literature", "Legal Text")
-3. Configure priority semantic domains for that type
-
-### Priority Domain Configuration
-
-1. Select text type to edit
-2. Click "Edit" button
-3. Select priority semantic domains in the popup selector
-4. Can select multiple domains
-5. Save after configuration
-
-**Effect**: Text type selected during corpus upload determines priority semantic domains for USAS annotation, helping improve annotation accuracy.
+- **Status**: The page shows whether English and Chinese semantic resources are available.
+- **Preset text types**: Built-in types (e.g. GEN for general text) are listed in a collapsible section; click “Edit” to change priority domains for a type.
+- **Custom text types**: If present, they appear in another collapsible section; you can edit their priority domains and delete custom types.
+- In the edit dialog you select one or more semantic domains; save to apply.
 
 ## License
 
-Click "View License" to view the application license agreement:
-
-- Displays Chinese or English version based on current language
-- Shows complete license content in popup
+- Click “View license” to open the application license in a dialog.
+- The text is shown in Chinese or English according to the current interface language (LICENSE_CN / LICENSE_EN).
 
 ## Factory Reset
 
-**Warning**: This operation cannot be undone!
+**Warning**: This action cannot be undone. Use with care.
 
 ### Optional Reset Items
 
-The following items can be selected for reset:
+Check the items you want to reset:
 
-- **Database Records**: Corpus metadata, text entries, tags, processing task records
-- **Corpus Files**: Text, audio, video, transcription files and other actual files
-- **Annotation Archives**: All saved annotation archives
-- **Annotation Frameworks**: All custom annotation frameworks
+- **Database records**: Corpus metadata, text entries, tags, processing tasks, etc.
+- **Corpus files**: Text, audio, video, transcription files and other stored files.
+- **Annotation archives**: All saved annotation archives.
+- **Annotation frameworks**: All custom annotation frameworks.
 
 ### Auto-Reset Items
 
-The following items are always reset:
+The following are **always** reset when you run factory reset (cannot be unchecked):
 
 - Topic modeling data (embeddings, analysis results, etc.)
 - Word2Vec models
-- USAS configuration
+- USAS-related configuration
 
-### Execute Reset
+### How to Run
 
-1. Check items to reset
-2. Enter "RESET" in confirmation box
-3. Click confirm button
+1. Check the optional items you want to reset.
+2. In the confirmation dialog, type **RESET** (uppercase).
+3. Click the confirm button.
 
-**Note**: If you don't use the Factory Reset function, deleting the application or reinstalling a new version will not lose your corpus data.
+If you do not use Factory reset, uninstalling or reinstalling the app will not clear your local corpus data by default; use this only when you want to wipe data completely.
 

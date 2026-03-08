@@ -40,6 +40,7 @@ import LSAResultsPanel from './LSAResultsPanel'
 import LSAVisualizationPanel from './LSAVisualizationPanel'
 import AnalysisAIAssistant from '../../../components/AnalysisAIAssistant'
 import type { CrossLinkParams } from '../../../types/crossLink'
+import { buildTopicModelingAIContext } from '../buildTopicModelingAIContext'
 
 interface LSATabProps {
   crossLinkParams?: CrossLinkParams
@@ -195,20 +196,30 @@ export default function LSATab({ crossLinkParams }: LSATabProps = {}) {
           <AnalysisAIAssistant
             enabled={ollamaConnected || openaiApiEnabled}
             moduleLabel={t('topicModeling.lsa.title', 'LSA')}
-            getContext={() => {
-              const hint = t('aiAssistant.topicModelingLsaContextHint')
-              const corpusInfo = corpusId ? `CorpusId: ${corpusId}, ${textIds.length} texts, language: ${corpusLanguage}` : 'Corpus: (none)'
-              const params = `num_topics=${lsaConfig.n_components}, max_iter=${lsaConfig.max_iter}`
-              const topics = analysisResult?.topics ?? []
-              if (!topics.length) return `${hint}\n\n${corpusInfo}\n${params}\n${t('aiAssistant.noAnalysisResult')}`
-              const toWords = (kw: any) => (typeof kw === 'string' ? kw : (kw?.word ?? '')).trim()
-              const topicSummary = topics.slice(0, 15).map((topic: any, i: number) => {
-                const kws = (topic.keywords || []).slice(0, 5).map(toWords).filter(Boolean)
-                return `${i + 1}. ${topic.custom_label ?? topic.name ?? topic.topic_id}: ${kws.join(', ')}`
-              }).join('\n')
-              const viewLabel = rightTab === 1 ? `${t('topicModeling.visualization.title')}. ` : ''
-              return `${hint}\n\n${corpusInfo}\n${params}\n${viewLabel}Topics (${topics.length}):\n${topicSummary}`
-            }}
+            getContext={() => buildTopicModelingAIContext({
+              t,
+              method: 'lsa',
+              corpus: corpusSelection ? {
+                corpusId: corpusSelection.corpusId,
+                textIds: corpusSelection.textIds,
+                textCount: Array.isArray(textIds) ? textIds.length : 0,
+                selectionMode,
+                selectedTags,
+                libraryId,
+                selectedEntryIds: corpusSelection.dataSource === 'library' && corpusSelection.selectionMode === 'selected' ? corpusSelection.selectedEntryIds : undefined,
+                corpusLanguage
+              } : null,
+              lsaPreprocess: preprocessConfig,
+              lsaConfig: lsaConfig,
+              lsaDynamic: dynamicConfig,
+              topics: (analysisResult?.topics ?? []).map((topic: any) => ({
+                topic_id: topic.topic_id,
+                name: topic.name,
+                custom_label: topic.custom_label,
+                keywords: topic.keywords
+              })),
+              rightTab
+            })}
           />
         </Stack>
 

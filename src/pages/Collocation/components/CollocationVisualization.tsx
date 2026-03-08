@@ -33,6 +33,8 @@ import RidgePlot from './d3/RidgePlot'
 interface CollocationVisualizationProps {
   results: KWICResult[]
   corpusId: string
+  activeTab?: VizType
+  onActiveTabChange?: (tab: VizType) => void
 }
 
 // Visualization type labels
@@ -50,12 +52,16 @@ const VIZ_TYPE_LABELS: Record<VizType, { en: string; zh: string; icon: React.Rea
 }
 
 export default function CollocationVisualization({
-  results
+  results,
+  activeTab: controlledActiveTab,
+  onActiveTabChange
 }: CollocationVisualizationProps) {
   const { t, i18n } = useTranslation()
   const isZh = i18n.language === 'zh'
 
-  const [activeViz, setActiveViz] = useState<VizType>('densityPlot')
+  const [internalActiveViz, setInternalActiveViz] = useState<VizType>('densityPlot')
+  const activeViz = controlledActiveTab ?? internalActiveViz
+  const setActiveViz = onActiveTabChange ?? setInternalActiveViz
   const [colorScheme, setColorScheme] = useState('blue')
   const [maxDocs, setMaxDocs] = useState(10)
   const chartContainerRef = useRef<HTMLDivElement>(null)
