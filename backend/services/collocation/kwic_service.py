@@ -924,14 +924,19 @@ class KWICService:
     
     @staticmethod
     def _token_info_static(token: Dict[str, Any]) -> Dict[str, Any]:
-        """Extract clean token info dict with annotation fields"""
-        return {
+        """Extract clean token info dict with annotation fields.
+        Preserves start/end for metaphor highlighting (MIPVU position lookup)."""
+        out = {
             'text': token.get('text', ''),
             'lemma': token.get('lemma', ''),
             'pos': token.get('pos', ''),
             'tag': token.get('tag', ''),
             'dep': token.get('dep', ''),
         }
+        if 'start' in token and 'end' in token:
+            out['start'] = token['start']
+            out['end'] = token['end']
+        return out
 
     def _search_cql(
         self,

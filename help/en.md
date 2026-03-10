@@ -1310,6 +1310,8 @@ The system includes multiple pre-processed corpus resources. BNC is split into *
 | BNC 1994 | British National Corpus 1994 | spoken, written, applied_science, arts, etc. |
 | BNC 2014 | British National Corpus 2014 (spoken only) | spoken, contemporary British English |
 | Brown | Brown Corpus | news, fiction, academic, etc. |
+| AmE06 | American English 2006 (AmE06) balanced corpus | written American English, press, magazines, fiction, etc. |
+| BE06 | British English 2006 (BE06) balanced corpus | written British English, press, magazines, fiction, etc. |
 | NOW | News on the Web | news (by country) |
 | OANC | Open American National Corpus | various text genres |
 | COCA | Corpus of Contemporary American English | spoken, fiction, magazine, news, academic |

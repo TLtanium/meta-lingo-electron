@@ -50,6 +50,8 @@ const CORPUS_COLORS: Record<string, string> = {
   // Legacy / generic
   bnc: '#1976d2',      // Blue
   brown: '#7b1fa2',    // Purple
+  ame06: '#c62828',    // Red (American English 2006)
+  be06: '#283593',     // Indigo (British English 2006)
   now: '#388e3c',      // Green
   oanc: '#f57c00',     // Orange
   // BNC variants

@@ -60,6 +60,8 @@ class CorpusResourceService:
         'bnc1994': 'BNC 1994',
         'bnc2014': 'BNC 2014',
         'brown': 'Brown',
+        'ame06': 'AmE06',
+        'be06': 'BE06',
         'now': 'NOW',
         'oanc': 'OANC',
         'coca': 'COCA',
@@ -78,6 +80,8 @@ class CorpusResourceService:
         'bnc1994': 'BNC 1994',
         'bnc2014': 'BNC 2014',
         'brown': 'Brown',
+        'ame06': 'AmE06',
+        'be06': 'BE06',
         'now': 'NOW',
         'oanc': 'OANC',
         'coca': 'COCA',
@@ -128,6 +132,17 @@ class CorpusResourceService:
         'reviews': 'Reviews',
         'romance': 'Romance',
         'science_fiction': 'Science Fiction',
+        # AmE06 / BE06 categories (written subregisters)
+        'press_reportage': 'Press Reportage',
+        'press_editorial': 'Press Editorial',
+        'press_reviews': 'Press Reviews',
+        'skills_and_hobbies': 'Skills and Hobbies',
+        'popular_lore': 'Popular Lore',
+        'misc': 'Miscellaneous',
+        'fiction_general': 'Fiction (General)',
+        'fiction_mystery': 'Fiction (Mystery)',
+        'fiction_science': 'Fiction (Science)',
+        'fiction_adventure_and_western': 'Fiction (Adventure and Western)',
         # OANC categories
         '911report': '911 Report',
         'biomed': 'Biomedical',
@@ -182,6 +197,17 @@ class CorpusResourceService:
         'reviews': '评论',
         'romance': '浪漫',
         'science_fiction': '科幻',
+        # AmE06 / BE06 categories (written subregisters)
+        'press_reportage': '新闻报道',
+        'press_editorial': '社论',
+        'press_reviews': '评论',
+        'skills_and_hobbies': '技能与爱好',
+        'popular_lore': '通俗文化',
+        'misc': '杂项',
+        'fiction_general': '小说（综合）',
+        'fiction_mystery': '小说（悬疑）',
+        'fiction_science': '科幻小说',
+        'fiction_adventure_and_western': '小说（冒险与西部）',
         # OANC categories
         '911report': '911报告',
         'biomed': '生物医学',
@@ -412,6 +438,8 @@ class CorpusResourceService:
             'bnc1994': 'British National Corpus 1994 (BNC 1994)',
             'bnc2014': 'British National Corpus 2014 (BNC 2014)',
             'brown': 'Brown Corpus',
+            'ame06': 'American English 2006 (AmE06)',
+            'be06': 'British English 2006 (BE06)',
             'now': 'News on the Web Corpus (2010-2024)',
             'oanc': 'Open American National Corpus',
             'coca': 'Corpus of Contemporary American English (COCA)',
@@ -428,6 +456,8 @@ class CorpusResourceService:
             'bnc1994': '英国国家语料库 1994 (BNC 1994)',
             'bnc2014': '英国国家语料库 2014 (BNC 2014)',
             'brown': 'Brown 语料库',
+            'ame06': '美国英语语料库 2006 (AmE06)',
+            'be06': '英国英语语料库 2006 (BE06)',
             'now': '网络新闻语料库 (2010-2024)',
             'oanc': '开放美国国家语料库',
             'coca': '当代美语语料库 (COCA)',
@@ -712,36 +742,38 @@ class CorpusResourceService:
         if not file_path:
             logger.error(f"CSV file not found for resource: {resource_id}")
             return {}
-        
+
         frequency_data = {}
-        
+
         try:
             with open(file_path, 'r', encoding='utf-8') as f:
                 reader = csv.DictReader(f)
                 for row in reader:
-                    word = row.get('word', '').strip()
-                    if not word:
+                    # Preferred: original-case word in 'Word' 列（由 normalize_corpus_word_column.py 生成）
+                    # Back-compat: 若无 'Word' 列则退回到旧的 'word' 列
+                    raw_word = (row.get('Word') or row.get('word') or '').strip()
+                    if not raw_word:
                         continue
-                    
-                    lemma = row.get('lemma', word).strip()
+
+                    lemma = row.get('lemma', raw_word).strip()
                     pos = row.get('pos', '').strip()
                     try:
                         freq = int(row.get('freq', 0))
                     except (ValueError, TypeError):
                         freq = 0
-                    
-                    # Use word as key, store all data
-                    # If same word appears multiple times with different POS, sum freq
-                    if word in frequency_data:
-                        frequency_data[word]['freq'] += freq
+
+                    # Use original-case word as key, store all data.
+                    # If same word appears multiple times with different POS, sum freq.
+                    if raw_word in frequency_data:
+                        frequency_data[raw_word]['freq'] += freq
                     else:
-                        frequency_data[word] = {
-                            'word': word,
+                        frequency_data[raw_word] = {
+                            'word': raw_word,
                             'lemma': lemma,
                             'pos': pos,
                             'freq': freq
                         }
-            
+
             # Cache the result
             if use_cache:
                 self._frequency_cache[resource_id] = frequency_data

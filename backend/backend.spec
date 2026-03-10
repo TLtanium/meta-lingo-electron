@@ -430,6 +430,27 @@ try:
 except Exception as e:
     print(f"Warning: Could not collect wordcloud: {e}")
 
+# 收集 yake 数据 (关键词提取: StopwordsList/stopwords_noLang.txt 等)
+try:
+    yake_datas = collect_data_files('yake')
+    yake_datas = [d for d in yake_datas if not os.path.basename(d[0]).startswith('._')]
+    datas += yake_datas
+    print(f"Info: Collected yake data files (StopwordsList etc.), count={len(yake_datas)}")
+except Exception as e:
+    print(f"Warning: Could not collect yake data: {e}")
+
+# 若 collect_data_files 未收到 yake 数据，则手动添加 StopwordsList 目录（打包后 yake 会从 _internal 下读取）
+if not any('yake' in str(d[1]) for d in datas):
+    try:
+        import yake
+        yake_root = os.path.dirname(os.path.abspath(yake.__file__))
+        stopwords_dir = os.path.join(yake_root, 'core', 'StopwordsList')
+        if os.path.isdir(stopwords_dir):
+            datas.append((stopwords_dir, 'yake/core/StopwordsList'))
+            print(f"Info: Manually added yake StopwordsList from {stopwords_dir}")
+    except Exception as e:
+        print(f"Warning: Could not add yake StopwordsList manually: {e}")
+
 # 最终过滤：确保所有 datas 中都没有 macOS 资源叉文件（以 ._ 开头）
 print(f"Info: Filtering macOS resource fork files from datas...")
 original_count = len(datas)
