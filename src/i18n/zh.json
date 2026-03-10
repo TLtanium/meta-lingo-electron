@@ -806,8 +806,8 @@
     }
   },
   "collocation": {
-    "title": "共现关系",
-    "description": "分析词语共现关系",
+    "title": "语境索引",
+    "description": "关键词语境索引分析",
     "corpus": {
       "title": "语料选择",
       "selectAll": "选择全部语料",
@@ -1185,7 +1185,7 @@
       "totalFreq": "总频率",
       "totalFreqFull": "总频率（搭配词在整个语料库的频率）",
       "actions": "操作",
-      "viewInCooccurrence": "查看共现关系"
+      "viewInCooccurrence": "查看语境索引"
     },
     "statistics": {
       "title": "统计方法",
@@ -2780,7 +2780,7 @@
     },
     "collocationContextHint": "【搭配检索 KWIC】以下为关键词居中（Key Word In Context）检索结果。每行：左语境 [关键词] 右语境。请从搭配用法、语境含义、检索词用法等角度解读。",
     "collocation": {
-      "contextIntro": "【共现关系 KWIC】请根据以下当前页面状态（数据源、词性、检索方式与检索词、排序、当前视图）作答；若用户在结果表或可视化页，请结合具体数据解读。",
+      "contextIntro": "【语境索引 KWIC】请根据以下当前页面状态（数据源、词性、检索方式与检索词、排序、当前视图）作答；若用户在结果表或可视化页，请结合具体数据解读。",
       "sectionCorpus": "一、数据源",
       "sectionPos": "二、词性过滤",
       "sectionSearch": "三、检索配置",
@@ -3222,7 +3222,7 @@
   },
   "crossLink": {
     "viewInOtherModules": "在其他模块中查看",
-    "viewCollocation": "查看共现关系",
+    "viewCollocation": "查看语境索引",
     "viewCollocationAnalysis": "查看搭配分析",
     "viewWordSketch": "查看词图分析",
     "viewNgram": "N-gram分析",

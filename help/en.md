@@ -40,7 +40,7 @@ Meta-Lingo provides 13 core functional modules:
 | **Synonym Analysis** | WordNet-based synonym relationship analysis |
 | **Keyword Extraction** | TF-IDF, TextRank, YAKE, RAKE and other algorithms |
 | **N-gram Analysis** | 2-6 gram combination frequency statistics and pattern discovery |
-| **Collocation** | KWIC search, CQL queries, collocation analysis |
+| **Concordance** | KWIC search, CQL queries, concordance analysis |
 | **Semantic Analysis** | USAS semantic domain classification and statistics |
 | **Collocation Analysis** | Collocation analysis (12 statistical measures) and Word Sketch grammatical collocation analysis |
 | **Bibliographic Visualization** | Literature data import and visualization analysis |
@@ -648,7 +648,7 @@ The table toolbar provides the following actions:
 
 If cross-module linking is enabled, the table displays an "Actions" column providing:
 
-- **Collocation Analysis**: Jump to Collocation Analysis module to analyze co-occurrence relationships
+- **Concordance**: Jump to Concordance module to analyze context and index
 - **Word Sketch**: Jump to Word Sketch module to view grammatical patterns
 
 ## Visualization
@@ -757,7 +757,7 @@ Export buttons are located on the right side of the chart settings bar.
 
 ## Overview
 
-The Synonym Analysis module (also called Word Family) is based on the NLTK WordNet dictionary and automatically identifies synonym relationships for words in your corpus. It supports the same **corpus/library** unified selector as Word Frequency and other modules; results **only include synonyms that actually appear in the selected corpus** (intersection with dictionary synonymy), making it easier to find substitution patterns and semantic associations. It offers network and tree visualizations and cross-module links (co-occurrence, collocation analysis, word sketch, N-gram, semantic domain analysis, etc.).
+The Synonym Analysis module (also called Word Family) is based on the NLTK WordNet dictionary and automatically identifies synonym relationships for words in your corpus. It supports the same **corpus/library** unified selector as Word Frequency and other modules; results **only include synonyms that actually appear in the selected corpus** (intersection with dictionary synonymy), making it easier to find substitution patterns and semantic associations. It offers network and tree visualizations and cross-module links (concordance, collocation analysis, word sketch, N-gram, semantic domain analysis, etc.).
 
 ## Analysis Principles
 
@@ -882,7 +882,7 @@ The top of the table displays statistical summary:
 | Frequency | Occurrence count of the word in the corpus |
 | Synonym Count | Total number of synonyms found (only those present in the corpus) |
 | Synonyms | Synonym list (first few shown; click to expand for all) |
-| Actions | Cross-module link menu (co-occurrence, collocation analysis, word sketch, N-gram, semantic domain, etc.) |
+| Actions | Cross-module link menu (concordance, collocation analysis, word sketch, N-gram, semantic domain, etc.) |
 
 ### Expanded Row Details
 
@@ -894,7 +894,7 @@ Click the expand button on the left of a table row to view **all synonyms** and 
 #### Synset Details
 - Details are shown **per synonym**: each heading is the synonym itself, with the definition of that sense (when used as a synonym of the current word).
 - The layout no longer uses synset names (e.g. occupation.n.01) as main headings, so words that do not appear in the corpus are not emphasized.
-- Each synonym card offers the same **cross-module link** menu as the word column, so you can jump from a synonym to word frequency, co-occurrence, collocation analysis, and other modules.
+- Each synonym card offers the same **cross-module link** menu as the word column, so you can jump from a synonym to word frequency, concordance, collocation analysis, and other modules.
 
 ### Sorting
 
@@ -933,7 +933,7 @@ The table toolbar provides the following actions:
 
 The table "Actions" column provides a word action menu to jump to:
 
-- **Word Frequency**, **Co-occurrence**, **Collocation Analysis**, **Word Sketch**, **N-gram Analysis**, **Semantic Domain Analysis**, and related modules, using the current word as the search term.
+- **Word Frequency**, **Concordance**, **Collocation Analysis**, **Word Sketch**, **N-gram Analysis**, **Semantic Domain Analysis**, and related modules, using the current word as the search term.
 - In library mode, the library ID and selection mode are passed so the target page can restore the same corpus/library selection.
 
 ## Visualization
@@ -1598,7 +1598,7 @@ The table toolbar provides the following actions:
 
 If cross-module linking is enabled, the table displays an "Actions" column providing:
 
-- **Collocation Analysis**: Jump to Collocation Analysis module to analyze co-occurrence relationships
+- **Concordance**: Jump to Concordance module to analyze context and index
 - **Word Sketch**: Jump to Word Sketch module to view grammatical patterns
 
 ## Visualization
@@ -2092,7 +2092,7 @@ The table toolbar provides the following actions:
 
 If cross-module linking is enabled, the table displays an "Actions" column providing:
 
-- **Collocation Analysis**: Jump to Collocation Analysis module to analyze co-occurrence relationships
+- **Concordance**: Jump to Concordance module to analyze context and index
 
 ## Visualization
 
@@ -2269,11 +2269,11 @@ Export buttons are located on the right side of the chart settings bar.
 - Network and Sankey charts may be slow when node count is high
 - When exporting CSV, large datasets may take some time
 
-# Collocation
+# Concordance
 
 ## Overview
 
-The Collocation Analysis module provides KWIC (Key Word In Context) search functionality to help you find and analyze occurrences of specific words or patterns in the corpus. The module supports multiple search modes, CQL (Corpus Query Language) queries, POS filtering, result sorting, and visualization features.
+The Concordance module provides KWIC (Key Word In Context) search functionality to help you find and analyze occurrences of specific words or patterns in the corpus. The module supports multiple search modes, CQL (Corpus Query Language) queries, POS filtering, result sorting, and visualization features.
 
 ## CQL Syntax Guide
 
@@ -2426,7 +2426,7 @@ If you're unfamiliar with CQL syntax, you can use the **CQL Builder**:
 
 ## Interface Layout
 
-The Collocation Analysis module uses a left-right split layout:
+The Concordance module uses a left-right split layout:
 
 - **Left Panel** (400px): Configuration panel containing corpus selection, POS filtering, search configuration, etc.
 - **Right Panel** (flexible width): Results display area with two tabs
@@ -3366,7 +3366,7 @@ Statistics on the semantic domain to which each word belongs and its frequency.
 **Features**:
 - Displays word, semantic domain, and POS
 - Statistics on frequency and percentage for each word-semantic domain combination
-- Can jump to other analysis modules (collocation analysis, word sketch)
+- Can jump to other analysis modules (concordance, word sketch)
 - Suitable for analyzing semantic features of specific words
 
 **Table Columns**:
@@ -3547,25 +3547,25 @@ In "By Domain" mode, click the "View Words" button (info icon) in a table row to
 
 - Displays a dialog listing all words in that semantic domain
 - Shows frequency for each word
-- Can jump to other analysis modules (collocation analysis, word sketch)
+- Can jump to other analysis modules (concordance, word sketch)
 - Displays total word count for that semantic domain
 
 #### Cross-domain Link (three-dot menu) in By Domain mode
 
 In "By Domain" mode, each row has a **three-dot menu** next to "View Words":
 
-- **View Concordance**: Opens the Collocation tab and runs a CQL query by **semantic domain** (match mode "contains"; _MWE suffix is ignored), so you can view co-occurrence for all vocabulary in that domain.
+- **View Concordance**: Opens the Concordance tab and runs a CQL query by **semantic domain** (match mode "contains"; _MWE suffix is ignored), so you can view context for all vocabulary in that domain.
 
 #### Cross-module Links
 
 In "By Word" mode, the table displays an "Actions" column providing:
 
-- **Collocation Analysis**: Jump to Collocation Analysis module to analyze co-occurrence relationships
+- **Concordance**: Jump to Concordance module to analyze context and index
 - **Word Sketch**: Jump to Word Sketch module to view grammatical patterns
 - **N-gram**: Jump to N-gram analysis
 - **Semantic Domain**: Jump to Semantic Domain Analysis (By Domain mode, search type "contains", search value = current word)
 
-Word frequency, synonym analysis, keyword extraction (single-doc and keyness), collocation, collocation analysis (collocation / word graph / word graph contrast), topic modeling (BERTopic/LDA/LSA/NMF), and annotation mode word menus also offer a **Semantic Domain** link with the same configuration.
+Word frequency, synonym analysis, keyword extraction (single-doc and keyness), concordance, collocation analysis (collocation / word graph / word graph contrast), topic modeling (BERTopic/LDA/LSA/NMF), and annotation mode word menus also offer a **Semantic Domain** link with the same configuration.
 
 #### Export
 
@@ -4067,7 +4067,7 @@ Negative Delta P means the collocate appears less often near the node than in th
 - **Info Bar**: Shows total tokens, unique collocates, and node frequency
 - **Toolbar**: Statistics method button, search filter, select all, copy, download CSV
 - **Columns**: Collocate | Co-occurrence Freq | Total Freq | [Enabled statistical measures]
-- **Cross-link**: Each row has a link to the Co-occurrence module, auto-syncing the collocation span as context size and highlighting the collocate
+- **Cross-link**: Each row has a link to the Concordance module, auto-syncing the collocation span as context size and highlighting the collocate
 
 ### Visualization
 
@@ -4224,7 +4224,7 @@ The system supports 50 grammatical relation templates, automatically selecting r
 
 In the collocate table, each collocate provides a quick action menu:
 
-- **Collocation Analysis**: Jump to Collocation Analysis module to analyze co-occurrence relationships
+- **Concordance**: Jump to Concordance module to analyze context and index
 - **Word Sketch**: Jump to Word Sketch Analysis module to analyze grammatical collocations
 
 ### Expand/Collapse Function
@@ -6300,7 +6300,7 @@ LDA preprocessing panel is used to configure text preprocessing options:
 
 #### Topic Keyword Cross-links
 
-- **Normal mode**: The topic keyword action menu offers links to Collocation Analysis, Co-occurrence, Word Sketch, and N-gram Analysis.
+- **Normal mode**: The topic keyword action menu offers links to Collocation Analysis, Concordance, Word Sketch, and N-gram Analysis.
 - **N-gram mode**: Only the Co-occurrence link is offered.
 
 #### Preprocessing Preview
@@ -6883,7 +6883,7 @@ Charts can be exported as images.
 
 As in Word Frequency, words in the results table can be linked to:
 
-- **Co-occurrence**: View co-occurrence and context in the corpus.
+- **Concordance**: View context and index in the corpus.
 - **Collocation analysis**: Collocation and statistics.
 - **Word sketch**: Word graph and grammatical patterns.
 - **N-gram analysis**: N-gram distribution including the word.
@@ -6891,7 +6891,7 @@ As in Word Frequency, words in the results table can be linked to:
 
 ### Semantic Domain (USAS) mode
 
-In USAS mode, each row represents a semantic domain, and cross-module links are **limited to co-occurrence only** (consistent with the Keyness comparison's semantic domain mode):
+In USAS mode, each row represents a semantic domain, and cross-module links are **limited to concordance only** (consistent with the Keyness comparison's semantic domain mode):
 
 - **Co-occurrence**: Opens the collocation/concordance module with a CQL query `[usas="domain_code"]`, showing the context of all words in that semantic domain, so you can examine actual usage within the domain.
 
@@ -6950,7 +6950,7 @@ Many analysis modules provide an **AI Assistant** button next to the module titl
 | **Synonym Analysis** | Data source, POS, search; current results table or network/tree visualization. |
 | **Keyword Extraction** | Single-document or Keyness comparison data source and parameters; current results table or visualization. |
 | **N-gram Analysis** | Data source, N values, POS, search; current results table or bar/network/Sankey/word cloud view. |
-| **Collocation (KWIC)** | Data source, POS, search mode and query, sort; current page of KWIC results or density/ridge plot data. |
+| **Concordance (KWIC)** | Data source, POS, search mode and query, sort; current page of KWIC results or density/ridge plot data. |
 | **Semantic Domain Analysis** | Data source, POS, search, frequency, result mode (by domain/word); table sort and current page or chart type and data. |
 | **Metaphor Analysis** | Data source, POS, search, frequency; table sort and current page or chart type and data. |
 | **Collocation Analysis** | Node word, span, frequency, statistics; table sort and current page or bar/pie/network/word cloud data. |

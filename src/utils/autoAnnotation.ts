@@ -63,6 +63,69 @@ export function getAutoAnnotationType(frameworkId: string): 'mipvu' | 'theme-rhe
 }
 
 /**
+ * Convert backend transcript offset to frontend contiguous offset.
+ * Backend uses +1 (e.g. newline) between segments; frontend uses no separator.
+ * segmentLengths[i] = length of segment i text.
+ */
+export function convertTranscriptBackendOffsetToFrontend(
+  backendOffset: number,
+  segmentLengths: number[]
+): number {
+  let backendAcc = 0
+  for (let i = 0; i < segmentLengths.length; i++) {
+    const segLen = segmentLengths[i]
+    const segStart = backendAcc
+    const segEnd = backendAcc + segLen
+    if (backendOffset >= segStart && backendOffset < segEnd) {
+      return backendOffset - i
+    }
+    backendAcc = segEnd + 1
+  }
+  return backendOffset - segmentLengths.length
+}
+
+/**
+ * Convert MIPVU API data from backend transcript offset space to frontend contiguous.
+ * Backend get_mipvu_annotation uses +1 between segments when merging; frontend uses join('').
+ */
+export function convertMipvuDataOffsetsForTranscript(
+  mipvuData: MIPVUAnnotationData,
+  segmentLengths: number[]
+): MIPVUAnnotationData {
+  if (!mipvuData.sentences?.length || !segmentLengths.length) return mipvuData
+  const convert = (n: number) => convertTranscriptBackendOffsetToFrontend(n, segmentLengths)
+  return {
+    ...mipvuData,
+    sentences: mipvuData.sentences.map(s => ({
+      ...s,
+      tokens: s.tokens.map(t => ({
+        ...t,
+        start: convert(t.start),
+        end: convert(t.end)
+      }))
+    }))
+  }
+}
+
+/**
+ * Convert Theme/Rheme API results from backend transcript offset space to frontend contiguous.
+ */
+export function convertThemeRhemeResultsForTranscript(
+  results: ThemeRhemeResult[],
+  segmentLengths: number[]
+): ThemeRhemeResult[] {
+  if (!segmentLengths.length) return results
+  const convert = (n: number) => convertTranscriptBackendOffsetToFrontend(n, segmentLengths)
+  return results.map(r => ({
+    ...r,
+    theme_start: convert(r.theme_start),
+    theme_end: convert(r.theme_end),
+    rheme_start: convert(r.rheme_start),
+    rheme_end: convert(r.rheme_end)
+  }))
+}
+
+/**
  * MIPVU Token interface from MIPVU annotation data
  */
 interface MIPVUToken {
@@ -114,8 +177,6 @@ export function createMipvuAnnotations(
   for (const sentence of mipvuData.sentences) {
     for (const token of sentence.tokens) {
       if (token.is_metaphor) {
-        const sourceForRemark =
-          token.metaphor_source === 'finetuned' ? 'clause' : token.metaphor_source
         // Extract the actual text from the content
         const annotatedText = textContent.substring(token.start, token.end)
         
@@ -130,7 +191,7 @@ export function createMipvuAnnotations(
           type: 'text',
           pos: token.pos,
           entity: undefined,
-          remark: `Metaphor (${sourceForRemark}, confidence: ${(token.metaphor_confidence * 100).toFixed(1)}%)`
+          remark: `Metaphor (confidence: ${(token.metaphor_confidence * 100).toFixed(1)}%)`
         }
         
         annotations.push(annotation)

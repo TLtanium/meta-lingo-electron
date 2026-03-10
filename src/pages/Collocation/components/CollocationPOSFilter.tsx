@@ -1,5 +1,5 @@
 /**
- * Co-occurrence POS Filter Panel
+ * Concordance POS filter panel
  * Provides SpaCy Universal POS tag filtering with keep/filter modes
  * Design matches WordFrequency POSFilterPanel
  * Added: Keep mode warning when no POS selected

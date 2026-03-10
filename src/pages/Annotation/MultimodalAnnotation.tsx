@@ -67,6 +67,15 @@ import type {
   AudioBox,
   AcousticData
 } from '../../types'
+import {
+  isAutoAnnotationSupported,
+  getAutoAnnotationType,
+  createMipvuAnnotations,
+  createThemeRhemeAnnotations,
+  mergeAnnotations,
+  convertMipvuDataOffsetsForTranscript,
+  convertThemeRhemeResultsForTranscript
+} from '../../utils/autoAnnotation'
 
 // SpaCy annotation types
 interface SpacyToken {
@@ -203,6 +212,8 @@ export default function MultimodalAnnotation() {
   const [searchHighlights, setSearchHighlights] = useState<Array<{ start: number; end: number }>>([])
   const [batchAnnotateDialogOpen, setBatchAnnotateDialogOpen] = useState(false)
   const [pendingMatches, setPendingMatches] = useState<SearchMatch[]>([])
+  // 自动标注状态（多模态转录）
+  const [autoAnnotating, setAutoAnnotating] = useState(false)
 
   // Left panel width state
   const [leftPanelWidth, setLeftPanelWidth] = useState(400)
@@ -996,6 +1007,126 @@ export default function MultimodalAnnotation() {
     setTimeout(() => setSaveMessage(null), 3000)
   }, [selectedLabel, pendingMatches, handleAnnotationAdd, t])
 
+  // 自动标注（针对多模态转录文本的 TranscriptAnnotator）
+  const isAutoAnnotateEnabledForTranscript = useCallback(() => {
+    if (!currentFramework?.id) return false
+    if (!selectedMedia) return false
+    if (!transcriptSegments.length) return false
+    return isAutoAnnotationSupported(currentFramework.id)
+  }, [currentFramework, selectedMedia, transcriptSegments])
+
+  const getAutoAnnotateTranscriptTooltip = useCallback(() => {
+    if (!currentFramework?.id) {
+      return t('annotation.autoAnnotateDisabled', '当前框架不支持自动标注')
+    }
+    if (!selectedMedia) {
+      return t('annotation.autoAnnotateDisabled', '当前框架不支持自动标注')
+    }
+    if (!transcriptSegments.length) {
+      return t('annotation.autoAnnotateDisabled', '当前框架不支持自动标注')
+    }
+    const annotationType = getAutoAnnotationType(currentFramework.id)
+    if (annotationType === 'mipvu') {
+      return t('annotation.autoAnnotateMipvu', '自动标注隐喻词')
+    }
+    if (annotationType === 'theme-rheme') {
+      return t('annotation.autoAnnotateTheme', '自动标注主题/述题')
+    }
+    return t('annotation.autoAnnotateDisabled', '当前框架不支持自动标注')
+  }, [currentFramework, selectedMedia, transcriptSegments, t])
+
+  const handleAutoAnnotateTranscript = useCallback(async () => {
+    if (!currentFramework?.id || !currentCorpus || !selectedMedia) return
+
+    const annotationType = getAutoAnnotationType(currentFramework.id)
+    if (!annotationType) return
+
+    setAutoAnnotating(true)
+    try {
+      if (annotationType === 'mipvu') {
+        const response = await corpusApi.getMipvuAnnotation(currentCorpus.id, selectedMedia.id)
+        if (response.success && response.data && response.data.success) {
+          const segmentLengths = transcriptSegments.map(s => s.text.length)
+          const mipvuData = convertMipvuDataOffsetsForTranscript(response.data, segmentLengths)
+          const newAnnotations = createMipvuAnnotations(mipvuData, fullTranscriptText)
+          if (newAnnotations.length > 0) {
+            const merged = mergeAnnotations(annotations, newAnnotations)
+            setAnnotations(merged)
+            setSaveMessage({
+              type: 'success',
+              text: t('annotation.autoAnnotateSuccess', '已自动添加 {{count}} 条标注', { count: newAnnotations.length })
+            })
+          } else {
+            setSaveMessage({
+              type: 'success',
+              text: t('annotation.noMetaphorFound', '未找到隐喻词')
+            })
+          }
+        } else {
+          setSaveMessage({
+            type: 'error',
+            text: t('annotation.mipvuDataNotFound', 'MIPVU 标注数据不存在，请先上传或重新标注')
+          })
+        }
+      } else if (annotationType === 'theme-rheme') {
+        const response = await annotationApi.analyzeThemeRheme(currentCorpus.id, selectedMedia.id)
+        if (response.success && response.data?.success && response.data?.data?.results) {
+          const segmentLengths = transcriptSegments.map(s => s.text.length)
+          const results = convertThemeRhemeResultsForTranscript(
+            response.data.data.results,
+            segmentLengths
+          )
+          const frameworkId = currentFramework.id as 'Halliday-Theme' | 'Berry-Theme'
+          const newAnnotations = createThemeRhemeAnnotations(
+            results,
+            frameworkId,
+            fullTranscriptText
+          )
+          if (newAnnotations.length > 0) {
+            const merged = mergeAnnotations(annotations, newAnnotations)
+            setAnnotations(merged)
+            setSaveMessage({
+              type: 'success',
+              text: t('annotation.autoAnnotateSuccess', '已自动添加 {{count}} 条标注', { count: newAnnotations.length })
+            })
+          } else {
+            setSaveMessage({
+              type: 'success',
+              text: t('annotation.noThemeRhemeFound', '未识别到主题/述题')
+            })
+          }
+        } else {
+          const errorMsg =
+            (response as any).error ||
+            response.data?.message ||
+            t('annotation.spacyDataNotFound', 'SpaCy 标注数据不存在，请先上传或重新标注')
+          setSaveMessage({
+            type: 'error',
+            text: errorMsg
+          })
+        }
+      }
+    } catch (error) {
+      console.error('Auto-annotate transcript error:', error)
+      setSaveMessage({
+        type: 'error',
+        text: t('annotation.autoAnnotateError', '自动标注失败')
+      })
+    } finally {
+      setAutoAnnotating(false)
+      setTimeout(() => setSaveMessage(null), 3000)
+    }
+  }, [
+    annotations,
+    currentCorpus,
+    currentFramework,
+    fullTranscriptText,
+    selectedMedia,
+    setAnnotations,
+    transcriptSegments,
+    t
+  ])
+
   // Get video and audio texts
   // All audio (including Chinese) now supported with waveform + pitch + spectrogram visualization
   const videoTexts = currentCorpus?.texts.filter(t => t.mediaType === 'video') || []
@@ -1432,6 +1563,12 @@ export default function MultimodalAnnotation() {
                 corpusId={currentCorpus?.id}
                 textIds={selectedMedia ? [selectedMedia.id] : 'all'}
                 selectionMode={selectedMedia ? 'selected' : 'all'}
+                currentFrameworkId={currentFramework?.id}
+                currentFrameworkName={currentFramework?.name}
+                onRequestAutoAnnotateTranscript={handleAutoAnnotateTranscript}
+                autoAnnotateEnabledForTranscript={isAutoAnnotateEnabledForTranscript()}
+                autoAnnotatingTranscript={autoAnnotating}
+                autoAnnotateTranscriptTooltip={getAutoAnnotateTranscriptTooltip()}
               />
             </Box>
           </>

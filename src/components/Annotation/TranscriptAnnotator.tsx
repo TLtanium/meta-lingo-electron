@@ -20,6 +20,7 @@ import { Box, Typography, Paper, Alert, Chip, Stack, IconButton, Tooltip, Circul
 import ImageIcon from '@mui/icons-material/Image'
 import CodeIcon from '@mui/icons-material/Code'
 import AccountTreeIcon from '@mui/icons-material/AccountTree'
+import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh'
 import html2canvas from 'html2canvas'
 import type { Annotation, SelectedLabel, TranscriptSegment, YoloTrack, ClipAnnotationData } from '../../types'
 import SyntaxVisualization from './SyntaxVisualization'
@@ -52,6 +53,11 @@ interface TranscriptAnnotatorProps {
   searchHighlights?: SearchHighlight[]  // 搜索高亮
   disabled?: boolean  // 禁用标注功能（例如音频画框模式时）
   selectedAnnotationId?: string | null  // 当前选中的标注ID（来自标注列表），用于双圈阴影+上浮高亮
+  // 自动标注（多模态转录）相关
+  autoAnnotateEnabled?: boolean
+  autoAnnotating?: boolean
+  autoAnnotateTooltip?: string
+  onAutoAnnotate?: () => void
 }
 
 // Format time in MM:SS format
@@ -204,7 +210,11 @@ const TranscriptAnnotator = forwardRef<TranscriptAnnotatorRef, TranscriptAnnotat
   language = 'english',
   searchHighlights = [],
   disabled = false,
-  selectedAnnotationId = null
+  selectedAnnotationId = null,
+  autoAnnotateEnabled = false,
+  autoAnnotating = false,
+  autoAnnotateTooltip,
+  onAutoAnnotate
 }, ref) => {
   const { t } = useTranslation()
   const theme = useTheme()
@@ -688,8 +698,8 @@ const TranscriptAnnotator = forwardRef<TranscriptAnnotatorRef, TranscriptAnnotat
           }
         </Typography>
         
-        {/* Export Buttons */}
-        <Stack direction="row" spacing={0.5}>
+        {/* 导出 + 句法结构 + 自动标注按钮 */}
+        <Stack direction="row" spacing={0.5} alignItems="center">
           <Tooltip title={t('annotation.exportPngTooltip')}>
             <span>
               <IconButton 
@@ -720,7 +730,7 @@ const TranscriptAnnotator = forwardRef<TranscriptAnnotatorRef, TranscriptAnnotat
               </IconButton>
             </span>
           </Tooltip>
-          <Tooltip title="查看句法结构">
+          <Tooltip title={t('syntax.viewSyntax', '查看句法结构')}>
             <span>
               <IconButton 
                 size="small" 
@@ -736,6 +746,25 @@ const TranscriptAnnotator = forwardRef<TranscriptAnnotatorRef, TranscriptAnnotat
               </IconButton>
             </span>
           </Tooltip>
+          {onAutoAnnotate && (
+            <Tooltip title={autoAnnotateTooltip || t('annotation.autoAnnotateTheme', '自动标注主题/述题')}>
+              <span>
+                <IconButton
+                  size="small"
+                  onClick={onAutoAnnotate}
+                  disabled={!autoAnnotateEnabled || autoAnnotating}
+                  sx={{
+                    bgcolor: autoAnnotateEnabled ? '#4CAF50' : '#9E9E9E',
+                    color: 'white',
+                    '&:hover': { bgcolor: autoAnnotateEnabled ? '#388E3C' : '#757575' },
+                    '&.Mui-disabled': { bgcolor: '#9E9E9E', color: 'rgba(255,255,255,0.5)' }
+                  }}
+                >
+                  {autoAnnotating ? <CircularProgress size={16} color="inherit" /> : <AutoFixHighIcon fontSize="small" />}
+                </IconButton>
+              </span>
+            </Tooltip>
+          )}
         </Stack>
       </Box>
 

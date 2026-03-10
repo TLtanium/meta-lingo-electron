@@ -1,5 +1,5 @@
 /**
- * Builds the full AI assistant context string for Co-occurrence (Collocation/KWIC) module.
+ * Builds the full AI assistant context string for Concordance (语境索引/KWIC) module.
  * Includes: data source, POS filter, search config, sort, and current view (table or visualization).
  */
 

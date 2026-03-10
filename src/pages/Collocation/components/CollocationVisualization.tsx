@@ -1,5 +1,5 @@
 /**
- * Co-occurrence Visualization Panel
+ * Concordance visualization panel
  * Container for KWIC result visualizations with chart type switching
  */
 

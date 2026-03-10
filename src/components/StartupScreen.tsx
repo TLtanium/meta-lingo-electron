@@ -132,11 +132,34 @@ export default function StartupScreen({ onReady }: StartupScreenProps) {
     let cleanup: (() => void) | undefined
     if (window.electronAPI?.onStartupStatusChange) {
       cleanup = window.electronAPI.onStartupStatusChange((newStatus) => {
+        // 根据阶段使用本地化文案，避免 Electron 主进程中的英文提示直接显示
+        let localizedMessage = newStatus.message
+        if (newStatus.stage === 'initializing') {
+          localizedMessage = t('startup.initializing')
+        } else if (newStatus.stage === 'starting_backend') {
+          localizedMessage = t('startup.startingBackend')
+        } else if (newStatus.stage === 'checking_health') {
+          localizedMessage = t('startup.checkingHealth')
+        } else if (newStatus.stage === 'ready') {
+          localizedMessage = t('startup.ready')
+        } else if (newStatus.stage === 'error') {
+          localizedMessage = t('startup.error')
+        }
+
         if (newStatus.backendReady) {
           if (intervalId) clearInterval(intervalId)
           setCurrentStep(startupSteps.length)
-          setStatus(newStatus)
+          setStatus({
+            ...newStatus,
+            message: localizedMessage
+          })
           setTimeout(onReady, 500)
+        } else {
+          // 非最终状态时也同步阶段和本地化提示
+          setStatus({
+            ...newStatus,
+            message: localizedMessage
+          })
         }
       })
     }

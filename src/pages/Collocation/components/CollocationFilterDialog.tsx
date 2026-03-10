@@ -1,5 +1,5 @@
 /**
- * Co-occurrence Filter Dialog
+ * Concordance filter dialog
  * Filters KWIC results based on various criteria
  */
 

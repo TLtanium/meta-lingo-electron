@@ -1,5 +1,5 @@
 /**
- * Co-occurrence Analysis Types
+ * Concordance (语境索引) Types
  */
 
 // POS Filter Configuration

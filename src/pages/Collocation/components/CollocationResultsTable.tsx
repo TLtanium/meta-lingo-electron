@@ -1,5 +1,5 @@
 /**
- * Co-occurrence Results Table
+ * Concordance results table (KWIC)
  * KWIC concordance display with colored context markers, row expand for extended context
  * Table columns: # | Source | Left Context | KWIC | Right Context | Actions
  */

@@ -63,6 +63,14 @@ import type {
 import { AnnotationTable } from './index'
 import TranscriptAnnotator from './TranscriptAnnotator'
 import WavesurferWaveform, { WavesurferWaveformRef } from './WavesurferWaveform'
+import {
+  isAutoAnnotationSupported,
+  getAutoAnnotationType,
+  createMipvuAnnotations,
+  createThemeRhemeAnnotations,
+  mergeAnnotations
+} from '../../utils/autoAnnotation'
+import { corpusApi, annotationApi } from '../../api'
 
 // Word alignment data from Wav2Vec2
 interface WordAlignment {
@@ -192,6 +200,13 @@ interface MultimodalWorkspaceProps {
   textIds?: string[] | 'all'
   selectionMode?: 'all' | 'selected' | 'tags'
   selectedTags?: string[]
+  // 自动标注（多模态转录）相关（来自页面层）
+  currentFrameworkId?: string | null
+  currentFrameworkName?: string | null
+  onRequestAutoAnnotateTranscript?: (() => Promise<void>) | (() => void)
+  autoAnnotateEnabledForTranscript?: boolean
+  autoAnnotatingTranscript?: boolean
+  autoAnnotateTranscriptTooltip?: string
 }
 
 // Format time in seconds to MM:SS.ms format
@@ -267,7 +282,13 @@ export default function MultimodalWorkspace({
   corpusId,
   textIds,
   selectionMode = 'all',
-  selectedTags
+  selectedTags,
+  currentFrameworkId,
+  currentFrameworkName,
+  onRequestAutoAnnotateTranscript,
+  autoAnnotateEnabledForTranscript,
+  autoAnnotatingTranscript,
+  autoAnnotateTranscriptTooltip
 }: MultimodalWorkspaceProps) {
   // showSpacyAnnotations is no longer used (removed from UI)
   void showSpacyAnnotations
@@ -1606,6 +1627,10 @@ export default function MultimodalWorkspace({
               searchHighlights={externalSearchHighlights}
               disabled={audioDrawMode || drawMode}
               selectedAnnotationId={selectedAnnotationId}
+              autoAnnotateEnabled={autoAnnotateEnabledForTranscript}
+              autoAnnotating={autoAnnotatingTranscript}
+              autoAnnotateTooltip={autoAnnotateTranscriptTooltip}
+              onAutoAnnotate={onRequestAutoAnnotateTranscript}
             />
           )}
 

@@ -802,8 +802,8 @@
     }
   },
   "collocation": {
-    "title": "Co-occurrence Analysis",
-    "description": "Analyze word co-occurrence relationships",
+    "title": "Concordance",
+    "description": "KWIC search and concordance analysis",
     "corpus": {
       "title": "Corpus Selection",
       "selectAll": "Select All Documents",
@@ -1178,7 +1178,7 @@
       "totalFreq": "Total Freq",
       "totalFreqFull": "Total Frequency (in corpus)",
       "actions": "Actions",
-      "viewInCooccurrence": "View Co-occurrence"
+      "viewInCooccurrence": "View Concordance"
     },
     "statistics": {
       "title": "Statistical Methods",

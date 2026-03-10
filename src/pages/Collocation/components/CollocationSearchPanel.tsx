@@ -1,5 +1,5 @@
 /**
- * Co-occurrence Search Panel
+ * Concordance search panel
  * Configures search mode, value, and context size
  * 6 search modes: simple, lemma, phrase, word, character, cql
  */

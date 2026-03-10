@@ -205,7 +205,7 @@ export interface WordActionMenuProps {
   libraryId?: string
   /** When library + manual selection, entry IDs for cross-link target to restore selection */
   selectedEntryIds?: string[]
-  /** Whether to show collocation option (共现关系) */
+  /** Whether to show concordance option (语境索引) */
   showCollocation?: boolean
   /** Whether to show collocation analysis option (搭配分析) */
   showCollocationAnalysis?: boolean

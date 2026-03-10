@@ -1,5 +1,5 @@
 /**
- * Co-occurrence Analysis API Client
+ * Concordance (语境索引) API Client
  */
 
 import client from './client'

@@ -755,7 +755,7 @@ export default function AnnotationTable({
           <ListItemIcon>
             <LinkIcon fontSize="small" />
           </ListItemIcon>
-          <ListItemText primary={t('crossLink.viewCollocation', '查看共现关系')} />
+          <ListItemText primary={t('crossLink.viewCollocation', '查看语境索引')} />
         </MenuItem>
         <MenuItem
           onClick={handleOpenCollocationAnalysis}

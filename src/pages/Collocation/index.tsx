@@ -1,5 +1,5 @@
 /**
- * Co-occurrence Analysis Page
+ * Concordance (语境索引) Page
  * Single-page KWIC search with multiple search modes, POS filtering, and D3.js visualization
  */
 

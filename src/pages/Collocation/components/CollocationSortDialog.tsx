@@ -1,5 +1,5 @@
 /**
- * Co-occurrence Sort Dialog
+ * Concordance sort dialog
  * Configures sorting options for KWIC results
  */
 
