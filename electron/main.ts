@@ -27,7 +27,12 @@ let startupStatus: StartupStatus = {
 }
 
 function updateStartupStatus(update: Partial<StartupStatus>) {
-  startupStatus = { ...startupStatus, ...update }
+  const next = { ...startupStatus, ...update }
+  // 进度条只增不减，避免打包后与渲染进程轮询冲突导致回跳闪烁
+  if (typeof next.progress === 'number' && next.progress < startupStatus.progress) {
+    next.progress = startupStatus.progress
+  }
+  startupStatus = next
   // 发送状态更新到渲染进程（确保webContents已准备好）
   if (mainWindow && !mainWindow.isDestroyed() && mainWindow.webContents) {
     // 使用 whenReady 确保渲染进程已准备好接收消息
@@ -210,11 +215,13 @@ async function startBackend(): Promise<boolean> {
       const checkLoop = async () => {
         attempts++
         const progress = Math.min(30 + Math.floor((attempts / maxAttempts) * 60), 90)
-        
-        updateStartupStatus({ 
-          stage: 'checking_health', 
-          message: `Checking backend health (${attempts}/${maxAttempts})...`, 
-          progress 
+        // 只允许进度递增，避免从 70 回落到 30 导致进度条闪烁
+        const nextProgress = Math.max(startupStatus.progress, progress)
+
+        updateStartupStatus({
+          stage: 'checking_health',
+          message: `Checking backend health (${attempts}/${maxAttempts})...`,
+          progress: nextProgress
         })
         
         const isRunning = await checkBackendHealth()

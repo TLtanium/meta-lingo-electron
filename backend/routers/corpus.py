@@ -676,13 +676,15 @@ async def reannotate_spacy(
                                                 'lemma': t.get('lemma', ''),
                                                 'pos': t.get('pos', ''),
                                                 'tag': t.get('tag', ''),
-                                                'dep': t.get('dep', '')
+                                                'dep': t.get('dep', ''),
+                                                'start': t.get('start', 0),
+                                                'end': t.get('end', 0)
                                             } for t in seg_spacy.get('tokens', [])
                                         ]
                                     }]
                                 }
                             segments_with_spacy.append({**seg, 'spacy_data': spacy_data})
-                        
+
                         mipvu_result = mipvu_svc.annotate_segments(segments_with_spacy, language, media_mipvu_progress_callback)
                         if mipvu_result:
                             transcript_data['mipvu_annotations'] = {"success": True, "segments": mipvu_result}
@@ -2521,13 +2523,15 @@ async def reannotate_mipvu(
                                         'lemma': t.get('lemma', ''),
                                         'pos': t.get('pos', ''),
                                         'tag': t.get('tag', ''),
-                                        'dep': t.get('dep', '')
+                                        'dep': t.get('dep', ''),
+                                        'start': t.get('start', 0),
+                                        'end': t.get('end', 0)
                                     } for t in seg_spacy.get('tokens', [])
                                 ]
                             }]
                         }
                     segments_with_spacy.append({**seg, 'spacy_data': spacy_data})
-                
+
                 result = mipvu_svc.annotate_segments(segments_with_spacy, language, mipvu_progress_callback)
                 
                 if result:

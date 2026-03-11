@@ -112,11 +112,11 @@ export default function StartupScreen({ onReady }: StartupScreenProps) {
   useEffect(() => {
     let intervalId: NodeJS.Timeout | null = null
     let mounted = true
-    
+
     const startPolling = async () => {
       const result = await pollBackend()
       if (result !== null || !mounted) return
-      
+
       intervalId = setInterval(async () => {
         if (!mounted) {
           if (intervalId) clearInterval(intervalId)
@@ -128,11 +128,26 @@ export default function StartupScreen({ onReady }: StartupScreenProps) {
         }
       }, 500)
     }
-    
+
     let cleanup: (() => void) | undefined
-    if (window.electronAPI?.onStartupStatusChange) {
+    const hasIpc = !!window.electronAPI?.onStartupStatusChange
+
+    if (hasIpc) {
+      // 打包模式：仅以主进程 IPC 为进度来源，不再跑轮询进度，避免与主进程进度互相覆盖导致闪烁
+      window.electronAPI.getStartupStatus().then((s) => {
+        if (!mounted) return
+        const progress = s.progress ?? 0
+        const stepIndex = s.backendReady ? startupSteps.length : (progress >= 95 ? 5 : progress >= 75 ? 4 : progress >= 55 ? 3 : progress >= 35 ? 2 : progress >= 15 ? 1 : 0)
+        setCurrentStep(stepIndex)
+        setStatus({
+          stage: s.stage,
+          message: s.message,
+          progress: s.progress,
+          backendReady: s.backendReady
+        })
+        if (s.backendReady) setTimeout(onReady, 500)
+      })
       cleanup = window.electronAPI.onStartupStatusChange((newStatus) => {
-        // 根据阶段使用本地化文案，避免 Electron 主进程中的英文提示直接显示
         let localizedMessage = newStatus.message
         if (newStatus.stage === 'initializing') {
           localizedMessage = t('startup.initializing')
@@ -147,7 +162,6 @@ export default function StartupScreen({ onReady }: StartupScreenProps) {
         }
 
         if (newStatus.backendReady) {
-          if (intervalId) clearInterval(intervalId)
           setCurrentStep(startupSteps.length)
           setStatus({
             ...newStatus,
@@ -155,23 +169,26 @@ export default function StartupScreen({ onReady }: StartupScreenProps) {
           })
           setTimeout(onReady, 500)
         } else {
-          // 非最终状态时也同步阶段和本地化提示
+          const progress = newStatus.progress ?? 0
+          const stepIndex = progress >= 95 ? 5 : progress >= 75 ? 4 : progress >= 55 ? 3 : progress >= 35 ? 2 : progress >= 15 ? 1 : 0
+          setCurrentStep(stepIndex)
           setStatus({
             ...newStatus,
             message: localizedMessage
           })
         }
       })
+    } else {
+      // 开发模式：无 IPC，仅靠前端轮询后端健康
+      startPolling()
     }
-    
-    startPolling()
-    
+
     return () => {
       mounted = false
       if (intervalId) clearInterval(intervalId)
       cleanup?.()
     }
-  }, [pollBackend, onReady])
+  }, [pollBackend, onReady, t])
 
   const handleRetry = async () => {
     setRetrying(true)
@@ -396,7 +413,7 @@ export default function StartupScreen({ onReady }: StartupScreenProps) {
           opacity: 0.5
         }}
       >
-        v3.9.59
+        v3.9.63
       </Typography>
     </Box>
   )

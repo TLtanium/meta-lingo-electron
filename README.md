@@ -138,84 +138,11 @@ Visit our official website to download the latest version:
 
 **[https://tltanium.github.io/meta-lingo-website/](https://tltanium.github.io/meta-lingo-website/)**
 
-### Build from Source
-
-#### Prerequisites
-- Node.js 18+
-- Python 3.12
-- Conda (recommended)
-- FFmpeg
-
-#### Steps
-
-1. **Clone the repository**
-```bash
-git clone git@github.com:TLtanium/meta-lingo-electron.git
-cd meta-lingo-electron
-```
-
-2. **Create Conda environment**
-```bash
-conda create -n meta-lingo-electron python=3.12 -y
-conda activate meta-lingo-electron
-```
-
-3. **Install dependencies**
-```bash
-# Backend
-pip install -r requirements.txt
-
-# Frontend
-npm install
-```
-
-4. **Download ML models**
-
-Place the following models in the `models/` directory:
-- `whisper-large-v3-turbo`
-- `yolov8`
-- `clip-vit-large-patch14`
-- `paraphrase-multilingual-MiniLM-L12-v2`
-- SpaCy models (`en_core_web_lg`, `zh_core_web_lg`)
+Source code in this repository is provided for reference and academic verification only. Please use the official distribution above to run Meta-Lingo.
 
 ## Quick Start
 
-### Development Mode
-
-**One-click start (macOS):**
-```bash
-./start.sh
-```
-
-**Manual start:**
-
-Terminal 1 - Backend:
-```bash
-conda activate meta-lingo-electron
-cd backend
-uvicorn main:app --host 0.0.0.0 --port 8000 --reload
-```
-
-Terminal 2 - Frontend:
-```bash
-npm run dev
-```
-
-Access the application at: **http://localhost:5173**
-
-### Build for Production
-
-**macOS:**
-```bash
-./build.sh
-```
-
-**Windows:**
-```cmd
-build.bat
-```
-
-Output will be in the `release/` directory.
+After installing from the website, launch the application and follow the in-app guidance. For documentation, use the Help module inside the application.
 
 ## Documentation
 

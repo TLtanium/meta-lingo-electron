@@ -76,7 +76,7 @@ export function convertTranscriptBackendOffsetToFrontend(
     const segLen = segmentLengths[i]
     const segStart = backendAcc
     const segEnd = backendAcc + segLen
-    if (backendOffset >= segStart && backendOffset < segEnd) {
+    if (backendOffset >= segStart && backendOffset <= segEnd) {
       return backendOffset - i
     }
     backendAcc = segEnd + 1

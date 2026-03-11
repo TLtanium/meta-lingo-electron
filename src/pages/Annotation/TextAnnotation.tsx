@@ -1256,7 +1256,7 @@ export default function TextAnnotation() {
                       <IconButton
                         size="small"
                         onClick={handleAutoAnnotate}
-                        disabled={!isAutoAnnotateEnabled() || autoAnnotating || !spacyAnnotation?.sentences?.length}
+                        disabled={!isAutoAnnotateEnabled() || autoAnnotating || !selectedText}
                         sx={{ 
                           bgcolor: isAutoAnnotateEnabled() ? '#4CAF50' : '#9E9E9E', 
                           color: 'white',
