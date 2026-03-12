@@ -75,6 +75,12 @@ export const TOKEN_ATTRIBUTES: {
     label: { zh: '语义域 (USAS)', en: 'Semantic Domain (USAS)' },
     description: { zh: '匹配 USAS 语义域标签；= 包含(前缀)，== 精确', en: 'Match USAS semantic domain; = contains/prefix, == exact' },
     category: 'basic'
+  },
+  {
+    value: 'nrc',
+    label: { zh: '情感标签 (NRC)', en: 'Emotion Tag (NRC)' },
+    description: { zh: '匹配 NRC 情感/极性标签；== 精确含标签，= 正则匹配', en: 'Match NRC emotion/polarity label; == exact label, = regex match' },
+    category: 'basic'
   }
 ]
 
@@ -139,7 +145,131 @@ export const ADD_ELEMENT_OPTIONS: AddElementOption[] = [
     description: { zh: '连接两个查询选项', en: 'Connect two query options' },
     icon: 'CallSplit',
     preview: '|'
+  },
+  {
+    type: 'within',
+    label: { zh: '区间内 (Within)', en: 'Within' },
+    description: { zh: '左侧 token 出现在右侧序列所界定的区间内', en: 'Left token appears within the span defined by the right sequence' },
+    icon: 'CompareArrows',
+    preview: 'within'
+  },
+  {
+    type: 'not_within',
+    label: { zh: '区间外 (!Within)', en: '!Within' },
+    description: { zh: '左侧 token 不出现在右侧序列所界定的区间内', en: 'Left token does NOT appear within the right span' },
+    icon: 'CompareArrows',
+    preview: '!within'
+  },
+  {
+    type: 'containing',
+    label: { zh: '包含 (Containing)', en: 'Containing' },
+    description: { zh: '左侧结构（如 <s/>）中包含右侧 pattern', en: 'Left structure (e.g. <s/>) contains the right pattern' },
+    icon: 'FilterAlt',
+    preview: 'containing'
+  },
+  {
+    type: 'not_containing',
+    label: { zh: '不包含 (!Containing)', en: '!Containing' },
+    description: { zh: '左侧结构中不包含右侧 pattern', en: 'Left structure does NOT contain the right pattern' },
+    icon: 'FilterAltOff',
+    preview: '!containing'
+  },
+  {
+    type: 'meet',
+    label: { zh: '左右共现 (Meet)', en: 'Meet' },
+    description: { zh: '查找两个 pattern 在指定距离范围内左右共现', en: 'Find two patterns co-occurring within a given distance' },
+    icon: 'Hub',
+    preview: '(meet P Q -n m)'
+  },
+  {
+    type: 'word_sketch',
+    label: { zh: '词图模板 (Word Sketch)', en: 'Word Sketch' },
+    description: { zh: '基于词图语法关系匹配搭配词', en: 'Match collocates via Word Sketch grammar relations' },
+    icon: 'AccountTree',
+    preview: '[ws(hw,rel,col)]'
+  },
+  {
+    type: 'structure',
+    label: { zh: '结构标记 (Structure)', en: 'Structure' },
+    description: { zh: '匹配句子/段落/文档的边界，可附加元数据属性', en: 'Match sentence/paragraph/document boundaries with optional metadata' },
+    icon: 'DataObject',
+    preview: '<s/>'
   }
+]
+
+/**
+ * Structural context variant display labels
+ */
+export const STRUCTURE_VARIANTS: {
+  value: import('./types').StructureVariant
+  label: { zh: string; en: string }
+  cql: string
+  group: 'sentence' | 'paragraph'
+}[] = [
+  // Sentence
+  { value: 's_open',  label: { zh: '句子开头 <s>',  en: 'Sentence Start <s>'  }, cql: '<s>',   group: 'sentence' },
+  { value: 's_close', label: { zh: '句子结尾 </s>', en: 'Sentence End </s>'   }, cql: '</s>',  group: 'sentence' },
+  { value: 's_self',  label: { zh: '整个句子 <s/>', en: 'Whole Sentence <s/>' }, cql: '<s/>',  group: 'sentence' },
+  // Paragraph
+  { value: 'p_open',  label: { zh: '段落开头 <p>',  en: 'Paragraph Start <p>'  }, cql: '<p>',   group: 'paragraph' },
+  { value: 'p_close', label: { zh: '段落结尾 </p>', en: 'Paragraph End </p>'   }, cql: '</p>',  group: 'paragraph' },
+  { value: 'p_self',  label: { zh: '整个段落 <p/>', en: 'Whole Paragraph <p/>' }, cql: '<p/>',  group: 'paragraph' },
+]
+
+/**
+ * Word Sketch grammar relation options (from grammar_patterns.py)
+ * Grouped by center_pos: VERB, NOUN, ADJ, ADV
+ */
+export const WS_RELATION_OPTIONS: {
+  value: string
+  label: { zh: string; en: string }
+  group: 'VERB' | 'NOUN' | 'ADJ' | 'ADV'
+}[] = [
+  // VERB relations
+  { value: 'object',                  label: { zh: '"[动词]"的宾语',            en: 'objects of "[verb]"'                      }, group: 'VERB' },
+  { value: 'subject',                 label: { zh: '"[动词]"的主语',            en: 'subjects of "[verb]"'                     }, group: 'VERB' },
+  { value: 'modifier',                label: { zh: '修饰"[动词]"的副词',        en: 'modifiers of "[verb]"'                    }, group: 'VERB' },
+  { value: 'and_or',                  label: { zh: '"[动词]"和/或...',          en: '"[verb]" and/or ...'                      }, group: 'VERB' },
+  { value: 'prepositional_phrases',   label: { zh: '介词短语 (动词)',           en: 'prepositional phrases (verb)'             }, group: 'VERB' },
+  { value: 'particles_intransitive',  label: { zh: '"[动词]"后的小品词',        en: 'particles after "[verb]"'                 }, group: 'VERB' },
+  { value: 'particles_transitive',    label: { zh: '"[动词]"后的小品词（及物）', en: 'particles after "[verb]" with object'     }, group: 'VERB' },
+  { value: 'pronominal_objects',      label: { zh: '"[动词]"的代词宾语',        en: 'pronominal objects of "[verb]"'           }, group: 'VERB' },
+  { value: 'pronominal_subjects',     label: { zh: '"[动词]"的代词主语',        en: 'pronominal subjects of "[verb]"'          }, group: 'VERB' },
+  { value: 'wh_words',                label: { zh: '"[动词]"后的疑问词',        en: 'wh-words following "[verb]"'              }, group: 'VERB' },
+  { value: 'infinitive_objects',      label: { zh: '"[动词]"的不定式宾语',      en: 'infinitive objects of "[verb]"'           }, group: 'VERB' },
+  { value: 'ing_objects',             label: { zh: '"[动词]"的动名词宾语',      en: '-ing objects of "[verb]"'                 }, group: 'VERB' },
+  { value: 'complements',             label: { zh: '"[动词]"的补语',            en: 'complements of "[verb]"'                  }, group: 'VERB' },
+  { value: 'adjectives_after',        label: { zh: '"[动词]"后的形容词',        en: 'adjectives after "[verb]"'                }, group: 'VERB' },
+  { value: 'usage_patterns',          label: { zh: '用法模式 (动词)',           en: 'usage patterns (verb)'                    }, group: 'VERB' },
+  // NOUN relations
+  { value: 'nouns_modified_by',       label: { zh: '被"[名词]"修饰的名词',      en: 'nouns modified by "[noun]"'               }, group: 'NOUN' },
+  { value: 'verbs_with_as_object',    label: { zh: '以"[名词]"为宾语的动词',    en: 'verbs with "[noun]" as object'            }, group: 'NOUN' },
+  { value: 'verbs_with_as_subject',   label: { zh: '以"[名词]"为主语的动词',    en: 'verbs with "[noun]" as subject'           }, group: 'NOUN' },
+  { value: 'noun_and_or',             label: { zh: '"[名词]"和/或...',          en: '"[noun]" and/or ...'                      }, group: 'NOUN' },
+  { value: 'noun_prepositional_phrases', label: { zh: '介词短语 (名词)',        en: 'prepositional phrases (noun)'             }, group: 'NOUN' },
+  { value: 'adjective_predicates',    label: { zh: '"[名词]"的形容词谓语',      en: 'adjective predicates of "[noun]"'         }, group: 'NOUN' },
+  { value: 'noun_is_a',               label: { zh: '"[名词]"是...',             en: '"[noun]" is a ...'                        }, group: 'NOUN' },
+  { value: 'possessive',              label: { zh: '"[名词]"的...',             en: "[noun]'s ..."                             }, group: 'NOUN' },
+  { value: 'possessors',              label: { zh: '"[名词]"的所有者',          en: 'possessors of "[noun]"'                   }, group: 'NOUN' },
+  { value: 'pronominal_possessors',   label: { zh: '"[名词]"的代词所有者',      en: 'pronominal possessors of "[noun]"'        }, group: 'NOUN' },
+  { value: 'is_a_noun',               label: { zh: '...是"[名词]"',             en: '... is a "[noun]"'                        }, group: 'NOUN' },
+  { value: 'verbs_with_particle_object', label: { zh: '带小品词且以"[名词]"为宾语的动词', en: 'verbs with particle and "[noun]" as object' }, group: 'NOUN' },
+  { value: 'noun_usage_patterns',     label: { zh: '用法模式 (名词)',           en: 'usage patterns (noun)'                    }, group: 'NOUN' },
+  { value: 'modifiers_of_noun',       label: { zh: '修饰"[名词]"的形容词',      en: 'modifiers of "[noun]"'                    }, group: 'NOUN' },
+  { value: 'object_of',               label: { zh: '"[名词]"是...的宾语',       en: '"[noun]" is object of'                    }, group: 'NOUN' },
+  { value: 'subject_of',              label: { zh: '"[名词]"是...的主语',       en: '"[noun]" is subject of'                   }, group: 'NOUN' },
+  // ADJ relations
+  { value: 'adj_modifies',            label: { zh: '"[形容词]"修饰的名词',      en: '"[adjective]" modifies'                   }, group: 'ADJ' },
+  { value: 'adj_subject',             label: { zh: '"[形容词]"的主语',          en: 'subject of "[adjective]"'                 }, group: 'ADJ' },
+  { value: 'adj_comp_of',             label: { zh: '"[形容词]"是...的补语',     en: '"[adjective]" is complement of'           }, group: 'ADJ' },
+  { value: 'adj_and_or',              label: { zh: '"[形容词]"和/或...',        en: '"[adjective]" and/or ...'                 }, group: 'ADJ' },
+  { value: 'nouns_modified_by_adj',   label: { zh: '被"[形容词]"修饰的名词',    en: 'nouns modified by "[adjective]"'          }, group: 'ADJ' },
+  { value: 'verbs_with_adj_complement', label: { zh: '以"[形容词]"为补语的动词', en: 'verbs with "[adjective]" as complement'  }, group: 'ADJ' },
+  // ADV relations
+  { value: 'modifiers_of_adv',        label: { zh: '修饰"[副词]"的词',          en: 'modifiers of "[adverb]"'                  }, group: 'ADV' },
+  { value: 'verbs_modified_by_adv',   label: { zh: '被"[副词]"修饰的动词',      en: 'verbs modified by "[adverb]"'             }, group: 'ADV' },
+  { value: 'adverbs_modified_by_adv', label: { zh: '被"[副词]"修饰的副词',      en: 'adverbs modified by "[adverb]"'           }, group: 'ADV' },
+  { value: 'adjectives_modified_by_adv', label: { zh: '被"[副词]"修饰的形容词', en: 'adjectives modified by "[adverb]"'        }, group: 'ADV' },
 ]
 
 /**
@@ -289,6 +419,30 @@ export const DEPENDENCY_RELATIONS = [
 ]
 
 /**
+ * NRC polarity labels
+ */
+export const NRC_POLARITY_LABELS = [
+  { value: 'positive', label: { zh: '积极', en: 'Positive' } },
+  { value: 'negative', label: { zh: '消极', en: 'Negative' } },
+  { value: 'neutral',  label: { zh: '中性', en: 'Neutral' } }
+]
+
+/**
+ * NRC emotion labels
+ */
+export const NRC_EMOTION_LABELS = [
+  { value: 'anger',        label: { zh: '愤怒', en: 'Anger' } },
+  { value: 'anticipation', label: { zh: '期待', en: 'Anticipation' } },
+  { value: 'disgust',      label: { zh: '厌恶', en: 'Disgust' } },
+  { value: 'fear',         label: { zh: '恐惧', en: 'Fear' } },
+  { value: 'joy',          label: { zh: '喜悦', en: 'Joy' } },
+  { value: 'sadness',      label: { zh: '悲伤', en: 'Sadness' } },
+  { value: 'surprise',     label: { zh: '惊讶', en: 'Surprise' } },
+  { value: 'trust',        label: { zh: '信任', en: 'Trust' } },
+  { value: 'others',       label: { zh: '其他/无情感', en: 'Others/No Emotion' } }
+]
+
+/**
  * Example CQL queries for templates
  */
 export const CQL_EXAMPLES = [
@@ -332,6 +486,32 @@ export const CQL_EXAMPLES = [
     name: { zh: '主语-动词搭配', en: 'Subject-Verb Collocation' },
     cql: '[pos="NOUN" & dep="nsubj"] []{0,3} [pos="VERB"]',
     description: { zh: '查找作为主语的名词与其动词', en: 'Find subject nouns with their verbs' }
+  },
+  // New: structural / operator examples
+  {
+    name: { zh: '两动词之间的名词 (within)', en: 'Noun between Verbs (within)' },
+    cql: '[pos="NOUN"] within [pos="VERB"] []{1,5} [pos="VERB"]',
+    description: { zh: '查找出现在两个动词（最多相距5词）之间的名词', en: 'Find nouns appearing between two verbs at most 5 tokens apart' }
+  },
+  {
+    name: { zh: '不含大写词的句子 (!containing)', en: 'Sentences without Capitals (!containing)' },
+    cql: '<s/> !containing [word="[A-Z][A-Za-z]*"]',
+    description: { zh: '查找不含任何大写字母开头词语的句子', en: 'Find sentences not containing any word starting with a capital letter' }
+  },
+  {
+    name: { zh: '左右共现 (meet)', en: 'Left-Right Co-occurrence (meet)' },
+    cql: '(meet [pos="NOUN"] [lemma="be"] -3 3)',
+    description: { zh: '查找在动词be左右3个词以内出现的名词', en: 'Find nouns co-occurring within 3 tokens of the verb "be"' }
+  },
+  {
+    name: { zh: '词图模板 (ws)', en: 'Word Sketch Template (ws)' },
+    cql: '[ws(make,object,decision)]',
+    description: { zh: '查找make的宾语中的decision', en: 'Find "decision" as an object of "make" via Word Sketch' }
+  },
+  {
+    name: { zh: '带元数据的文档', en: 'Doc with Metadata' },
+    cql: '<doc tag="spoken"> [pos="NOUN"]',
+    description: { zh: '在标注为spoken的文档开头位置查找名词', en: 'Find nouns at the start of documents tagged as spoken' }
   }
 ]
 

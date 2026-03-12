@@ -538,7 +538,7 @@
       "title": "检索配置",
       "searchQuery": "搜索词",
       "searchQueryPlaceholder": "输入要搜索的词...",
-      "searchQueryHelp": "留空则分析所有词汇",
+      "searchQueryHelp": "完整匹配词语，留空则分析所有词汇",
       "frequencySettings": "频率设置",
       "minFreq": "最小频率",
       "maxResults": "最大结果数",
@@ -886,7 +886,44 @@
       "emptyQuery": "请添加元素构建查询",
       "emptyValue": "值不能为空",
       "tip": "提示: 点击元素卡片选中后可编辑或删除。使用\"距离\"元素指定Token之间的间隔。",
-      "regexTip": "提示: 使用正则表达式进行模式匹配，如 \".*ing\" 匹配所有以-ing结尾的词"
+      "regexTip": "提示: 使用正则表达式进行模式匹配，如 \".*ing\" 匹配所有以-ing结尾的词",
+      "elementType": {
+        "within": "区间内",
+        "notWithin": "区间外",
+        "containing": "包含",
+        "notContaining": "不包含",
+        "meet": "左右共现",
+        "wordSketch": "词图模板",
+        "structure": "结构标记"
+      },
+      "structure": {
+        "sentence": "句子",
+        "paragraph": "段落",
+        "document": "文档",
+        "open": "开头",
+        "close": "结尾",
+        "self": "整体",
+        "metaLabel": "文档属性过滤（可选）",
+        "metaFilename": "文件名",
+        "metaCorpus": "语料库名",
+        "metaDate": "日期",
+        "metaAuthor": "作者",
+        "metaSource": "来源",
+        "metaType": "文本类型",
+        "metaTag": "标签",
+        "metaAny": "不限"
+      },
+      "meet": {
+        "pattern1": "模式 1",
+        "pattern2": "模式 2",
+        "leftDist": "左距离",
+        "rightDist": "右距离"
+      },
+      "ws": {
+        "headword": "搜索词",
+        "relation": "词图关系",
+        "collocation": "搭配词（可空）"
+      }
     },
     "results": {
       "title": "搜索结果",
@@ -903,8 +940,10 @@
       "title": "可视化",
       "densityPlot": "密度分布图",
       "ridgePlot": "分组山脊图",
+      "concordancePlot": "离散度图",
       "noData": "暂无数据",
-      "runSearchFirst": "请先执行搜索"
+      "runSearchFirst": "请先执行搜索",
+      "clickToJumpToResult": "点击跳转到结果"
     },
     "sort": {
       "title": "排序设置",
@@ -2799,6 +2838,7 @@
       "currentChartType": "当前图表类型",
       "vizDensity": "密度分布图",
       "vizRidge": "分组山脊图",
+      "vizConcordance": "离散度图",
       "interpretAsChartType": "请务必按上述图表类型解读。",
       "vizDataPrefix": "绘图所用数据"
     },
@@ -3040,6 +3080,9 @@
     "viewLicense": "查看许可证",
     "licenseTitle": "Meta-Lingo 软件使用许可协议",
     "closeLicense": "关闭",
+    "copyCitation": "复制引用",
+    "citationCopied": "引用已复制到剪贴板",
+    "copyCitationFailed": "复制到剪贴板失败",
     "usas": {
       "title": "USAS 语义标注",
       "description": "配置各文本类型对应的优先语义域。上传语料时选择文本类型，USAS 将使用对应的优先语义域进行消歧。",

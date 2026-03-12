@@ -365,9 +365,17 @@ export default function TopicModeling({ crossLinkParams }: TopicModelingProps = 
                 </Tabs>
               </Box>
 
-              {/* Tab Content */}
-              <Box sx={{ flex: 1, overflow: 'hidden' }}>
-                {rightTab === 0 && (
+              {/* Tab Content — render both panels and hide inactive to preserve state */}
+              <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                <Box
+                  sx={{
+                    flex: 1,
+                    minHeight: 0,
+                    overflow: 'hidden',
+                    display: rightTab === 0 ? 'flex' : 'none',
+                    flexDirection: 'column'
+                  }}
+                >
                   <ResultsPanel
                     result={analysisResult}
                     ollamaConnected={ollamaConnected}
@@ -386,14 +394,21 @@ export default function TopicModeling({ crossLinkParams }: TopicModelingProps = 
                     libraryId={libraryId}
                     selectedEntryIds={libraryId && selectionMode === 'selected' ? selectedEntryIds : undefined}
                   />
-                )}
-                
-                {rightTab === 1 && (
+                </Box>
+                <Box
+                  sx={{
+                    flex: 1,
+                    minHeight: 0,
+                    overflow: 'hidden',
+                    display: rightTab === 1 ? 'flex' : 'none',
+                    flexDirection: 'column'
+                  }}
+                >
                   <VisualizationPanel
                     resultId={analysisResult?.result_id || null}
                     hasDynamicTopics={analysisResult?.has_dynamic_topics || false}
                   />
-                )}
+                </Box>
               </Box>
             </Box>
           </Box>

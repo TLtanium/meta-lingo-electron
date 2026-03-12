@@ -103,13 +103,13 @@ export default function CQLPreview({ cql, isValid, error, onCopy }: CQLPreviewPr
 
   return (
     <Paper 
-      sx={{ 
+      sx={(theme) => ({ 
         p: 2, 
-        bgcolor: 'grey.50',
+        bgcolor: theme.palette.mode === 'dark' ? 'background.default' : 'grey.50',
         borderRadius: 1,
         border: '1px solid',
-        borderColor: 'grey.300'
-      }}
+        borderColor: theme.palette.mode === 'dark' ? 'divider' : 'grey.300'
+      })}
     >
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
         <Typography variant="caption" color="text.secondary" fontWeight="medium">
@@ -123,18 +123,18 @@ export default function CQLPreview({ cql, isValid, error, onCopy }: CQLPreviewPr
       </Box>
       
       <Box
-        sx={{
+        sx={(theme) => ({
           fontFamily: 'monospace',
           fontSize: '0.95rem',
           p: 1.5,
-          bgcolor: 'white',
+          bgcolor: theme.palette.mode === 'dark' ? 'background.paper' : 'white',
           borderRadius: 0.5,
           border: '1px solid',
-          borderColor: 'grey.200',
+          borderColor: theme.palette.mode === 'dark' ? 'divider' : 'grey.200',
           minHeight: 40,
           wordBreak: 'break-all',
           whiteSpace: 'pre-wrap'
-        }}
+        })}
       >
         {cql ? highlightCQL(cql) : (
           <Typography variant="body2" color="text.disabled" sx={{ fontStyle: 'italic' }}>

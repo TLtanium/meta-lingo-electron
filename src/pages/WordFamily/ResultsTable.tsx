@@ -3,7 +3,7 @@
  * Displays synonym results with expandable rows showing synsets
  */
 
-import { useState, useMemo } from 'react'
+import React, { useState, useMemo } from 'react'
 import {
   Box,
   Typography,
@@ -115,10 +115,7 @@ export default function ResultsTable({
     
     if (searchFilter) {
       const query = searchFilter.toLowerCase()
-      filtered = results.filter(r => 
-        r.word.toLowerCase().includes(query) ||
-        r.all_synonyms.some(s => s.toLowerCase().includes(query))
-      )
+      filtered = results.filter(r => r.word.toLowerCase().includes(query))
     }
     
     // Sort
@@ -163,6 +160,10 @@ export default function ResultsTable({
   const getResultKey = (result: SynonymResult): string => {
     return `${result.word}-${result.pos_tags[0] || ''}`
   }
+
+  // Stable row key including index so rows stay correct when (word, pos) can repeat
+  const getRowKey = (result: SynonymResult, indexInFiltered: number) =>
+    `${getResultKey(result)}-${indexInFiltered}`
 
   // Toggle row expansion
   const toggleRow = (key: string) => {
@@ -348,14 +349,16 @@ export default function ResultsTable({
             </TableRow>
           </TableHead>
           <TableBody>
-            {paginatedResults.map((result) => {
+            {paginatedResults.map((result, idx) => {
+              const start = page * rowsPerPage
+              const indexInFiltered = start + idx
               const resultKey = getResultKey(result)
+              const rowKey = getRowKey(result, indexInFiltered)
               return (
-                <>
-                  <TableRow 
-                    key={resultKey}
+                <React.Fragment key={rowKey}>
+                  <TableRow
                     hover
-                    sx={{ 
+                    sx={{
                       cursor: 'pointer',
                       '& > *': { borderBottom: expandedRows.has(resultKey) ? 0 : undefined }
                     }}
@@ -407,6 +410,7 @@ export default function ResultsTable({
                       <TableCell align="center" onClick={(e) => e.stopPropagation()}>
                         <WordActionMenu
                           word={result.word}
+                          wordLemma={result.word}
                           corpusId={corpusId}
                           textIds={textIds || 'all'}
                           selectionMode={selectionMode}
@@ -419,14 +423,14 @@ export default function ResultsTable({
                       </TableCell>
                     )}
                   </TableRow>
-                  
+
                   {/* Expanded row with synset details */}
                   <TableRow>
                     <TableCell colSpan={corpusId ? 8 : 7} sx={{ py: 0 }}>
                       <Collapse in={expandedRows.has(resultKey)} timeout="auto" unmountOnExit>
                         <Box sx={{ py: 2, px: 4 }}>
-                          <SynsetDetails 
-                            synsets={result.synsets} 
+                          <SynsetDetails
+                            synsets={result.synsets}
                             allSynonyms={result.all_synonyms}
                             synonymCount={result.synonym_count}
                             corpusId={corpusId}
@@ -440,7 +444,7 @@ export default function ResultsTable({
                       </Collapse>
                     </TableCell>
                   </TableRow>
-                </>
+                </React.Fragment>
               )
             })}
           </TableBody>

@@ -61,6 +61,8 @@ interface ResultsTableProps {
   /** When in library mode, for cross-link target sync */
   libraryId?: string
   selectedEntryIds?: string[]
+  /** When 'lemma', row.word is lemma — pass as wordLemma for 词图分析 */
+  searchTarget?: 'word' | 'lemma' | 'usas'
 }
 
 type SortableColumn = keyof WordFrequencyResult
@@ -83,7 +85,8 @@ export default function ResultsTable({
   selectionMode = 'all',
   selectedTags,
   libraryId,
-  selectedEntryIds
+  selectedEntryIds,
+  searchTarget
 }: ResultsTableProps) {
   const { t } = useTranslation()
   const [internalFilter, setInternalFilter] = useState('')
@@ -367,6 +370,7 @@ export default function ResultsTable({
                   <TableCell align="center" onClick={(e) => e.stopPropagation()}>
                     <WordActionMenu
                       word={row.word}
+                      wordLemma={searchTarget === 'lemma' ? row.word : undefined}
                       corpusId={corpusId}
                       textIds={textIds || 'all'}
                       selectionMode={selectionMode}

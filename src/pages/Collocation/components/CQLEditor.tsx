@@ -38,7 +38,14 @@ const CQL_EXAMPLES = [
   { query: '[pos="NOUN" & lemma="test"]', desc: { zh: '名词且词元为test', en: 'Noun with lemma "test"' } },
   { query: '[pos="NOUN" | pos="VERB"]', desc: { zh: '名词或动词', en: 'Noun or verb' } },
   { query: '[lemma="make"] [] [pos="NOUN"]', desc: { zh: 'make + 任意词 + 名词', en: 'make + any + noun' } },
-  { query: '[word=".*ing"]', desc: { zh: '以ing结尾的词', en: 'Words ending in -ing' } }
+  { query: '[word=".*ing"]', desc: { zh: '以ing结尾的词', en: 'Words ending in -ing' } },
+  { query: '[nrc=="joy"]', desc: { zh: '包含"喜悦"情感标签的词', en: 'Tokens tagged with joy' } },
+  { query: '[nrc=="positive"]', desc: { zh: '带积极情感极性的词', en: 'Tokens with positive polarity' } },
+  { query: '[nrc="anger|fear"]', desc: { zh: '愤怒或恐惧情感标签（正则）', en: 'Anger or fear emotion (regex)' } },
+  { query: '[pos="NOUN"] within [pos="VERB"] []{1,5} [pos="VERB"]', desc: { zh: '名词落在动词短语区间内', en: 'Noun within a verb phrase span' } },
+  { query: '<s/> !containing [word="[A-Z][A-Za-z]*"]', desc: { zh: '句子不含大写单词', en: 'Sentences not containing capitalized words' } },
+  { query: '(meet [pos="NOUN"] [lemma="be"] -3 3)', desc: { zh: '名词与be动词左右3词内共现', en: 'Noun co-occurring with "be" within ±3' } },
+  { query: '[ws(make,object,decision)]', desc: { zh: 'make宾语关系搭配词decision', en: 'Word Sketch: make-object collocate decision' } }
 ]
 
 export default function CQLEditor({
@@ -120,11 +127,11 @@ export default function CQLEditor({
                 )
               ) : null}
               <Tooltip title={isZh ? 'CQL 构建器' : 'CQL Builder'}>
-                <IconButton 
-                  size="small" 
+                <IconButton
+                  size="small"
                   onClick={() => setShowBuilder(true)}
                   disabled={disabled}
-                  sx={{ 
+                  sx={{
                     bgcolor: 'primary.50',
                     '&:hover': { bgcolor: 'primary.100' }
                   }}
@@ -180,6 +187,12 @@ export default function CQLEditor({
               </Typography>
               <Typography variant="body2" fontFamily="monospace" fontSize="0.8rem">
                 [usas=="N3.8+"] - {isZh ? '语义域精确匹配' : 'USAS domain exact match'}
+              </Typography>
+              <Typography variant="body2" fontFamily="monospace" fontSize="0.8rem">
+                [nrc=="joy"] - {isZh ? '情感标签精确匹配' : 'NRC emotion exact match'}
+              </Typography>
+              <Typography variant="body2" fontFamily="monospace" fontSize="0.8rem">
+                [nrc="anger|fear"] - {isZh ? '正则匹配情感标签（OR）' : 'Regex match emotion labels (OR)'}
               </Typography>
             </Stack>
           </Box>

@@ -27,18 +27,11 @@ let startupStatus: StartupStatus = {
 }
 
 function updateStartupStatus(update: Partial<StartupStatus>) {
-  const next = { ...startupStatus, ...update }
-  // 进度条只增不减，避免打包后与渲染进程轮询冲突导致回跳闪烁
-  if (typeof next.progress === 'number' && next.progress < startupStatus.progress) {
-    next.progress = startupStatus.progress
-  }
-  startupStatus = next
-  // 发送状态更新到渲染进程（确保webContents已准备好）
+  startupStatus = { ...startupStatus, ...update }
+  // 发送状态更新到渲染进程
+  // 加载中发送的消息会被 Electron 丢弃，但 did-finish-load 事件会补发最新状态
   if (mainWindow && !mainWindow.isDestroyed() && mainWindow.webContents) {
-    // 使用 whenReady 确保渲染进程已准备好接收消息
-    if (!mainWindow.webContents.isLoading()) {
-      mainWindow.webContents.send('startup-status-changed', startupStatus)
-    }
+    mainWindow.webContents.send('startup-status-changed', startupStatus)
   }
 }
 
@@ -64,9 +57,9 @@ function killOldBackendProcesses(): void {
 
 const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged
 
-// 后端配置
+// 后端配置（用 127.0.0.1 避免 localhost 解析到 IPv6 ::1 导致连接失败）
 const BACKEND_PORT = 8000
-const BACKEND_URL = `http://localhost:${BACKEND_PORT}`
+const BACKEND_URL = `http://127.0.0.1:${BACKEND_PORT}`
 
 /**
  * 获取后端可执行文件路径
@@ -87,7 +80,6 @@ function getBackendPath(): string {
   } else {
     backendExe = path.join(resourcesPath, 'backend', 'meta-lingo-backend')
   }
-  
   return backendExe
 }
 
@@ -105,8 +97,9 @@ function getDataPath(): string {
 /**
  * 启动后端服务（非阻塞）
  * 返回一个Promise用于等待后端启动完成
+ * @param extendedTimeout 为 true 时使用更长等待（如重试场景），给冷启动更多时间
  */
-async function startBackend(): Promise<boolean> {
+async function startBackend(extendedTimeout = false): Promise<boolean> {
   if (isDev) {
     // 开发模式：不启动后端，让前端自己检测后端状态
     console.log('[Backend] Development mode - backend should be started manually')
@@ -153,7 +146,7 @@ async function startBackend(): Promise<boolean> {
     ...process.env,
     METALINGO_DATA_PATH: dataPath,
     METALINGO_PORT: String(BACKEND_PORT),
-    METALINGO_RESOURCES_PATH: resourcesPath,  // 新增：传递 resources 路径
+    METALINGO_RESOURCES_PATH: resourcesPath,
   }
   
   return new Promise((resolve) => {
@@ -164,23 +157,30 @@ async function startBackend(): Promise<boolean> {
         stdio: ['ignore', 'pipe', 'pipe'],
         detached: false,
       })
-      
+      const logPath = !isDev ? path.join(app.getPath('userData'), 'backend.log') : null
+      const appendLine = (line: string) => {
+        if (logPath) {
+          try {
+            fs.appendFileSync(logPath, `${new Date().toISOString()} ${line}\n`, 'utf-8')
+          } catch {}
+        }
+      }
       backendProcess.stdout?.on('data', (data) => {
         const output = data.toString().trim()
         console.log('[Backend]', output)
-        // 检测uvicorn启动完成的标志
+        appendLine(`[stdout] ${output}`)
         if (output.includes('Application startup complete') || output.includes('Uvicorn running')) {
-          updateStartupStatus({ 
-            stage: 'checking_health', 
-            message: 'Backend started, checking health...', 
-            progress: 70 
-          })
+          updateStartupStatus({ stage: 'checking_health', message: 'Backend started, checking health...', progress: 70 })
         }
       })
       
       backendProcess.stderr?.on('data', (data) => {
         const output = data.toString().trim()
         console.error('[Backend Error]', output)
+        appendLine(`[stderr] ${output}`)
+        if (output.includes('Application startup complete') || output.includes('Uvicorn running')) {
+          updateStartupStatus({ stage: 'checking_health', message: 'Backend started, checking health...', progress: 70 })
+        }
       })
       
       backendProcess.on('error', (err) => {
@@ -207,11 +207,11 @@ async function startBackend(): Promise<boolean> {
         backendProcess = null
       })
       
-      // 加快健康检查频率：最多等待20秒，每500ms检查一次
-      const maxAttempts = 40
+      // 每500ms检查一次；首次 20 秒，重试 30 秒
+      const maxAttempts = extendedTimeout ? 60 : 40
       const checkInterval = 500
       let attempts = 0
-      
+
       const checkLoop = async () => {
         attempts++
         const progress = Math.min(30 + Math.floor((attempts / maxAttempts) * 60), 90)
@@ -223,30 +223,30 @@ async function startBackend(): Promise<boolean> {
           message: `Checking backend health (${attempts}/${maxAttempts})...`,
           progress: nextProgress
         })
-        
+
         const isRunning = await checkBackendHealth()
-        
+
         if (isRunning) {
-          updateStartupStatus({ 
-            stage: 'ready', 
-            message: 'Backend ready!', 
+          updateStartupStatus({
+            stage: 'ready',
+            message: 'Backend ready!',
             progress: 100,
-            backendReady: true 
+            backendReady: true
           })
           resolve(true)
         } else if (attempts < maxAttempts) {
           setTimeout(checkLoop, checkInterval)
         } else {
           console.error('[Backend] Health check failed after', maxAttempts, 'attempts')
-          updateStartupStatus({ 
-            stage: 'error', 
-            message: 'Backend health check timeout', 
-            progress: 0 
+          updateStartupStatus({
+            stage: 'error',
+            message: 'Backend health check timeout',
+            progress: 0
           })
           resolve(false)
         }
       }
-      
+
       // 首次检查前等待500ms
       setTimeout(checkLoop, 500)
       
@@ -263,13 +263,13 @@ async function startBackend(): Promise<boolean> {
 }
 
 /**
- * 检查后端健康状态
+ * 检查后端健康状态（轻量 /health，短超时便于快速轮询）
  */
 async function checkBackendHealth(): Promise<boolean> {
   try {
-    const response = await fetch(`${BACKEND_URL}/api/corpus/services/status`, {
+    const response = await fetch(`${BACKEND_URL}/health`, {
       method: 'GET',
-      signal: AbortSignal.timeout(5000),
+      signal: AbortSignal.timeout(3000),
     })
     return response.ok
   } catch {
@@ -414,6 +414,13 @@ function createWindow() {
     mainWindow?.show()
   })
 
+  // 页面加载完成后，立即推送最新启动状态（覆盖 loading 阶段的丢失事件）
+  mainWindow.webContents.on('did-finish-load', () => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('startup-status-changed', startupStatus)
+    }
+  })
+
   // Track fullscreen state changes and notify renderer
   mainWindow.on('enter-full-screen', () => {
     mainWindow?.webContents.send('fullscreen-changed', true)
@@ -513,6 +520,41 @@ ipcMain.handle('is-fullscreen', () => {
   return mainWindow?.isFullScreen() ?? false
 })
 
+/**
+ * 继续轮询健康检查（后端进程仍在运行，只是尚未就绪）
+ * 不杀死后端，给它额外 20 秒时间，避免杀掉快好了的进程再从零重启
+ */
+async function resumeHealthCheck(): Promise<boolean> {
+  return new Promise((resolve) => {
+    const maxAttempts = 40   // 20 秒，和首次启动保持一致
+    const checkInterval = 500
+    let attempts = 0
+
+    const checkLoop = async () => {
+      attempts++
+      updateStartupStatus({
+        stage: 'checking_health',
+        message: `Checking backend health (${attempts}/${maxAttempts})...`,
+        progress: Math.min(30 + Math.floor((attempts / maxAttempts) * 60), 90)
+      })
+
+      const isRunning = await checkBackendHealth()
+
+      if (isRunning) {
+        updateStartupStatus({ stage: 'ready', message: 'Backend ready!', progress: 100, backendReady: true })
+        resolve(true)
+      } else if (attempts < maxAttempts) {
+        setTimeout(checkLoop, checkInterval)
+      } else {
+        updateStartupStatus({ stage: 'error', message: 'Backend health check timeout', progress: 0 })
+        resolve(false)
+      }
+    }
+
+    setTimeout(checkLoop, checkInterval)
+  })
+}
+
 // 启动状态相关IPC
 ipcMain.handle('get-startup-status', () => {
   return startupStatus
@@ -520,13 +562,18 @@ ipcMain.handle('get-startup-status', () => {
 
 ipcMain.handle('retry-backend', async () => {
   if (startupStatus.stage === 'error') {
+    // 始终完整重启：先终止当前进程，再重新 startBackend，并给重试更长等待
+    console.log('[Retry] Full restart (kill + startBackend with extended timeout)')
     updateStartupStatus({
       stage: 'initializing',
-      message: 'Retrying...',
+      message: 'Restarting...',
       progress: 0,
       backendReady: false
     })
-    return await startBackend()
+    stopBackend()
+    await new Promise(resolve => setTimeout(resolve, 2000))
+    const restarted = await startBackend(true)
+    return restarted
   }
   return startupStatus.backendReady
 })

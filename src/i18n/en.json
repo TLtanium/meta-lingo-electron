@@ -534,7 +534,7 @@
       "title": "Search Configuration",
       "searchQuery": "Search Query",
       "searchQueryPlaceholder": "Enter word to search...",
-      "searchQueryHelp": "Leave empty to analyze all words",
+      "searchQueryHelp": "Exact word match only; leave empty to analyze all words",
       "frequencySettings": "Frequency Settings",
       "minFreq": "Min Frequency",
       "maxResults": "Max Results",
@@ -882,7 +882,44 @@
       "emptyQuery": "Add elements to build query",
       "emptyValue": "Value cannot be empty",
       "tip": "Tip: Click on element cards to select, then edit or delete. Use \"Distance\" element to specify gaps between tokens.",
-      "regexTip": "Tip: Use regex for pattern matching, e.g., \".*ing\" matches all words ending in -ing"
+      "regexTip": "Tip: Use regex for pattern matching, e.g., \".*ing\" matches all words ending in -ing",
+      "elementType": {
+        "within": "Within",
+        "notWithin": "!Within",
+        "containing": "Containing",
+        "notContaining": "!Containing",
+        "meet": "Meet",
+        "wordSketch": "Word Sketch",
+        "structure": "Structure"
+      },
+      "structure": {
+        "sentence": "Sentence",
+        "paragraph": "Paragraph",
+        "document": "Document",
+        "open": "Open",
+        "close": "Close",
+        "self": "Self-closing",
+        "metaLabel": "Document Attribute Filter (optional)",
+        "metaFilename": "Filename",
+        "metaCorpus": "Corpus Name",
+        "metaDate": "Date",
+        "metaAuthor": "Author",
+        "metaSource": "Source",
+        "metaType": "Text Type",
+        "metaTag": "Tag",
+        "metaAny": "Any"
+      },
+      "meet": {
+        "pattern1": "Pattern 1",
+        "pattern2": "Pattern 2",
+        "leftDist": "Left distance",
+        "rightDist": "Right distance"
+      },
+      "ws": {
+        "headword": "Headword",
+        "relation": "Word Sketch Relation",
+        "collocation": "Collocation (optional)"
+      }
     },
     "results": {
       "title": "Search Results",
@@ -899,8 +936,10 @@
       "title": "Visualization",
       "densityPlot": "Density Plot",
       "ridgePlot": "Ridge Plot",
+      "concordancePlot": "Concordance Plot",
       "noData": "No Data",
-      "runSearchFirst": "Please run search first"
+      "runSearchFirst": "Please run search first",
+      "clickToJumpToResult": "Click to jump to result"
     },
     "sort": {
       "title": "Sort Settings",
@@ -2774,6 +2813,7 @@
       "currentChartType": "Current chart type",
       "vizDensity": "Density plot",
       "vizRidge": "Ridge plot",
+      "vizConcordance": "Concordance plot",
       "interpretAsChartType": "Interpret strictly as the chart type above.",
       "vizDataPrefix": "Data used for chart"
     },
@@ -3015,6 +3055,9 @@
     "viewLicense": "View License",
     "licenseTitle": "Meta-Lingo Software License Agreement",
     "closeLicense": "Close",
+    "copyCitation": "Copy Citation",
+    "citationCopied": "Citation copied to clipboard",
+    "copyCitationFailed": "Failed to copy to clipboard",
     "usas": {
       "title": "USAS Semantic Tagging",
       "description": "Configure priority semantic domains for each text type. The selected text type during corpus upload determines which priority domains are used for disambiguation.",

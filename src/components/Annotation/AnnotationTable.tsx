@@ -123,6 +123,16 @@ function findEntityForRange(start: number, end: number, entities: SpacyEntity[])
 }
 
 /**
+ * Get lemma for an annotation from SpaCy tokens (for 词图分析 cross-link).
+ * If exactly one token overlaps the range, return its lemma; otherwise return undefined.
+ */
+function findLemmaForRange(start: number, end: number, tokens: SpacyToken[]): string | undefined {
+  const matching = tokens.filter(t => t.start >= start && t.end <= end)
+  if (matching.length !== 1) return undefined
+  return matching[0].lemma
+}
+
+/**
  * Get color for POS tag
  */
 function getPosColor(pos: string): string {
@@ -331,15 +341,20 @@ export default function AnnotationTable({
     }
   }
 
-  const buildCrossLinkParams = (ann: Annotation): CrossLinkParams => ({
-    searchWord: ann.text || ann.label,
-    corpusId: corpusId || '',
-    textIds: textIds || 'all',
-    selectionMode,
-    selectedTags,
-    autoSearch: true,
-    sourceModule: 'metaphor'  // annotation module
-  })
+  const buildCrossLinkParams = (ann: Annotation): CrossLinkParams => {
+    const lemma = spacyTokens && ann.startPosition != null && ann.endPosition != null
+      ? findLemmaForRange(ann.startPosition, ann.endPosition, spacyTokens)
+      : undefined
+    return {
+      searchWord: lemma ?? ann.text ?? ann.label,
+      corpusId: corpusId || '',
+      textIds: textIds || 'all',
+      selectionMode,
+      selectedTags,
+      autoSearch: true,
+      sourceModule: 'metaphor'  // annotation module
+    }
+  }
 
   const handleOpenCollocation = () => {
     if (!menuAnn) return

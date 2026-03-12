@@ -4,7 +4,7 @@
  * Table columns: # | Source | Left Context | KWIC | Right Context | Actions
  */
 
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
 import {
   Box,
   Paper,
@@ -63,6 +63,10 @@ interface CollocationResultsTableProps {
   showMetaphorHighlight?: boolean
   /** Callback when metaphor highlighting changes */
   onShowMetaphorHighlightChange?: (show: boolean) => void
+  /** When set, table will switch to the page containing this result and scroll the row into view */
+  scrollToResult?: KWICResult | null
+  /** Called after scroll-to-result has been applied (parent can clear scrollToResult) */
+  onScrollToResultHandled?: () => void
 }
 
 // Color classes for context words (positions 1, 2, 3)
@@ -351,7 +355,9 @@ export default function CollocationResultsTable({
   onRowsPerPageChange,
   highlightWords = [],
   showMetaphorHighlight = false,
-  onShowMetaphorHighlightChange
+  onShowMetaphorHighlightChange,
+  scrollToResult,
+  onScrollToResultHandled
 }: CollocationResultsTableProps) {
   const { t, i18n } = useTranslation()
   const isZh = i18n.language === 'zh'
@@ -494,6 +500,49 @@ export default function CollocationResultsTable({
     const start = page * rowsPerPage
     return filteredResults.slice(start, start + rowsPerPage)
   }, [filteredResults, page, rowsPerPage])
+
+  // Scroll-to-result: when scrollToResult is set, switch to the page containing it and scroll row into view
+  useEffect(() => {
+    if (!scrollToResult || !onScrollToResultHandled) return
+    const idx = filteredResults.findIndex(
+      r => r.text_id === scrollToResult.text_id && r.position === scrollToResult.position
+    )
+    if (idx === -1) {
+      onScrollToResultHandled()
+      return
+    }
+    const pageNum = Math.floor(idx / rowsPerPage)
+    if (onPageChange && pageNum !== page) {
+      onPageChange(pageNum)
+    }
+    // Expand the target row so extended context is visible after scroll
+    const idxInPage = idx - pageNum * rowsPerPage
+    setExpandedRowId(`${scrollToResult.text_id}-${scrollToResult.position}-${idxInPage}`)
+    const delay = pageNum !== page ? 400 : 200
+    const t = setTimeout(() => {
+      const rowEl = document.querySelector(
+        `[data-kwic-id="${scrollToResult.text_id}-${scrollToResult.position}"]`
+      )
+      if (rowEl) {
+        const container = rowEl.closest('.MuiTableContainer-root') as HTMLElement | null
+        if (container) {
+          const thead = container.querySelector('thead')
+          const headerHeight = thead ? thead.getBoundingClientRect().height : 0
+          const rowRect = rowEl.getBoundingClientRect()
+          const containerRect = container.getBoundingClientRect()
+          const scrollDelta = rowRect.top - containerRect.top - headerHeight
+          container.scrollTo({
+            top: container.scrollTop + scrollDelta,
+            behavior: 'smooth'
+          })
+        } else {
+          rowEl.scrollIntoView({ block: 'start', behavior: 'smooth' })
+        }
+      }
+      onScrollToResultHandled()
+    }, delay)
+    return () => clearTimeout(t)
+  }, [scrollToResult, filteredResults, rowsPerPage, page, onPageChange, onScrollToResultHandled])
 
   // Handle page change
   const handleChangePage = (_: unknown, newPage: number) => {
@@ -773,6 +822,7 @@ export default function CollocationResultsTable({
               return (
                 <React.Fragment key={rowId}>
                   <TableRow
+                    data-kwic-id={`${result.text_id}-${result.position}`}
                     hover
                     onClick={() => handleRowClick(rowId)}
                     sx={{

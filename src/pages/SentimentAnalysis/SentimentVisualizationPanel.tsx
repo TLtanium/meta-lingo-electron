@@ -87,8 +87,7 @@ export default function SentimentVisualizationPanel({
     if (onActiveTabChange) onActiveTabChange(v)
     else setInternalActiveTab(v)
   }
-  const [chartMaxItems, setChartMaxItems] = useState(10)
-  const [colorScheme, setColorScheme] = useState('blue')
+  const [colorScheme, setColorScheme] = useState<'blue' | 'green' | 'purple' | 'orange' | 'red'>('blue')
   const [showPercentage, setShowPercentage] = useState(true)
   const [wordCloudEngine, setWordCloudEngine] = useState<WordCloudEngine>('d3')
   const [wordCloudConfig, setWordCloudConfig] = useState<WordCloudConfig>({ ...DEFAULT_WORDCLOUD_CONFIG })
@@ -111,8 +110,16 @@ export default function SentimentVisualizationPanel({
   const chartKeysToUse = chartKeys.length > 0 ? chartKeys : (analysisMode === 'polarity' ? POLARITY_KEYS : DIMENSION_KEYS)
   const chartData =
     analysisMode === 'polarity'
-      ? chartKeysToUse.map((k) => ({ label: t(`sentiment.polarity.${k}`), value: summary[k] ?? 0 }))
-      : chartKeysToUse.map((k) => ({ label: t(`sentiment.dimension.${k}`), value: summary[k] ?? 0 }))
+      ? chartKeysToUse.map((k) => ({
+          key: k,
+          label: t(`sentiment.polarity.${k}`),
+          value: summary[k] ?? 0
+        }))
+      : chartKeysToUse.map((k) => ({
+          key: k,
+          label: t(`sentiment.dimension.${k}`),
+          value: summary[k] ?? 0
+        }))
 
   const isUsasMode = searchTarget === 'usas'
 
@@ -279,7 +286,11 @@ export default function SentimentVisualizationPanel({
     if (analysisMode === 'polarity') {
       return (
         <Box sx={{ height: '100%', display: 'flex' }}>
-          <SentimentPieChart data={chartData} />
+          <SentimentPieChart
+            data={chartData as any}
+            colorScheme={colorScheme}
+            showPercentage={showPercentage}
+          />
         </Box>
       )
     }
@@ -320,30 +331,6 @@ export default function SentimentVisualizationPanel({
         }}
       >
         <Stack direction="row" spacing={3} alignItems="center" flexWrap="wrap">
-          {activeTab === 'chart' && (
-            <>
-              <NumberInput
-                label={t('wordFrequency.viz.maxItems')}
-                size="small"
-                value={chartMaxItems}
-                onChange={setChartMaxItems}
-                min={5}
-                max={analysisMode === 'polarity' ? 20 : 15}
-                step={1}
-                integer
-                defaultValue={10}
-                sx={{ width: 130 }}
-              />
-              {analysisMode === 'polarity' && (
-                <FormControlLabel
-                  control={
-                    <Switch checked={showPercentage} onChange={(e) => setShowPercentage(e.target.checked)} size="small" />
-                  }
-                  label={<Typography variant="body2">{t('wordFrequency.viz.showPercentage')}</Typography>}
-                />
-              )}
-            </>
-          )}
           {activeTab === 'wordcloud' && (
             <>
               <FormControl size="small" sx={{ minWidth: 180 }}>
@@ -444,7 +431,7 @@ export default function SentimentVisualizationPanel({
                         colormap: e.target.value as WordCloudColormap
                       })
                     } else {
-                      setColorScheme(e.target.value)
+                      setColorScheme(e.target.value as any)
                     }
                   }}
                 >
@@ -469,6 +456,14 @@ export default function SentimentVisualizationPanel({
               </FormControl>
             )
           })()}
+          {activeTab === 'chart' && analysisMode === 'polarity' && (
+            <FormControlLabel
+              control={
+                <Switch checked={showPercentage} onChange={(e) => setShowPercentage(e.target.checked)} size="small" />
+              }
+              label={<Typography variant="body2">{t('wordFrequency.viz.showPercentage')}</Typography>}
+            />
+          )}
         </Stack>
 
         {hasData && (

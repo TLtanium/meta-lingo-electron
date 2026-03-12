@@ -132,12 +132,12 @@ class SynonymService:
             # Build corpus vocabulary: only synonyms that appear in corpus are retained
             corpus_vocab = set(k[0] for k in word_data.keys())
             
-            # Filter by search query if provided
+            # Filter by search query if provided (exact word match only; no substring)
             if search_query:
-                query = search_query.lower() if lowercase else search_query
+                q = search_query.lower() if lowercase else search_query
                 word_data = {
                     key: data for key, data in word_data.items()
-                    if query in key[0].lower()  # key is (word, pos) tuple
+                    if (key[0].lower() if lowercase else key[0]) == q
                 }
             
             # Filter by minimum frequency

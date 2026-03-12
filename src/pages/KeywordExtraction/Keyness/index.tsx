@@ -307,6 +307,7 @@ export default function KeynessTab({ crossLinkParams }: KeynessTabProps = {}) {
       if (response.success && response.data) {
         if (response.data.success) {
           setResults(response.data.results)
+          setTablePage(0)
           setTotalKeywords(response.data.total_keywords)
           setStudySize(response.data.study_corpus_size)
           setRefSize(response.data.ref_corpus_size)
@@ -657,10 +658,19 @@ export default function KeynessTab({ crossLinkParams }: KeynessTabProps = {}) {
           </Tabs>
         </Box>
 
-        {/* Tab Content */}
-        <Box sx={{ flex: 1, overflow: 'hidden' }}>
-          {rightTab === 0 ? (
-            results.length > 0 ? (
+        {/* Tab Content — render both panels and hide inactive to preserve state */}
+        <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+          {/* Results tab panel */}
+          <Box
+            sx={{
+              flex: 1,
+              minHeight: 0,
+              overflow: 'hidden',
+              display: rightTab === 0 ? 'flex' : 'none',
+              flexDirection: 'column'
+            }}
+          >
+            {results.length > 0 ? (
               <ResultsTable
                 results={results}
                 totalKeywords={totalKeywords}
@@ -692,10 +702,10 @@ export default function KeynessTab({ crossLinkParams }: KeynessTabProps = {}) {
                 selectedEntryIds={studySelection?.dataSource === 'library' && studySelection?.selectionMode === 'selected' ? studySelection?.selectedEntryIds : undefined}
               />
             ) : (
-              <Box sx={{ 
-                height: '100%', 
-                display: 'flex', 
-                alignItems: 'center', 
+              <Box sx={{
+                height: '100%',
+                display: 'flex',
+                alignItems: 'center',
                 justifyContent: 'center',
                 flexDirection: 'column',
                 gap: 2,
@@ -709,8 +719,18 @@ export default function KeynessTab({ crossLinkParams }: KeynessTabProps = {}) {
                   {t('keyword.keyness.description', 'Compare word frequencies between study and reference corpora')}
                 </Typography>
               </Box>
-            )
-          ) : (
+            )}
+          </Box>
+          {/* Visualization tab panel */}
+          <Box
+            sx={{
+              flex: 1,
+              minHeight: 0,
+              overflow: 'hidden',
+              display: rightTab === 1 ? 'flex' : 'none',
+              flexDirection: 'column'
+            }}
+          >
             <VisualizationPanel
               data={results}
               comparisonMode={comparisonMode}
@@ -737,7 +757,7 @@ export default function KeynessTab({ crossLinkParams }: KeynessTabProps = {}) {
                 })
               } : undefined}
             />
-          )}
+          </Box>
         </Box>
       </Box>
       

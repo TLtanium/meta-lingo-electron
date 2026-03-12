@@ -584,6 +584,7 @@ export default function ResultsTable({
                       ) : (
                         <WordActionMenu
                           word={result.keyword}
+                          wordLemma={comparisonMode === 'lemma' ? result.keyword : undefined}
                           corpusId={corpusId}
                           textIds={textIds || 'all'}
                           selectionMode={selectionMode}

@@ -218,7 +218,7 @@ export default function RidgePlot({
     svg.append('text').attr('x', width / 2).attr('y', 25)
       .attr('text-anchor', 'middle').attr('font-size', '14px').attr('font-weight', 600)
       .attr('fill', theme.palette.text.primary)
-      .text(isZh ? '分组山脊图 - 各文档关键词分布' : 'Ridge Plot - Keyword Distribution by Document')
+      .text(isZh ? '各文档关键词分布' : 'Ridge Plot - Keyword Distribution by Document')
 
     return () => { d3.select(chartRef.current).selectAll('.tooltip').remove() }
   }, [documentData, chartWidth, chartHeight, colorScheme, isZh, theme, results])

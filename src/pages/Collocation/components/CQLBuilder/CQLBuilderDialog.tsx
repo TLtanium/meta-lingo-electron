@@ -3,7 +3,7 @@
  * Main dialog for visual CQL query building
  */
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import {
   Dialog,
   DialogTitle,
@@ -50,6 +50,17 @@ export default function CQLBuilderDialog({
   const [saveTemplateName, setSaveTemplateName] = useState('')
   const [templateElements, setTemplateElements] = useState<BuilderElement[]>([])
   const [templateVersion, setTemplateVersion] = useState(0)
+  // Incremented each time the dialog opens → forces CQLBuilderContent to remount fresh
+  const [builderKey, setBuilderKey] = useState(0)
+
+  // Reset builder state every time the dialog is opened
+  useEffect(() => {
+    if (open) {
+      setBuilderKey(k => k + 1)
+      setTemplateElements([])
+      setTemplateVersion(0)
+    }
+  }, [open])
   const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({
     open: false,
     message: '',
@@ -210,6 +221,7 @@ export default function CQLBuilderDialog({
 
           {/* Builder content */}
           <CQLBuilderContent
+            key={builderKey}
             initialCQL={initialCQL}
             externalElements={templateElements}
             externalElementsVersion={templateVersion}

@@ -167,6 +167,7 @@ export default function MetaphorAnalysis({ crossLinkParams }: MetaphorAnalysisPr
         // Check if backend returned success
         if (response.data.success) {
           setResults(response.data.results)
+          setTablePage(0)
           setStatistics(response.data.statistics)
         } else {
           setError(response.data.error || t('common.error'))
@@ -309,10 +310,19 @@ export default function MetaphorAnalysis({ crossLinkParams }: MetaphorAnalysisPr
           </Tabs>
         </Box>
 
-        {/* Tab Content */}
-        <Box sx={{ flex: 1, overflow: 'hidden' }}>
-          {rightTab === 0 ? (
-            results.length > 0 ? (
+        {/* Tab Content — render both panels and hide inactive to preserve state */}
+        <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+          {/* Results tab panel */}
+          <Box
+            sx={{
+              flex: 1,
+              minHeight: 0,
+              overflow: 'hidden',
+              display: rightTab === 0 ? 'flex' : 'none',
+              flexDirection: 'column'
+            }}
+          >
+            {results.length > 0 ? (
               <ResultsTable
                 results={results}
                 statistics={statistics}
@@ -364,8 +374,18 @@ export default function MetaphorAnalysis({ crossLinkParams }: MetaphorAnalysisPr
                     : 'Select a corpus and click Start Analysis'}
                 </Typography>
               </Box>
-            )
-          ) : (
+            )}
+          </Box>
+          {/* Visualization tab panel */}
+          <Box
+            sx={{
+              flex: 1,
+              minHeight: 0,
+              overflow: 'hidden',
+              display: rightTab === 1 ? 'flex' : 'none',
+              flexDirection: 'column'
+            }}
+          >
             <VisualizationPanel
               data={results}
               statistics={statistics}
@@ -390,7 +410,7 @@ export default function MetaphorAnalysis({ crossLinkParams }: MetaphorAnalysisPr
                 })
               } : undefined}
             />
-          )}
+          </Box>
         </Box>
       </Box>
     </Box>

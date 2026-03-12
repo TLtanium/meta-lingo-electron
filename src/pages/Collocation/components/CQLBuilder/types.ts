@@ -3,8 +3,8 @@
  * TypeScript type definitions for CQL visual builder
  */
 
-// Token attributes - basic, head-based, and semantic domain (usas)
-export type TokenAttribute = 'word' | 'lemma' | 'pos' | 'tag' | 'dep' | 'headword' | 'headlemma' | 'headpos' | 'headdep' | 'usas'
+// Token attributes - basic, head-based, semantic domain (usas), and emotion/sentiment (nrc)
+export type TokenAttribute = 'word' | 'lemma' | 'pos' | 'tag' | 'dep' | 'headword' | 'headlemma' | 'headpos' | 'headdep' | 'usas' | 'nrc'
 
 // Comparison operators
 export type ComparisonOperator = '=' | '!=' | '==' | '!=='
@@ -13,7 +13,29 @@ export type ComparisonOperator = '=' | '!=' | '==' | '!=='
 export type LogicOperator = 'and' | 'or'
 
 // Element types that can be added to the builder
-export type ElementType = 'normal_token' | 'unspecified_token' | 'distance' | 'or'
+export type ElementType =
+  | 'normal_token'
+  | 'unspecified_token'
+  | 'distance'
+  | 'or'
+  | 'within'
+  | 'not_within'
+  | 'containing'
+  | 'not_containing'
+  | 'meet'
+  | 'word_sketch'
+  | 'structure'
+
+/**
+ * Structural context variant for <s>, <p>, <doc> elements
+ */
+export type StructureVariant =
+  | 's_open'    // <s>
+  | 's_close'   // </s>
+  | 's_self'    // <s/>
+  | 'p_open'    // <p>
+  | 'p_close'   // </p>
+  | 'p_self'    // <p/>
 
 /**
  * Single condition within a token
@@ -36,6 +58,21 @@ export interface ConditionGroup {
 }
 
 /**
+ * Repetition mode for the { } quantifier suffix
+ *   minmax  → {min,max}
+ *   min     → {min,}   (min or more)
+ *   max     → {,max}   (up to max)
+ *   exactly → {n}      (exactly n)
+ */
+export type RepeatMode = 'minmax' | 'min' | 'max' | 'exactly'
+
+export interface RepeatQuantifier {
+  mode: RepeatMode
+  min: number   // used by minmax / min / exactly
+  max: number   // used by minmax / max
+}
+
+/**
  * Builder element - represents one unit in the CQL query
  */
 export interface BuilderElement {
@@ -46,6 +83,24 @@ export interface BuilderElement {
   // For distance: repetition count
   minCount?: number
   maxCount?: number
+  // For structure: structural context variant and optional metadata
+  structureVariant?: StructureVariant
+  structureMeta?: string   // e.g. 'date="2010" & tag="written"'
+  // For meet: two sub-patterns and left/right distances
+  meetLeft?: number        // left distance (negative), default -3
+  meetRight?: number       // right distance (positive), default 3
+  meetPattern1?: string    // CQL for pattern 1, e.g. '[pos="NOUN"]'
+  meetPattern2?: string    // CQL for pattern 2, e.g. '[pos="VERB"]'
+  // For word_sketch: headword, relation, collocation
+  wsHeadword?: string
+  wsRelation?: string
+  wsCollocation?: string
+  // Quantifier suffixes  (?, *, or {...})
+  optional?: boolean          // → ?
+  star?: boolean              // → *
+  repeat?: RepeatQuantifier   // → {n,m} / {n,} / {,m} / {n}
+  // For distance: which mode the {…} uses
+  distanceMode?: RepeatMode
   // Editing state
   isEditing?: boolean
 }
@@ -105,7 +160,6 @@ export interface TokenEditorProps {
   element: BuilderElement
   onUpdate: (element: BuilderElement) => void
   onComplete: () => void
-  onCancel: () => void
 }
 
 /**

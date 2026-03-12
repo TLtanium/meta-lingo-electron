@@ -30,7 +30,8 @@ function rightStr(r: KWICResult): string {
 
 const VIZ_TYPE_KEYS: Record<VizType, string> = {
   densityPlot: 'aiAssistant.collocation.vizDensity',
-  ridgePlot: 'aiAssistant.collocation.vizRidge'
+  ridgePlot: 'aiAssistant.collocation.vizRidge',
+  concordancePlot: 'aiAssistant.collocation.vizConcordance'
 }
 
 export interface BuildCollocationAIContextParams {

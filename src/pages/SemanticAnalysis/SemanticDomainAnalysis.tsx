@@ -390,10 +390,19 @@ export default function SemanticDomainAnalysis({ crossLinkParams }: SemanticDoma
           </Tabs>
         </Box>
 
-        {/* Tab Content */}
-        <Box sx={{ flex: 1, overflow: 'hidden' }}>
-          {rightTab === 0 ? (
-            results && results.results.length > 0 ? (
+        {/* Tab Content — render both panels and hide inactive to preserve state */}
+        <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+          {/* Results tab panel */}
+          <Box
+            sx={{
+              flex: 1,
+              minHeight: 0,
+              overflow: 'hidden',
+              display: rightTab === 0 ? 'flex' : 'none',
+              flexDirection: 'column'
+            }}
+          >
+            {results && results.results.length > 0 ? (
               <ResultsTable
                 results={results}
                 sortConfig={sortConfig}
@@ -434,8 +443,18 @@ export default function SemanticDomainAnalysis({ crossLinkParams }: SemanticDoma
                   {t('semantic.description')}
                 </Typography>
               </Box>
-            )
-          ) : (
+            )}
+          </Box>
+          {/* Visualization tab panel */}
+          <Box
+            sx={{
+              flex: 1,
+              minHeight: 0,
+              overflow: 'hidden',
+              display: rightTab === 1 ? 'flex' : 'none',
+              flexDirection: 'column'
+            }}
+          >
             <VisualizationPanel
               results={results}
               config={vizConfig}
@@ -461,7 +480,7 @@ export default function SemanticDomainAnalysis({ crossLinkParams }: SemanticDoma
                 })
               } : undefined}
             />
-          )}
+          </Box>
         </Box>
       </Box>
     </Box>

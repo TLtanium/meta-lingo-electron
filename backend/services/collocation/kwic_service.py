@@ -23,7 +23,16 @@ from collections import Counter
 
 from models.database import TextDB, CorpusDB
 from .pos_filter import POSFilter
-from .cql_engine import CQLEngine, CQLParseError
+from .cql_engine import (
+    CQLEngine,
+    CQLParseError,
+    CQLQuery,
+    WithinQuery,
+    ContainingQuery,
+    MeetQuery,
+    StructuralPattern,
+    TokenPattern,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -132,6 +141,8 @@ class KWICService:
                     continue
                 # Merge USAS tags for CQL usas attribute
                 self._merge_usas_into_tokens(tokens, text)
+                # Merge NRC emotion tags for CQL nrc attribute
+                self._merge_nrc_into_tokens(tokens, text)
 
                 # Load MIPVU data for metaphor info
                 mipvu_map = self._load_mipvu_map(text)
@@ -374,6 +385,84 @@ class KWICService:
                 key = (t.get('start', -1), t.get('end', -1))
                 t['usas_tag'] = by_pos.get(key, '')
 
+    # Eight NRC emotion dimensions (same as sentiment_analysis_service)
+    _NRC_DIMENSIONS = ["anger", "anticipation", "disgust", "fear", "joy", "sadness", "surprise", "trust"]
+
+    def _load_nrc_annotation(self, text: Dict[str, Any]) -> List[Dict[str, int]]:
+        """Load NRC token-level scores for a text (list aligned with spaCy tokens)."""
+        media_type = text.get('media_type', 'text')
+        if media_type in ('audio', 'video'):
+            transcript_json = text.get('transcript_json_path')
+            if transcript_json and os.path.exists(transcript_json):
+                try:
+                    with open(transcript_json, 'r', encoding='utf-8') as f:
+                        data = json.load(f)
+                    nrc = data.get('nrc_annotations', {})
+                    if not nrc.get('success') or 'segments' not in nrc:
+                        return []
+                    seg_scores = {s.get('id', i): s.get('token_scores', []) for i, s in enumerate(nrc['segments'])}
+                    out = []
+                    for seg_id in sorted(seg_scores.keys(), key=lambda k: (int(k) if str(k).isdigit() else 999999, k)):
+                        out.extend(seg_scores[seg_id])
+                    return out
+                except Exception as e:
+                    logger.debug(f"Failed to load transcript NRC: {e}")
+            return []
+        content_path = text.get('content_path')
+        if not content_path:
+            return []
+        content_path = Path(content_path)
+        nrc_path = content_path.parent / f"{content_path.stem}.nrc.json"
+        if not nrc_path.exists():
+            return []
+        try:
+            with open(nrc_path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            return data.get('token_scores', [])
+        except Exception as e:
+            logger.debug(f"Failed to load NRC annotation: {e}")
+        return []
+
+    def _nrc_tag_from_scores(self, scores: Dict[str, int]) -> str:
+        """
+        Build a space-joined NRC label string from score dict.
+        Includes polarity labels (positive/negative/neutral) and active emotion dims.
+        Example: {"positive": 1, "joy": 1, "trust": 1} -> "positive joy trust"
+        """
+        labels = []
+        pos = scores.get('positive', 0)
+        neg = scores.get('negative', 0)
+        if pos > 0:
+            labels.append('positive')
+        if neg > 0:
+            labels.append('negative')
+        if pos == 0 and neg == 0:
+            labels.append('neutral')
+        for dim in self._NRC_DIMENSIONS:
+            if scores.get(dim, 0) > 0:
+                labels.append(dim)
+        if not any(scores.get(d, 0) > 0 for d in self._NRC_DIMENSIONS):
+            labels.append('others')
+        return ' '.join(labels)
+
+    def _merge_nrc_into_tokens(
+        self, tokens: List[Dict[str, Any]], text: Dict[str, Any]
+    ) -> None:
+        """Merge NRC emotion labels into token list as nrc_tag field."""
+        nrc_scores = self._load_nrc_annotation(text)
+        if not nrc_scores:
+            for t in tokens:
+                t['nrc_tag'] = ''
+            return
+        if len(nrc_scores) == len(tokens):
+            for t, scores in zip(tokens, nrc_scores):
+                t['nrc_tag'] = self._nrc_tag_from_scores(scores)
+        else:
+            # Count mismatch: leave empty (safe fallback)
+            logger.debug(f"NRC/spaCy token count mismatch: {len(nrc_scores)} vs {len(tokens)}")
+            for t in tokens:
+                t['nrc_tag'] = ''
+
     def _get_tokens_from_spacy(self, spacy_data: Dict[str, Any]) -> List[Dict[str, Any]]:
         """Extract tokens from SpaCy data"""
         tokens = []
@@ -453,7 +542,21 @@ class KWICService:
                             token['headlemma'] = ''
                             token['headpos'] = ''
                             token['headdep'] = ''
-        
+
+        # Post-process: detect sentence starts using terminal punctuation
+        if tokens:
+            tokens[0]['is_sent_start'] = True
+            TERM_PUNCT = {'.', '!', '?', '…', '...'}
+            for i in range(1, len(tokens)):
+                tokens[i].setdefault('is_sent_start', False)
+            # Find terminal punct tokens and mark the next real token as sent_start
+            for i, token in enumerate(tokens):
+                if token.get('is_punct') and token.get('text', '') in TERM_PUNCT:
+                    for j in range(i + 1, len(tokens)):
+                        if not tokens[j].get('is_space') and not tokens[j].get('is_punct'):
+                            tokens[j]['is_sent_start'] = True
+                            break
+
         return tokens
     
     def _search_tokens(
@@ -945,28 +1048,551 @@ class KWICService:
         context_size: int,
         pos_filter: Optional[POSFilter]
     ) -> List[Dict[str, Any]]:
-        """Search using CQL query - CQL has priority over POS filter"""
-        results = []
-
-        # Parse CQL query
+        """Search using CQL query. Dispatches to specialised handlers for meet/within/containing."""
         parsed = self.cql_engine.parse(cql_query)
 
-        # Find matches
-        for match in self.cql_engine.find_matches(tokens, parsed, context_size):
-            # For CQL, we do NOT apply external POS filter as CQL has its own pos conditions
-            # The POS filter in UI should be ignored for CQL mode
+        if parsed.meet_query:
+            return self._execute_meet_query(tokens, parsed.meet_query, context_size)
+        if parsed.within_query:
+            return self._execute_within_query(tokens, parsed.within_query, context_size)
+        if parsed.containing_query:
+            return self._execute_containing_query(tokens, parsed.containing_query, context_size)
 
+        # Standard query — structure+token order semantics or plain pattern match
+        if parsed.ordered_segments and parsed.structural_patterns and parsed.patterns:
+            return self._execute_standard_structure_token(tokens, parsed, context_size)
+
+        results = []
+        sentence_spans = self._get_sentence_spans(tokens) if parsed.structural_patterns else None
+        for match in self.cql_engine.find_matches(tokens, parsed, context_size):
+            if parsed.structural_patterns:
+                if not self._check_structural_constraints(
+                    tokens, match['position'], match['end_position'], parsed.structural_patterns, sentence_spans
+                ):
+                    continue
             matched_tokens = match['matched_tokens']
-            result = {
+            results.append({
                 'position': match['position'],
                 'keyword': ' '.join(t.get('text', '') for t in matched_tokens),
                 'left_context': [self._token_info_static(t) for t in match['left_context']],
                 'right_context': [self._token_info_static(t) for t in match['right_context']],
                 'matched_tokens': [self._token_info_static(t) for t in matched_tokens],
                 'pos': matched_tokens[0].get('pos', '') if matched_tokens else ''
-            }
-            results.append(result)
+            })
 
+        # Token frequency filter (no structure): only keep if doc-level match count in [min,max]
+        if not parsed.structural_patterns and parsed.patterns:
+            freq_pat = next(
+                (p for p in parsed.patterns if (p.min_count != 1 or p.max_count != 1) and not p.is_any),
+                None
+            )
+            if freq_pat and results:
+                doc_count = self._count_token_matches_in_span(tokens, freq_pat)
+                if doc_count < freq_pat.min_count or doc_count > freq_pat.max_count:
+                    return []
+        return results
+
+    # -----------------------------------------------------------------
+    # Sentence / paragraph span helpers
+    # -----------------------------------------------------------------
+
+    def _get_sentence_spans(self, tokens: List[Dict[str, Any]]) -> List[Tuple[int, int]]:
+        """Return (start_idx, end_idx) for each sentence (end_idx is exclusive)."""
+        if not tokens:
+            return []
+        spans: List[Tuple[int, int]] = []
+        start = 0
+        for i in range(1, len(tokens)):
+            if tokens[i].get('is_sent_start'):
+                spans.append((start, i))
+                start = i
+        spans.append((start, len(tokens)))
+        return spans
+
+    def _get_paragraph_spans(self, tokens: List[Dict[str, Any]]) -> List[Tuple[int, int]]:
+        """Return (start_idx, end_idx) for each paragraph, detected via space tokens with \\n\\n."""
+        if not tokens:
+            return []
+        spans: List[Tuple[int, int]] = []
+        start = 0
+        for i in range(1, len(tokens)):
+            tok = tokens[i]
+            # A space token whose text contains double-newline marks a paragraph break
+            if tok.get('is_space') and '\n\n' in tok.get('text', ''):
+                if start < i:
+                    spans.append((start, i))
+                start = i + 1
+        if start < len(tokens):
+            spans.append((start, len(tokens)))
+        # Fallback to sentence spans if no paragraph breaks detected
+        if not spans:
+            spans = self._get_sentence_spans(tokens)
+        return spans
+
+    # -----------------------------------------------------------------
+    # Structural constraint checking
+    # -----------------------------------------------------------------
+
+    def _check_structural_constraints(
+        self,
+        tokens: List[Dict[str, Any]],
+        match_start: int,
+        match_end: int,
+        structural_patterns: List,
+        sentence_spans: Optional[List[Tuple[int, int]]] = None
+    ) -> bool:
+        """Check that a match satisfies all structural constraints."""
+        if sentence_spans is None:
+            sentence_spans = self._get_sentence_spans(tokens)
+
+        def _span_text(span_start: int, span_end: int) -> str:
+            # Preserve spacing by keeping space tokens; strip for stable keys.
+            return ''.join(t.get('text', '') for t in tokens[span_start:span_end]).strip()
+
+        repeat_counts: Optional[Dict[str, int]] = None
+        def _get_repeat_counts() -> Dict[str, int]:
+            nonlocal repeat_counts
+            if repeat_counts is None:
+                counts: Dict[str, int] = {}
+                for ss, ee in sentence_spans:
+                    key = _span_text(ss, ee)
+                    if not key:
+                        continue
+                    counts[key] = counts.get(key, 0) + 1
+                repeat_counts = counts
+            return repeat_counts
+
+        for sp in structural_patterns:
+            if not isinstance(sp, StructuralPattern):
+                continue
+            if sp.tag == 's':
+                sent = next((s for s in sentence_spans if s[0] <= match_start < s[1]), None)
+                if sent is None:
+                    return False
+                # <s/>{min,max}: sentence span must repeat in document within [min_count, max_count]
+                if not (sp.min_count == 1 and sp.max_count == 1):
+                    key = _span_text(sent[0], sent[1])
+                    c = _get_repeat_counts().get(key, 0)
+                    if c < sp.min_count or c > sp.max_count:
+                        return False
+                if sp.self_closing:
+                    # match must be fully within one sentence
+                    if match_end > sent[1]:
+                        return False
+                elif sp.closing:
+                    # last matched token should be end of a sentence
+                    if match_end != sent[1]:
+                        return False
+                else:
+                    # opening <s>: match must start at sentence boundary
+                    if match_start != sent[0]:
+                        return False
+            # <p> and <doc> constraints could be added similarly
+        return True
+
+    # -----------------------------------------------------------------
+    # Frequency helpers for quantifiers (token / structure / meet) (2026-03)
+    # -----------------------------------------------------------------
+
+    @staticmethod
+    def _clone_pattern_as_single(pattern: TokenPattern) -> TokenPattern:
+        """Clone a TokenPattern as a single-token matcher (ignore sequential repetition)."""
+        return TokenPattern(
+            conditions=pattern.conditions,
+            or_conditions=pattern.or_conditions,
+            is_any=pattern.is_any,
+            min_count=1,
+            max_count=1,
+            optional=False,
+            ws_condition=pattern.ws_condition
+        )
+
+    def _count_token_matches_in_span(
+        self,
+        span_tokens: List[Dict[str, Any]],
+        pattern: TokenPattern
+    ) -> int:
+        base = self._clone_pattern_as_single(pattern)
+        return sum(1 for t in span_tokens if self.cql_engine.match_token(t, base))
+
+    def _span_text(self, tokens: List[Dict[str, Any]], start: int, end: int) -> str:
+        return ''.join(t.get('text', '') for t in tokens[start:end]).strip()
+
+    def _build_repeat_counts_for_spans(
+        self,
+        tokens: List[Dict[str, Any]],
+        spans: List[Tuple[int, int]]
+    ) -> Dict[str, int]:
+        counts: Dict[str, int] = {}
+        for s, e in spans:
+            key = self._span_text(tokens, s, e)
+            if not key:
+                continue
+            counts[key] = counts.get(key, 0) + 1
+        return counts
+
+    def _execute_standard_structure_token(
+        self,
+        tokens: List[Dict[str, Any]],
+        parsed: CQLQuery,
+        context_size: int
+    ) -> List[Dict[str, Any]]:
+        """Standard query with structure + token/distance: order defines result span.
+
+        - Opening first with leading []: <s> []{1,2} [lemma="make"] → match from span start, keyword = that segment (e.g. "Belows made").
+        - Opening first without leading []: <s> [lemma="make"] → keyword = whole sentence containing make.
+        - Pattern first then closing: []{1,2} </s> → keyword = last 1-2 words of sentence (distance left of </s>).
+        - Closing first: </s> []{1,2} → keyword = 1-2 words after sentence (distance right of </s>).
+        - Pattern first then opening: [lemma="make"] <s> → keyword = from make to end of sentence.
+        """
+        from .cql_engine import CQLQuery as _CQLQuery
+
+        ordered = getattr(parsed, 'ordered_segments', None) or []
+        if not ordered:
+            return []
+
+        first_seg = ordered[0]
+        last_seg = ordered[-1]
+        structs = [v for t, v in ordered if t == 'structural']
+        pattern_list = [v for t, v in ordered if t == 'pattern']
+        if not structs or not pattern_list:
+            return []
+
+        sp = structs[0]
+        first_is_opening = (
+            first_seg[0] == 'structural'
+            and isinstance(first_seg[1], StructuralPattern)
+            and not first_seg[1].closing
+        )
+        first_is_closing = (
+            first_seg[0] == 'structural'
+            and isinstance(first_seg[1], StructuralPattern)
+            and first_seg[1].closing
+        )
+        last_is_closing = (
+            last_seg[0] == 'structural'
+            and isinstance(last_seg[1], StructuralPattern)
+            and last_seg[1].closing
+        )
+
+        use_paragraph = sp.tag == 'p'
+        spans = self._get_paragraph_spans(tokens) if use_paragraph else self._get_sentence_spans(tokens)
+        repeat_counts = self._build_repeat_counts_for_spans(tokens, spans)
+
+        token_freq_min, token_freq_max = 1, 10**9
+        freq_pat: Optional[TokenPattern] = None
+        if len(pattern_list) == 1 and not pattern_list[0].is_any and (
+            pattern_list[0].min_count != 1 or pattern_list[0].max_count != 1
+        ):
+            token_freq_min = pattern_list[0].min_count
+            token_freq_max = pattern_list[0].max_count
+            freq_pat = pattern_list[0]
+
+        def apply_span_filters(span_start: int, span_end: int) -> bool:
+            if not (sp.min_count == 1 and sp.max_count == 1):
+                key = self._span_text(tokens, span_start, span_end)
+                c = repeat_counts.get(key, 0)
+                if c < sp.min_count or c > sp.max_count:
+                    return False
+            if freq_pat is not None:
+                cnt = self._count_token_matches_in_span(tokens[span_start:span_end], freq_pat)
+                if cnt < token_freq_min or cnt > token_freq_max:
+                    return False
+            return True
+
+        results: List[Dict[str, Any]] = []
+        n_tokens = len(tokens)
+
+        # ----- Closing first: </s> []{1,2} — keyword = 1-2 words after sentence end -----
+        if first_is_closing:
+            patterns_after = [v for t, v in ordered[1:] if t == 'pattern']
+            if not patterns_after:
+                return []
+            # Only [] (distance) after </s>: take min..max tokens after span_end
+            min_len, max_len = self.cql_engine._pattern_sequence_length_range(patterns_after)
+            for span_start, span_end in spans:
+                if not apply_span_filters(span_start, span_end):
+                    continue
+                available = n_tokens - span_end
+                if available < min_len:
+                    continue
+                k = min(max_len, available)
+                end = span_end + k
+                results.append(self._build_match_result(tokens, span_end, end, context_size))
+            return results
+
+        # ----- Closing last: []{1,2} </s> — keyword = last 1-2 words of sentence -----
+        if last_is_closing:
+            patterns_before = [v for t, v in ordered[:-1] if t == 'pattern']
+            if not patterns_before:
+                return []
+            for span_start, span_end in spans:
+                if not apply_span_filters(span_start, span_end):
+                    continue
+                span_tokens = tokens[span_start:span_end]
+                res = self.cql_engine.try_match_sequence_ending_at(
+                    tokens, patterns_before, span_end
+                )
+                if res is not None:
+                    seg_start, seg_end, _ = res
+                    results.append(self._build_match_result(tokens, seg_start, seg_end, context_size))
+            return results
+
+        # ----- Opening first: <s> []{1,2} [lemma="make"] or <s> [lemma="make"] -----
+        if first_is_opening:
+            patterns_after_first = [v for t, v in ordered[1:] if t == 'pattern']
+            patterns_to_use = (
+                [v for t, v in ordered[1:-1] if t == 'pattern']
+                if last_is_closing and len(ordered) > 2
+                else patterns_after_first
+            )
+            if not patterns_to_use:
+                return []
+            # If first pattern is [] (distance), match from span start and return segment
+            match_from_start = patterns_to_use[0].is_any
+            content_q = _CQLQuery(patterns=patterns_to_use, raw_query=parsed.raw_query)
+            for span_start, span_end in spans:
+                if not apply_span_filters(span_start, span_end):
+                    continue
+                span_tokens = tokens[span_start:span_end]
+                if match_from_start:
+                    # <s> []{1,2} [lemma="make"]: match from span start, keyword = segment ending at make
+                    for m in self.cql_engine.find_matches(span_tokens, content_q, 0):
+                        g_start = span_start + m['position']
+                        g_end = span_start + m['end_position']
+                        results.append(self._build_match_result(tokens, g_start, g_end, context_size))
+                else:
+                    # <s> [lemma="make"]: whole span containing pattern
+                    if any(True for _ in self.cql_engine.find_matches(span_tokens, content_q, 0)):
+                        results.append(self._build_match_result(tokens, span_start, span_end, context_size))
+            return results
+
+        # ----- Pattern first then opening: [lemma="make"] <s> — keyword = from match to end of span -----
+        token_pats = [self._clone_pattern_as_single(p) for p in pattern_list]
+        content_q = _CQLQuery(patterns=token_pats, raw_query=parsed.raw_query)
+        for match in self.cql_engine.find_matches(tokens, content_q, context_size):
+            match_start, match_end = match['position'], match['end_position']
+            span = next((s for s in spans if s[0] <= match_start < s[1]), None)
+            if span is None:
+                continue
+            span_start, span_end = span
+            if not apply_span_filters(span_start, span_end):
+                continue
+            results.append(self._build_match_result(tokens, match_start, span_end, context_size))
+        return results
+
+    # -----------------------------------------------------------------
+    # Meet / within / containing execution
+    # -----------------------------------------------------------------
+
+    def _build_match_result(
+        self,
+        tokens: List[Dict[str, Any]],
+        start: int,
+        end: int,
+        context_size: int
+    ) -> Dict[str, Any]:
+        """Build a match result dict for tokens[start:end]."""
+        n = len(tokens)
+        matched = tokens[start:end]
+
+        left_ctx: List[Dict] = []
+        for i in range(start - 1, max(-1, start - context_size * 2 - 1), -1):
+            if not tokens[i].get('is_space'):
+                left_ctx.insert(0, tokens[i])
+            if len(left_ctx) >= context_size:
+                break
+
+        right_ctx: List[Dict] = []
+        for i in range(end, min(n, end + context_size * 2)):
+            if not tokens[i].get('is_space'):
+                right_ctx.append(tokens[i])
+            if len(right_ctx) >= context_size:
+                break
+
+        return {
+            'position': start,
+            'keyword': ' '.join(t.get('text', '') for t in matched),
+            'left_context': [self._token_info_static(t) for t in left_ctx],
+            'right_context': [self._token_info_static(t) for t in right_ctx],
+            'matched_tokens': [self._token_info_static(t) for t in matched],
+            'pos': matched[0].get('pos', '') if matched else ''
+        }
+
+    def _execute_meet_query(
+        self,
+        tokens: List[Dict[str, Any]],
+        meet_query: MeetQuery,
+        context_size: int
+    ) -> List[Dict[str, Any]]:
+        """Execute (meet P Q -n m): find positions where P and Q co-occur within distance."""
+        n = len(tokens)
+        s2_positions = {
+            i for i in range(n)
+            if self.cql_engine.match_token(tokens[i], meet_query.pattern2)
+        }
+        results = []
+        for i in range(n):
+            if not self.cql_engine.match_token(tokens[i], meet_query.pattern1):
+                continue
+            # Check if any s2 position is within [left_dist, right_dist] of i
+            for offset in range(meet_query.left_dist, meet_query.right_dist + 1):
+                j = i + offset
+                if j != i and 0 <= j < n and j in s2_positions:
+                    results.append(self._build_match_result(tokens, i, i + 1, context_size))
+                    break
+        # Quantifier on meet expression is a frequency filter on number of meet matches in this document.
+        if not (meet_query.min_count == 1 and meet_query.max_count == 1):
+            if len(results) < meet_query.min_count or len(results) > meet_query.max_count:
+                return []
+        return results
+
+    def _execute_within_query(
+        self,
+        tokens: List[Dict[str, Any]],
+        within_query: WithinQuery,
+        context_size: int
+    ) -> List[Dict[str, Any]]:
+        """Execute P within Q.
+
+        - Result is the word/phrase on the left of 'within' (left side highlighted).
+        - Structure quantifier (<s/>{min,max}) filters by how many times the structure span repeats in the document.
+        - Token quantifier on the left (e.g. [lemma="make"]{1,2}) filters by occurrence count inside the right structure span.
+        - Invalid: left contains structural marker; structure within token (right is token-only) returns no results.
+        """
+        from .cql_engine import CQLQuery as _CQLQuery
+
+        # Invalid: left has structural markers
+        if any(isinstance(p, StructuralPattern) for p in within_query.left_patterns):
+            return []
+
+        left_pats = [p for p in within_query.left_patterns if isinstance(p, TokenPattern)]
+        right_structs = [p for p in within_query.right_patterns if isinstance(p, StructuralPattern)]
+        right_pats = [p for p in within_query.right_patterns if isinstance(p, TokenPattern)]
+        if not left_pats:
+            return []
+
+        # Structure-based within (right side is a structure marker)
+        if right_structs:
+            sp = right_structs[0]
+            spans = self._get_paragraph_spans(tokens) if sp.tag == 'p' else self._get_sentence_spans(tokens)
+            repeat_counts = self._build_repeat_counts_for_spans(tokens, spans)
+
+            # Left token frequency constraint: support single TokenPattern with {min,max}
+            token_freq_min, token_freq_max = 1, 10**9
+            freq_pat: Optional[TokenPattern] = None
+            if len(left_pats) == 1 and (left_pats[0].min_count != 1 or left_pats[0].max_count != 1) and not left_pats[0].is_any:
+                token_freq_min, token_freq_max = left_pats[0].min_count, left_pats[0].max_count
+                freq_pat = left_pats[0]
+                left_pats = [self._clone_pattern_as_single(left_pats[0])]
+
+            left_q = _CQLQuery(patterns=left_pats, raw_query='')
+
+            qualifying_ranges: List[Tuple[int, int]] = []
+            for span_start, span_end in spans:
+                # Structure repeat filter
+                if not (sp.min_count == 1 and sp.max_count == 1):
+                    key = self._span_text(tokens, span_start, span_end)
+                    c = repeat_counts.get(key, 0)
+                    if c < sp.min_count or c > sp.max_count:
+                        continue
+                # Token frequency filter (within span)
+                if freq_pat is not None:
+                    c = self._count_token_matches_in_span(tokens[span_start:span_end], freq_pat)
+                    if c < token_freq_min or c > token_freq_max:
+                        continue
+                qualifying_ranges.append((span_start, span_end))
+
+            # Non-negated: emit left matches inside qualifying spans
+            if not within_query.negated:
+                results: List[Dict[str, Any]] = []
+                for span_start, span_end in qualifying_ranges:
+                    for m in self.cql_engine.find_matches(tokens[span_start:span_end], left_q, context_size):
+                        gs = span_start + m['position']
+                        ge = span_start + m['end_position']
+                        results.append(self._build_match_result(tokens, gs, ge, context_size))
+                return results
+
+            # Negated: emit left matches NOT inside any qualifying span
+            out: List[Dict[str, Any]] = []
+            for m in self.cql_engine.find_matches(tokens, left_q, context_size):
+                in_any = any(rs <= m['position'] and m['end_position'] <= re for rs, re in qualifying_ranges)
+                if not in_any:
+                    out.append(self._build_match_result(tokens, m['position'], m['end_position'], context_size))
+            return out
+
+        # Token-based within (legacy)
+        if not right_pats:
+            return []
+        right_q = _CQLQuery(patterns=right_pats, raw_query='')
+        right_spans = [(m['position'], m['end_position']) for m in self.cql_engine.find_matches(tokens, right_q, 0)]
+        left_q = _CQLQuery(patterns=left_pats, raw_query='')
+        results = []
+        for match in self.cql_engine.find_matches(tokens, left_q, context_size):
+            in_span = any(rs <= match['position'] and match['end_position'] <= re for rs, re in right_spans)
+            if (in_span and not within_query.negated) or (not in_span and within_query.negated):
+                results.append(self._build_match_result(tokens, match['position'], match['end_position'], context_size))
+        return results
+
+    def _execute_containing_query(
+        self,
+        tokens: List[Dict[str, Any]],
+        containing_query: ContainingQuery,
+        context_size: int
+    ) -> List[Dict[str, Any]]:
+        """Execute C containing P.
+
+        - Result is the whole structure span (structure highlighted).
+        - Structure quantifier filters by how many times the span repeats in the document.
+        - Token quantifier on the right filters by occurrence count within the span.
+        - Invalid: token containing structure returns no results.
+        """
+        from .cql_engine import CQLQuery as _CQLQuery
+
+        # Determine container spans (structural or token-based)
+        container_structs = [p for p in containing_query.container_patterns
+                             if isinstance(p, StructuralPattern)]
+        if not container_structs:
+            # Disallow token-based container for the requested semantics
+            return []
+        content_pats = [p for p in containing_query.content_patterns
+                        if isinstance(p, TokenPattern)]
+        if any(isinstance(p, StructuralPattern) for p in containing_query.content_patterns):
+            return []
+        if not content_pats:
+            return []
+
+        # Choose container: <s/> → sentence spans, <p/> → paragraph spans, default → sentence spans
+        sp = container_structs[0]
+        container_spans = self._get_paragraph_spans(tokens) if sp.tag == 'p' else self._get_sentence_spans(tokens)
+        repeat_counts = self._build_repeat_counts_for_spans(tokens, container_spans)
+
+        # Token frequency constraint: support single-token pattern with {min,max}
+        token_freq_min, token_freq_max = 1, 10**9
+        freq_pat: Optional[TokenPattern] = None
+        if len(content_pats) == 1 and (content_pats[0].min_count != 1 or content_pats[0].max_count != 1) and not content_pats[0].is_any:
+            token_freq_min, token_freq_max = content_pats[0].min_count, content_pats[0].max_count
+            freq_pat = content_pats[0]
+            content_pats = [self._clone_pattern_as_single(content_pats[0])]
+
+        content_q = _CQLQuery(patterns=content_pats, raw_query='')
+        results = []
+        for span_start, span_end in container_spans:
+            # Structure repeat filter
+            if not (sp.min_count == 1 and sp.max_count == 1):
+                key = self._span_text(tokens, span_start, span_end)
+                c = repeat_counts.get(key, 0)
+                if c < sp.min_count or c > sp.max_count:
+                    continue
+            span_tokens = tokens[span_start:span_end]
+            if freq_pat is not None:
+                c = self._count_token_matches_in_span(span_tokens, freq_pat)
+                has_content = token_freq_min <= c <= token_freq_max
+            else:
+                has_content = any(True for _ in self.cql_engine.find_matches(span_tokens, content_q, 0))
+            if (has_content and not containing_query.negated) or \
+               (not has_content and containing_query.negated):
+                results.append(self._build_match_result(tokens, span_start, span_end, context_size))
         return results
     
     def _build_result(

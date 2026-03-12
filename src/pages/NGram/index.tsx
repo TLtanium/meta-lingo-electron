@@ -445,10 +445,19 @@ export default function NGram({ crossLinkParams }: NGramProps = {}) {
           </Tabs>
         </Box>
 
-        {/* Tab Content */}
-        <Box sx={{ flex: 1, overflow: 'hidden' }}>
-          {rightTab === 0 ? (
-            results.length > 0 ? (
+        {/* Tab Content — render both panels and hide inactive to preserve state */}
+        <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+          {/* Results tab panel */}
+          <Box
+            sx={{
+              flex: 1,
+              minHeight: 0,
+              overflow: 'hidden',
+              display: rightTab === 0 ? 'flex' : 'none',
+              flexDirection: 'column'
+            }}
+          >
+            {results.length > 0 ? (
               <ResultsTable
                 results={results}
                 totalNgrams={totalNgrams}
@@ -471,10 +480,10 @@ export default function NGram({ crossLinkParams }: NGramProps = {}) {
                 selectedEntryIds={corpusSelection?.dataSource === 'library' && corpusSelection?.selectionMode === 'selected' ? corpusSelection?.selectedEntryIds : undefined}
               />
             ) : (
-              <Box sx={{ 
-                height: '100%', 
-                display: 'flex', 
-                alignItems: 'center', 
+              <Box sx={{
+                height: '100%',
+                display: 'flex',
+                alignItems: 'center',
                 justifyContent: 'center',
                 flexDirection: 'column',
                 gap: 2,
@@ -488,8 +497,18 @@ export default function NGram({ crossLinkParams }: NGramProps = {}) {
                   {t('ngram.description')}
                 </Typography>
               </Box>
-            )
-          ) : (
+            )}
+          </Box>
+          {/* Visualization tab panel */}
+          <Box
+            sx={{
+              flex: 1,
+              minHeight: 0,
+              overflow: 'hidden',
+              display: rightTab === 1 ? 'flex' : 'none',
+              flexDirection: 'column'
+            }}
+          >
             <VisualizationPanel
               data={results}
               config={vizConfig}
@@ -518,7 +537,7 @@ export default function NGram({ crossLinkParams }: NGramProps = {}) {
                 })
               } : undefined}
             />
-          )}
+          </Box>
         </Box>
       </Box>
     </Box>

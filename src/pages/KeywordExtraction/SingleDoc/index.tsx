@@ -214,6 +214,7 @@ export default function SingleDocTab({ crossLinkParams }: SingleDocTabProps = {}
       if (response.success && response.data) {
         if (response.data.success) {
           setResults(response.data.results)
+          setTablePage(0)
           setTotalKeywords(response.data.total_keywords)
         } else {
           setError(response.data.error || 'Analysis failed')
@@ -401,10 +402,19 @@ export default function SingleDocTab({ crossLinkParams }: SingleDocTabProps = {}
           </Tabs>
         </Box>
 
-        {/* Tab Content */}
-        <Box sx={{ flex: 1, overflow: 'hidden' }}>
-          {rightTab === 0 ? (
-            results.length > 0 ? (
+        {/* Tab Content — render both panels and hide inactive to preserve state */}
+        <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+          {/* Results tab panel */}
+          <Box
+            sx={{
+              flex: 1,
+              minHeight: 0,
+              overflow: 'hidden',
+              display: rightTab === 0 ? 'flex' : 'none',
+              flexDirection: 'column'
+            }}
+          >
+            {results.length > 0 ? (
               <ResultsTable
                 results={results}
                 totalKeywords={totalKeywords}
@@ -433,10 +443,10 @@ export default function SingleDocTab({ crossLinkParams }: SingleDocTabProps = {}
                 selectedEntryIds={corpusSelection?.dataSource === 'library' && corpusSelection?.selectionMode === 'selected' ? corpusSelection?.selectedEntryIds : undefined}
               />
             ) : (
-              <Box sx={{ 
-                height: '100%', 
-                display: 'flex', 
-                alignItems: 'center', 
+              <Box sx={{
+                height: '100%',
+                display: 'flex',
+                alignItems: 'center',
                 justifyContent: 'center',
                 flexDirection: 'column',
                 gap: 2,
@@ -450,8 +460,18 @@ export default function SingleDocTab({ crossLinkParams }: SingleDocTabProps = {}
                   {t('keyword.singleDoc.description', 'Extract keywords using TF-IDF, TextRank, YAKE!, or RAKE algorithms')}
                 </Typography>
               </Box>
-            )
-          ) : (
+            )}
+          </Box>
+          {/* Visualization tab panel */}
+          <Box
+            sx={{
+              flex: 1,
+              minHeight: 0,
+              overflow: 'hidden',
+              display: rightTab === 1 ? 'flex' : 'none',
+              flexDirection: 'column'
+            }}
+          >
             <Suspense fallback={<Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 200 }}><CircularProgress /></Box>}>
               <VisualizationPanel
                 data={results}
@@ -477,7 +497,7 @@ export default function SingleDocTab({ crossLinkParams }: SingleDocTabProps = {}
                 } : undefined}
               />
             </Suspense>
-          )}
+          </Box>
         </Box>
       </Box>
     </Box>

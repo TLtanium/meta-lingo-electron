@@ -69,6 +69,7 @@ export_spacy_tags.py
 # ===================================
 # Config & Build Scripts (optional, for dev only)
 # Not distributed: build scripts are omitted from the repository.
+# 根目录任意脚本均不纳入版本库，仅保留本地；push 时不会把这些推上去。
 # ===================================
 build.sh
 build.bat
@@ -77,9 +78,11 @@ dev-backend.sh
 dev-frontend.sh
 start.sh
 push.sh
-# 根目录任意脚本均不纳入版本库，仅保留本地
+# 根目录脚本（按扩展名一律忽略）
 /*.sh
 /*.bat
+/*.command
+/*.ps1
 index.html
 vite.config.ts
 electron-builder.json

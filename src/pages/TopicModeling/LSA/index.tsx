@@ -310,9 +310,17 @@ export default function LSATab({ crossLinkParams }: LSATabProps = {}) {
           </Tabs>
         </Box>
         
-        {/* Tab Content */}
-        <Box sx={{ flex: 1, overflow: 'hidden' }}>
-          {rightTab === 0 && (
+        {/* Tab Content — render both panels and hide inactive to preserve state */}
+        <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+          <Box
+            sx={{
+              flex: 1,
+              minHeight: 0,
+              overflow: 'hidden',
+              display: rightTab === 0 ? 'flex' : 'none',
+              flexDirection: 'column'
+            }}
+          >
             <LSAResultsPanel
               result={analysisResult}
               corpusId={corpusId}
@@ -339,11 +347,18 @@ export default function LSATab({ crossLinkParams }: LSATabProps = {}) {
                 }
               }}
             />
-          )}
-          
-          {rightTab === 1 && (
+          </Box>
+          <Box
+            sx={{
+              flex: 1,
+              minHeight: 0,
+              overflow: 'hidden',
+              display: rightTab === 1 ? 'flex' : 'none',
+              flexDirection: 'column'
+            }}
+          >
             <LSAVisualizationPanel result={analysisResult} />
-          )}
+          </Box>
         </Box>
       </Box>
     </Box>

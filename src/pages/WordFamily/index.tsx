@@ -132,6 +132,7 @@ export default function SynonymAnalysis({ crossLinkParams }: SynonymAnalysisProp
       if (response.success && response.data) {
         if (response.data.success) {
           setResults(response.data.results)
+          setTablePage(0)
           setTotalWords(response.data.total_words)
           setUniqueWords(response.data.unique_words)
           setSelectedWords([])
@@ -272,10 +273,19 @@ export default function SynonymAnalysis({ crossLinkParams }: SynonymAnalysisProp
           </Tabs>
         </Box>
 
-        {/* Tab Content */}
-        <Box sx={{ flex: 1, overflow: 'hidden' }}>
-          {rightTab === 0 ? (
-            results.length > 0 ? (
+        {/* Tab Content — render both panels and hide inactive to preserve state */}
+        <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+          {/* Results tab panel */}
+          <Box
+            sx={{
+              flex: 1,
+              minHeight: 0,
+              overflow: 'hidden',
+              display: rightTab === 0 ? 'flex' : 'none',
+              flexDirection: 'column'
+            }}
+          >
+            {results.length > 0 ? (
               <ResultsTable
                 results={results}
                 totalWords={totalWords}
@@ -306,10 +316,10 @@ export default function SynonymAnalysis({ crossLinkParams }: SynonymAnalysisProp
                 selectedEntryIds={corpusSelection?.dataSource === 'library' && corpusSelection?.selectionMode === 'selected' ? corpusSelection?.selectedEntryIds : undefined}
               />
             ) : (
-              <Box sx={{ 
-                height: '100%', 
-                display: 'flex', 
-                alignItems: 'center', 
+              <Box sx={{
+                height: '100%',
+                display: 'flex',
+                alignItems: 'center',
                 justifyContent: 'center',
                 flexDirection: 'column',
                 gap: 2,
@@ -323,8 +333,18 @@ export default function SynonymAnalysis({ crossLinkParams }: SynonymAnalysisProp
                   {t('synonym.description')}
                 </Typography>
               </Box>
-            )
-          ) : (
+            )}
+          </Box>
+          {/* Visualization tab panel */}
+          <Box
+            sx={{
+              flex: 1,
+              minHeight: 0,
+              overflow: 'hidden',
+              display: rightTab === 1 ? 'flex' : 'none',
+              flexDirection: 'column'
+            }}
+          >
             <VisualizationPanel
               data={results}
               config={vizConfig}
@@ -335,11 +355,9 @@ export default function SynonymAnalysis({ crossLinkParams }: SynonymAnalysisProp
               activeTab={vizTab}
               onActiveTabChange={setVizTab}
               onWordClick={(word) => {
-                // Find all entries matching this word (may have multiple POS)
                 const matchingKeys = results
                   .filter(r => r.word === word)
                   .map(r => `${r.word}-${r.pos_tags[0] || ''}`)
-                // Add all matching keys that aren't already selected
                 const newKeys = matchingKeys.filter(k => !selectedWords.includes(k))
                 if (newKeys.length > 0) {
                   setSelectedWords([...selectedWords, ...newKeys])
@@ -347,7 +365,7 @@ export default function SynonymAnalysis({ crossLinkParams }: SynonymAnalysisProp
                 setRightTab(0)
               }}
             />
-          )}
+          </Box>
         </Box>
       </Box>
     </Box>

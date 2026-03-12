@@ -3,7 +3,7 @@
  * Container for KWIC result visualizations with chart type switching
  */
 
-import { useState, useRef, useCallback, useEffect } from 'react'
+import { useState, useRef, useCallback, useEffect, useMemo } from 'react'
 import {
   Box,
   Tabs,
@@ -22,6 +22,7 @@ import {
 import TimelineIcon from '@mui/icons-material/Timeline'
 import ShowChartIcon from '@mui/icons-material/ShowChart'
 import InsertChartIcon from '@mui/icons-material/InsertChart'
+import ScatterPlotIcon from '@mui/icons-material/ScatterPlot'
 import SaveAltIcon from '@mui/icons-material/SaveAlt'
 import ImageIcon from '@mui/icons-material/Image'
 import { useTranslation } from 'react-i18next'
@@ -29,32 +30,41 @@ import { NumberInput } from '../../../components/common'
 import type { KWICResult, VizType } from '../../../types/collocation'
 import DensityPlot from './d3/DensityPlot'
 import RidgePlot from './d3/RidgePlot'
+import ConcordancePlot from './d3/ConcordancePlot'
 
 interface CollocationVisualizationProps {
   results: KWICResult[]
   corpusId: string
   activeTab?: VizType
   onActiveTabChange?: (tab: VizType) => void
+  /** When a tick is clicked in Concordance Plot, call with the corresponding KWIC result (e.g. to jump to results table) */
+  onTickClick?: (result: KWICResult) => void
 }
 
 // Visualization type labels
 const VIZ_TYPE_LABELS: Record<VizType, { en: string; zh: string; icon: React.ReactElement }> = {
-  densityPlot: { 
-    en: 'Density Plot', 
+  densityPlot: {
+    en: 'Density Plot',
     zh: '密度分布图',
     icon: <ShowChartIcon />
   },
-  ridgePlot: { 
-    en: 'Ridge Plot', 
+  ridgePlot: {
+    en: 'Ridge Plot',
     zh: '分组山脊图',
     icon: <TimelineIcon />
+  },
+  concordancePlot: {
+    en: 'Concordance Plot',
+    zh: '离散度图',
+    icon: <ScatterPlotIcon />
   }
 }
 
 export default function CollocationVisualization({
   results,
   activeTab: controlledActiveTab,
-  onActiveTabChange
+  onActiveTabChange,
+  onTickClick
 }: CollocationVisualizationProps) {
   const { t, i18n } = useTranslation()
   const isZh = i18n.language === 'zh'
@@ -67,7 +77,13 @@ export default function CollocationVisualization({
   const chartContainerRef = useRef<HTMLDivElement>(null)
   const [containerHeight, setContainerHeight] = useState(400)
 
-  // Measure chart container height for RidgePlot
+  // Actual distinct document count in results
+  const actualDocCount = useMemo(() => {
+    const ids = new Set(results.map(r => r.text_id))
+    return ids.size
+  }, [results])
+
+  // Measure chart container height for RidgePlot / ConcordancePlot
   useEffect(() => {
     if (!chartContainerRef.current) return
     const el = chartContainerRef.current
@@ -93,16 +109,16 @@ export default function CollocationVisualization({
     const svgString = serializer.serializeToString(svg)
     const blob = new Blob([svgString], { type: 'image/svg+xml' })
     const url = URL.createObjectURL(blob)
-    
+
     const link = document.createElement('a')
     link.href = url
     link.download = `collocation-${activeViz}-chart.svg`
     link.click()
-    
+
     URL.revokeObjectURL(url)
   }, [activeViz])
 
-  // Export PNG — renders the full SVG to canvas (captures entire chart even if scrolled)
+  // Export PNG — renders full SVG to canvas (captures entire chart even if scrolled)
   const handleExportPNG = useCallback(async () => {
     const container = chartContainerRef.current
     if (!container) return
@@ -111,7 +127,6 @@ export default function CollocationVisualization({
     if (!svg) return
 
     try {
-      // Use SVG-to-canvas approach for full-fidelity export (no clipping by scroll)
       const serializer = new XMLSerializer()
       const svgString = serializer.serializeToString(svg)
       const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' })
@@ -129,7 +144,6 @@ export default function CollocationVisualization({
         const ctx = canvas.getContext('2d')
         if (!ctx) return
 
-        // White background
         ctx.fillStyle = '#fafafa'
         ctx.fillRect(0, 0, canvas.width, canvas.height)
         ctx.scale(scale, scale)
@@ -160,11 +174,11 @@ export default function CollocationVisualization({
 
   // Color schemes
   const COLOR_SCHEMES = [
-    { value: 'blue', label: isZh ? '蓝色' : 'Blue', color: '#2196f3' },
-    { value: 'green', label: isZh ? '绿色' : 'Green', color: '#4caf50' },
+    { value: 'blue',   label: isZh ? '蓝色' : 'Blue',   color: '#2196f3' },
+    { value: 'green',  label: isZh ? '绿色' : 'Green',  color: '#4caf50' },
     { value: 'purple', label: isZh ? '紫色' : 'Purple', color: '#9c27b0' },
     { value: 'orange', label: isZh ? '橙色' : 'Orange', color: '#ff9800' },
-    { value: 'red', label: isZh ? '红色' : 'Red', color: '#f44336' }
+    { value: 'red',    label: isZh ? '红色' : 'Red',    color: '#f44336' }
   ]
 
   // Render visualization based on active type
@@ -172,9 +186,9 @@ export default function CollocationVisualization({
     if (results.length === 0) {
       return (
         <Box
-          sx={{ 
-            display: 'flex', 
-            alignItems: 'center', 
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
             justifyContent: 'center',
             height: '100%',
             color: 'text.secondary',
@@ -213,6 +227,16 @@ export default function CollocationVisualization({
             containerHeight={containerHeight}
           />
         )
+      case 'concordancePlot':
+        return (
+          <ConcordancePlot
+            results={results}
+            colorScheme={colorScheme}
+            maxDocs={maxDocs}
+            containerHeight={containerHeight}
+            onTickClick={onTickClick}
+          />
+        )
       default:
         return null
     }
@@ -222,33 +246,39 @@ export default function CollocationVisualization({
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       {/* Visualization Type Tabs */}
       <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-        <Tabs 
-          value={activeViz} 
+        <Tabs
+          value={activeViz}
           onChange={handleVizChange}
           variant="fullWidth"
         >
-          <Tab 
-            value="densityPlot" 
-            icon={VIZ_TYPE_LABELS.densityPlot.icon} 
+          <Tab
+            value="densityPlot"
+            icon={VIZ_TYPE_LABELS.densityPlot.icon}
             label={isZh ? VIZ_TYPE_LABELS.densityPlot.zh : VIZ_TYPE_LABELS.densityPlot.en}
             iconPosition="start"
           />
-          <Tab 
-            value="ridgePlot" 
-            icon={VIZ_TYPE_LABELS.ridgePlot.icon} 
+          <Tab
+            value="ridgePlot"
+            icon={VIZ_TYPE_LABELS.ridgePlot.icon}
             label={isZh ? VIZ_TYPE_LABELS.ridgePlot.zh : VIZ_TYPE_LABELS.ridgePlot.en}
+            iconPosition="start"
+          />
+          <Tab
+            value="concordancePlot"
+            icon={VIZ_TYPE_LABELS.concordancePlot.icon}
+            label={isZh ? VIZ_TYPE_LABELS.concordancePlot.zh : VIZ_TYPE_LABELS.concordancePlot.en}
             iconPosition="start"
           />
         </Tabs>
       </Box>
 
       {/* Visualization Settings */}
-      <Paper 
-        elevation={0} 
-        sx={{ 
-          px: 2, 
-          py: 1.5, 
-          borderBottom: 1, 
+      <Paper
+        elevation={0}
+        sx={{
+          px: 2,
+          py: 1.5,
+          borderBottom: 1,
           borderColor: 'divider',
           bgcolor: 'action.hover',
           display: 'flex',
@@ -268,13 +298,13 @@ export default function CollocationVisualization({
               {COLOR_SCHEMES.map(scheme => (
                 <MenuItem key={scheme.value} value={scheme.value}>
                   <Stack direction="row" spacing={1} alignItems="center">
-                    <Box 
-                      sx={{ 
-                        width: 16, 
-                        height: 16, 
+                    <Box
+                      sx={{
+                        width: 16,
+                        height: 16,
                         borderRadius: 0.5,
                         bgcolor: scheme.color
-                      }} 
+                      }}
                     />
                     <span>{scheme.label}</span>
                   </Stack>
@@ -283,15 +313,15 @@ export default function CollocationVisualization({
             </Select>
           </FormControl>
 
-          {/* Max documents for ridge plot */}
-          {activeViz === 'ridgePlot' && (
+          {/* Max documents for ridge plot / concordance plot */}
+          {(activeViz === 'ridgePlot' || activeViz === 'concordancePlot') && (
             <NumberInput
               label={isZh ? '显示文档数' : 'Max Docs'}
               size="small"
               value={maxDocs}
               onChange={setMaxDocs}
-              min={5}
-              max={50}
+              min={1}
+              max={actualDocCount || 1}
               step={1}
               integer
               defaultValue={10}
@@ -323,7 +353,7 @@ export default function CollocationVisualization({
         )}
       </Paper>
 
-      {/* Visualization Container — scrollable for ridge plot when chart exceeds viewport */}
+      {/* Visualization Container — scrollable for ridge/concordance plot when chart exceeds viewport */}
       <Box
         ref={chartContainerRef}
         sx={{
@@ -331,7 +361,7 @@ export default function CollocationVisualization({
           minHeight: 0,
           overflowY: 'auto',
           overflowX: 'hidden',
-          // DensityPlot needs flex to fill container; RidgePlot uses explicit height
+          // DensityPlot needs flex to fill container; ridge/concordance use explicit height
           ...(activeViz === 'densityPlot' ? {
             display: 'flex',
             flexDirection: 'column'

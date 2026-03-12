@@ -3,25 +3,32 @@
  * Main content area for building CQL queries visually
  */
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
+import { parseCQLToElements } from './cqlParser'
 import {
   Box,
   Typography,
   Button,
   IconButton,
-  Menu,
-  MenuItem,
-  ListItemIcon,
-  ListItemText,
+  Popover,
   Paper,
   Alert,
-  Stack
+  Chip,
+  Divider
 } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
+import CloseIcon from '@mui/icons-material/Close'
 import TextFieldsIcon from '@mui/icons-material/TextFields'
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline'
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz'
 import CallSplitIcon from '@mui/icons-material/CallSplit'
+import SelectAllIcon from '@mui/icons-material/SelectAll'
+import DeselectIcon from '@mui/icons-material/Deselect'
+import FilterAltIcon from '@mui/icons-material/FilterAlt'
+import FilterAltOffIcon from '@mui/icons-material/FilterAltOff'
+import ScatterPlotIcon from '@mui/icons-material/ScatterPlot'
+import BubbleChartIcon from '@mui/icons-material/BubbleChart'
+import DataObjectIcon from '@mui/icons-material/DataObject'
 import { useTranslation } from 'react-i18next'
 import type { BuilderElement, ElementType } from './types'
 import { ADD_ELEMENT_OPTIONS, generateId } from './constants'
@@ -36,26 +43,47 @@ interface CQLBuilderContentProps {
   onCopy: () => void
 }
 
-// Get icon for element type
-function getElementIcon(type: ElementType) {
+// Get icon for element type (with optional size)
+function getElementIcon(type: ElementType, size: 'small' | 'medium' = 'small') {
+  const sx = size === 'medium' ? { fontSize: 28 } : undefined
   switch (type) {
-    case 'normal_token':
-      return <TextFieldsIcon fontSize="small" />
-    case 'unspecified_token':
-      return <HelpOutlineIcon fontSize="small" />
-    case 'distance':
-      return <SwapHorizIcon fontSize="small" />
-    case 'or':
-      return <CallSplitIcon fontSize="small" />
-    default:
-      return null
+    case 'normal_token':      return <TextFieldsIcon fontSize={size} sx={sx} />
+    case 'unspecified_token': return <HelpOutlineIcon fontSize={size} sx={sx} />
+    case 'distance':          return <SwapHorizIcon fontSize={size} sx={sx} />
+    case 'or':                return <CallSplitIcon fontSize={size} sx={sx} />
+    case 'within':            return <SelectAllIcon fontSize={size} sx={sx} />
+    case 'not_within':        return <DeselectIcon fontSize={size} sx={sx} />
+    case 'containing':        return <FilterAltIcon fontSize={size} sx={sx} />
+    case 'not_containing':    return <FilterAltOffIcon fontSize={size} sx={sx} />
+    case 'meet':              return <ScatterPlotIcon fontSize={size} sx={sx} />
+    case 'word_sketch':       return <BubbleChartIcon fontSize={size} sx={sx} />
+    case 'structure':         return <DataObjectIcon fontSize={size} sx={sx} />
+    default:                  return null
+  }
+}
+
+// Color for each element type (for the menu cards)
+function getElementColor(type: ElementType): string {
+  switch (type) {
+    case 'normal_token':      return 'primary.main'
+    case 'unspecified_token': return 'text.secondary'
+    case 'distance':          return 'secondary.main'
+    case 'or':                return 'success.main'
+    case 'within':            return 'warning.dark'
+    case 'not_within':        return 'error.main'
+    case 'containing':        return 'warning.dark'
+    case 'not_containing':    return 'error.main'
+    case 'meet':              return 'info.main'
+    case 'word_sketch':       return 'primary.dark'
+    case 'structure':         return 'secondary.dark'
+    default:                  return 'text.primary'
   }
 }
 
 // Create default element based on type
 function createDefaultElement(type: ElementType): BuilderElement {
   const id = generateId()
-  
+
   switch (type) {
     case 'normal_token':
       return {
@@ -77,7 +105,17 @@ function createDefaultElement(type: ElementType): BuilderElement {
     case 'distance':
       return { id, type, minCount: 1, maxCount: 2 }
     case 'or':
+    case 'within':
+    case 'not_within':
+    case 'containing':
+    case 'not_containing':
       return { id, type }
+    case 'meet':
+      return { id, type, meetPattern1: '[]', meetPattern2: '[]', meetLeft: -3, meetRight: 3 }
+    case 'word_sketch':
+      return { id, type, wsHeadword: '', wsRelation: '', wsCollocation: '' }
+    case 'structure':
+      return { id, type, structureVariant: 's_self' }
     default:
       return { id, type }
   }
@@ -109,6 +147,60 @@ function validateCQL(cql: string): { valid: boolean; error?: string } {
   return { valid: true }
 }
 
+// Polished card for each element option in the add-element popover
+interface ElementOptionCardProps {
+  option: { type: ElementType; label: { zh: string; en: string }; description: { zh: string; en: string }; preview: string }
+  isZh: boolean
+  onAdd: (type: ElementType) => void
+}
+function ElementOptionCard({ option, isZh, onAdd }: ElementOptionCardProps) {
+  const color = getElementColor(option.type)
+  return (
+    <Box
+      onClick={() => onAdd(option.type)}
+      sx={{
+        width: 120,
+        p: 1.5,
+        borderRadius: 2,
+        border: '1.5px solid',
+        borderColor: 'divider',
+        cursor: 'pointer',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: 0.75,
+        transition: 'all 0.15s',
+        '&:hover': {
+          borderColor: color,
+          bgcolor: 'action.hover',
+          transform: 'translateY(-1px)',
+          boxShadow: 2,
+        }
+      }}
+    >
+      <Box sx={{ color, lineHeight: 0 }}>
+        {getElementIcon(option.type, 'medium')}
+      </Box>
+      <Typography variant="caption" fontWeight="bold" textAlign="center" sx={{ lineHeight: 1.2 }}>
+        {isZh ? option.label.zh : option.label.en}
+      </Typography>
+      <Chip
+        label={option.preview}
+        size="small"
+        sx={(theme) => ({
+          fontFamily: 'monospace',
+          fontSize: '0.6rem',
+          height: 18,
+          bgcolor: theme.palette.mode === 'dark' ? 'action.selected' : 'grey.100',
+          color: 'text.secondary',
+          maxWidth: '100%',
+          '& .MuiChip-label': { overflow: 'hidden', textOverflow: 'ellipsis', px: 0.75 }
+        })}
+      />
+    </Box>
+  )
+}
+
 export default function CQLBuilderContent({
   initialCQL,
   externalElements,
@@ -119,8 +211,17 @@ export default function CQLBuilderContent({
   const { i18n } = useTranslation()
   const isZh = i18n.language === 'zh'
 
+  // Parse initialCQL once on mount (key-based remount ensures fresh state on each dialog open)
+  const initialElements = useMemo(() => {
+    if (initialCQL && initialCQL.trim()) {
+      try { return parseCQLToElements(initialCQL) } catch { /* ignore */ }
+    }
+    return []
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])  // intentionally empty — evaluated once on mount
+
   // State
-  const [elements, setElements] = useState<BuilderElement[]>([])
+  const [elements, setElements] = useState<BuilderElement[]>(initialElements)
   const [selectedElementId, setSelectedElementId] = useState<string | null>(null)
   const [editingElementId, setEditingElementId] = useState<string | null>(null)
   const [addMenuAnchor, setAddMenuAnchor] = useState<null | HTMLElement>(null)
@@ -167,9 +268,9 @@ export default function CQLBuilderContent({
       setElements([...elements, newElement])
     }
     
-    // Auto-select and edit if it's a normal token
+    // Auto-select and edit for editable element types
     setSelectedElementId(newElement.id)
-    if (type === 'normal_token') {
+    if (['normal_token', 'structure', 'meet', 'word_sketch'].includes(type)) {
       setEditingElementId(newElement.id)
     }
     
@@ -210,7 +311,7 @@ export default function CQLBuilderContent({
   }, [])
 
   // Render add button
-  const renderAddButton = (index: number, isFirst: boolean = false) => (
+  const renderAddButton = (index: number) => (
     <IconButton
       size="small"
       onClick={(e) => handleAddClick(e, index)}
@@ -242,17 +343,17 @@ export default function CQLBuilderContent({
 
       {/* Build Area */}
       <Paper 
-        sx={{ 
+        sx={(theme) => ({ 
           flex: 1, 
           mt: 2, 
           p: 2, 
-          bgcolor: 'grey.50',
+          bgcolor: theme.palette.mode === 'dark' ? 'background.default' : 'grey.50',
           border: '1px dashed',
-          borderColor: 'grey.300',
+          borderColor: theme.palette.mode === 'dark' ? 'divider' : 'grey.300',
           borderRadius: 2,
           overflowX: 'auto',
           overflowY: 'hidden'
-        }}
+        })}
       >
         {elements.length === 0 ? (
           // Empty state
@@ -291,7 +392,7 @@ export default function CQLBuilderContent({
             }}
           >
             {/* First add button */}
-            {renderAddButton(0, true)}
+            {renderAddButton(0)}
             
             {/* Elements with add buttons after each */}
             {elements.map((element, index) => (
@@ -330,35 +431,61 @@ export default function CQLBuilderContent({
         </Typography>
       </Alert>
 
-      {/* Add Element Menu */}
-      <Menu
+      {/* Add Element Popover — polished grid */}
+      <Popover
         anchorEl={addMenuAnchor}
         open={Boolean(addMenuAnchor)}
         onClose={handleAddMenuClose}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
         transformOrigin={{ vertical: 'top', horizontal: 'center' }}
+        PaperProps={{ sx: { borderRadius: 2, boxShadow: 6, minWidth: 420, maxWidth: 480 } }}
       >
-        {ADD_ELEMENT_OPTIONS.map(option => (
-          <MenuItem key={option.type} onClick={() => handleAddElement(option.type)}>
-            <ListItemIcon>
-              {getElementIcon(option.type)}
-            </ListItemIcon>
-            <ListItemText 
-              primary={isZh ? option.label.zh : option.label.en}
-              secondary={
-                <Stack>
-                  <Typography variant="caption" color="text.secondary">
-                    {isZh ? option.description.zh : option.description.en}
-                  </Typography>
-                  <Typography variant="caption" sx={{ fontFamily: 'monospace' }}>
-                    {option.preview}
-                  </Typography>
-                </Stack>
-              }
-            />
-          </MenuItem>
-        ))}
-      </Menu>
+        <Box sx={{ p: 2 }}>
+          {/* Header */}
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
+            <Typography variant="subtitle2" fontWeight="bold">
+              {isZh ? '添加元素' : 'Add Element'}
+            </Typography>
+            <IconButton size="small" onClick={handleAddMenuClose} sx={{ p: 0.5 }}>
+              <CloseIcon fontSize="small" />
+            </IconButton>
+          </Box>
+
+          {/* Token group */}
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            {isZh ? 'Token' : 'Token'}
+          </Typography>
+          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 2 }}>
+            {ADD_ELEMENT_OPTIONS.filter(o => ['normal_token', 'unspecified_token', 'distance'].includes(o.type)).map(option => (
+              <ElementOptionCard key={option.type} option={option} isZh={isZh} onAdd={handleAddElement} />
+            ))}
+          </Box>
+
+          <Divider sx={{ mb: 2 }} />
+
+          {/* Operators group */}
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            {isZh ? '运算符' : 'Operators'}
+          </Typography>
+          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 2 }}>
+            {ADD_ELEMENT_OPTIONS.filter(o => ['or', 'within', 'not_within', 'containing', 'not_containing'].includes(o.type)).map(option => (
+              <ElementOptionCard key={option.type} option={option} isZh={isZh} onAdd={handleAddElement} />
+            ))}
+          </Box>
+
+          <Divider sx={{ mb: 2 }} />
+
+          {/* Advanced group */}
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            {isZh ? '高级' : 'Advanced'}
+          </Typography>
+          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+            {ADD_ELEMENT_OPTIONS.filter(o => ['meet', 'word_sketch', 'structure'].includes(o.type)).map(option => (
+              <ElementOptionCard key={option.type} option={option} isZh={isZh} onAdd={handleAddElement} />
+            ))}
+          </Box>
+        </Box>
+      </Popover>
     </Box>
   )
 }

@@ -122,8 +122,8 @@ export interface CQLParseResponse {
   error?: string
 }
 
-// Visualization Types (only density and ridge plots)
-export type VizType = 'densityPlot' | 'ridgePlot'
+// Visualization Types
+export type VizType = 'densityPlot' | 'ridgePlot' | 'concordancePlot'
 
 // Visualization Config
 export interface VizConfig {
@@ -200,5 +200,6 @@ export const SORT_MODE_LABELS: Record<SortMode, { en: string; zh: string }> = {
 // Visualization Type Labels
 export const VIZ_TYPE_LABELS: Record<VizType, { en: string; zh: string }> = {
   densityPlot: { en: 'Density Plot', zh: '密度分布图' },
-  ridgePlot: { en: 'Ridge Plot', zh: '分组山脊图' }
+  ridgePlot: { en: 'Ridge Plot', zh: '分组山脊图' },
+  concordancePlot: { en: 'Concordance Plot', zh: '离散度图' }
 }

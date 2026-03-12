@@ -496,6 +496,7 @@ export default function ResultsTable({
                   <TableCell align="center" onClick={(e) => e.stopPropagation()}>
                     <WordActionMenu
                       word={r.word}
+                      wordLemma={r.lemma}
                       corpusId={corpusId}
                       textIds={textIds || 'all'}
                       selectionMode={selectionMode}

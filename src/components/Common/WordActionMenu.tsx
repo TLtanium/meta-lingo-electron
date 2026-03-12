@@ -233,6 +233,8 @@ export interface WordActionMenuProps {
   relationName?: string
   /** Match mode for CQL query (word or lemma) */
   matchMode?: MatchMode
+  /** Lemma of the word (for 词图分析 cross-link; if provided, searchWord uses lemma) */
+  wordLemma?: string
   /** Source module for cross-link (affects default settings in target module) */
   sourceModule?: SourceModule
 }
@@ -259,6 +261,7 @@ export default function WordActionMenu({
   collocateLemma,
   relationName,
   matchMode = 'lemma',
+  wordLemma,
   sourceModule
 }: WordActionMenuProps) {
   const { t } = useTranslation()
@@ -299,18 +302,17 @@ export default function WordActionMenu({
     const isFromWordSketch = !!(mainWord && relationName)
 
     if (isFromWordSketch) {
-      // When matchMode='lemma', use actual lemma forms for CQL query so that
-      // lemma="breakthrough" matches SpaCy lemma, not surface form "breakthroughs"
+      // Use CQL builder word-sketch format so the Concordance page shows [ws(hw,rel,col)]
       const cqlMainWord = (matchMode === 'lemma' ? mainWordLemma : undefined) || mainWord
       const cqlCollocateWord = (matchMode === 'lemma' ? collocateLemma : undefined) || word
       const result = generateCQLForRelation(cqlMainWord, cqlCollocateWord, relationName, matchMode)
-      cqlQuery = result.cql
+      cqlQuery = `[ws(${cqlMainWord},${relationName},${cqlCollocateWord})]`
       kwicKeyword = result.kwicKeyword
       kwicHighlight = result.kwicHighlight
     }
     
     const params: CrossLinkParams = {
-      searchWord: kwicKeyword,
+      searchWord: wordLemma ?? kwicKeyword,
       corpusId,
       textIds,
       selectionMode,

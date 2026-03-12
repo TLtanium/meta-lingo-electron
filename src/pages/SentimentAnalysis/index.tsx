@@ -140,6 +140,7 @@ export default function SentimentAnalysis({ crossLinkParams }: SentimentAnalysis
         setError(response.error || 'Analysis failed')
         setSummary({})
         setResults([])
+        setTablePage(0)
         return
       }
       const data = response.data as { success?: boolean; summary?: Record<string, number>; results?: SentimentResultRow[]; error?: string }
@@ -155,11 +156,13 @@ export default function SentimentAnalysis({ crossLinkParams }: SentimentAnalysis
         setError(data?.error || 'Analysis failed')
         setSummary({})
         setResults([])
+        setTablePage(0)
       }
     } catch (err: unknown) {
       setError((err as Error)?.message || 'Analysis failed')
       setSummary({})
       setResults([])
+      setTablePage(0)
     } finally {
       setIsLoading(false)
     }
@@ -264,70 +267,92 @@ export default function SentimentAnalysis({ crossLinkParams }: SentimentAnalysis
           </Tabs>
         </Box>
         <Box sx={{ flex: 1, overflow: 'hidden' }}>
-          {rightTab === 0 ? (
-            results.length > 0 ? (
-              <SentimentResultsTable
+          {/* Tab Content — render both panels and hide inactive to preserve state */}
+          <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', height: '100%' }}>
+            {/* Results tab panel */}
+            <Box
+              sx={{
+                flex: 1,
+                minHeight: 0,
+                overflow: 'hidden',
+                display: rightTab === 0 ? 'flex' : 'none',
+                flexDirection: 'column'
+              }}
+            >
+              {results.length > 0 ? (
+                <SentimentResultsTable
+                  results={filteredResults}
+                  summary={summary}
+                  analysisMode={analysisMode}
+                  corpusSelection={corpusSelection}
+                  totalTokens={filteredResults.reduce((s, r) => s + r.total, 0)}
+                  uniqueWords={filteredResults.length}
+                  selectedWords={selectedWords}
+                  onSelectionChange={setSelectedWords}
+                  paginationConfig={{ page: tablePage, rowsPerPage: tableRowsPerPage }}
+                  onPaginationChange={(c) => {
+                    setTablePage(c.page)
+                    setTableRowsPerPage(c.rowsPerPage)
+                  }}
+                  tableFilter={tableFilter}
+                  onTableFilterChange={setTableFilter}
+                  sortColumn={tableSortColumn}
+                  sortDirection={tableSortDirection}
+                  onSortChange={(col, dir) => {
+                    setTableSortColumn(col)
+                    setTableSortDirection(dir)
+                  }}
+                  isLoading={isLoading}
+                  emotionFilterPolarity={emotionFilterPolarity}
+                  emotionFilterDimension={emotionFilterDimension}
+                  onOpenFilterDialog={() => setFilterDialogOpen(true)}
+                  searchTarget={searchConfig.searchTarget}
+                />
+              ) : (
+                <Box
+                  sx={{
+                    height: '100%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexDirection: 'column',
+                    gap: 2,
+                    p: 4
+                  }}
+                >
+                  <TableChartIcon sx={{ fontSize: 80, color: 'text.disabled' }} />
+                  <Typography variant="h6" color="text.secondary">
+                    {t('sentiment.title')}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary" textAlign="center">
+                    {t('wordFrequency.table.noData')}
+                  </Typography>
+                </Box>
+              )}
+            </Box>
+            {/* Visualization tab panel */}
+            <Box
+              sx={{
+                flex: 1,
+                minHeight: 0,
+                overflow: 'hidden',
+                display: rightTab === 1 ? 'flex' : 'none',
+                flexDirection: 'column'
+              }}
+            >
+              <SentimentVisualizationPanel
                 results={filteredResults}
                 summary={summary}
                 analysisMode={analysisMode}
                 corpusSelection={corpusSelection}
-                totalTokens={filteredResults.reduce((s, r) => s + r.total, 0)}
-                uniqueWords={filteredResults.length}
-                selectedWords={selectedWords}
-                onSelectionChange={setSelectedWords}
-                paginationConfig={{ page: tablePage, rowsPerPage: tableRowsPerPage }}
-                onPaginationChange={(c) => {
-                  setTablePage(c.page)
-                  setTableRowsPerPage(c.rowsPerPage)
-                }}
-                tableFilter={tableFilter}
-                onTableFilterChange={setTableFilter}
-                sortColumn={tableSortColumn}
-                sortDirection={tableSortDirection}
-                onSortChange={(col, dir) => {
-                  setTableSortColumn(col)
-                  setTableSortDirection(dir)
-                }}
-                isLoading={isLoading}
                 emotionFilterPolarity={emotionFilterPolarity}
                 emotionFilterDimension={emotionFilterDimension}
-                onOpenFilterDialog={() => setFilterDialogOpen(true)}
                 searchTarget={searchConfig.searchTarget}
+                activeTab={vizTab}
+                onActiveTabChange={setVizTab}
               />
-            ) : (
-              <Box
-                sx={{
-                  height: '100%',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  flexDirection: 'column',
-                  gap: 2,
-                  p: 4
-                }}
-              >
-                <TableChartIcon sx={{ fontSize: 80, color: 'text.disabled' }} />
-                <Typography variant="h6" color="text.secondary">
-                  {t('sentiment.title')}
-                </Typography>
-                <Typography variant="body2" color="text.secondary" textAlign="center">
-                  {t('wordFrequency.table.noData')}
-                </Typography>
-              </Box>
-            )
-          ) : (
-            <SentimentVisualizationPanel
-              results={filteredResults}
-              summary={summary}
-              analysisMode={analysisMode}
-              corpusSelection={corpusSelection}
-              emotionFilterPolarity={emotionFilterPolarity}
-              emotionFilterDimension={emotionFilterDimension}
-              searchTarget={searchConfig.searchTarget}
-              activeTab={vizTab}
-              onActiveTabChange={setVizTab}
-            />
-          )}
+            </Box>
+          </Box>
         </Box>
       </Box>
       <SentimentFilterDialog

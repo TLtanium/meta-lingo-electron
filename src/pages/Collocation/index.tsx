@@ -30,7 +30,8 @@ import type {
   SearchMode,
   SortMode,
   KWICResult,
-  POSTagInfo
+  POSTagInfo,
+  VizType
 } from '../../types/collocation'
 import {
   DEFAULT_POS_FILTER,
@@ -232,6 +233,7 @@ export default function Collocation({ crossLinkParams }: CollocationProps) {
 
             const hasPostFilter = (kwicKeywordLemma && searchMode === 'cql') || contextFilterWords.length > 0
             setResults(filteredResults)
+            setTablePage(0)
             setTotalCount(hasPostFilter ? filteredResults.length : response.data.total_count)
           } else {
             setError(response.data.error || 'Search failed')
@@ -264,7 +266,9 @@ export default function Collocation({ crossLinkParams }: CollocationProps) {
   // Lifted table pagination and viz tab for AI context
   const [tablePage, setTablePage] = useState(0)
   const [tableRowsPerPage, setTableRowsPerPage] = useState(20)
-  const [vizTab, setVizTab] = useState<'densityPlot' | 'ridgePlot'>('densityPlot')
+  const [vizTab, setVizTab] = useState<VizType>('densityPlot')
+  /** When set, results table will scroll to this result (e.g. from discrete plot tick click) */
+  const [scrollToResult, setScrollToResult] = useState<KWICResult | null>(null)
 
   // Track if cross-link has been processed
   const crossLinkProcessedRef = useRef(false)
@@ -515,6 +519,7 @@ export default function Collocation({ crossLinkParams }: CollocationProps) {
 
           const hasPostFilter = (kwicKeywordLemma && searchMode === 'cql') || contextFilterWords.length > 0
           setResults(filteredResults)
+          setTablePage(0)
           setTotalCount(hasPostFilter ? filteredResults.length : response.data.total_count)
         } else {
           setError(response.data.error || 'Search failed')
@@ -655,10 +660,19 @@ export default function Collocation({ crossLinkParams }: CollocationProps) {
           </Tabs>
         </Box>
 
-        {/* Tab Content */}
-        <Box sx={{ flex: 1, overflow: 'hidden' }}>
-          {rightTab === 0 ? (
-            results.length > 0 ? (
+        {/* Tab Content — render both panels and hide inactive to preserve state */}
+        <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+          {/* Results tab panel */}
+          <Box
+            sx={{
+              flex: 1,
+              minHeight: 0,
+              overflow: 'hidden',
+              display: rightTab === 0 ? 'flex' : 'none',
+              flexDirection: 'column'
+            }}
+          >
+            {results.length > 0 ? (
               <CollocationResultsTable
                 results={results}
                 totalCount={totalCount}
@@ -682,6 +696,8 @@ export default function Collocation({ crossLinkParams }: CollocationProps) {
                 highlightWords={highlightWords}
                 showMetaphorHighlight={showMetaphorHighlight}
                 onShowMetaphorHighlightChange={setShowMetaphorHighlight}
+                scrollToResult={scrollToResult}
+                onScrollToResultHandled={() => setScrollToResult(null)}
               />
             ) : (
               <Box sx={{
@@ -701,15 +717,29 @@ export default function Collocation({ crossLinkParams }: CollocationProps) {
                   {t('collocation.description')}
                 </Typography>
               </Box>
-            )
-          ) : (
+            )}
+          </Box>
+          {/* Visualization tab panel */}
+          <Box
+            sx={{
+              flex: 1,
+              minHeight: 0,
+              overflow: 'hidden',
+              display: rightTab === 1 ? 'flex' : 'none',
+              flexDirection: 'column'
+            }}
+          >
             <CollocationVisualization
               results={results}
               corpusId={corpusSelection?.corpusId || ''}
               activeTab={vizTab}
               onActiveTabChange={setVizTab}
+              onTickClick={(result) => {
+                setScrollToResult(result)
+                setRightTab(0)
+              }}
             />
-          )}
+          </Box>
         </Box>
       </Box>
 

@@ -438,10 +438,19 @@ export default function WordSketchTab({ crossLinkParams }: WordSketchTabProps) {
           </Tabs>
         </Box>
 
-        {/* Tab Content */}
-        <Box sx={{ flex: 1, overflow: 'hidden', minWidth: 0 }}>
-          {rightTab === 0 ? (
-            result && result.relations && Object.keys(result.relations).length > 0 ? (
+        {/* Tab Content — render both panels and hide inactive to preserve state */}
+        <Box sx={{ flex: 1, overflow: 'hidden', minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+          {/* Results tab panel */}
+          <Box
+            sx={{
+              flex: 1,
+              minHeight: 0,
+              overflow: 'hidden',
+              display: rightTab === 0 ? 'flex' : 'none',
+              flexDirection: 'column'
+            }}
+          >
+            {result && result.relations && Object.keys(result.relations).length > 0 ? (
               <Box sx={{ height: '100%', overflow: 'auto', p: 2 }}>
                 {/* Summary */}
                 <Paper sx={{ p: 2, mb: 2 }}>
@@ -649,10 +658,10 @@ export default function WordSketchTab({ crossLinkParams }: WordSketchTabProps) {
                 </Grid>
               </Box>
             ) : (
-              <Box sx={{ 
-                height: '100%', 
-                display: 'flex', 
-                alignItems: 'center', 
+              <Box sx={{
+                height: '100%',
+                display: 'flex',
+                alignItems: 'center',
                 justifyContent: 'center',
                 flexDirection: 'column',
                 gap: 2,
@@ -666,15 +675,24 @@ export default function WordSketchTab({ crossLinkParams }: WordSketchTabProps) {
                   {t('wordsketch.description')}
                 </Typography>
               </Box>
-            )
-          ) : (
-            // Visualization tab
-            <SketchVisualization 
+            )}
+          </Box>
+          {/* Visualization tab panel */}
+          <Box
+            sx={{
+              flex: 1,
+              minHeight: 0,
+              overflow: 'hidden',
+              display: rightTab === 1 ? 'flex' : 'none',
+              flexDirection: 'column'
+            }}
+          >
+            <SketchVisualization
               result={result}
               selectedRelation={selectedVisualizationRelation}
               onRelationChange={setSelectedVisualizationRelation}
             />
-          )}
+          </Box>
         </Box>
       </Box>
     </Box>

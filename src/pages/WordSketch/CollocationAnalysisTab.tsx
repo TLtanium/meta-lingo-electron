@@ -242,6 +242,7 @@ export default function CollocationAnalysisTab({ crossLinkParams }: CollocationA
       if (response.success && response.data) {
         if (response.data.success) {
           setResults(response.data.results)
+          setPaginationConfig(prev => ({ ...prev, page: 0 }))
           setTotalTokens(response.data.total_tokens)
           setUniqueCollocates(response.data.unique_collocates)
           setNodeFrequency(response.data.node_frequency)
@@ -482,10 +483,19 @@ export default function CollocationAnalysisTab({ crossLinkParams }: CollocationA
           </Tabs>
         </Box>
 
-        {/* Tab Content */}
+        {/* Tab Content — render both panels and hide inactive to preserve state */}
         <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', minWidth: 0, minHeight: 0 }}>
-          {rightTab === 0 ? (
-            results.length > 0 ? (
+          {/* Results tab panel */}
+          <Box
+            sx={{
+              flex: 1,
+              minHeight: 0,
+              overflow: 'hidden',
+              display: rightTab === 0 ? 'flex' : 'none',
+              flexDirection: 'column'
+            }}
+          >
+            {results.length > 0 ? (
               <CollocationResultsTable
                 results={results}
                 totalTokens={totalTokens}
@@ -522,8 +532,18 @@ export default function CollocationAnalysisTab({ crossLinkParams }: CollocationA
                   {t('collocationAnalysis.results.runFirst')}
                 </Typography>
               </Box>
-            )
-          ) : (
+            )}
+          </Box>
+          {/* Visualization tab panel */}
+          <Box
+            sx={{
+              flex: 1,
+              minHeight: 0,
+              overflow: 'hidden',
+              display: rightTab === 1 ? 'flex' : 'none',
+              flexDirection: 'column'
+            }}
+          >
             <CollocationVisualizationPanel
               data={results}
               nodeWord={nodeWord}
@@ -552,7 +572,7 @@ export default function CollocationAnalysisTab({ crossLinkParams }: CollocationA
                 })
               } : undefined}
             />
-          )}
+          </Box>
         </Box>
       </Box>
 

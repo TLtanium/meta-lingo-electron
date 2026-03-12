@@ -121,13 +121,13 @@ export default function SavedTemplates({
           {CQL_EXAMPLES.map((example, idx) => (
             <ListItem
               key={idx}
-              sx={{
-                bgcolor: 'grey.50',
+              sx={(theme) => ({
+                bgcolor: theme.palette.mode === 'dark' ? 'background.default' : 'grey.50',
                 borderRadius: 1,
                 mb: 0.5,
                 cursor: 'pointer',
-                '&:hover': { bgcolor: 'grey.100' }
-              }}
+                '&:hover': { bgcolor: theme.palette.mode === 'dark' ? 'action.hover' : 'grey.100' }
+              })}
               onClick={() => onSelect({
                 id: `example-${idx}`,
                 name: isZh ? example.name.zh : example.name.en,
@@ -172,13 +172,13 @@ export default function SavedTemplates({
             {templates.map(template => (
               <ListItem
                 key={template.id}
-                sx={{
-                  bgcolor: 'info.50',
+                sx={(theme) => ({
+                  bgcolor: theme.palette.mode === 'dark' ? 'background.default' : 'info.50',
                   borderRadius: 1,
                   mb: 0.5,
                   cursor: 'pointer',
-                  '&:hover': { bgcolor: 'info.100' }
-                }}
+                  '&:hover': { bgcolor: theme.palette.mode === 'dark' ? 'action.hover' : 'info.100' }
+                })}
                 onClick={() => handleSelect(template)}
               >
                 <ListItemText

@@ -19,10 +19,10 @@ interface StartupScreenProps {
 // 检查是否是开发模式
 const isDevelopment = !window.electronAPI || import.meta.env.DEV
 
-// 直接通过HTTP检查后端是否就绪
+// 直接通过HTTP检查后端是否就绪（用 127.0.0.1 与主进程一致，避免 localhost→IPv6 连接失败）
 async function checkBackendDirectly(): Promise<boolean> {
   try {
-    const response = await fetch('http://localhost:8000/api/corpus/services/status', {
+    const response = await fetch('http://127.0.0.1:8000/health', {
       method: 'GET',
       signal: AbortSignal.timeout(2000)
     })
@@ -43,7 +43,7 @@ const spin = keyframes`
   to { transform: rotate(360deg); }
 `
 
-// 启动步骤配置
+// 启动步骤配置（调试与打包共用：进度条按步骤离散推进，避免打包后一小格一小格动）
 const startupSteps = [
   { id: 1, textKey: 'startup.step1', progress: 15 },
   { id: 2, textKey: 'startup.step2', progress: 35 },
@@ -51,6 +51,24 @@ const startupSteps = [
   { id: 4, textKey: 'startup.step4', progress: 75 },
   { id: 5, textKey: 'startup.step5', progress: 95 },
 ]
+
+/** 将主进程的连续进度 (如 30,31,…,90) 映射为步骤离散值，与调试时一段一段的体验一致 */
+const STEP_VALUES = [0, 15, 35, 55, 75, 95, 100]
+function progressToStepDisplay(progress: number): number {
+  if (progress >= 100) return 100
+  for (let i = STEP_VALUES.length - 1; i >= 0; i--) {
+    if (progress >= STEP_VALUES[i]) return STEP_VALUES[i]
+  }
+  return 0
+}
+
+function progressToStepIndex(progress: number): number {
+  if (progress >= 100) return startupSteps.length
+  for (let i = STEP_VALUES.length - 1; i >= 0; i--) {
+    if (progress >= STEP_VALUES[i]) return i
+  }
+  return 0
+}
 
 export default function StartupScreen({ onReady }: StartupScreenProps) {
   const { t } = useTranslation()
@@ -64,6 +82,8 @@ export default function StartupScreen({ onReady }: StartupScreenProps) {
   const [retrying, setRetrying] = useState(false)
   const checkCountRef = useRef(0)
   const maxChecks = isDevelopment ? 20 : 60
+  // 防止 onReady 被重复调用（IPC 事件与 getStartupStatus 可能同时触发）
+  const onReadyCalledRef = useRef(false)
 
   const pollBackend = useCallback(async () => {
     checkCountRef.current++
@@ -83,7 +103,7 @@ export default function StartupScreen({ onReady }: StartupScreenProps) {
     })
     
     const isReady = await checkBackendDirectly()
-    
+
     if (isReady) {
       setCurrentStep(startupSteps.length) // 所有步骤完成
       setStatus({
@@ -92,7 +112,10 @@ export default function StartupScreen({ onReady }: StartupScreenProps) {
         progress: 100,
         backendReady: true
       })
-      setTimeout(onReady, 500)
+      if (!onReadyCalledRef.current) {
+        onReadyCalledRef.current = true
+        setTimeout(onReady, 500)
+      }
       return true
     }
     
@@ -134,20 +157,9 @@ export default function StartupScreen({ onReady }: StartupScreenProps) {
 
     if (hasIpc) {
       // 打包模式：仅以主进程 IPC 为进度来源，不再跑轮询进度，避免与主进程进度互相覆盖导致闪烁
-      window.electronAPI.getStartupStatus().then((s) => {
-        if (!mounted) return
-        const progress = s.progress ?? 0
-        const stepIndex = s.backendReady ? startupSteps.length : (progress >= 95 ? 5 : progress >= 75 ? 4 : progress >= 55 ? 3 : progress >= 35 ? 2 : progress >= 15 ? 1 : 0)
-        setCurrentStep(stepIndex)
-        setStatus({
-          stage: s.stage,
-          message: s.message,
-          progress: s.progress,
-          backendReady: s.backendReady
-        })
-        if (s.backendReady) setTimeout(onReady, 500)
-      })
+      // 先注册监听器（同步），再获取初始状态（异步），避免漏掉 ready 事件
       cleanup = window.electronAPI.onStartupStatusChange((newStatus) => {
+        if (!mounted) return
         let localizedMessage = newStatus.message
         if (newStatus.stage === 'initializing') {
           localizedMessage = t('startup.initializing')
@@ -165,17 +177,49 @@ export default function StartupScreen({ onReady }: StartupScreenProps) {
           setCurrentStep(startupSteps.length)
           setStatus({
             ...newStatus,
+            progress: 100,
             message: localizedMessage
           })
-          setTimeout(onReady, 500)
+          if (!onReadyCalledRef.current) {
+            onReadyCalledRef.current = true
+            setTimeout(onReady, 500)
+          }
         } else {
-          const progress = newStatus.progress ?? 0
-          const stepIndex = progress >= 95 ? 5 : progress >= 75 ? 4 : progress >= 55 ? 3 : progress >= 35 ? 2 : progress >= 15 ? 1 : 0
+          const raw = newStatus.progress ?? 0
+          const progress = progressToStepDisplay(raw)
+          const stepIndex = progressToStepIndex(raw)
           setCurrentStep(stepIndex)
           setStatus({
             ...newStatus,
+            progress,
             message: localizedMessage
           })
+        }
+      })
+
+      // 获取初始状态（在监听器注册后异步查询，防止竞态）
+      window.electronAPI.getStartupStatus().then((s) => {
+        if (!mounted) return
+        let localizedMessage = s.message
+        if (s.stage === 'initializing') localizedMessage = t('startup.initializing')
+        else if (s.stage === 'starting_backend') localizedMessage = t('startup.startingBackend')
+        else if (s.stage === 'checking_health') localizedMessage = t('startup.checkingHealth')
+        else if (s.stage === 'ready') localizedMessage = t('startup.ready')
+        else if (s.stage === 'error') localizedMessage = t('startup.error')
+
+        const raw = s.progress ?? 0
+        const progress = progressToStepDisplay(raw)
+        const stepIndex = s.backendReady ? startupSteps.length : progressToStepIndex(raw)
+        setCurrentStep(stepIndex)
+        setStatus({
+          stage: s.stage,
+          message: localizedMessage,
+          progress,
+          backendReady: s.backendReady
+        })
+        if (s.backendReady && !onReadyCalledRef.current) {
+          onReadyCalledRef.current = true
+          setTimeout(onReady, 500)
         }
       })
     } else {
@@ -192,22 +236,57 @@ export default function StartupScreen({ onReady }: StartupScreenProps) {
 
   const handleRetry = async () => {
     setRetrying(true)
+    onReadyCalledRef.current = false  // 重置 onReady 守卫，允许重试后再次触发
     checkCountRef.current = 0
     setCurrentStep(0)
-    
+
     if (window.electronAPI?.retryBackend) {
+      // 打包模式：先调主进程重试（完整重启），再补一层前端 HTTP 轮询兜底
+      // 原先“重试后能打开”依赖前端也能轮询到 /health；v3.9.69 去掉重试时轮询后仅靠 IPC，主进程超时即永远失败
+      setStatus({
+        stage: 'checking_health',
+        message: t('startup.retrying'),
+        progress: 10,
+        backendReady: false
+      })
       await window.electronAPI.retryBackend()
-    }
-    
-    const poll = async () => {
-      const result = await pollBackend()
-      if (result === null) {
-        setTimeout(poll, 500)
-      } else {
-        setRetrying(false)
+      // 若 IPC 已返回 ready 则 onReady 会在监听器里触发，这里只需兜底：若仍未就绪则前端继续轮询 /health 一段时间
+      const pollUntilReady = async (attempt: number, maxAttempts: number) => {
+        if (onReadyCalledRef.current) {
+          setRetrying(false)
+          return
+        }
+        const ok = await checkBackendDirectly()
+        if (ok) {
+          setCurrentStep(startupSteps.length)
+          setStatus({ stage: 'ready', message: t('startup.ready'), progress: 100, backendReady: true })
+          if (!onReadyCalledRef.current) {
+            onReadyCalledRef.current = true
+            setTimeout(onReady, 500)
+          }
+          setRetrying(false)
+          return
+        }
+        if (attempt < maxAttempts) {
+          setStatus((prev) => ({ ...prev, message: t('startup.retrying') }))
+          setTimeout(() => pollUntilReady(attempt + 1, maxAttempts), 500)
+        } else {
+          setRetrying(false)
+        }
       }
+      pollUntilReady(0, 60)
+    } else {
+      // 开发模式（无 IPC）：使用 HTTP 轮询
+      const poll = async () => {
+        const result = await pollBackend()
+        if (result === null) {
+          setTimeout(poll, 500)
+        } else {
+          setRetrying(false)
+        }
+      }
+      poll()
     }
-    poll()
   }
 
   const isError = status.stage === 'error'
@@ -413,7 +492,7 @@ export default function StartupScreen({ onReady }: StartupScreenProps) {
           opacity: 0.5
         }}
       >
-        v3.9.63
+        v3.9.76
       </Typography>
     </Box>
   )

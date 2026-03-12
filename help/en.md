@@ -2292,6 +2292,8 @@ Each token (word) is represented by square brackets `[]`, with matching conditio
 | `pos` | POS (Universal POS) | `[pos="NOUN"]` |
 | `tag` | Fine-grained POS (Penn Treebank) | `[tag="NNS"]` |
 | `dep` | Dependency relation | `[dep="nsubj"]` |
+| `usas` | USAS semantic domain | `[usas="A1"]` contains; `[usas=="N3.8+"]` exact (ignores _MWE suffix) |
+| `nrc` | NRC emotion/polarity | `[nrc=="joy"]` exact; `[nrc="anger\|fear"]` regex (requires NRC-annotated corpus) |
 
 #### Any Token
 
@@ -2408,16 +2410,98 @@ Matches: non-be verb + any word + adjective + noun
 [pos="NOUN"] [pos="NOUN"]
 ```
 
+### Advanced Operators (v3.9.67+)
+
+#### Within / !Within
+
+```cql
+# P within Q: P occurs inside the span matched by Q
+[pos="NOUN"] within [pos="VERB"] []{1,5} [pos="VERB"]
+
+# !within: P does NOT occur in any Q span
+[lemma="run"] !within [pos="VERB"] []{0,3} [pos="NOUN"]
+```
+
+#### Containing / !Containing
+
+Used with structural markers to filter sentences/paragraphs by content:
+
+```cql
+# Sentence containing a capitalized word
+<s/> containing [word="[A-Z][a-z]+"]
+
+# Sentence not containing all-caps words
+<s/> !containing [word="[A-Z][A-Za-z]*"]
+```
+
+#### Meet
+
+```cql
+# meet P Q -n m: P co-occurs with Q within n tokens left and m tokens right
+(meet [pos="NOUN"] [lemma="be"] -3 3)
+```
+
+#### Word Sketch (ws())
+
+Dependency-based collocate matching: `[ws(headword, relation, collocation)]`
+
+```cql
+# "make" taking "decision" as object (v-obj relation)
+[ws(make,object,decision)]
+
+# Any object collocate of "make"
+[ws(make,object,)]
+```
+
+The CQL Builder's "Word Sketch" element offers a dropdown with all 41 predefined relations (VERB/NOUN/ADJ/ADV groups). When you open Concordance from Word Sketch, Collocation Analysis, or Sketch Difference via "View Concordance", the CQL input shows the same `[ws(headword,relation,collocation)]` format so you can edit it in the builder.
+
+#### Structural Markers
+
+| Marker | Meaning |
+|--------|---------|
+| `<s>` | Start of sentence |
+| `<s/>{min,max}` | **Frequency filter**: keep only sentence spans that repeat min..max times in the document (exact sentence text match), e.g. `<s/>{2,3} containing [lemma="make"]{1,2}` |
+| `</s>` | End of sentence |
+| `<s/>` | Within one sentence |
+| `<p>` / `</p>` / `<p/>` | Paragraph boundaries |
+| `<doc>` | Document start |
+| `<doc tag="spoken">` | Document with attribute filter |
+
+```cql
+# Noun at sentence start
+<s> [pos="NOUN"]
+
+# Without within/containing, structure+token order sets KWIC keyword
+[lemma="make"] <s>   # keyword = from "make" to end of sentence (e.g. "made this.")
+<s> [lemma="make"]  # keyword = whole sentence containing make. Same for <p> (whole paragraph)
+
+# Sentence/paragraph start or end with distance (default: first/last word)
+<s> []{1,2} [lemma="make"]   # 1–2 tokens from start then "make"; keyword = that segment (e.g. "Belows made")
+[]{1,2} </s>                 # 1–2 tokens **before** sentence end (distance left of </s>)
+</s> []{1,2}                 # 1–2 tokens **after** sentence end (distance right of </s>)
+
+# Sentences that repeat 2–3 times and contain lemma "make" 1–2 times
+<s/>{2,3} containing [lemma="make"]{1,2}
+
+# Noun–verb pair within the same sentence
+<s/> containing [pos="NOUN"]
+
+# Nouns in "written" documents
+<doc tag="written"> [pos="NOUN"]
+```
+
 ### CQL Builder
 
 If you're unfamiliar with CQL syntax, you can use the **CQL Builder**:
 
-1. Click the "CQL Builder" button in the search panel
+1. Click the "CQL Builder" button (wrench icon) next to the CQL search box
 2. Use the visual interface to add token conditions
-3. Select attributes (word/lemma/pos, etc.) and values
-4. Add logical operators
+3. Select attributes (e.g. word, lemma, pos, tag, dep, usas, **nrc**) and values
+4. Add logical operators (&, |, !) and advanced operators (within / containing / meet / ws / structure)
 5. Preview the generated CQL query in real-time
 6. Save commonly used templates for future use
+
+**NRC emotion tags**: In the builder, choose the "Emotion Tag (NRC)" attribute to generate conditions like `[nrc=="label"]` or `[nrc="regex"]`. The syntax help below the CQL editor also provides nrc examples (e.g. `[nrc=="joy"]`, `[nrc="anger|fear"]`). There is no separate emotion tag selector button in the interface.
 
 ### References
 
@@ -2431,7 +2515,7 @@ The Concordance module uses a left-right split layout:
 - **Left Panel** (400px): Configuration panel containing corpus selection, POS filtering, search configuration, etc.
 - **Right Panel** (flexible width): Results display area with two tabs
   - **Results Table**: Displays KWIC search results
-  - **Visualization**: Provides two visualization methods: density plot and ridge plot
+  - **Visualization**: Provides three visualization methods: density plot, ridge plot, and concordance plot
 
 ## Corpus Selection
 
@@ -2581,6 +2665,11 @@ Use CQL (Corpus Query Language) for advanced queries with complex syntax and sem
 - `[dep="nsubj"]`: Match dependency relation
 - `[usas="A1"]`: Match USAS semantic domain (**contains**: tags whose normalized form starts with "A1", e.g. A1, A1.5, A1.5+; _MWE suffix is ignored, so A1.5.1_MWE and A1.5.1 both count as A1.5.1)
 - `[usas=="N3.8+"]`: **Exact** match semantic domain (only N3.8+, including N3.8+_MWE)
+- `[nrc=="joy"]`: Exact match NRC emotion tag; `[nrc="anger|fear"]`: Regex match multiple tags (requires NRC-annotated corpus)
+
+**CQL Builder**:
+- Click the "CQL Builder" button (wrench icon) next to the CQL search box to build queries visually
+- The builder supports all attributes above (including nrc) and template saving; syntax help is available by expanding the help panel below the editor
 
 **Operators**:
 - `&`: AND
@@ -2595,11 +2684,6 @@ Use CQL (Corpus Query Language) for advanced queries with complex syntax and sem
 - `[pos="NOUN" & lemma="test"]`: Match nouns with lemma "test"
 - `[lemma="make"] [] [pos="NOUN"]`: Match "make" + any + noun
 - `[word=".*ing"]`: Match word forms ending in "ing"
-
-**CQL Builder**:
-- Click the "CQL Builder" button in the search panel (or builder icon in title bar)
-- Use visual interface to build CQL queries
-- Supports template management and real-time preview
 
 ### Search Value
 
@@ -2790,14 +2874,15 @@ Click the "Export CSV" button in the toolbar to export results as CSV file:
 
 ## Visualization
 
-The Visualization panel provides two chart types to help you intuitively understand distribution patterns of search results.
+The Visualization panel provides three chart types to help you intuitively understand distribution patterns of search results.
 
 ### Chart Type Switching
 
 Switch chart types via top tabs:
 
-- **Density Plot**: Shows position distribution of keywords in text
-- **Ridge Plot**: Shows keyword distribution grouped by document
+- **Density Plot**: Shows position distribution density of keywords in text
+- **Ridge Plot**: Shows keyword distribution grouped by document (distribution curves)
+- **Concordance Plot**: One row per document with tick marks at hit positions; click a tick to jump to the corresponding row in the results table
 
 ### Density Plot
 
@@ -2834,13 +2919,39 @@ The ridge plot shows keyword distribution grouped by document.
 #### Configuration Options
 
 - **Color Scheme**: Select color theme for chart
-- **Max Docs**: Set maximum number of documents to display (default: 10, range: 1-50)
+- **Max Docs**: Set maximum number of documents to display (default: 10; applies to both Ridge Plot and Concordance Plot)
 
 #### Use Cases
 
 - Compare keyword distribution across different documents
 - Discover distribution differences between documents
 - Identify features of specific documents
+
+### Concordance Plot
+
+The Concordance Plot (dispersion plot) shows one row per document; each row has vertical tick marks at the relative positions (0–100%) where the keyword appears in that document.
+
+#### Chart Features
+
+- X-axis: Relative position in text (0–100%)
+- Rows: One per document; filename on the left
+- Tick marks: Each hit is shown as a vertical line at its position
+- Color: According to color scheme
+
+#### Configuration Options
+
+- **Color Scheme**: Select color theme for chart
+- **Max Docs**: Set maximum number of documents to display (same setting as Ridge Plot)
+
+#### Interaction
+
+- **Click a tick**: Jumps to the corresponding KWIC row in the results table, so you can move from the chart to the exact context.
+
+#### Use Cases
+
+- See how evenly the keyword is distributed across documents
+- Compare hit density and position across documents
+- Click from the chart to open the matching row in the results table
 
 ### Export Features
 
@@ -2863,7 +2974,7 @@ Export buttons are located on the right side of the chart settings bar.
 6. **Run Search**: Click search button
 7. **View Results**: View KWIC results in table
 8. **Sort and Filter**: Use sort and filter functions to precisely locate target results
-9. **Visualize Analysis**: Use charts to discover distribution patterns
+9. **Visualize Analysis**: Use density, ridge, or concordance plot to discover distribution patterns
 10. **Export Data**: Export results for further analysis
 
 ### Search Mode Selection Recommendations
@@ -2941,6 +3052,7 @@ Export buttons are located on the right side of the chart settings bar.
 1. Use Phrase mode to search target phrase
 2. View density plot to understand phrase distribution in text
 3. Use ridge plot to compare usage across different documents
+4. Use concordance plot to see hit positions per document; click a tick to jump to the corresponding row in the results table
 
 #### Discovering Language Patterns
 1. Use Character mode to search specific character combinations
@@ -6950,7 +7062,7 @@ Many analysis modules provide an **AI Assistant** button next to the module titl
 | **Synonym Analysis** | Data source, POS, search; current results table or network/tree visualization. |
 | **Keyword Extraction** | Single-document or Keyness comparison data source and parameters; current results table or visualization. |
 | **N-gram Analysis** | Data source, N values, POS, search; current results table or bar/network/Sankey/word cloud view. |
-| **Concordance (KWIC)** | Data source, POS, search mode and query, sort; current page of KWIC results or density/ridge plot data. |
+| **Concordance (KWIC)** | Data source, POS, search mode and query, sort; current page of KWIC results or density/ridge/concordance plot data. |
 | **Semantic Domain Analysis** | Data source, POS, search, frequency, result mode (by domain/word); table sort and current page or chart type and data. |
 | **Metaphor Analysis** | Data source, POS, search, frequency; table sort and current page or chart type and data. |
 | **Collocation Analysis** | Node word, span, frequency, statistics; table sort and current page or bar/pie/network/word cloud data. |
