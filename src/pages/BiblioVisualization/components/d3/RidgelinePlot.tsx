@@ -2,7 +2,6 @@
  * Ridgeline Plot (Joy Plot) for Bibliographic Visualization
  *
  * CiteSpace Landscape-style mountain-range visualization:
- *  - Theme-aware background (no forced black)
  *  - Spectrum color gradient (red -> orange -> yellow -> green -> cyan -> blue -> purple)
  *  - Each cluster as a separate ridge row with generous vertical spacing
  *  - Scrollable: extends downward as needed (like TimelineView)
@@ -196,11 +195,8 @@ export default function RidgelinePlot({
     const totalH = margin.top + nClusters * RIDGE_HEIGHT + margin.bottom
     svg.attr('width', svgW).attr('height', totalH)
 
-    // Theme-aware background
+    // occluder fill must match the panel background so lower ridges are hidden behind upper ones
     const bgColor = isDark ? theme.palette.background.default : theme.palette.background.paper
-    svg.append('rect')
-      .attr('width', svgW).attr('height', totalH)
-      .attr('fill', bgColor)
 
     const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`)
 
