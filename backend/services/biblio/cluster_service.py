@@ -122,7 +122,39 @@ class ClusterService:
                 cluster_terms[cluster_id][inst] += 1
         
         return self._build_cluster_response(clusters, entry_institutions, cluster_terms, "institution")
-    
+
+    def cluster_by_countries(self, n_clusters: Optional[int] = None) -> Dict[str, Any]:
+        """Cluster entries based on country affiliation"""
+        entry_countries = []
+
+        for entry in self.entries:
+            raw_countries = entry.get('countries') or []
+            if isinstance(raw_countries, str):
+                raw_countries = [raw_countries]
+            countries = set(c.lower().strip() for c in raw_countries if c and isinstance(c, str) and c.strip())
+            entry_countries.append(countries)
+
+        n = len(self.entries)
+        similarity = defaultdict(lambda: defaultdict(float))
+
+        for i in range(n):
+            for j in range(i + 1, n):
+                c1, c2 = entry_countries[i], entry_countries[j]
+                if c1 and c2:
+                    overlap = len(c1 & c2)
+                    if overlap > 0:
+                        similarity[i][j] = overlap / min(len(c1), len(c2))
+                        similarity[j][i] = similarity[i][j]
+
+        clusters = self._detect_communities(similarity, n, n_clusters)
+
+        cluster_terms = defaultdict(lambda: defaultdict(int))
+        for i, cluster_id in enumerate(clusters):
+            for country in entry_countries[i]:
+                cluster_terms[cluster_id][country] += 1
+
+        return self._build_cluster_response(clusters, entry_countries, cluster_terms, "country")
+
     def _detect_communities(
         self,
         similarity: Dict,
@@ -222,17 +254,21 @@ class ClusterService:
                 for term in entry_terms[i]:
                     cluster_terms[cluster_id][term] += 1
         
-        # Build nodes
+        # Build nodes — weight reflects influence (citation count + keyword richness)
         nodes = []
         for i, entry in enumerate(self.entries):
             cluster_id = clusters[i]
             keywords = list(entry_terms[i])[:5]  # Top 5 terms for label
-            
+            citation_count = entry.get('citation_count', 0) or 0
+            n_terms = len(entry_terms[i])
+            # Weight: log-scaled citation count + term diversity, full precision
+            weight = math.log1p(citation_count) + n_terms * 0.3 + i * 0.0001
+
             nodes.append({
                 'id': entry.get('id', str(i)),
                 'label': entry.get('title', '')[:50],
-                'weight': 1,
-                'frequency': entry.get('citation_count', 0),
+                'weight': weight,
+                'frequency': citation_count,
                 'centrality': 0.0,
                 'cluster': cluster_id,
                 'year': entry.get('year'),
@@ -358,7 +394,7 @@ def cluster_entries(
     
     Args:
         entries: List of bibliographic entries
-        cluster_by: One of 'keyword', 'author', 'institution'
+        cluster_by: One of 'keyword', 'author', 'institution', 'country'
         n_clusters: Target number of clusters (auto if None)
     
     Returns:
@@ -372,6 +408,8 @@ def cluster_entries(
         return service.cluster_by_authors(n_clusters)
     elif cluster_by == "institution":
         return service.cluster_by_institutions(n_clusters)
+    elif cluster_by == "country":
+        return service.cluster_by_countries(n_clusters)
     else:
         raise ValueError(f"Unknown cluster_by type: {cluster_by}")
 

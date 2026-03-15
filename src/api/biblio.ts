@@ -27,7 +27,9 @@ import type {
   TimeVisualizationRequest,
   BurstDetectionRequest,
   WordCloudVisualizationRequest,
-  BaseVisualizationRequest
+  BaseVisualizationRequest,
+  HeatmapVisualizationData,
+  HeatmapVisualizationRequest
 } from '../types/biblio'
 import type { ApiResponse } from '../types'
 
@@ -258,6 +260,10 @@ export async function getDualMapOverlay(request: BaseVisualizationRequest): Prom
   return api.post<DualMapVisualizationData>(`${BASE_URL}/visualization/dual-map`, request)
 }
 
+export async function getHeatmapView(request: HeatmapVisualizationRequest): Promise<ApiResponse<HeatmapVisualizationData>> {
+  return api.post<HeatmapVisualizationData>(`${BASE_URL}/visualization/heatmap`, request)
+}
+
 export async function getWordCloudVisualization(
   request: WordCloudVisualizationRequest
 ): Promise<ApiResponse<WordCloudVisualizationData>> {
@@ -284,6 +290,8 @@ export type VisualizationType =
   | 'wordcloud'
   | 'landscape'
   | 'dual-map'
+  | 'citation-chord'
+  | 'heatmap'
 
 export async function getVisualization(
   type: VisualizationType,
@@ -319,9 +327,12 @@ export async function getVisualization(
     case 'landscape':
       return getLandscapeView(request as BaseVisualizationRequest)
     case 'dual-map':
+    case 'citation-chord':
       return getDualMapOverlay(request as BaseVisualizationRequest)
     case 'wordcloud':
       return getWordCloudVisualization(request as WordCloudVisualizationRequest)
+    case 'heatmap':
+      return getHeatmapView(request as HeatmapVisualizationRequest)
     default:
       throw new Error(`Unknown visualization type: ${type}`)
   }

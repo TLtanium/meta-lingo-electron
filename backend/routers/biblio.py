@@ -618,6 +618,11 @@ class WordCloudRequest(VisualizationBaseRequest):
     max_words: int = 100
 
 
+class HeatmapRequest(VisualizationBaseRequest):
+    bandwidth: Optional[float] = None
+    grid_size: int = 50
+
+
 def _get_filtered_entries(library_id: str, filters: Optional[BiblioFilter] = None):
     """Helper to get filtered entries for visualization"""
     filter_dict = None
@@ -792,4 +797,18 @@ async def get_wordcloud_visualization(request: WordCloudRequest):
         max_words=request.max_words,
     )
     return {"words": words}
+
+
+@router.post("/visualization/heatmap")
+async def get_heatmap_view(request: HeatmapRequest):
+    """Get heatmap (2D density) visualization data"""
+    entries = _get_filtered_entries(request.library_id, request.filters)
+    if not entries:
+        return {"points": [], "clusters": [], "time_range": {"start": 0, "end": 0}, "density_grid": {"x": [], "y": [], "z": []}}
+
+    return generate_visualization(
+        entries, 'heatmap',
+        bandwidth=request.bandwidth,
+        grid_size=request.grid_size
+    )
 

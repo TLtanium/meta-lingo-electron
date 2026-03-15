@@ -26,13 +26,15 @@ interface HelpSection {
   content: string
 }
 
-// Parse markdown content into modules (h1) and sections (h2)
+// Parse markdown content into modules (h1) and sections (h2).
+// Lines inside fenced code blocks (```...```) are not treated as headings, so CQL/docs comments like "# 特定元数据文档中的名词" do not become spurious modules.
 function parseMarkdownContent(content: string): HelpModule[] {
   const modules: HelpModule[] = []
   const lines = content.split('\n')
   let currentModule: HelpModule | null = null
   let currentSection: HelpSection | null = null
   let currentContent: string[] = []
+  let inFencedBlock = false
 
   const saveCurrentSection = () => {
     if (currentSection && currentModule) {
@@ -52,11 +54,23 @@ function parseMarkdownContent(content: string): HelpModule[] {
   }
 
   lines.forEach(line => {
+    // Track fenced code blocks (``` or ```lang) so headings inside are not parsed as module/section
+    const trimmed = line.trim()
+    if (trimmed.startsWith('```')) {
+      inFencedBlock = !inFencedBlock
+      currentContent.push(line)
+      return
+    }
+    if (inFencedBlock) {
+      currentContent.push(line)
+      return
+    }
+
     if (line.startsWith('# ') && !line.startsWith('## ')) {
       // New module (h1)
       saveCurrentModule()
       currentModule = {
-        title: line.replace('# ', '').trim(),
+        title: line.replace(/^#\s+/, '').trim(),
         sections: []
       }
       currentSection = null
@@ -64,7 +78,7 @@ function parseMarkdownContent(content: string): HelpModule[] {
       // New section (h2)
       saveCurrentSection()
       currentSection = {
-        title: line.replace('## ', '').trim(),
+        title: line.replace(/^##\s+/, '').trim(),
         content: ''
       }
     } else {

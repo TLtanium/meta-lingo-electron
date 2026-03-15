@@ -4637,7 +4637,7 @@ logDice is a statistical method for measuring word collocation strength, calcula
 
 ## Overview
 
-The Bibliographic Visualization module manages and analyzes academic literature data, supporting Refworks format import from Web of Science (WOS) and CNKI. It supports uploading PDFs per entry with first-page thumbnails, and 11 AI-generated fields (research objective, research design, etc.) from PDF or abstract; relevance star rating (including no rating; click current star to clear), tags and notes editing; CSV export (without the Paper column) and detail PDF export. Visualization includes collaboration networks, keyword co-occurrence, timezone views, and burst detection.
+The Bibliographic Visualization module manages and analyzes academic literature data, supporting Refworks format import from Web of Science (WOS) and CNKI. It supports uploading PDFs per entry with first-page thumbnails, and 11 AI-generated fields (research objective, research design, etc.) from PDF or abstract; relevance star rating (including no rating; click current star to clear), tags and notes editing; CSV export (without the Paper column) and detail PDF export. Visualization provides 9 chart types: Network, Cluster, Timeline, Timezone, Burst Detection, Citation Chord, Ridgeline Plot, Heatmap, and Word Cloud.
 
 ## Interface Layout
 
@@ -4827,155 +4827,246 @@ Use slider to select year range:
 
 ## Visualization Analysis
 
-In the "Visualization" tab, you can generate various visualization charts:
+In the "Visualization" tab, you can generate various visualization charts. The system provides **9 visualization tabs** with scrollable tab navigation when they overflow:
 
-### Chart Types
+1. **Network** — Collaboration and co-occurrence networks
+2. **Cluster** — Force-directed cluster grouping with convex hull visualization
+3. **Timeline** — Cluster swim-lanes with dynamic year spacing
+4. **Timezone** — Keyword/author distribution by time slices
+5. **Burst Detection** — Gantt-chart style burst trends
+6. **Citation Chord** — Citing/cited journal chord diagram
+7. **Ridgeline Plot** — Landscape-style density ridges
+8. **Heatmap** — Contour density with scatter overlay
+9. **Word Cloud** — Title/abstract word cloud
 
-The system provides three main chart types:
+### Common Interactions
 
-1. **Network**: Collaboration and co-occurrence networks
-2. **Timezone**: Display literature distribution by time period
-3. **Burst**: Detect burst trends for keywords or authors
+All D3 charts support the following interactions:
+- **Zoom**: Mouse wheel to zoom in/out
+- **Pan**: Click and drag to pan the view
+- **Hover Tooltip**: Mouse hover displays detailed information (term name, weight, frequency, etc.)
+- **Export**: SVG/PNG buttons on the right side of the settings bar
+
+### Common Color Schemes
+
+Most charts (Network, Cluster, Timeline, Timezone, Citation Chord, Ridgeline) share the same color scheme selector with 7 options: Blue, Green, Purple, Orange, Red, Teal, Colorful. Burst Detection and Heatmap use their own independent color settings, and Word Cloud uses a dedicated colormap.
+
+---
 
 ### Network Graph
 
-Network graphs are used to display collaboration and co-occurrence relationships using force-directed graph layout.
+Network graphs display collaboration and co-occurrence relationships using D3 force-directed layout.
 
 #### Network Types
 
-Four network types can be selected:
+Select from the "Network Type" dropdown in the settings bar:
 
-1. **Keyword Co-occurrence Network**:
-   - Displays co-occurrence relationships between keywords
-   - Nodes: Keywords
-   - Links: Keywords appear in the same literature
-   - Node size: Keyword frequency
-   - Link thickness: Co-occurrence strength
-
-2. **Co-author Network**:
-   - Displays collaboration relationships between authors
-   - Nodes: Authors
-   - Links: Authors co-publish literature
-   - Node size: Number of publications by author
-   - Link thickness: Collaboration strength
-
-3. **Co-institution Network**:
-   - Displays collaboration relationships between institutions
-   - Nodes: Institutions
-   - Links: Institutions co-publish literature
-   - Node size: Number of publications by institution
-   - Link thickness: Collaboration strength
-
-4. **Co-country Network**:
-   - Displays collaboration relationships between countries
-   - Nodes: Countries
-   - Links: Countries co-publish literature
-   - Node size: Number of publications by country
-   - Link thickness: Collaboration strength
+1. **Keyword Co-occurrence** — Nodes = keywords, links = co-occurrence in the same paper, node size = frequency, link thickness = co-occurrence strength
+2. **Co-author Network** — Nodes = authors, links = co-publication, node size = publication count, link thickness = collaboration strength
+3. **Co-institution Network** — Nodes = institutions, links = co-publication, node size = publication count, link thickness = collaboration strength
+4. **Co-country Network** — Nodes = countries, links = co-publication, node size = publication count, link thickness = collaboration strength
 
 #### Configuration Parameters
 
-- **Min Weight**:
-  - Range: 1-10 (default: 1)
-  - Only display links with weight greater than or equal to this value
-  - Used to filter weak relationships, highlight strong relationships
-
-- **Max Nodes**:
-  - Range: 10-300 (default: 100)
-  - Limit number of nodes displayed
-  - System prioritizes nodes with higher weights
-
-- **Color Scheme**:
-  - Select color scheme for chart
-  - Options: Blue, Green, Purple, Orange, Red, Teal
+| Parameter | Range | Default | Description |
+|-----------|-------|---------|-------------|
+| Min Weight | 1–10 | 1 | Filter links below this weight to highlight strong relationships |
+| Max Nodes | 10–300 | 100 | Limit displayed nodes; higher-weight nodes shown first |
+| Color Scheme | 7 options | Blue | Node and link color scheme |
 
 #### Interactive Features
 
-- **Drag Nodes**: Can drag nodes to adjust positions
-- **Zoom**: Use mouse wheel to zoom view
-- **Pan**: Hold left mouse button and drag to pan view
-- **Hover Tooltip**: Mouse hover on nodes or links displays detailed information
-- **Node Information**:
-  - Node name
-  - Node weight (frequency or count)
-  - Number of connected nodes
+- **Drag Nodes**: Drag to adjust node positions
+- **Hover Tooltip**: Displays node name, weight, and connection count
+
+---
+
+### Cluster View
+
+Cluster view adds cluster-based force grouping on top of the force-directed layout, automatically grouping related nodes. Supports drawing semi-transparent convex hulls around each cluster.
+
+#### Configuration Parameters
+
+| Parameter | Range | Default | Description |
+|-----------|-------|---------|-------------|
+| Cluster By | Keyword / Author / Institution / Country | Keyword | Dimension for clustering |
+| Show Hulls | On / Off | On | Whether to draw semi-transparent convex hulls around clusters |
+| Hull Threshold | 1–10 | 2 | Minimum number of nodes in a cluster to display its hull |
+| Color Scheme | 7 options | Blue | Different clusters use different colors |
+
+#### Chart Features
+
+- Node sizes differentiated by weight (log citations + term count)
+- SVG glow filter (feGaussianBlur) indicates node centrality
+- Top-right corner shows Modularity Q and Silhouette S values
+- Click a cluster to highlight it; others dim
+- Bezier curve links with opacity indicating connection strength
+
+---
+
+### Timeline View
+
+Timeline view uses a horizontal swim-lane layout showing cluster evolution over time: X-axis = year, Y-axis = cluster swim-lanes, each row represents one cluster.
+
+#### Configuration Parameters
+
+| Parameter | Range | Default | Description |
+|-----------|-------|---------|-------------|
+| X-Axis Scale | 0.5–5 | 1 | Stretch or compress total horizontal length; horizontal scrollbar appears when needed |
+| Weight Precision | 0–6 | 4 | Decimal places for weight values; affects granularity of node size differences |
+| Color Scheme | 7 options | Blue | Each year column uses different shades; "Colorful" mode uses a different hue family per row |
+
+#### Chart Features
+
+- **Dynamic year spacing**: Horizontal space per year is allocated proportionally to publication volume (using `sqrt(count)` ratio), avoiding wasted space during publication gaps and overcrowding during dense years
+- **Cluster swim-lanes**: Left side shows cluster labels (Cluster #0, #1, ...), each row has a highlighted line from its first to last node's year position
+- **Node circles**: Size reflects weight (citation count + term count + tiny offset for uniqueness); higher weight precision produces more varied circle sizes; same-year nodes stack by weight (largest underneath) with horizontal offset to avoid complete overlap
+- **Connection arcs**: Quadratic Bézier arcs connect related nodes. Both **within-lane arcs** (nodes in the same cluster sharing keywords) and **cross-lane arcs** (nodes in different clusters sharing 2+ keywords) are shown; cross-lane arc curvature scales automatically with vertical distance
+- **Hover tooltip**: Shows term name, year, weight value, and cluster
+- **Horizontal scrolling**: Scrollbar appears automatically when X-Axis Scale > 1
+
+---
 
 ### Timezone View
 
-Timezone view displays literature distribution by time period, helping understand temporal evolution of research topics.
+Timezone view displays literature distribution by time slices, helping understand the temporal evolution of research topics.
 
 #### Configuration Parameters
 
-- **Top N**:
-  - Range: 5-50 (default: 10)
-  - Display top N keywords or authors for each time period
-  - Used to control number of items displayed
-
-- **Time Slice**:
-  - Default: 1 year
-  - Can adjust time slice length
-  - Longer slices smooth data, shorter slices show finer-grained temporal changes
-
-- **Color Scheme**: Select color scheme for chart
+| Parameter | Range | Default | Description |
+|-----------|-------|---------|-------------|
+| Top N Items | 5–50 | 10 | Top N keywords or authors per time period |
+| Color Scheme | 7 options | Blue | Chart color scheme |
 
 #### Chart Features
 
-- **Vertical Layout**: Each time period displayed as a row
-- **Color Coding**: Use color intensity to represent frequency or importance
-- **Hover Tooltip**: Mouse hover displays detailed information
+- **Vertical layout**: Each time period displayed as a column
+- **Color coding**: Color intensity represents frequency or importance
+- **Cross-period links**: Lines connect the same term across time periods
+- **Hover tooltip**: Displays term name, frequency, and time period
+
+---
 
 ### Burst Detection
 
-Burst detection is used to identify burst trends of keywords or authors in specific time periods, similar to CiteSpace's burst detection function.
-
-#### Burst Types
-
-Two burst types can be selected:
-
-1. **Keyword Burst**:
-   - Detect keyword bursts in specific time periods
-   - Help identify research hotspots and trend changes
-
-2. **Author Burst**:
-   - Detect author bursts in specific time periods
-   - Help identify active researchers
+Burst detection identifies burst trends of keywords or authors in specific time periods.
 
 #### Configuration Parameters
 
-- **Burst Type**: Select "Keyword" or "Author"
-- **Color Scheme**: Select color scheme for chart
+| Parameter | Options | Default | Description |
+|-----------|---------|---------|-------------|
+| Burst Type | Keyword / Author | Keyword | Select detection target |
+
+Note: Burst Detection has no color scheme selector; it uses a fixed red burst bars + gray background color scheme.
 
 #### Chart Features
 
-- **Gantt Chart Style**: Use Gantt chart to display burst time periods
-- **Gray Background**: Non-burst periods displayed in gray
-- **Colored Bars**: Burst periods displayed as colored bars
-- **Merged Display**: Multiple burst periods for same term merged into single row
-- **Hover Tooltip**: Mouse hover displays burst details:
-  - Burst start time
-  - Burst end time
-  - Burst strength
-  - Frequency during burst period
+- **Gantt chart style**: Displays burst time periods as horizontal bars
+- **Gray background bars**: Non-burst periods shown in gray
+- **Red burst bars**: Burst periods shown as red bars
+- **Merged display**: Multiple burst periods for the same term merged into a single row
+- **Hover tooltip**: Mouse hover on burst bars shows details (start/end time, burst strength, frequency during burst)
+- **Horizontal scrolling**: Scrollbar appears when entries overflow
 
 #### Burst Strength
 
-Burst strength indicates significance of burst:
-- **High Strength**: Indicates very significant burst
-- **Medium Strength**: Indicates moderate burst
-- **Low Strength**: Indicates slight burst
+Burst strength indicates significance:
+- **High Strength**: Very significant burst
+- **Medium Strength**: Moderate burst
+- **Low Strength**: Slight burst
+
+---
+
+### Citation Chord
+
+Citation Chord displays the citation relationship between citing and cited journals as a bipartite chord diagram. The left arc represents citing journals, the right arc represents cited journals, with Bezier curves connecting them to show citation flow.
+
+#### Configuration Parameters
+
+| Parameter | Range | Default | Description |
+|-----------|-------|---------|-------------|
+| Arc Angle | 30°–90° | 90° | Controls the opening angle of left/right arcs; smaller angle = flatter arcs, shorter curves |
+| Color Scheme | 7 options | Blue | Citing/cited node and link colors |
+
+#### Chart Features
+
+- **Bipartite arc layout**: Left arc = Citing journals, Right arc = Cited journals
+- **Arc nodes**: Size reflects citation/cited frequency
+- **Flow curves**: Bezier curves connect citing to cited; line width reflects citation volume; hover highlights related nodes
+- **Adaptive arc angle**: Chart maintains constant visual height as angle changes (calculated via `R = H / sin(θ)`)
+- **Adaptive labels**: Labels auto-hide when node span is too small at smaller angles, with collision detection to avoid overlap
+
+---
+
+### Ridgeline Plot
+
+Ridgeline Plot displays cluster density distributions in landscape view style. Each cluster occupies one row, X-axis = year, using area curves to show publication density per year.
+
+#### Configuration Parameters
+
+| Parameter | Range | Default | Description |
+|-----------|-------|---------|-------------|
+| X-Axis Scale | 0.5–5 | 1 | Stretch or compress total horizontal length |
+| Color Scheme | 7 options | Colorful | Each cluster uses a different color gradient; "Colorful" mode uses rainbow gradient |
+
+#### Chart Features
+
+- **Dynamic year spacing**: Same as Timeline view; horizontal space per year allocated by publication volume
+- **Ridge stacking**: Each cluster's area curve is offset vertically, creating a ridge-stacking effect
+- **Gradient fill**: Area curves use light-to-dark color gradients
+- **Horizontal scrolling**: Scrollbar appears when X-Axis Scale > 1
+- **Custom X-axis**: Due to dynamic spacing, tick marks and year labels are drawn manually
+
+---
+
+### Heatmap
+
+Heatmap uses `d3.contourDensity()` to calculate 2D density contours, displaying literature clustering in coordinate space with continuous gradient colors.
+
+#### Configuration Parameters
+
+| Parameter | Range | Default | Description |
+|-----------|-------|---------|-------------|
+| Bandwidth | 0.05–2.0 | 0.15 | Kernel density estimation bandwidth; larger values produce smoother contours |
+| Color Scale | Turbo / Blue / Green / Purple / Orange / Red / Teal | Turbo | Heatmap color scale (separate from the common color scheme) |
+
+#### Chart Features
+
+- **Contour layers**: Multiple filled contour layers; color from light to dark represents low to high density
+- **Scatter overlay**: Original data points overlaid as semi-transparent circles on top of contours
+- **Hover tooltip**: Shows node name, cluster, coordinates, and weight
+
+---
+
+### Word Cloud
+
+Word Cloud extracts high-frequency words from literature titles or abstracts and visualizes them as a word cloud.
+
+#### Configuration Parameters
+
+| Parameter | Options | Default | Description |
+|-----------|---------|---------|-------------|
+| Source | Title / Abstract | Abstract | Extract words from titles or abstracts |
+| Max Words | 5–500 | 100 | Maximum number of words to display |
+| Colormap | viridis / inferno / plasma / autumn / winter / rainbow / ocean / forest / sunset | viridis | Word cloud dedicated colormap |
+
+#### Chart Features
+
+- Word size reflects word frequency
+- Backend generates word cloud image using Python
+- Supports both Chinese and English words
+
+---
 
 ### Filter Panel
 
-In the visualization page, the filter panel is located above the chart:
+In the visualization page, the filter panel floats above the chart (positioned absolutely, does not affect chart size):
 
-- **Expand/Collapse**: Click filter panel header to expand or collapse filter options
-- **Active Filters**: If filters are active, displays "Active Filters" label
-- **Filter Conditions**: Same filtering functionality as library detail page
-
-**Notes**:
-- Filter conditions affect visualization results
-- After modifying filter conditions, chart automatically updates
-- Some filter conditions may result in no data, chart displays empty state
+- **Expand/Collapse**: Click filter panel header to toggle
+- **Active Filters**: Displays "Active Filters" badge when filters are active
+- **Filter Conditions**: Same as library detail page (year range, author, institution, keyword, journal, document type, country)
+- After modifying filters, charts automatically reload
+- Some filter combinations may result in no data; chart displays an empty-state placeholder
 
 ## Export Features
 
@@ -4985,117 +5076,52 @@ All visualization charts support export:
 
 - **Format**: SVG (vector graphics)
 - **Advantages**: Scalable, suitable for printing and editing
-- **Usage**: Insert into papers, reports, etc.
+- **Full-chart export**: For charts with horizontal scrolling (Timeline, Ridgeline, etc.), export automatically captures the complete SVG content (using `getBBox()` calculation), regardless of viewport scroll position
 
 ### Export PNG
 
 - **Format**: PNG (bitmap)
-- **Advantages**: Good compatibility, suitable for web display
-- **Usage**: Insert into presentations, web pages, etc.
+- **Resolution**: System uses 3x scaling for high clarity
+- **Full-chart export**: Same as SVG — automatically captures complete content
 
 ### Export Operation
 
-1. Click export button on the right side of chart settings bar
-2. Select export format (SVG or PNG)
-3. File automatically downloads
-
-**Notes**:
-- When exporting SVG, if chart is complex, file may be large
-- When exporting PNG, system uses high resolution (2x) to ensure clarity
-- Exporting large charts may take some time
+1. Click the export button on the right side of the settings bar (SVG icon or PNG icon)
+2. File automatically downloads as `biblio-{chart-type}-chart.svg` or `.png`
 
 ## Usage Tips
 
 ### Efficient Analysis Workflow
 
-1. **Create Library**: Create library based on data source type
-2. **Upload Literature**: Upload Refworks format literature files
-3. **View Details**: View and filter literature in library detail
-4. **Generate Visualization**: Switch to visualization tab to generate charts
-5. **Adjust Parameters**: Adjust visualization parameters as needed
-6. **Apply Filters**: Use filter panel to focus on specific literature
-7. **Export Results**: Export charts for reports or papers
+1. **Create Library** → **Upload Literature** → **View Details** → **Switch to Visualization tab**
+2. Start with **Network Graph** to understand overall relationship structure
+3. Use **Cluster View** to discover research topic groupings
+4. Use **Timeline** to observe cluster evolution over time
+5. Use **Burst Detection** to locate research hotspot periods
+6. Use **Citation Chord** to analyze journal citation flow
+7. Use **Ridgeline Plot** to observe density distribution and cluster shape
+8. Export charts for papers or reports
 
-### Network Graph Usage Tips
+### Parameter Tuning Tips
 
-#### Analyzing Collaboration
-1. Select "Co-author Network" or "Co-institution Network"
-2. Adjust "Min Weight" to filter weak relationships
-3. Adjust "Max Nodes" to control display count
-4. Observe network structure, identify core researchers and institutions
-
-#### Analyzing Research Topics
-1. Select "Keyword Co-occurrence Network"
-2. Adjust parameters to highlight strong relationships
-3. Observe keyword clusters, identify research topics
-4. Combine with timezone view to understand topic evolution
-
-#### Analyzing International Collaboration
-1. Select "Co-country Network"
-2. Observe collaboration patterns between countries
-3. Identify international collaboration hotspot regions
-
-### Timezone View Usage Tips
-
-#### Understanding Research Trends
-1. Adjust "Top N" to control number of items displayed
-2. Observe changes in keywords or authors across different time periods
-3. Identify rise and decline of research hotspots
-
-#### Discovering Emerging Topics
-1. Focus on new keywords appearing in recent time periods
-2. Combine with burst detection to confirm emerging topics
-3. Analyze development trajectory of emerging topics
-
-### Burst Detection Usage Tips
-
-#### Identifying Research Hotspots
-1. Select "Keyword Burst"
-2. View keywords with high burst strength
-3. Analyze burst time periods, understand hotspot duration
-4. Combine with timezone view to understand hotspot evolution
-
-#### Discovering Active Researchers
-1. Select "Author Burst"
-2. View authors with high burst strength
-3. Analyze burst time periods, understand active research periods
-4. Combine with collaboration network to understand research teams
-
-### Common Analysis Scenarios
-
-#### Literature Review Preparation
-1. Upload literature from related fields
-2. Use keyword co-occurrence network to identify main research topics
-3. Use timezone view to understand research development history
-4. Use burst detection to identify latest research hotspots
-5. Export charts for literature review
-
-#### Research Team Analysis
-1. Upload literature from team members
-2. Use co-author network to analyze collaboration relationships
-3. Use co-institution network to analyze institutional collaboration
-4. Use timezone view to understand team research history
-5. Use burst detection to identify team research hotspots
-
-#### Field Trend Analysis
-1. Upload literature from specific field
-2. Use keyword co-occurrence network to identify research topics
-3. Use timezone view to analyze topic evolution
-4. Use burst detection to identify emerging trends
-5. Combine with filtering to focus on specific time periods or topics
+- **Too many network nodes**: Increase "Min Weight" or decrease "Max Nodes"
+- **Timeline too cramped or too sparse**: Adjust "X-Axis Scale" (> 1 stretches, < 1 compresses)
+- **Timeline node sizes too similar**: Increase "Weight Precision" (more decimal places)
+- **Citation Chord labels too dense**: Decrease "Arc Angle"
+- **Heatmap contours too coarse**: Decrease "Bandwidth"; too smooth — increase "Bandwidth"
+- **Too many cluster hulls**: Increase "Hull Threshold"
 
 ### Notes
 
 - Bibliographic visualization is based on uploaded literature data; ensure data is complete and accurate
 - Visualization of large libraries may take time; please be patient
-- Network graphs may be slow when node count is high; recommend adjusting "Max Nodes"
-- Filter conditions affect visualization results; ensure filter conditions are correct
-- When exporting charts, if chart is complex, it may take some time
+- Network graphs may be slow with many nodes; recommend adjusting "Max Nodes"
+- Filter conditions affect visualization results; ensure filters are correct
 - Refworks file format must be correct; otherwise may not parse correctly
-- Different data sources (WOS/CNKI) may have different fields; some visualizations may not apply to all data sources
-- Burst detection algorithm is based on statistical methods; results are for reference only
-- Network graph layout is automatically calculated; may vary slightly each refresh
-- Timezone view time slice settings affect display granularity; recommend adjusting based on data volume
+- Different data sources (WOS/CNKI) may have different fields; some visualizations may not apply to all sources
+- Burst detection algorithm is based on Kleinberg's statistical method; results are for reference only
+- Network and Cluster layouts are force-directed and auto-calculated; may vary slightly each refresh
+- Timeline and Ridgeline dynamic year spacing adjusts automatically based on publication volume; axis tick spacing is non-uniform
 
 # Annotation Mode
 

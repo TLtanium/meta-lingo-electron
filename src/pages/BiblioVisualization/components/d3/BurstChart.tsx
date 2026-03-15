@@ -19,7 +19,8 @@ const COLOR_CONFIGS: Record<string, { burst: string; background: string; highlig
   green: { burst: '#43a047', background: '#e0e0e0', highlight: '#2e7d32' },
   purple: { burst: '#8e24aa', background: '#e0e0e0', highlight: '#6a1b9a' },
   orange: { burst: '#fb8c00', background: '#e0e0e0', highlight: '#ef6c00' },
-  teal: { burst: '#00897b', background: '#e0e0e0', highlight: '#00695c' }
+  teal: { burst: '#00897b', background: '#e0e0e0', highlight: '#00695c' },
+  colorful: { burst: '#f57c00', background: '#e0e0e0', highlight: '#d32f2f' }
 }
 
 interface BurstPeriod {
@@ -74,33 +75,28 @@ export default function BurstChart({
     background: isDark ? '#555' : '#e0e0e0'
   }), [isDark])
   
-  // Smart tooltip positioning to avoid overflow
+  // Smart tooltip positioning — account for scroll offset
   const showTooltip = useCallback((event: MouseEvent, content: string) => {
     const container = containerRef.current
     if (!container) return
-    
+
     const containerRect = container.getBoundingClientRect()
-    let x = event.clientX - containerRect.left + 12
-    let y = event.clientY - containerRect.top + 12
-    
-    // Estimate tooltip size (rough estimate)
+    let x = event.clientX - containerRect.left + container.scrollLeft + 12
+    let y = event.clientY - containerRect.top + container.scrollTop + 12
+
     const tooltipWidth = 220
     const tooltipHeight = 100
-    
-    // Adjust x position if would overflow right
-    if (x + tooltipWidth > containerRect.width) {
-      x = event.clientX - containerRect.left - tooltipWidth - 12
+
+    if (x - container.scrollLeft + tooltipWidth > containerRect.width) {
+      x = x - tooltipWidth - 24
     }
-    
-    // Adjust y position if would overflow bottom
-    if (y + tooltipHeight > containerRect.height) {
-      y = event.clientY - containerRect.top - tooltipHeight - 12
+    if (y - container.scrollTop + tooltipHeight > containerRect.height) {
+      y = y - tooltipHeight - 24
     }
-    
-    // Ensure not negative
+
     x = Math.max(8, x)
     y = Math.max(8, y)
-    
+
     setTooltip({ x, y, content })
   }, [])
   

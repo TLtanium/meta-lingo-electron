@@ -93,19 +93,19 @@ class VisualizationService:
                     'label': str(node.get('label', ''))[:50],
                     'year': year_int,
                     'cluster': cluster_id,
-                    'weight': node.get('weight', 1) or 1,
+                    'weight': node.get('weight', 0.3) or 0.3,
                     'is_burst': is_burst
                 })
             
             if not timeline_nodes:
                 return default_response
-            
+
             # Build timeline clusters
             timeline_clusters = []
             for cluster in clusters:
                 cluster_id = cluster.get('id', 0)
                 cluster_nodes = [n for n in timeline_nodes if n.get('cluster') == cluster_id]
-                
+
                 if cluster_nodes:
                     years = [n['year'] for n in cluster_nodes]
                     timeline_clusters.append({
@@ -115,17 +115,52 @@ class VisualizationService:
                         'year_start': min(years),
                         'year_end': max(years)
                     })
-            
+
+            # Build cross-cluster edges via shared keywords
+            # Build keyword → [(node_id, cluster_id)] index
+            node_entry_map = {str(e.get('id', '')): e for e in self.entries}
+            keyword_to_nodes: Dict[str, list] = defaultdict(list)
+            for node in timeline_nodes:
+                entry = node_entry_map.get(node['id'], {})
+                raw_kws = entry.get('keywords') or []
+                if isinstance(raw_kws, str):
+                    raw_kws = [raw_kws]
+                for kw in raw_kws:
+                    if isinstance(kw, str) and kw.strip():
+                        keyword_to_nodes[kw.lower().strip()].append(
+                            (node['id'], node['cluster'])
+                        )
+
+            cross_edge_weights: Dict[tuple, int] = defaultdict(int)
+            for kw, kw_nodes in keyword_to_nodes.items():
+                for i in range(len(kw_nodes)):
+                    for j in range(i + 1, len(kw_nodes)):
+                        ni_id, ni_cluster = kw_nodes[i]
+                        nj_id, nj_cluster = kw_nodes[j]
+                        if ni_cluster != nj_cluster:
+                            key = (min(ni_id, nj_id), max(ni_id, nj_id))
+                            cross_edge_weights[key] += 1
+
+            cross_edges = [
+                {'source': k[0], 'target': k[1], 'weight': v}
+                for k, v in cross_edge_weights.items()
+                if v >= 2
+            ]
+            cross_edges.sort(key=lambda e: -e['weight'])
+            cross_edges = cross_edges[:150]
+
+            all_edges = (edges + cross_edges)[:500]
+
             # Calculate time range
             all_years = [n['year'] for n in timeline_nodes]
             time_range = {
                 'start': min(all_years),
                 'end': max(all_years)
             }
-            
+
             return {
                 'nodes': timeline_nodes,
-                'edges': edges[:500],  # Limit edges to prevent performance issues
+                'edges': all_edges,
                 'clusters': timeline_clusters,
                 'time_range': time_range
             }
@@ -231,54 +266,46 @@ class VisualizationService:
     
     def get_landscape_view(self) -> Dict[str, Any]:
         """
-        Generate landscape (3D terrain) view data
-        
-        Height represents centrality/citation count
+        Generate landscape / ridgeline view data
+
+        x = publication year (for ridgeline aggregation)
+        z = weight (citation count or frequency)
         """
         if not self.entries:
             return {'points': [], 'clusters': []}
-        
+
         # Cluster entries
         cluster_result = cluster_entries(self.entries, cluster_by="keyword")
-        
+
         nodes = cluster_result['nodes']
         clusters = cluster_result['clusters']
-        
-        # Generate 3D positions using cluster-based layout
+
+        # Build points: x = year, z = citation weight
         points = []
-        cluster_positions = {}
-        
-        # Assign cluster center positions
-        n_clusters = len(clusters)
-        for i, cluster in enumerate(clusters):
-            angle = 2 * math.pi * i / n_clusters if n_clusters > 0 else 0
-            radius = 5
-            cluster_positions[cluster['id']] = (
-                radius * math.cos(angle),
-                radius * math.sin(angle)
-            )
-        
         for node in nodes:
             cluster_id = node.get('cluster', 0)
-            base_x, base_y = cluster_positions.get(cluster_id, (0, 0))
-            
-            # Add some random offset within cluster
-            import random
-            x = base_x + random.uniform(-1, 1)
-            y = base_y + random.uniform(-1, 1)
-            
-            # Height based on centrality and citations
-            z = node.get('centrality', 0) * 5 + node.get('frequency', 0) * 0.1
-            
+            year = node.get('year')
+            if not year:
+                continue
+            try:
+                year_int = int(year)
+            except (ValueError, TypeError):
+                continue
+
+            # z = citation-based weight (frequency stores citation_count)
+            freq = node.get('frequency', 0) or 0
+            centrality = node.get('centrality', 0) or 0
+            z = max(1, freq) + centrality * 10
+
             points.append({
-                'x': x,
-                'y': y,
+                'x': year_int,
+                'y': 0,
                 'z': z,
                 'id': node['id'],
                 'label': node['label'],
                 'cluster': cluster_id
             })
-        
+
         return {
             'points': points,
             'clusters': cluster_result['clusters']
@@ -458,7 +485,15 @@ def generate_visualization(
     
     elif viz_type == 'dual-map':
         return service.get_dual_map_overlay()
-    
+
+    elif viz_type == 'heatmap':
+        from .heatmap_service import HeatmapService
+        heatmap_service = HeatmapService(entries)
+        return heatmap_service.generate_heatmap(
+            bandwidth=kwargs.get('bandwidth'),
+            grid_size=kwargs.get('grid_size', 50)
+        )
+
     else:
         raise ValueError(f"Unknown visualization type: {viz_type}")
 

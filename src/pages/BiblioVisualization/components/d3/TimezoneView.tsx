@@ -17,7 +17,8 @@ const COLOR_PALETTES: Record<string, string[]> = {
   purple: ['#f3e5f5', '#ce93d8', '#ab47bc', '#8e24aa', '#6a1b9a', '#4a148c'],
   orange: ['#fff3e0', '#ffcc80', '#ffa726', '#fb8c00', '#ef6c00', '#e65100'],
   red: ['#ffebee', '#ef9a9a', '#ef5350', '#e53935', '#c62828', '#b71c1c'],
-  teal: ['#e0f2f1', '#80cbc4', '#26a69a', '#00897b', '#00695c', '#004d40']
+  teal: ['#e0f2f1', '#80cbc4', '#26a69a', '#00897b', '#00695c', '#004d40'],
+  colorful: ['#e8f5e9', '#ffcc80', '#ce93d8', '#ef9a9a', '#80cbc4', '#d32f2f']
 }
 
 interface TimezoneViewProps {

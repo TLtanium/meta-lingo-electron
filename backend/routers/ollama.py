@@ -58,6 +58,12 @@ async def connect_ollama(request: OllamaConnectRequest):
                 return OllamaConnectResponse(connected=True, models=models)
             else:
                 error_msg = f"Ollama API returned status {response.status_code}"
+                if response.status_code == 502:
+                    error_msg += (
+                        ". Common causes: (1) System/HTTP proxy sending localhost to a proxy (try disabling proxy for 127.0.0.1); "
+                        "(2) After moving Ollama/models to another drive on Windows: set OLLAMA_MODELS to the new path and restart Ollama; "
+                        "(3) Port 11434 reserved by Hyper-V/NAT (see Ollama docs)."
+                    )
                 logger.warning(error_msg)
                 return OllamaConnectResponse(connected=False, models=[], error=error_msg)
     

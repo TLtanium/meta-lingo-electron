@@ -17,7 +17,8 @@ const COLOR_PALETTES: Record<string, string[]> = {
   purple: ['#7b1fa2', '#6a1b9a', '#4a148c', '#6a1b9a', '#4a148c', '#38006b'],
   orange: ['#f57c00', '#ef6c00', '#e65100', '#ef6c00', '#e65100', '#bf360c'],
   red: ['#d32f2f', '#c62828', '#b71c1c', '#c62828', '#b71c1c', '#8e0000'],
-  teal: ['#00796b', '#00695c', '#004d40', '#00695c', '#004d40', '#00251a']
+  teal: ['#00796b', '#00695c', '#004d40', '#00695c', '#004d40', '#00251a'],
+  colorful: ['#1976d2', '#388e3c', '#7b1fa2', '#f57c00', '#d32f2f', '#00796b']
 }
 
 interface NetworkGraphProps {

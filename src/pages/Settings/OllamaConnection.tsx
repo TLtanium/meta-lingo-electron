@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   Paper,
   Typography,
@@ -11,11 +11,14 @@ import {
   Select,
   MenuItem,
   Alert,
-  CircularProgress
+  CircularProgress,
+  IconButton,
+  Tooltip
 } from '@mui/material'
 import SmartToyIcon from '@mui/icons-material/SmartToy'
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import ErrorIcon from '@mui/icons-material/Error'
+import RefreshIcon from '@mui/icons-material/Refresh'
 import { useTranslation } from 'react-i18next'
 import { useSettingsStore } from '../../stores/settingsStore'
 import { ollamaApi } from '../../api'
@@ -34,7 +37,34 @@ export default function OllamaConnection() {
   } = useSettingsStore()
 
   const [isConnecting, setIsConnecting] = useState(false)
+  const [isRefreshingModels, setIsRefreshingModels] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  // When already connected, sync model list from Ollama on mount so dropdown reflects current state (e.g. after user removed a model)
+  const refreshModels = async () => {
+    if (!ollamaUrl) return
+    setIsRefreshingModels(true)
+    setError(null)
+    try {
+      const res = await ollamaApi.listModels(ollamaUrl)
+      const list = Array.isArray(res?.data) ? res.data : []
+      setOllamaModels(list)
+      if (ollamaModel && !list.includes(ollamaModel)) {
+        setOllamaModel(list.length > 0 ? list[0] : null)
+      }
+    } catch {
+      // Keep existing list on failure
+    } finally {
+      setIsRefreshingModels(false)
+    }
+  }
+
+  useEffect(() => {
+    if (ollamaConnected && ollamaUrl) {
+      refreshModels()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only sync on connect state/url change
+  }, [ollamaConnected, ollamaUrl])
 
   const handleConnect = async () => {
     setIsConnecting(true)
@@ -147,24 +177,41 @@ export default function OllamaConnection() {
 
         {/* Model selection */}
         {ollamaConnected && (
-          <FormControl size="small" fullWidth>
-            <InputLabel>{t('settings.selectModel')}</InputLabel>
-            <Select
-              value={ollamaModel || ''}
-              onChange={(e) => setOllamaModel(e.target.value)}
-              label={t('settings.selectModel')}
-            >
-              {ollamaModels.length > 0 ? (
-                ollamaModels.map(model => (
-                  <MenuItem key={model} value={model}>
-                    {model}
-                  </MenuItem>
-                ))
-              ) : (
-                <MenuItem disabled>{t('settings.noModels')}</MenuItem>
-              )}
-            </Select>
-          </FormControl>
+          <Stack direction="row" spacing={1} alignItems="center">
+            <FormControl size="small" sx={{ minWidth: 200, flex: 1 }}>
+              <InputLabel>{t('settings.selectModel')}</InputLabel>
+              <Select
+                value={ollamaModel || ''}
+                onChange={(e) => setOllamaModel(e.target.value)}
+                label={t('settings.selectModel')}
+              >
+                {ollamaModels.length > 0 ? (
+                  ollamaModels.map(model => (
+                    <MenuItem key={model} value={model}>
+                      {model}
+                    </MenuItem>
+                  ))
+                ) : (
+                  <MenuItem disabled>{t('settings.noModels')}</MenuItem>
+                )}
+              </Select>
+            </FormControl>
+            <Tooltip title={t('settings.refreshModels', 'Refresh model list')}>
+              <IconButton
+                onClick={refreshModels}
+                disabled={isRefreshingModels}
+                size="small"
+                color="primary"
+                aria-label={t('settings.refreshModels', 'Refresh model list')}
+              >
+                {isRefreshingModels ? (
+                  <CircularProgress size={20} color="inherit" />
+                ) : (
+                  <RefreshIcon />
+                )}
+              </IconButton>
+            </Tooltip>
+          </Stack>
         )}
 
         {/* Help text */}

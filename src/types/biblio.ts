@@ -22,7 +22,7 @@ export type NetworkType =
   | 'keyword-cooccur'
   | 'co-citation'
 
-export type VisualizationType = 
+export type VisualizationType =
   | NetworkType
   | 'cluster'
   | 'timeline'
@@ -31,6 +31,8 @@ export type VisualizationType =
   | 'wordcloud'
   | 'landscape'
   | 'dual-map'
+  | 'citation-chord'
+  | 'heatmap'
 
 // ==================== Library Models ====================
 
@@ -311,6 +313,32 @@ export interface DualMapVisualizationData {
   links: DualMapLink[]
 }
 
+// ==================== Heatmap Visualization ====================
+
+export interface HeatmapPoint {
+  x: number
+  y: number
+  weight: number
+  id: string
+  label: string
+  cluster: number
+  year?: number
+}
+
+export interface HeatmapVisualizationData {
+  points: HeatmapPoint[]
+  clusters: ClusterInfo[]
+  time_range: { start: number; end: number }
+  density_grid?: { x: number[]; y: number[]; z: number[][] }
+}
+
+export interface HeatmapVisualizationRequest {
+  library_id: string
+  filters?: BiblioFilter
+  bandwidth?: number
+  grid_size?: number
+}
+
 // ==================== Word Cloud Visualization ====================
 
 export interface WordCloudWord {
@@ -362,7 +390,7 @@ export interface NetworkVisualizationRequest {
 export interface ClusterVisualizationRequest {
   library_id: string
   filters?: BiblioFilter
-  cluster_by?: 'keyword' | 'author' | 'institution'
+  cluster_by?: 'keyword' | 'author' | 'institution' | 'country'
   n_clusters?: number
 }
 
