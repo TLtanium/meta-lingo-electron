@@ -357,7 +357,7 @@ function parseSingleCondition(text: string): TokenCondition | null {
   const [, attribute, operator, value] = match
 
   // Valid attributes
-  const validAttributes = ['word', 'lemma', 'pos', 'tag', 'dep', 'headword', 'headlemma', 'headpos', 'headdep']
+  const validAttributes = ['word', 'lemma', 'pos', 'tag', 'dep', 'headword', 'headlemma', 'headpos', 'headdep', 'usas', 'nrc']
   if (!validAttributes.includes(attribute)) return null
 
   let finalOperator = operator as ComparisonOperator
