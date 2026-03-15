@@ -48,6 +48,7 @@ models/**/*
 # Development & Test Files
 # ===================================
 PROJECT.md
+CiteSpace 复刻升级计划.md
 **/mldoc.md
 pymusas_bem_analysis.md
 pymusas_bem_test_results.txt
