@@ -10,14 +10,17 @@ from pathlib import Path
 from typing import List, Dict, Any, Optional
 from dataclasses import dataclass, field, asdict
 
-from config import MODELS_DIR
+from model_paths import get_user_models_dir, resolve_model_path
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Model path - 使用 config.py 中的 MODELS_DIR
-CLIP_MODEL_PATH = str(MODELS_DIR / "multimodal_analyzer" / "clip-vit-large-patch14")
+CLIP_MODEL_REL = "multimodal_analyzer/clip-vit-large-patch14"
+
+
+def _default_clip_model_path() -> str:
+    return str(resolve_model_path(CLIP_MODEL_REL) or (get_user_models_dir() / CLIP_MODEL_REL))
 
 # Predefined label categories
 PRESET_LABELS = {
@@ -82,7 +85,8 @@ class ClipService:
     """CLIP video frame classification service"""
     
     def __init__(self, model_path: str = None):
-        self.model_path = model_path or CLIP_MODEL_PATH
+        self._explicit_model_path = bool(model_path)
+        self.model_path = model_path or _default_clip_model_path()
         self.model = None
         self.processor = None
         self.device = None
@@ -101,6 +105,14 @@ class ClipService:
     
     def initialize(self) -> bool:
         """Initialize the CLIP model"""
+        if not self._explicit_model_path:
+            next_path = _default_clip_model_path()
+            if next_path != self.model_path:
+                self.model_path = next_path
+                self.model = None
+                self.processor = None
+                self._initialized = False
+
         if self._initialized:
             return True
             
@@ -355,6 +367,8 @@ class ClipService:
     
     def is_available(self) -> bool:
         """Check if CLIP service is available"""
+        if not self._explicit_model_path:
+            self.model_path = _default_clip_model_path()
         return os.path.exists(self.model_path)
 
 

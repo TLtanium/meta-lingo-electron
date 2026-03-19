@@ -6,7 +6,6 @@ Handles chunking of long texts for SpaCy annotation with proper index adjustment
 import logging
 import re
 import json
-import time
 from typing import Dict, List, Any, Tuple, Optional
 
 logger = logging.getLogger(__name__)
@@ -69,10 +68,6 @@ def find_safe_chunk_boundary(text: str, target_pos: int, chunk_size: int) -> int
     Returns:
         Safe split position (at sentence boundary if possible, otherwise at word boundary)
     """
-    # #region agent log
-    start_time = time.time()
-    # #endregion
-    
     text_len = len(text)
     
     # If target position is near end of text, just return end
@@ -234,13 +229,6 @@ def merge_annotations(
     Returns:
         Merged annotation result
     """
-    # #region agent log
-    merge_start = time.time()
-    total_tokens = sum(len(r.get("tokens", [])) for r in chunk_results if r.get("success"))
-    total_entities = sum(len(r.get("entities", [])) for r in chunk_results if r.get("success"))
-    total_sentences = sum(len(r.get("sentences", [])) for r in chunk_results if r.get("success"))
-    # #endregion
-    
     if not chunk_results:
         return {
             "success": False,
@@ -256,9 +244,6 @@ def merge_annotations(
         logger.warning(f"Some chunks failed: {failed_chunks}")
     
     # Merge tokens
-    # #region agent log
-    token_start = time.time()
-    # #endregion
     all_tokens = []
     for i, (result, (chunk_start, chunk_end)) in enumerate(zip(chunk_results, chunk_boundaries)):
         if result.get("success"):

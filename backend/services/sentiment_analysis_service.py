@@ -197,20 +197,28 @@ class SentimentAnalysisService:
                     continue
                 if not raw_tag:
                     continue
-                # Normalise: strip _MWE suffix
-                domain_code = raw_tag.replace("_MWE", "") if "_MWE" in raw_tag else raw_tag
-                # Skip grammatical/unclassified tags
-                if domain_code in ("Z99", "PUNCT", ""):
-                    continue
 
-                if domain_code not in domain_names:
-                    domain_names[domain_code] = get_domain_description(domain_code)
+                # raw_tag may be a list (disambiguation off) or a string
+                tag_list = raw_tag if isinstance(raw_tag, list) else [raw_tag]
 
                 if analysis_mode == "polarity":
                     label = self._polarity_label(scores)
                 else:
                     label = self._dimension_label(scores)
-                domain_counts[domain_code][label] += 1
+
+                for single_tag in tag_list:
+                    if not single_tag:
+                        continue
+                    # Normalise: strip _MWE suffix
+                    domain_code = single_tag.replace("_MWE", "") if "_MWE" in single_tag else single_tag
+                    # Skip grammatical/unclassified tags
+                    if domain_code in ("Z99", "PUNCT", ""):
+                        continue
+
+                    if domain_code not in domain_names:
+                        domain_names[domain_code] = get_domain_description(domain_code)
+
+                    domain_counts[domain_code][label] += 1
 
         if not domain_counts:
             return self._empty_response(analysis_mode)
@@ -325,20 +333,34 @@ class SentimentAnalysisService:
             logger.warning(f"Failed to load USAS annotation: {e}")
         return []
 
-    def _extract_usas_tags_flat(self, usas_data: Dict[str, Any]) -> List[str]:
-        """Flatten USAS annotation tokens to a list of usas_tag strings (one per token)."""
-        tags: List[str] = []
+    def _extract_usas_tags_flat(self, usas_data: Dict[str, Any]) -> List:
+        """
+        Flatten USAS annotation tokens to a list of tags (one entry per token).
+        When disambiguation is off, each entry is a list of tags (all candidates).
+        When disambiguation is on (or for old data), each entry is a single string.
+        """
+        disambiguation_enabled = usas_data.get("disambiguation_enabled", True)
+        tags = []
+        token_list = []
         if "tokens" in usas_data:
-            for tok in usas_data["tokens"]:
-                tags.append(tok.get("usas_tag", "") or "")
+            token_list = usas_data["tokens"]
         elif "segments" in usas_data:
             seg_keys = sorted(
                 usas_data["segments"].keys(),
                 key=lambda k: (int(k) if str(k).isdigit() else 999999, k),
             )
             for seg_id in seg_keys:
-                for tok in usas_data["segments"][seg_id].get("tokens", []):
-                    tags.append(tok.get("usas_tag", "") or "")
+                token_list.extend(usas_data["segments"][seg_id].get("tokens", []))
+
+        for tok in token_list:
+            if not disambiguation_enabled:
+                # Return all tags as a list
+                all_tags = tok.get("usas_tags", [])
+                if not all_tags:
+                    all_tags = [tok.get("usas_tag", "") or ""]
+                tags.append(all_tags)
+            else:
+                tags.append(tok.get("usas_tag", "") or "")
         return tags
 
     def _load_nrc_for_text(self, text: Dict[str, Any]) -> List[Dict[str, int]]:

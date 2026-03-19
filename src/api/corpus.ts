@@ -827,6 +827,63 @@ export const corpusApi = {
     }
   },
 
+  // ==================== Annotated Export ====================
+
+  /**
+   * Export selected texts in annotated format.
+   *
+   * format:
+   *   "txt"  → zip blob containing one metalingo_<type>.txt per annotation type
+   *   "json" → single JSON blob with full annotation metadata
+   *   "xml"  → single XML blob converted from the JSON structure
+   *
+   * annotation_types (for txt only):
+   *   "universal_pos" | "penn_pos" | "lemma" | "dep" | "usas" | "mipvu"
+   */
+  exportAnnotated: async (
+    corpusId: string,
+    textIds: string[],
+    annotationTypes: string[],
+    format: 'txt' | 'json' | 'xml' = 'txt'
+  ): Promise<{ success: boolean; blob?: Blob; filename?: string; message?: string }> => {
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}${API_BASE}/${corpusId}/export-annotated`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            text_ids: textIds,
+            annotation_types: annotationTypes,
+            format,
+          }),
+        }
+      )
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({ detail: response.statusText }))
+        return { success: false, message: err.detail || 'Export failed' }
+      }
+      // Extract filename from Content-Disposition header.
+      // Requires expose_headers=["Content-Disposition"] in backend CORS config.
+      const disposition = response.headers.get('Content-Disposition') || ''
+      // Matches:  filename="foo.zip"  or  filename=foo.zip
+      const filenameMatch = disposition.match(/filename\s*=\s*"?([^";\r\n]+)"?/i)
+      let filename: string
+      if (filenameMatch) {
+        filename = filenameMatch[1].trim()
+      } else {
+        // Fallback: use Content-Type to decide the correct extension
+        const ct = response.headers.get('Content-Type') || ''
+        const ext = ct.includes('zip') ? 'zip' : format
+        filename = `metalingo_export.${ext}`
+      }
+      const blob = await response.blob()
+      return { success: true, blob, filename }
+    } catch (error) {
+      return { success: false, message: String(error) }
+    }
+  },
+
   reAnnotateNrc: async (corpusId: string, textId: string): Promise<{ success: boolean; message?: string }> => {
     try {
       const response = await api.post<{ success: boolean; message?: string; error?: string }>(
@@ -945,8 +1002,8 @@ export const corpusApi = {
         // Call progress callback
         onProgress(data)
         
-        // Check if task is complete or failed
-        if (data.status === 'completed' || data.status === 'failed') {
+        // Check if task is terminal
+        if (data.status === 'completed' || data.status === 'failed' || data.status === 'cancelled') {
           console.log('[SSE] Task completed/failed, closing connection')
           if (onComplete) {
             onComplete(data)
@@ -986,7 +1043,7 @@ export interface ProgressEvent {
   stage: string
   progress: number
   message: string
-  status: 'pending' | 'processing' | 'completed' | 'failed'
+  status: 'pending' | 'processing' | 'completed' | 'failed' | 'cancelled'
   result?: {
     word_count?: number
     duration?: number

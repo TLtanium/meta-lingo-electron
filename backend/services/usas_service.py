@@ -78,7 +78,8 @@ class USASService:
             'default_text_type': 'GEN',
             'custom_text_types': {},
             'text_type_overrides': {},  # User modifications to preset text types
-            'tagging_mode': 'rule_based'  # Default tagging mode
+            'tagging_mode': 'rule_based',  # Default tagging mode
+            'disambiguation_enabled': False  # Disambiguation off by default
         }
         
         try:
@@ -124,6 +125,28 @@ class USASService:
             'tagging_mode': mode
         }
     
+    def get_disambiguation_enabled(self) -> bool:
+        """Get whether disambiguation is enabled"""
+        return self.settings.get('disambiguation_enabled', False)
+
+    def set_disambiguation_enabled(self, enabled: bool) -> Dict[str, Any]:
+        """
+        Set whether disambiguation is enabled
+
+        Args:
+            enabled: True to enable disambiguation, False to keep all candidate tags
+
+        Returns:
+            Result dict with success status
+        """
+        self.settings['disambiguation_enabled'] = enabled
+        success = self._save_settings()
+
+        return {
+            'success': success,
+            'disambiguation_enabled': enabled
+        }
+
     def get_mode_status(self) -> Dict[str, Any]:
         """
         Get status of all tagging modes
@@ -254,6 +277,8 @@ class USASService:
         """
         Annotate text using rule-based mode (original behavior)
         """
+        disambiguation_enabled = self.get_disambiguation_enabled()
+
         result = {
             'success': False,
             'tokens': [],
@@ -262,56 +287,89 @@ class USASService:
             'text_type_priority': text_type,
             'disambiguation_stats': {},
             'tagging_mode': 'rule_based',
+            'disambiguation_enabled': disambiguation_enabled,
             'error': None
         }
-        
+
         try:
             # Step 1: Initial tagging with rule-based tagger
             if progress_callback:
                 progress_callback(10, "USAS tagging (rule-based)...")
             tag_result = self.tagger.tag_text(text, language)
-            
+
             if not tag_result['success']:
                 result['error'] = tag_result.get('error', 'Tagging failed')
                 return result
-            
-            # Step 2: Disambiguation
-            if progress_callback:
-                progress_callback(50, "Disambiguating...")
-            priority_domains = self.get_priority_domains_for_type(text_type) if text_type else []
-            
-            disambiguator = USASDisambiguator(priority_domains=priority_domains)
-            disamb_result = disambiguator.disambiguate(tag_result['tokens'], text_type=text_type)
-            
-            # Step 3: Propagate senses (one-sense-per-discourse)
-            if progress_callback:
-                progress_callback(70, "Propagating senses...")
-            final_tokens = disambiguator.propagate_senses(disamb_result['tokens'])
-            
-            # Step 4: Add _MWE suffix AFTER disambiguation
-            for token in final_tokens:
-                if token.get('is_mwe'):
-                    tag = token.get('usas_tag', '')
-                    if tag and tag not in ('Z99', 'PUNCT') and not tag.endswith('_MWE'):
-                        token['usas_tag'] = f"{tag}_MWE"
-            
-            # Step 5: Add descriptions
-            self._add_token_descriptions(final_tokens, progress_callback)
-            
-            result['success'] = True
-            result['tokens'] = final_tokens
-            result['domain_distribution'] = disamb_result['domain_distribution']
-            result['dominant_domain'] = disamb_result['dominant_domain']
-            result['disambiguation_stats'] = disamb_result['disambiguation_stats']
-            
-            if progress_callback:
-                progress_callback(100, "Complete")
-            logger.info(f"Rule-based annotated: {len(final_tokens)} tokens, dominant: {disamb_result['dominant_domain']}")
-            
+
+            if disambiguation_enabled:
+                # Step 2: Disambiguation
+                if progress_callback:
+                    progress_callback(50, "Disambiguating...")
+                priority_domains = self.get_priority_domains_for_type(text_type) if text_type else []
+
+                disambiguator = USASDisambiguator(priority_domains=priority_domains)
+                disamb_result = disambiguator.disambiguate(tag_result['tokens'], text_type=text_type)
+
+                # Step 3: Propagate senses (one-sense-per-discourse)
+                if progress_callback:
+                    progress_callback(70, "Propagating senses...")
+                final_tokens = disambiguator.propagate_senses(disamb_result['tokens'])
+
+                # Step 4: Add _MWE suffix AFTER disambiguation
+                for token in final_tokens:
+                    if token.get('is_mwe'):
+                        tag = token.get('usas_tag', '')
+                        if tag and tag not in ('Z99', 'PUNCT') and not tag.endswith('_MWE'):
+                            token['usas_tag'] = f"{tag}_MWE"
+
+                # Step 5: Add descriptions
+                self._add_token_descriptions(final_tokens, progress_callback)
+
+                result['success'] = True
+                result['tokens'] = final_tokens
+                result['domain_distribution'] = disamb_result['domain_distribution']
+                result['dominant_domain'] = disamb_result['dominant_domain']
+                result['disambiguation_stats'] = disamb_result['disambiguation_stats']
+
+                if progress_callback:
+                    progress_callback(100, "Complete")
+                logger.info(f"Rule-based annotated: {len(final_tokens)} tokens, dominant: {disamb_result['dominant_domain']}")
+            else:
+                # Disambiguation OFF: keep all candidate tags, only apply MWE suffix
+                if progress_callback:
+                    progress_callback(50, "Processing tags (no disambiguation)...")
+
+                final_tokens = tag_result['tokens']
+
+                for token in final_tokens:
+                    if token.get('is_mwe'):
+                        tag = token.get('usas_tag', '')
+                        if tag and tag not in ('Z99', 'PUNCT') and not tag.endswith('_MWE'):
+                            token['usas_tag'] = f"{tag}_MWE"
+                        # Also add _MWE suffix to all candidate tags
+                        token['usas_tags'] = [
+                            f"{t}_MWE" if t and t not in ('Z99', 'PUNCT') and not t.endswith('_MWE') else t
+                            for t in token.get('usas_tags', [])
+                        ]
+
+                # Add descriptions
+                self._add_token_descriptions(final_tokens, progress_callback)
+
+                result['success'] = True
+                result['tokens'] = final_tokens
+                result['disambiguation_stats'] = {
+                    'total_tokens': len(final_tokens),
+                    'method': 'none'
+                }
+
+                if progress_callback:
+                    progress_callback(100, "Complete")
+                logger.info(f"Rule-based annotated (no disambiguation): {len(final_tokens)} tokens")
+
         except Exception as e:
             result['error'] = str(e)
             logger.error(f"Rule-based annotation error: {e}")
-        
+
         return result
     
     def _annotate_text_neural(
@@ -323,6 +381,9 @@ class USASService:
         """
         Annotate text using neural mode (no disambiguation)
         """
+        disambiguation_enabled = self.get_disambiguation_enabled()
+        top_n = 1 if disambiguation_enabled else 5
+
         result = {
             'success': False,
             'tokens': [],
@@ -331,37 +392,39 @@ class USASService:
             'text_type_priority': None,
             'disambiguation_stats': {},
             'tagging_mode': 'neural',
+            'disambiguation_enabled': disambiguation_enabled,
             'error': None
         }
-        
+
         try:
             if progress_callback:
-                progress_callback(10, "USAS tagging (neural)...")
-            
+                progress_callback(10, f"USAS tagging (neural, top_n={top_n})...")
+
             neural = self._get_neural_tagger()
-            tag_result = neural.tag_text(text, language)
-            
+            tag_result = neural.tag_text(text, language, top_n=top_n)
+
             if not tag_result['success']:
                 result['error'] = tag_result.get('error', 'Neural tagging failed')
                 return result
-            
+
             if progress_callback:
                 progress_callback(70, "Processing results...")
-            
+
             final_tokens = tag_result['tokens']
-            
+
             # Calculate domain distribution from neural predictions
             domain_counts = {}
             for token in final_tokens:
                 if token.get('is_punct') or token.get('is_space'):
                     continue
-                tag = token.get('usas_tag', '')
-                if tag and tag != 'Z99':
-                    # Get major category
-                    category = tag[0] if tag else ''
-                    if category:
-                        domain_counts[category] = domain_counts.get(category, 0) + 1
-            
+                # When disambiguation off, count all tags
+                tags_to_count = token.get('usas_tags', []) if not disambiguation_enabled else [token.get('usas_tag', '')]
+                for tag in tags_to_count:
+                    if tag and tag != 'Z99':
+                        category = tag[0] if tag else ''
+                        if category:
+                            domain_counts[category] = domain_counts.get(category, 0) + 1
+
             # Find dominant domain
             dominant = None
             max_count = 0
@@ -369,27 +432,28 @@ class USASService:
                 if count > max_count:
                     max_count = count
                     dominant = domain
-            
+
             # Add descriptions
             self._add_token_descriptions(final_tokens, progress_callback)
-            
+
             result['success'] = True
             result['tokens'] = final_tokens
             result['domain_distribution'] = domain_counts
             result['dominant_domain'] = dominant
             result['disambiguation_stats'] = {
                 'total_tokens': len(final_tokens),
-                'method': 'neural_direct'
+                'method': 'neural_direct',
+                'top_n': top_n
             }
-            
+
             if progress_callback:
                 progress_callback(100, "Complete")
-            logger.info(f"Neural annotated: {len(final_tokens)} tokens, dominant: {dominant}")
-            
+            logger.info(f"Neural annotated: {len(final_tokens)} tokens (top_n={top_n}), dominant: {dominant}")
+
         except Exception as e:
             result['error'] = str(e)
             logger.error(f"Neural annotation error: {e}")
-        
+
         return result
     
     def _extract_base_tag(self, tag: str) -> str:
@@ -476,18 +540,23 @@ class USASService:
         progress_callback: Optional[callable]
     ) -> Dict[str, Any]:
         """
-        Annotate text using hybrid mode with enhanced neural matching:
-        
-        Flow:
+        Annotate text using hybrid mode with enhanced neural matching.
+
+        When disambiguation is enabled (full flow):
         1. Rule-based tagging (including MWE recognition)
-        2. For multi-tag tokens (non-MWE, non-Z99): use neural top_n=5 to match with candidates
-           - Match by base domain name (without suffixes)
-           - Preserve original suffix if matched
-           - Neural processes tokens within sentence context
-        3. For Z99 tokens: use neural top_n=1 directly (with sentence context)
-        4. For unmatched multi-tag tokens: apply disambiguation rules
-        5. For tokens where disambiguation failed: use neural top_n=1 as final fallback
+        2. For multi-tag tokens: neural top_n=5 matching with candidates
+        3. For Z99 tokens: neural top_n=1 directly
+        4. Disambiguation for unmatched tokens
+        5. Neural fallback for 'default' disambiguation
+        6. Propagate senses
+
+        When disambiguation is disabled:
+        1. Rule-based tagging (including MWE recognition)
+        2. For Z99 tokens: neural top_n=5 (keep all predictions)
+        3. Keep all candidate tags, apply MWE suffix only
         """
+        disambiguation_enabled = self.get_disambiguation_enabled()
+
         result = {
             'success': False,
             'tokens': [],
@@ -496,201 +565,228 @@ class USASService:
             'text_type_priority': text_type,
             'disambiguation_stats': {},
             'tagging_mode': 'hybrid',
+            'disambiguation_enabled': disambiguation_enabled,
             'error': None
         }
-        
+
         try:
             # Step 1: Rule-based tagging
             if progress_callback:
                 progress_callback(10, "USAS tagging (hybrid - rule-based)...")
             tag_result = self.tagger.tag_text(text, language)
-            
+
             if not tag_result['success']:
                 result['error'] = tag_result.get('error', 'Rule-based tagging failed')
                 return result
-            
+
             tokens = tag_result['tokens']
             neural = self._get_neural_tagger()
-            
+
             # Detect sentence boundaries for context-aware neural processing
             sentence_boundaries = self._detect_sentence_boundaries(tokens)
             logger.info(f"Hybrid: detected {len(sentence_boundaries)} sentences")
-            
-            # Step 2: Categorize tokens for different processing
-            if progress_callback:
-                progress_callback(20, "USAS tagging (hybrid - neural matching)...")
-            
-            # Collect tokens by category
-            z99_indices = []  # Unknown tokens -> neural top_n=1
-            multi_tag_indices = []  # Multi-tag tokens -> neural top_n=5 matching
-            
+
+            # Categorize tokens
+            z99_indices = []
+            multi_tag_indices = []
+
             for i, token in enumerate(tokens):
-                # Skip punctuation and spaces
                 if token.get('is_punct') or token.get('is_space'):
                     continue
-                # Skip MWE tokens (already processed by rule-based)
                 if token.get('is_mwe'):
                     continue
-                
+
                 usas_tag = token.get('usas_tag', '')
                 usas_tags = token.get('usas_tags', [])
-                
-                # Check if Z99 (unknown)
+
                 is_z99 = (
-                    usas_tag == 'Z99' or 
-                    not usas_tags or 
+                    usas_tag == 'Z99' or
+                    not usas_tags or
                     (len(usas_tags) == 1 and usas_tags[0] == 'Z99')
                 )
-                
+
                 if is_z99:
                     z99_indices.append(i)
                 elif len(usas_tags) > 1:
-                    # Multi-tag token (polysemous)
                     multi_tag_indices.append(i)
-            
-            # Step 2a: Process Z99 tokens with neural top_n=1 (with sentence context)
-            if neural.is_available() and z99_indices:
-                logger.info(f"Hybrid: {len(z99_indices)} Z99 tokens, using neural top_n=1 with context")
-                neural_predictions = neural.tag_tokens_in_context(
-                    z99_indices, tokens, sentence_boundaries, top_n=1
-                )
-                
-                for token_idx, pred in neural_predictions.items():
-                    if pred and pred[0] != 'Z99':
-                        tokens[token_idx]['usas_tag'] = pred[0]
-                        tokens[token_idx]['usas_tags'] = pred
-                        tokens[token_idx]['neural_fallback'] = True
-                        tokens[token_idx]['disambiguation_method'] = 'neural_z99'
-            
-            # Step 2b: Process multi-tag tokens with neural top_n=5 matching (with sentence context)
-            neural_matched_count = 0
-            unmatched_indices = []  # Tokens that need disambiguation
-            
-            if neural.is_available() and multi_tag_indices:
+
+            if not disambiguation_enabled:
+                # ===== Disambiguation OFF =====
                 if progress_callback:
-                    progress_callback(35, "USAS tagging (hybrid - neural candidate matching)...")
-                
-                logger.info(f"Hybrid: {len(multi_tag_indices)} multi-tag tokens, using neural top_n=5 matching with context")
-                neural_predictions = neural.tag_tokens_in_context(
-                    multi_tag_indices, tokens, sentence_boundaries, top_n=5
-                )
-                
-                for token_idx in multi_tag_indices:
-                    neural_tags = neural_predictions.get(token_idx, [])
-                    candidate_tags = tokens[token_idx].get('usas_tags', [])
-                    
-                    # Try to match neural predictions with candidates
-                    matched_tag = self._match_neural_with_candidates(neural_tags, candidate_tags)
-                    
-                    if matched_tag:
-                        tokens[token_idx]['usas_tag'] = matched_tag
-                        tokens[token_idx]['neural_fallback'] = True
-                        tokens[token_idx]['disambiguation_method'] = 'neural_match'
-                        neural_matched_count += 1
-                    else:
-                        # No match found, will need disambiguation
-                        unmatched_indices.append(token_idx)
-            else:
-                # Neural not available, all multi-tag tokens need disambiguation
-                unmatched_indices = multi_tag_indices
-            
-            logger.info(f"Hybrid: neural matched {neural_matched_count}/{len(multi_tag_indices)} multi-tag tokens")
-            
-            # Step 3: Disambiguation for unmatched tokens
-            if progress_callback:
-                progress_callback(50, "Disambiguating...")
-            
-            priority_domains = self.get_priority_domains_for_type(text_type) if text_type else []
-            disambiguator = USASDisambiguator(priority_domains=priority_domains)
-            
-            # Mark tokens that need disambiguation (unmatched multi-tag tokens)
-            # Other tokens should be marked as already processed
-            for i, token in enumerate(tokens):
-                if i not in unmatched_indices:
-                    # Already processed (single tag, MWE, neural matched, etc.)
-                    if not token.get('disambiguation_method'):
-                        usas_tags = token.get('usas_tags', [])
-                        if len(usas_tags) <= 1:
-                            token['disambiguation_method'] = 'single_tag'
-                        elif token.get('is_mwe'):
-                            token['disambiguation_method'] = 'mwe'
-            
-            # Run disambiguation on all tokens (disambiguator will skip already processed ones)
-            disamb_result = disambiguator.disambiguate(tokens, text_type=text_type)
-            disamb_tokens = disamb_result['tokens']
-            
-            # Step 4: Final neural fallback for tokens where disambiguation used 'default'
-            if progress_callback:
-                progress_callback(65, "USAS tagging (hybrid - final fallback)...")
-            
-            default_indices = []
-            
-            if neural.is_available():
-                for i, token in enumerate(disamb_tokens):
-                    # Check if disambiguation method was 'default'
-                    if token.get('disambiguation_method') == 'default':
-                        # Skip punctuation and spaces
-                        if token.get('is_punct') or token.get('is_space'):
-                            continue
-                        # Skip MWE tokens
-                        if token.get('is_mwe'):
-                            continue
-                        default_indices.append(i)
-                
-                # Get neural predictions for default-selected tokens (with sentence context)
-                if default_indices:
-                    logger.info(f"Hybrid: {len(default_indices)} tokens with default disambiguation, using neural top_n=1 fallback with context")
+                    progress_callback(30, "USAS tagging (hybrid - neural for Z99)...")
+
+                # For Z99 tokens: neural top_n=5
+                if neural.is_available() and z99_indices:
+                    logger.info(f"Hybrid (no disambig): {len(z99_indices)} Z99 tokens, using neural top_n=5")
                     neural_predictions = neural.tag_tokens_in_context(
-                        default_indices, disamb_tokens, sentence_boundaries, top_n=1
+                        z99_indices, tokens, sentence_boundaries, top_n=5
                     )
-                    
                     for token_idx, pred in neural_predictions.items():
                         if pred and pred[0] != 'Z99':
-                            disamb_tokens[token_idx]['usas_tag'] = pred[0]
-                            disamb_tokens[token_idx]['neural_fallback'] = True
-                            disamb_tokens[token_idx]['disambiguation_method'] = 'neural_final'
-            
-            # Step 5: Propagate senses
-            if progress_callback:
-                progress_callback(75, "Propagating senses...")
-            final_tokens = disambiguator.propagate_senses(disamb_tokens)
-            
-            # Step 6: Add _MWE suffix AFTER disambiguation
-            for token in final_tokens:
-                if token.get('is_mwe'):
-                    tag = token.get('usas_tag', '')
-                    if tag and tag not in ('Z99', 'PUNCT') and not tag.endswith('_MWE'):
-                        token['usas_tag'] = f"{tag}_MWE"
-            
-            # Step 7: Add descriptions
-            self._add_token_descriptions(final_tokens, progress_callback)
-            
-            # Count neural fallback tokens
-            neural_fallback_count = sum(1 for t in final_tokens if t.get('neural_fallback'))
-            neural_z99_count = sum(1 for t in final_tokens if t.get('disambiguation_method') == 'neural_z99')
-            neural_match_count = sum(1 for t in final_tokens if t.get('disambiguation_method') == 'neural_match')
-            neural_final_count = sum(1 for t in final_tokens if t.get('disambiguation_method') == 'neural_final')
-            
-            result['success'] = True
-            result['tokens'] = final_tokens
-            result['domain_distribution'] = disamb_result['domain_distribution']
-            result['dominant_domain'] = disamb_result['dominant_domain']
-            result['disambiguation_stats'] = {
-                **disamb_result['disambiguation_stats'],
-                'neural_fallback_tokens': neural_fallback_count,
-                'neural_z99_tokens': neural_z99_count,
-                'neural_match_tokens': neural_match_count,
-                'neural_final_tokens': neural_final_count
-            }
-            
-            if progress_callback:
-                progress_callback(100, "Complete")
-            logger.info(f"Hybrid annotated: {len(final_tokens)} tokens, neural: {neural_fallback_count} total ({neural_z99_count} Z99, {neural_match_count} match, {neural_final_count} final), dominant: {disamb_result['dominant_domain']}")
-            
+                            tokens[token_idx]['usas_tag'] = pred[0]
+                            tokens[token_idx]['usas_tags'] = pred
+                            tokens[token_idx]['neural_fallback'] = True
+
+                # Keep all candidate tags, apply MWE suffix only
+                final_tokens = tokens
+                for token in final_tokens:
+                    if token.get('is_mwe'):
+                        tag = token.get('usas_tag', '')
+                        if tag and tag not in ('Z99', 'PUNCT') and not tag.endswith('_MWE'):
+                            token['usas_tag'] = f"{tag}_MWE"
+                        token['usas_tags'] = [
+                            f"{t}_MWE" if t and t not in ('Z99', 'PUNCT') and not t.endswith('_MWE') else t
+                            for t in token.get('usas_tags', [])
+                        ]
+
+                self._add_token_descriptions(final_tokens, progress_callback)
+
+                result['success'] = True
+                result['tokens'] = final_tokens
+                result['disambiguation_stats'] = {
+                    'total_tokens': len(final_tokens),
+                    'method': 'none',
+                    'neural_z99_tokens': sum(1 for t in final_tokens if t.get('neural_fallback'))
+                }
+
+                if progress_callback:
+                    progress_callback(100, "Complete")
+                logger.info(f"Hybrid annotated (no disambiguation): {len(final_tokens)} tokens")
+
+            else:
+                # ===== Disambiguation ON (original flow) =====
+                if progress_callback:
+                    progress_callback(20, "USAS tagging (hybrid - neural matching)...")
+
+                # Step 2a: Process Z99 tokens with neural top_n=1
+                if neural.is_available() and z99_indices:
+                    logger.info(f"Hybrid: {len(z99_indices)} Z99 tokens, using neural top_n=1 with context")
+                    neural_predictions = neural.tag_tokens_in_context(
+                        z99_indices, tokens, sentence_boundaries, top_n=1
+                    )
+                    for token_idx, pred in neural_predictions.items():
+                        if pred and pred[0] != 'Z99':
+                            tokens[token_idx]['usas_tag'] = pred[0]
+                            tokens[token_idx]['usas_tags'] = pred
+                            tokens[token_idx]['neural_fallback'] = True
+                            tokens[token_idx]['disambiguation_method'] = 'neural_z99'
+
+                # Step 2b: Process multi-tag tokens with neural top_n=5 matching
+                neural_matched_count = 0
+                unmatched_indices = []
+
+                if neural.is_available() and multi_tag_indices:
+                    if progress_callback:
+                        progress_callback(35, "USAS tagging (hybrid - neural candidate matching)...")
+
+                    logger.info(f"Hybrid: {len(multi_tag_indices)} multi-tag tokens, using neural top_n=5 matching with context")
+                    neural_predictions = neural.tag_tokens_in_context(
+                        multi_tag_indices, tokens, sentence_boundaries, top_n=5
+                    )
+
+                    for token_idx in multi_tag_indices:
+                        neural_tags = neural_predictions.get(token_idx, [])
+                        candidate_tags = tokens[token_idx].get('usas_tags', [])
+
+                        matched_tag = self._match_neural_with_candidates(neural_tags, candidate_tags)
+
+                        if matched_tag:
+                            tokens[token_idx]['usas_tag'] = matched_tag
+                            tokens[token_idx]['neural_fallback'] = True
+                            tokens[token_idx]['disambiguation_method'] = 'neural_match'
+                            neural_matched_count += 1
+                        else:
+                            unmatched_indices.append(token_idx)
+                else:
+                    unmatched_indices = multi_tag_indices
+
+                logger.info(f"Hybrid: neural matched {neural_matched_count}/{len(multi_tag_indices)} multi-tag tokens")
+
+                # Step 3: Disambiguation for unmatched tokens
+                if progress_callback:
+                    progress_callback(50, "Disambiguating...")
+
+                priority_domains = self.get_priority_domains_for_type(text_type) if text_type else []
+                disambiguator = USASDisambiguator(priority_domains=priority_domains)
+
+                for i, token in enumerate(tokens):
+                    if i not in unmatched_indices:
+                        if not token.get('disambiguation_method'):
+                            usas_tags = token.get('usas_tags', [])
+                            if len(usas_tags) <= 1:
+                                token['disambiguation_method'] = 'single_tag'
+                            elif token.get('is_mwe'):
+                                token['disambiguation_method'] = 'mwe'
+
+                disamb_result = disambiguator.disambiguate(tokens, text_type=text_type)
+                disamb_tokens = disamb_result['tokens']
+
+                # Step 4: Final neural fallback for 'default' disambiguation
+                if progress_callback:
+                    progress_callback(65, "USAS tagging (hybrid - final fallback)...")
+
+                default_indices = []
+                if neural.is_available():
+                    for i, token in enumerate(disamb_tokens):
+                        if token.get('disambiguation_method') == 'default':
+                            if token.get('is_punct') or token.get('is_space'):
+                                continue
+                            if token.get('is_mwe'):
+                                continue
+                            default_indices.append(i)
+
+                    if default_indices:
+                        logger.info(f"Hybrid: {len(default_indices)} tokens with default disambiguation, using neural top_n=1 fallback with context")
+                        neural_predictions = neural.tag_tokens_in_context(
+                            default_indices, disamb_tokens, sentence_boundaries, top_n=1
+                        )
+                        for token_idx, pred in neural_predictions.items():
+                            if pred and pred[0] != 'Z99':
+                                disamb_tokens[token_idx]['usas_tag'] = pred[0]
+                                disamb_tokens[token_idx]['neural_fallback'] = True
+                                disamb_tokens[token_idx]['disambiguation_method'] = 'neural_final'
+
+                # Step 5: Propagate senses
+                if progress_callback:
+                    progress_callback(75, "Propagating senses...")
+                final_tokens = disambiguator.propagate_senses(disamb_tokens)
+
+                # Step 6: Add _MWE suffix AFTER disambiguation
+                for token in final_tokens:
+                    if token.get('is_mwe'):
+                        tag = token.get('usas_tag', '')
+                        if tag and tag not in ('Z99', 'PUNCT') and not tag.endswith('_MWE'):
+                            token['usas_tag'] = f"{tag}_MWE"
+
+                # Step 7: Add descriptions
+                self._add_token_descriptions(final_tokens, progress_callback)
+
+                # Count neural fallback tokens
+                neural_fallback_count = sum(1 for t in final_tokens if t.get('neural_fallback'))
+                neural_z99_count = sum(1 for t in final_tokens if t.get('disambiguation_method') == 'neural_z99')
+                neural_match_count = sum(1 for t in final_tokens if t.get('disambiguation_method') == 'neural_match')
+                neural_final_count = sum(1 for t in final_tokens if t.get('disambiguation_method') == 'neural_final')
+
+                result['success'] = True
+                result['tokens'] = final_tokens
+                result['domain_distribution'] = disamb_result['domain_distribution']
+                result['dominant_domain'] = disamb_result['dominant_domain']
+                result['disambiguation_stats'] = {
+                    **disamb_result['disambiguation_stats'],
+                    'neural_fallback_tokens': neural_fallback_count,
+                    'neural_z99_tokens': neural_z99_count,
+                    'neural_match_tokens': neural_match_count,
+                    'neural_final_tokens': neural_final_count
+                }
+
+                if progress_callback:
+                    progress_callback(100, "Complete")
+                logger.info(f"Hybrid annotated: {len(final_tokens)} tokens, neural: {neural_fallback_count} total ({neural_z99_count} Z99, {neural_match_count} match, {neural_final_count} final), dominant: {disamb_result['dominant_domain']}")
+
         except Exception as e:
             result['error'] = str(e)
             logger.error(f"Hybrid annotation error: {e}")
-        
+
         return result
     
     def _add_token_descriptions(
@@ -912,6 +1008,8 @@ class USASService:
         text_type: Optional[str]
     ) -> Dict[str, Any]:
         """Annotate segments using rule-based mode"""
+        disambiguation_enabled = self.get_disambiguation_enabled()
+
         result = {
             'success': False,
             'segments': {},
@@ -919,54 +1017,71 @@ class USASService:
             'domain_distribution': {},
             'dominant_domain': None,
             'tagging_mode': 'rule_based',
+            'disambiguation_enabled': disambiguation_enabled,
             'error': None
         }
-        
+
         try:
             all_tokens = []
             segment_token_ranges = {}
-            
+
             for segment in segments:
                 seg_id = segment.get('id', 0)
                 seg_text = segment.get('text', '')
-                
+
                 if not seg_text.strip():
                     continue
-                
+
                 tag_result = self.tagger.tag_text(seg_text, language)
-                
+
                 if tag_result['success']:
                     start_idx = len(all_tokens)
-                    
+
                     for token in tag_result['tokens']:
                         token['segment_id'] = seg_id
                         token['segment_start'] = segment.get('start', 0)
                         token['segment_end'] = segment.get('end', 0)
                         all_tokens.append(token)
-                    
+
                     end_idx = len(all_tokens)
                     segment_token_ranges[seg_id] = (start_idx, end_idx)
-            
+
             if not all_tokens:
                 result['success'] = True
                 return result
-            
-            # Disambiguation
-            priority_domains = self.get_priority_domains_for_type(text_type) if text_type else []
-            disambiguator = USASDisambiguator(priority_domains=priority_domains)
-            disamb_result = disambiguator.disambiguate(all_tokens, text_type=text_type)
-            final_tokens = disambiguator.propagate_senses(disamb_result['tokens'])
-            
-            # Add MWE suffix
-            for token in final_tokens:
-                if token.get('is_mwe'):
-                    tag = token.get('usas_tag', '')
-                    if tag and tag not in ('Z99', 'PUNCT') and not tag.endswith('_MWE'):
-                        token['usas_tag'] = f"{tag}_MWE"
-            
+
+            if disambiguation_enabled:
+                # Disambiguation
+                priority_domains = self.get_priority_domains_for_type(text_type) if text_type else []
+                disambiguator = USASDisambiguator(priority_domains=priority_domains)
+                disamb_result = disambiguator.disambiguate(all_tokens, text_type=text_type)
+                final_tokens = disambiguator.propagate_senses(disamb_result['tokens'])
+
+                # Add MWE suffix
+                for token in final_tokens:
+                    if token.get('is_mwe'):
+                        tag = token.get('usas_tag', '')
+                        if tag and tag not in ('Z99', 'PUNCT') and not tag.endswith('_MWE'):
+                            token['usas_tag'] = f"{tag}_MWE"
+
+                result['domain_distribution'] = disamb_result['domain_distribution']
+                result['dominant_domain'] = disamb_result['dominant_domain']
+            else:
+                # No disambiguation: keep all tags, apply MWE suffix only
+                final_tokens = all_tokens
+                for token in final_tokens:
+                    if token.get('is_mwe'):
+                        tag = token.get('usas_tag', '')
+                        if tag and tag not in ('Z99', 'PUNCT') and not tag.endswith('_MWE'):
+                            token['usas_tag'] = f"{tag}_MWE"
+                        token['usas_tags'] = [
+                            f"{t}_MWE" if t and t not in ('Z99', 'PUNCT') and not t.endswith('_MWE') else t
+                            for t in token.get('usas_tags', [])
+                        ]
+
             # Add descriptions
             self._add_token_descriptions(final_tokens)
-            
+
             # Reconstruct segments
             for seg_id, (start_idx, end_idx) in segment_token_ranges.items():
                 segment_tokens = final_tokens[start_idx:end_idx]
@@ -976,18 +1091,16 @@ class USASService:
                         'segment_end': segment_tokens[0].get('segment_end', 0),
                         'tokens': segment_tokens
                     }
-            
+
             result['success'] = True
             result['total_tokens'] = len(final_tokens)
-            result['domain_distribution'] = disamb_result['domain_distribution']
-            result['dominant_domain'] = disamb_result['dominant_domain']
-            
+
             logger.info(f"Rule-based segments: {len(result['segments'])} segments, {result['total_tokens']} tokens")
-            
+
         except Exception as e:
             result['error'] = str(e)
             logger.error(f"Rule-based segment annotation error: {e}")
-        
+
         return result
     
     def _annotate_segments_neural(
@@ -996,6 +1109,9 @@ class USASService:
         language: str
     ) -> Dict[str, Any]:
         """Annotate segments using neural mode"""
+        disambiguation_enabled = self.get_disambiguation_enabled()
+        top_n = 1 if disambiguation_enabled else 5
+
         result = {
             'success': False,
             'segments': {},
@@ -1003,49 +1119,51 @@ class USASService:
             'domain_distribution': {},
             'dominant_domain': None,
             'tagging_mode': 'neural',
+            'disambiguation_enabled': disambiguation_enabled,
             'error': None
         }
-        
+
         try:
             neural = self._get_neural_tagger()
             domain_counts = {}
-            
+
             for segment in segments:
                 seg_id = segment.get('id', 0)
                 seg_text = segment.get('text', '')
-                
+
                 if not seg_text.strip():
                     continue
-                
-                tag_result = neural.tag_text(seg_text, language)
-                
+
+                tag_result = neural.tag_text(seg_text, language, top_n=top_n)
+
                 if tag_result['success']:
                     seg_result = {
                         'segment_start': segment.get('start', 0),
                         'segment_end': segment.get('end', 0),
                         'tokens': []
                     }
-                    
+
                     for token in tag_result['tokens']:
                         token['segment_id'] = seg_id
                         token['segment_start'] = segment.get('start', 0)
                         token['segment_end'] = segment.get('end', 0)
                         seg_result['tokens'].append(token)
-                        
+
                         # Count domains
                         if not token.get('is_punct') and not token.get('is_space'):
-                            tag = token.get('usas_tag', '')
-                            if tag and tag != 'Z99':
-                                category = tag[0] if tag else ''
-                                if category:
-                                    domain_counts[category] = domain_counts.get(category, 0) + 1
-                    
+                            tags_to_count = token.get('usas_tags', []) if not disambiguation_enabled else [token.get('usas_tag', '')]
+                            for tag in tags_to_count:
+                                if tag and tag != 'Z99':
+                                    category = tag[0] if tag else ''
+                                    if category:
+                                        domain_counts[category] = domain_counts.get(category, 0) + 1
+
                     # Add descriptions
                     self._add_token_descriptions(seg_result['tokens'])
-                    
+
                     result['segments'][seg_id] = seg_result
                     result['total_tokens'] += len(seg_result['tokens'])
-            
+
             # Find dominant domain
             dominant = None
             max_count = 0
@@ -1053,17 +1171,17 @@ class USASService:
                 if count > max_count:
                     max_count = count
                     dominant = domain
-            
+
             result['success'] = True
             result['domain_distribution'] = domain_counts
             result['dominant_domain'] = dominant
-            
-            logger.info(f"Neural segments: {len(result['segments'])} segments, {result['total_tokens']} tokens")
-            
+
+            logger.info(f"Neural segments: {len(result['segments'])} segments, {result['total_tokens']} tokens (top_n={top_n})")
+
         except Exception as e:
             result['error'] = str(e)
             logger.error(f"Neural segment annotation error: {e}")
-        
+
         return result
     
     def _annotate_segments_hybrid(
@@ -1073,6 +1191,8 @@ class USASService:
         text_type: Optional[str]
     ) -> Dict[str, Any]:
         """Annotate segments using hybrid mode"""
+        disambiguation_enabled = self.get_disambiguation_enabled()
+
         result = {
             'success': False,
             'segments': {},
@@ -1080,67 +1200,69 @@ class USASService:
             'domain_distribution': {},
             'dominant_domain': None,
             'tagging_mode': 'hybrid',
+            'disambiguation_enabled': disambiguation_enabled,
             'error': None
         }
-        
+
         try:
             all_tokens = []
             segment_token_ranges = {}
-            
+
             # First pass: rule-based tagging
             for segment in segments:
                 seg_id = segment.get('id', 0)
                 seg_text = segment.get('text', '')
-                
+
                 if not seg_text.strip():
                     continue
-                
+
                 tag_result = self.tagger.tag_text(seg_text, language)
-                
+
                 if tag_result['success']:
                     start_idx = len(all_tokens)
-                    
+
                     for token in tag_result['tokens']:
                         token['segment_id'] = seg_id
                         token['segment_start'] = segment.get('start', 0)
                         token['segment_end'] = segment.get('end', 0)
                         all_tokens.append(token)
-                    
+
                     end_idx = len(all_tokens)
                     segment_token_ranges[seg_id] = (start_idx, end_idx)
-            
+
             if not all_tokens:
                 result['success'] = True
                 return result
-            
+
             # Neural fallback for Z99 tokens
             neural = self._get_neural_tagger()
             neural_fallback_count = 0
-            
+            z99_top_n = 1 if disambiguation_enabled else 5
+
             if neural.is_available():
                 unknown_indices = []
                 unknown_tokens_text = []
-                
+
                 for i, token in enumerate(all_tokens):
                     usas_tag = token.get('usas_tag', '')
                     usas_tags = token.get('usas_tags', [])
-                    
+
                     is_unknown = (
-                        usas_tag == 'Z99' or 
-                        not usas_tags or 
+                        usas_tag == 'Z99' or
+                        not usas_tags or
                         (len(usas_tags) == 1 and usas_tags[0] == 'Z99')
                     )
-                    
+
                     if token.get('is_punct') or token.get('is_space'):
                         is_unknown = False
-                    
+
                     if is_unknown:
                         unknown_indices.append(i)
                         unknown_tokens_text.append(token['text'])
-                
+
                 if unknown_tokens_text:
-                    neural_predictions = neural.tag_tokens(unknown_tokens_text, top_n=1)
-                    
+                    neural_predictions = neural.tag_tokens(unknown_tokens_text, top_n=z99_top_n)
+
                     for idx, token_idx in enumerate(unknown_indices):
                         if idx < len(neural_predictions):
                             pred = neural_predictions[idx]
@@ -1149,23 +1271,39 @@ class USASService:
                                 all_tokens[token_idx]['usas_tags'] = pred
                                 all_tokens[token_idx]['neural_fallback'] = True
                                 neural_fallback_count += 1
-            
-            # Disambiguation
-            priority_domains = self.get_priority_domains_for_type(text_type) if text_type else []
-            disambiguator = USASDisambiguator(priority_domains=priority_domains)
-            disamb_result = disambiguator.disambiguate(all_tokens, text_type=text_type)
-            final_tokens = disambiguator.propagate_senses(disamb_result['tokens'])
-            
-            # Add MWE suffix
-            for token in final_tokens:
-                if token.get('is_mwe'):
-                    tag = token.get('usas_tag', '')
-                    if tag and tag not in ('Z99', 'PUNCT') and not tag.endswith('_MWE'):
-                        token['usas_tag'] = f"{tag}_MWE"
-            
+
+            if disambiguation_enabled:
+                # Disambiguation
+                priority_domains = self.get_priority_domains_for_type(text_type) if text_type else []
+                disambiguator = USASDisambiguator(priority_domains=priority_domains)
+                disamb_result = disambiguator.disambiguate(all_tokens, text_type=text_type)
+                final_tokens = disambiguator.propagate_senses(disamb_result['tokens'])
+
+                # Add MWE suffix
+                for token in final_tokens:
+                    if token.get('is_mwe'):
+                        tag = token.get('usas_tag', '')
+                        if tag and tag not in ('Z99', 'PUNCT') and not tag.endswith('_MWE'):
+                            token['usas_tag'] = f"{tag}_MWE"
+
+                result['domain_distribution'] = disamb_result['domain_distribution']
+                result['dominant_domain'] = disamb_result['dominant_domain']
+            else:
+                # No disambiguation: keep all tags, apply MWE suffix only
+                final_tokens = all_tokens
+                for token in final_tokens:
+                    if token.get('is_mwe'):
+                        tag = token.get('usas_tag', '')
+                        if tag and tag not in ('Z99', 'PUNCT') and not tag.endswith('_MWE'):
+                            token['usas_tag'] = f"{tag}_MWE"
+                        token['usas_tags'] = [
+                            f"{t}_MWE" if t and t not in ('Z99', 'PUNCT') and not t.endswith('_MWE') else t
+                            for t in token.get('usas_tags', [])
+                        ]
+
             # Add descriptions
             self._add_token_descriptions(final_tokens)
-            
+
             # Reconstruct segments
             for seg_id, (start_idx, end_idx) in segment_token_ranges.items():
                 segment_tokens = final_tokens[start_idx:end_idx]
@@ -1175,18 +1313,16 @@ class USASService:
                         'segment_end': segment_tokens[0].get('segment_end', 0),
                         'tokens': segment_tokens
                     }
-            
+
             result['success'] = True
             result['total_tokens'] = len(final_tokens)
-            result['domain_distribution'] = disamb_result['domain_distribution']
-            result['dominant_domain'] = disamb_result['dominant_domain']
-            
+
             logger.info(f"Hybrid segments: {len(result['segments'])} segments, {result['total_tokens']} tokens, {neural_fallback_count} neural fallback")
-            
+
         except Exception as e:
             result['error'] = str(e)
             logger.error(f"Hybrid segment annotation error: {e}")
-        
+
         return result
     
     def get_domains(self) -> Dict[str, Any]:

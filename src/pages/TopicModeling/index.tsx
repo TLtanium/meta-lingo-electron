@@ -5,7 +5,7 @@
  * LSA/NMF topic modeling with sklearn
  */
 
-import { useState, useEffect, useRef, useMemo } from 'react'
+import { useState, useEffect, useRef, useMemo, lazy, Suspense } from 'react'
 import {
   Box,
   Typography,
@@ -36,13 +36,15 @@ import AnalysisPanel from './AnalysisPanel'
 import ResultsPanel from './ResultsPanel'
 import VisualizationPanel from './VisualizationPanel'
 import DynamicTopicPanel from './DynamicTopicPanel'
-import LDATab from './LDA'
-import LSATab from './LSA'
-import NMFTab from './NMF'
 import AnalysisAIAssistant from '../../components/AnalysisAIAssistant'
 import type { CrossLinkParams } from '../../types/crossLink'
 import { buildTopicModelingAIContext } from './buildTopicModelingAIContext'
 import type { BERTopicAnalysisConfigSnapshot } from './AnalysisPanel'
+
+const LDATab = lazy(() => import('./LDA'))
+const LSATab = lazy(() => import('./LSA'))
+const NMFTab = lazy(() => import('./NMF'))
+const VisualizationPanelLazy = lazy(() => import('./VisualizationPanel'))
 
 interface TopicModelingProps {
   crossLinkParams?: CrossLinkParams
@@ -404,29 +406,43 @@ export default function TopicModeling({ crossLinkParams }: TopicModelingProps = 
                     flexDirection: 'column'
                   }}
                 >
-                  <VisualizationPanel
-                    resultId={analysisResult?.result_id || null}
-                    hasDynamicTopics={analysisResult?.has_dynamic_topics || false}
-                  />
+                  <Suspense fallback={<Box sx={{ flex: 1 }} />}>
+                    <VisualizationPanelLazy
+                      resultId={analysisResult?.result_id || null}
+                      hasDynamicTopics={analysisResult?.has_dynamic_topics || false}
+                    />
+                  </Suspense>
                 </Box>
               </Box>
             </Box>
           </Box>
 
-        {/* LDA Tab - use display instead of conditional rendering to preserve state */}
-        <Box sx={{ display: mainTab === 1 ? 'block' : 'none', height: '100%' }}>
-          <LDATab crossLinkParams={crossLinkParams} />
-        </Box>
+        {/* LDA Tab - mount only when active to avoid background render cost */}
+        {mainTab === 1 && (
+          <Box sx={{ height: '100%' }}>
+            <Suspense fallback={<Box sx={{ height: '100%' }} />}>
+              <LDATab crossLinkParams={crossLinkParams} />
+            </Suspense>
+          </Box>
+        )}
 
-        {/* LSA Tab - use display instead of conditional rendering to preserve state */}
-        <Box sx={{ display: mainTab === 2 ? 'block' : 'none', height: '100%' }}>
-          <LSATab crossLinkParams={crossLinkParams} />
-        </Box>
+        {/* LSA Tab - mount only when active to avoid background render cost */}
+        {mainTab === 2 && (
+          <Box sx={{ height: '100%' }}>
+            <Suspense fallback={<Box sx={{ height: '100%' }} />}>
+              <LSATab crossLinkParams={crossLinkParams} />
+            </Suspense>
+          </Box>
+        )}
 
-        {/* NMF Tab - use display instead of conditional rendering to preserve state */}
-        <Box sx={{ display: mainTab === 3 ? 'block' : 'none', height: '100%' }}>
-          <NMFTab crossLinkParams={crossLinkParams} />
-        </Box>
+        {/* NMF Tab - mount only when active to avoid background render cost */}
+        {mainTab === 3 && (
+          <Box sx={{ height: '100%' }}>
+            <Suspense fallback={<Box sx={{ height: '100%' }} />}>
+              <NMFTab crossLinkParams={crossLinkParams} />
+            </Suspense>
+          </Box>
+        )}
       </Box>
     </Box>
   )

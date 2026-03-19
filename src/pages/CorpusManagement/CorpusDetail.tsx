@@ -39,8 +39,7 @@ import {
   Slider,
   LinearProgress,
   Snackbar,
-  Checkbox,
-  ButtonGroup
+  Checkbox
 } from '@mui/material'
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import EditIcon from '@mui/icons-material/Edit'
@@ -56,6 +55,7 @@ import RefreshIcon from '@mui/icons-material/Refresh'
 import PlayArrowIcon from '@mui/icons-material/PlayArrow'
 import PauseIcon from '@mui/icons-material/Pause'
 import UploadIcon from '@mui/icons-material/Upload'
+import FileDownloadIcon from '@mui/icons-material/FileDownload'
 import SmartToyIcon from '@mui/icons-material/SmartToy'
 import ImageSearchIcon from '@mui/icons-material/ImageSearch'
 import CategoryIcon from '@mui/icons-material/Category'
@@ -68,10 +68,12 @@ import type {
   CorpusText, 
   MediaType, 
   TranscriptData, 
-  TranscriptSegment 
+  TranscriptSegment,
+  ServicesStatus
 } from '../../types'
 import { API_BASE_URL } from '../../api/client'
-import { TextEditDialog, TranscriptSegmentEdit, BatchTextEditDialog } from '../../components/Corpus'
+import { TextEditDialog, TranscriptSegmentEdit, BatchTextEditDialog, CorpusExportDialog } from '../../components/Corpus'
+import type { ExportableTextItem } from '../../components/Corpus'
 import TextMetadataEditor from './TextMetadataEditor'
 import NumberInput from '../../components/common/NumberInput'
 import { useCorpusStore, type TaskInfo } from '../../stores/corpusStore'
@@ -184,6 +186,9 @@ export default function CorpusDetail({ corpus, onBack, onUpload }: CorpusDetailP
   // Batch text edit dialog state
   const [batchEditDialogOpen, setBatchEditDialogOpen] = useState(false)
 
+  // Export annotated corpus dialog state
+  const [exportDialogOpen, setExportDialogOpen] = useState(false)
+
   // Text metadata editor state
   const [metadataEditorOpen, setMetadataEditorOpen] = useState(false)
   const [editingTextForMetadata, setEditingTextForMetadata] = useState<CorpusText | null>(null)
@@ -194,6 +199,12 @@ export default function CorpusDetail({ corpus, onBack, onUpload }: CorpusDetailP
   // Selection state for batch re-annotation
   const [selectedTextIds, setSelectedTextIds] = useState<Set<string>>(new Set())
   const [reAnnotating, setReAnnotating] = useState<string | null>(null)  // 'spacy' | 'yolo' | 'clip' | null
+
+  // ML service availability (used to disable unavailable re-annotation strategies)
+  const [servicesStatus, setServicesStatus] = useState<ServicesStatus | null>(null)
+  const yoloAvailable = servicesStatus?.yolo?.available ?? true
+  const clipAvailable = servicesStatus?.clip?.available ?? true
+  const mipvuAvailable = servicesStatus?.mipvu?.available ?? true
   
   // CLIP re-annotation dialog state
   const [clipReAnnotateDialogOpen, setClipReAnnotateDialogOpen] = useState(false)
@@ -205,6 +216,21 @@ export default function CorpusDetail({ corpus, onBack, onUpload }: CorpusDetailP
   useEffect(() => {
     loadTexts()
   }, [corpus.id])
+
+  // Load ML services availability once (used for re-annotation gating).
+  useEffect(() => {
+    const loadServicesStatus = async () => {
+      try {
+        const response = await corpusApi.getServicesStatus()
+        if (response.success && response.data) {
+          setServicesStatus(response.data)
+        }
+      } catch (e) {
+        console.error('Failed to load services status:', e)
+      }
+    }
+    loadServicesStatus()
+  }, [])
 
   const loadTexts = async () => {
     setLoading(true)
@@ -966,6 +992,18 @@ export default function CorpusDetail({ corpus, onBack, onUpload }: CorpusDetailP
     }))
   }, [texts, selectedTextIds])
 
+  // Export: Get selected exportable items (plain text + audio/video with transcripts)
+  const getExportableItems = useCallback((): ExportableTextItem[] => {
+    return texts
+      .filter(t => {
+        if (!selectedTextIds.has(t.id)) return false
+        if (t.mediaType === 'text') return true
+        if ((t.mediaType === 'audio' || t.mediaType === 'video') && t.transcriptJsonPath) return true
+        return false
+      })
+      .map(t => ({ id: t.id, filename: t.filename }))
+  }, [texts, selectedTextIds])
+
   // Batch edit: Load content for a single text
   const loadTextContentForBatch = useCallback(async (textId: string): Promise<string> => {
     const response = await corpusApi.getText(corpus.id, textId)
@@ -1086,85 +1124,151 @@ export default function CorpusDetail({ corpus, onBack, onUpload }: CorpusDetailP
           </Typography>
         </Box>
         <Stack direction="row" spacing={1} alignItems="center">
-          {/* Re-annotation buttons - always visible, disabled when no selection */}
-          <ButtonGroup variant="outlined" size="small">
+          {/* Re-annotation buttons – manually styled connected group.
+              ButtonGroup + <span> (Tooltip on disabled) breaks MUI's CSS sibling
+              selectors, causing adjacent enabled buttons to lose their shared border.
+              Fix: Box with inline-flex, explicit border-radius per position, and
+              z-index:1 on enabled buttons so their borders always render on top. */}
+          <Box sx={{ display: 'inline-flex' }}>
+            {/* SpaCy – first */}
             <Tooltip title={selectedTextIds.size === 0 ? t('corpus.selectTextsFirst', '请先选择文本') : t('corpus.spacyReAnnotate')}>
               <span>
                 <Button
+                  variant="outlined" size="small"
                   onClick={() => handleBatchSpacyAnnotate(true)}
                   disabled={selectedTextIds.size === 0 || spacyAnnotating || reAnnotating !== null}
                   startIcon={spacyAnnotating ? <CircularProgress size={16} /> : <SmartToyIcon />}
+                  sx={{
+                    borderTopRightRadius: 0, borderBottomRightRadius: 0,
+                    ...(!( selectedTextIds.size === 0 || spacyAnnotating || reAnnotating !== null) && { position: 'relative', zIndex: 1 }),
+                  }}
                 >
                   SpaCy
                 </Button>
               </span>
             </Tooltip>
-            <Tooltip title={selectedTextIds.size === 0 ? t('corpus.selectTextsFirst', '请先选择文本') : (!selectedHasVideos ? t('corpus.noVideosSelected', '请选择视频文件') : t('corpus.yoloReAnnotate', 'YOLO 重新标注'))}>
+            {/* YOLO */}
+            <Tooltip
+              title={
+                selectedTextIds.size === 0
+                  ? t('corpus.selectTextsFirst', '请先选择文本')
+                  : !selectedHasVideos
+                    ? t('corpus.noVideosSelected', '请选择视频文件')
+                    : !yoloAvailable
+                      ? t('corpus.yoloModelUnavailable', 'YOLO 模型不可用')
+                      : t('corpus.yoloReAnnotate', 'YOLO 重新标注')
+              }
+            >
               <span>
                 <Button
+                  variant="outlined" size="small"
                   onClick={handleYoloReAnnotate}
-                  disabled={selectedTextIds.size === 0 || !selectedHasVideos || reAnnotating !== null}
+                  disabled={selectedTextIds.size === 0 || !selectedHasVideos || !yoloAvailable || reAnnotating !== null}
                   startIcon={reAnnotating === 'yolo' ? <CircularProgress size={16} /> : <VideoFileIcon />}
+                  sx={{
+                    borderRadius: 0, ml: '-1px',
+                    ...(!( selectedTextIds.size === 0 || !selectedHasVideos || !yoloAvailable || reAnnotating !== null) && { position: 'relative', zIndex: 1 }),
+                  }}
                 >
                   YOLO
                 </Button>
               </span>
             </Tooltip>
-            <Tooltip title={selectedTextIds.size === 0 ? t('corpus.selectTextsFirst', '请先选择文本') : (!selectedHasVideos ? t('corpus.noVideosSelected', '请选择视频文件') : t('corpus.clipReAnnotate', 'CLIP 重新标注'))}>
+            {/* CLIP */}
+            <Tooltip
+              title={
+                selectedTextIds.size === 0
+                  ? t('corpus.selectTextsFirst', '请先选择文本')
+                  : !selectedHasVideos
+                    ? t('corpus.noVideosSelected', '请选择视频文件')
+                    : !clipAvailable
+                      ? t('corpus.clipModelUnavailable', 'CLIP 模型不可用')
+                      : t('corpus.clipReAnnotate', 'CLIP 重新标注')
+              }
+            >
               <span>
                 <Button
+                  variant="outlined" size="small"
                   onClick={handleClipReAnnotateClick}
-                  disabled={selectedTextIds.size === 0 || !selectedHasVideos || reAnnotating !== null}
+                  disabled={selectedTextIds.size === 0 || !selectedHasVideos || !clipAvailable || reAnnotating !== null}
                   startIcon={reAnnotating === 'clip' ? <CircularProgress size={16} /> : <ImageSearchIcon />}
+                  sx={{
+                    borderRadius: 0, ml: '-1px',
+                    ...(!( selectedTextIds.size === 0 || !selectedHasVideos || !clipAvailable || reAnnotating !== null) && { position: 'relative', zIndex: 1 }),
+                  }}
                 >
                   CLIP
                 </Button>
               </span>
             </Tooltip>
+            {/* USAS */}
             <Tooltip title={selectedTextIds.size === 0 ? t('corpus.selectTextsFirst', '请先选择文本') : t('corpus.usasReAnnotate', 'USAS 语义域重新标注')}>
               <span>
                 <Button
+                  variant="outlined" size="small"
                   onClick={handleUsasReAnnotate}
                   disabled={selectedTextIds.size === 0 || reAnnotating !== null}
                   startIcon={reAnnotating === 'usas' ? <CircularProgress size={16} /> : <CategoryIcon />}
+                  sx={{
+                    borderRadius: 0, ml: '-1px',
+                    ...(!( selectedTextIds.size === 0 || reAnnotating !== null) && { position: 'relative', zIndex: 1 }),
+                  }}
                 >
                   USAS
                 </Button>
               </span>
             </Tooltip>
+            {/* MIPVU */}
             <Tooltip title={
               corpus.language?.toLowerCase() !== 'english' && corpus.language?.toLowerCase() !== 'en'
                 ? t('corpus.mipvuEnglishOnly', 'MIPVU 仅支持英语')
-                : selectedTextIds.size === 0 
-                  ? t('corpus.selectTextsFirst', '请先选择文本') 
-                  : t('corpus.mipvuReAnnotate', 'MIPVU 隐喻重新标注')
+                : selectedTextIds.size === 0
+                  ? t('corpus.selectTextsFirst', '请先选择文本')
+                  : !mipvuAvailable
+                    ? t('corpus.mipvuModelUnavailable', 'MIPVU 模型不可用')
+                    : t('corpus.mipvuReAnnotate', 'MIPVU 隐喻重新标注')
             }>
               <span>
                 <Button
+                  variant="outlined" size="small"
                   onClick={handleMipvuReAnnotate}
                   disabled={
-                    selectedTextIds.size === 0 || 
+                    selectedTextIds.size === 0 ||
                     reAnnotating !== null ||
+                    !mipvuAvailable ||
                     (corpus.language?.toLowerCase() !== 'english' && corpus.language?.toLowerCase() !== 'en')
                   }
                   startIcon={reAnnotating === 'mipvu' ? <CircularProgress size={16} /> : <AutoGraphIcon />}
+                  sx={{
+                    borderRadius: 0, ml: '-1px',
+                    ...(!( selectedTextIds.size === 0 || reAnnotating !== null ||
+                      !mipvuAvailable ||
+                      (corpus.language?.toLowerCase() !== 'english' && corpus.language?.toLowerCase() !== 'en')
+                    ) && { position: 'relative', zIndex: 1 }),
+                  }}
                 >
                   MIPVU
                 </Button>
               </span>
             </Tooltip>
+            {/* NRC – last */}
             <Tooltip title={selectedTextIds.size === 0 ? t('corpus.selectTextsFirst', '请先选择文本') : t('corpus.nrcReAnnotate', 'NRC 情感重新标注')}>
               <span>
                 <Button
+                  variant="outlined" size="small"
                   onClick={handleNrcReAnnotate}
                   disabled={selectedTextIds.size === 0 || reAnnotating !== null}
                   startIcon={reAnnotating === 'nrc' ? <CircularProgress size={16} /> : <TheaterComedyIcon />}
+                  sx={{
+                    borderTopLeftRadius: 0, borderBottomLeftRadius: 0, ml: '-1px',
+                    ...(!( selectedTextIds.size === 0 || reAnnotating !== null) && { position: 'relative', zIndex: 1 }),
+                  }}
                 >
                   NRC
                 </Button>
               </span>
             </Tooltip>
-          </ButtonGroup>
+          </Box>
           <Divider orientation="vertical" flexItem />
           {/* Batch edit button - only for text type files */}
           <Tooltip title={getSelectedTextItems().length === 0 ? t('corpus.selectTextFilesFirst', '请先选择文本文件') : t('corpus.batchEdit.button', '批量编辑')}>
@@ -1177,6 +1281,20 @@ export default function CorpusDetail({ corpus, onBack, onUpload }: CorpusDetailP
                 startIcon={<EditIcon />}
               >
                 {t('corpus.batchEdit.button', '批量编辑')}
+              </Button>
+            </span>
+          </Tooltip>
+          {/* Export annotated corpus button - text and transcribed audio/video */}
+          <Tooltip title={getExportableItems().length === 0 ? t('corpus.exportAnnotated.noTextsSelected', '请先选择文本或转录文件') : t('corpus.exportAnnotated.button', '导出语料')}>
+            <span>
+              <Button
+                variant="outlined"
+                size="small"
+                onClick={() => setExportDialogOpen(true)}
+                disabled={getExportableItems().length === 0}
+                startIcon={<FileDownloadIcon />}
+              >
+                {t('corpus.exportAnnotated.button', '导出语料')}
               </Button>
             </span>
           </Tooltip>
@@ -1780,6 +1898,14 @@ export default function CorpusDetail({ corpus, onBack, onUpload }: CorpusDetailP
         onSaveContent={saveTextContentForBatch}
         onAllSaved={handleBatchSaveComplete}
         title={t('corpus.batchEdit.title', '')}
+      />
+
+      {/* Export Annotated Corpus Dialog */}
+      <CorpusExportDialog
+        open={exportDialogOpen}
+        onClose={() => setExportDialogOpen(false)}
+        corpusId={corpus.id}
+        selectedTexts={getExportableItems()}
       />
 
       {/* Snackbar for save feedback */}

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, lazy, Suspense } from 'react'
+import { useState, useEffect, useRef, lazy, Suspense, memo } from 'react'
 import {
   Box,
   Tabs,
@@ -131,6 +131,8 @@ function TabContent({ tab }: { tab: TabType }) {
   }
 }
 
+const MemoTabContent = memo(TabContent)
+
 // Loading fallback
 function LoadingFallback() {
   return (
@@ -170,7 +172,6 @@ export default function TabManager() {
     }, 50)
     return () => clearTimeout(timer)
   }, [tabs.length, activeTabId])
-  
 
   const handleTabChange = (_: React.SyntheticEvent, newValue: string) => {
     setActiveTab(newValue)
@@ -301,7 +302,7 @@ export default function TabManager() {
                 zIndex: 1
               }}
             >
-              <TabContent tab={tab} />
+              <MemoTabContent tab={tab} />
             </Box>
           ))}
         </Suspense>

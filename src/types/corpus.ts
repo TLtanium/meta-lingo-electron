@@ -457,8 +457,15 @@ export interface ServiceStatus {
 
 export interface ServicesStatus {
   whisper: ServiceStatus
+  wav2vec?: ServiceStatus
   yolo: ServiceStatus
   clip: ServiceStatus
+  usas?: {
+    rule_based: ServiceStatus
+    neural: ServiceStatus
+    hybrid: ServiceStatus
+  }
+  mipvu?: ServiceStatus
 }
 
 // ==================== Language Support ====================

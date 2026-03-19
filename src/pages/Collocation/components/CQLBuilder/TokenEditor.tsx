@@ -137,9 +137,10 @@ export default function TokenEditor({
   const needsGroupBy = (attr: TokenAttribute) => ['dep', 'headdep', 'nrc'].includes(attr)
 
   // Check if attribute needs autocomplete suggestions
-  const needsSuggestions = (attr: TokenAttribute): boolean => {
-    return ['pos', 'tag', 'dep', 'headpos', 'headdep', 'usas', 'nrc'].includes(attr)
-  }
+  const needsSuggestions = (attr: TokenAttribute): boolean =>
+    ['pos', 'tag', 'dep', 'headpos', 'headdep', 'usas', 'nrc'].includes(attr)
+
+
 
   // Update condition in group
   const updateCondition = (
@@ -277,120 +278,125 @@ export default function TokenEditor({
                   </Box>
                 )}
 
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  {/* Delete button */}
-                  {(group.conditions.length > 1 || conditionGroups.length > 1) && (
-                    <IconButton 
-                      size="small" 
-                      onClick={() => removeCondition(groupIndex, conditionIndex)}
-                      sx={{ color: 'error.main' }}
-                    >
-                      <DeleteOutlineIcon fontSize="small" />
-                    </IconButton>
-                  )}
-
-                  {/* Attribute selector with grouped options */}
-                  <FormControl size="small" sx={{ minWidth: 120 }}>
-                    <InputLabel>{isZh ? '属性' : 'Attr'}</InputLabel>
-                    <Select
-                      value={condition.attribute}
-                      onChange={(e) => updateCondition(groupIndex, conditionIndex, 'attribute', e.target.value)}
-                      label={isZh ? '属性' : 'Attr'}
-                    >
-                      {/* Basic attributes */}
-                      <MenuItem disabled sx={{ opacity: 0.7, fontWeight: 'bold', fontSize: '0.75rem' }}>
-                        {isZh ? '--- 基本属性 ---' : '--- Basic ---'}
-                      </MenuItem>
-                      {TOKEN_ATTRIBUTES.filter(a => a.category === 'basic' || !a.category).map(attr => (
-                        <MenuItem key={attr.value} value={attr.value}>
-                          <Tooltip title={isZh ? attr.description.zh : attr.description.en} placement="right">
-                            <span>{isZh ? attr.label.zh : attr.label.en}</span>
-                          </Tooltip>
-                        </MenuItem>
-                      ))}
-                      {/* Head-based attributes for dependency constraints */}
-                      <MenuItem disabled sx={{ opacity: 0.7, fontWeight: 'bold', fontSize: '0.75rem', mt: 1 }}>
-                        {isZh ? '--- 头词属性 ---' : '--- Head Token ---'}
-                      </MenuItem>
-                      {TOKEN_ATTRIBUTES.filter(a => a.category === 'head').map(attr => (
-                        <MenuItem key={attr.value} value={attr.value}>
-                          <Tooltip title={isZh ? attr.description.zh : attr.description.en} placement="right">
-                            <span>{isZh ? attr.label.zh : attr.label.en}</span>
-                          </Tooltip>
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-
-                  {/* Operator selector */}
-                  <FormControl size="small" sx={{ minWidth: 70 }}>
-                    <Select
-                      value={condition.operator}
-                      onChange={(e) => updateCondition(groupIndex, conditionIndex, 'operator', e.target.value)}
-                    >
-                      {COMPARISON_OPERATORS.map(op => (
-                        <MenuItem key={op.value} value={op.value}>
-                          <Tooltip title={isZh ? op.description.zh : op.description.en}>
-                            <span>{op.label}</span>
-                          </Tooltip>
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-
-                  {/* Value input with suggestions */}
-                  <Box sx={{ display: 'flex', alignItems: 'center', flex: 1 }}>
-                    <Typography sx={{ mr: 0.5, color: 'text.secondary' }}>"</Typography>
-                    {needsSuggestions(condition.attribute) ? (
-                      <Autocomplete
-                        freeSolo
+                <Box>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    {/* Delete button */}
+                    {(group.conditions.length > 1 || conditionGroups.length > 1) && (
+                      <IconButton
                         size="small"
-                        options={getSuggestions(condition.attribute)}
-                        getOptionLabel={(option) => typeof option === 'string' ? option : option.value}
-                        groupBy={needsGroupBy(condition.attribute) ? (opt) => (typeof opt === 'string' ? '' : opt.group ?? '') : undefined}
-                        value={condition.value}
-                        onChange={(_, newValue) => {
-                          const value = typeof newValue === 'string' ? newValue : newValue?.value || ''
-                          updateCondition(groupIndex, conditionIndex, 'value', value)
-                        }}
-                        onInputChange={(_, newValue) => {
-                          updateCondition(groupIndex, conditionIndex, 'value', newValue)
-                        }}
-                        renderInput={(params) => (
-                          <TextField
-                            {...params}
-                            placeholder={isZh ? '输入值...' : 'Enter value...'}
-                            sx={{ minWidth: 120 }}
-                          />
-                        )}
-                        renderOption={(props, option) => {
-                          const opt = typeof option === 'string' ? { value: option, label: option } : option
-                          return (
-                            <Box component="li" {...props} key={opt.value}>
-                              <Stack>
-                                <Typography fontFamily="monospace" fontSize="0.8rem" color="primary.main" fontWeight="bold">
-                                  {opt.value}
-                                </Typography>
-                                <Typography variant="caption" color="text.secondary">
-                                  {opt.label}
-                                </Typography>
-                              </Stack>
-                            </Box>
-                          )
-                        }}
-                        sx={{ flex: 1 }}
-                      />
-                    ) : (
-                      <TextField
-                        size="small"
-                        value={condition.value}
-                        onChange={(e) => updateCondition(groupIndex, conditionIndex, 'value', e.target.value)}
-                        placeholder={isZh ? '输入值...' : 'Enter value...'}
-                        sx={{ flex: 1 }}
-                      />
+                        onClick={() => removeCondition(groupIndex, conditionIndex)}
+                        sx={{ color: 'error.main' }}
+                      >
+                        <DeleteOutlineIcon fontSize="small" />
+                      </IconButton>
                     )}
-                    <Typography sx={{ ml: 0.5, color: 'text.secondary' }}>"</Typography>
+
+                    {/* Attribute selector with grouped options */}
+                    <FormControl size="small" sx={{ minWidth: 120 }}>
+                      <InputLabel>{isZh ? '属性' : 'Attr'}</InputLabel>
+                      <Select
+                        value={condition.attribute}
+                        onChange={(e) => updateCondition(groupIndex, conditionIndex, 'attribute', e.target.value)}
+                        label={isZh ? '属性' : 'Attr'}
+                      >
+                        {/* Basic attributes */}
+                        <MenuItem disabled sx={{ opacity: 0.7, fontWeight: 'bold', fontSize: '0.75rem' }}>
+                          {isZh ? '--- 基本属性 ---' : '--- Basic ---'}
+                        </MenuItem>
+                        {TOKEN_ATTRIBUTES.filter(a => a.category === 'basic' || !a.category).map(attr => (
+                          <MenuItem key={attr.value} value={attr.value}>
+                            <Tooltip title={isZh ? attr.description.zh : attr.description.en} placement="right">
+                              <span>{isZh ? attr.label.zh : attr.label.en}</span>
+                            </Tooltip>
+                          </MenuItem>
+                        ))}
+                        {/* Head-based attributes for dependency constraints */}
+                        <MenuItem disabled sx={{ opacity: 0.7, fontWeight: 'bold', fontSize: '0.75rem', mt: 1 }}>
+                          {isZh ? '--- 头词属性 ---' : '--- Head Token ---'}
+                        </MenuItem>
+                        {TOKEN_ATTRIBUTES.filter(a => a.category === 'head').map(attr => (
+                          <MenuItem key={attr.value} value={attr.value}>
+                            <Tooltip title={isZh ? attr.description.zh : attr.description.en} placement="right">
+                              <span>{isZh ? attr.label.zh : attr.label.en}</span>
+                            </Tooltip>
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+
+                    {/* Operator selector */}
+                    <FormControl size="small" sx={{ minWidth: 70 }}>
+                      <Select
+                        value={condition.operator}
+                        onChange={(e) => updateCondition(groupIndex, conditionIndex, 'operator', e.target.value)}
+                      >
+                        {COMPARISON_OPERATORS.map(op => (
+                          <MenuItem key={op.value} value={op.value}>
+                            <Tooltip title={isZh ? op.description.zh : op.description.en}>
+                              <span>{op.label}</span>
+                            </Tooltip>
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+
+                    {/* Value input
+                        == / !== → Autocomplete dropdown (pick from fixed list)
+                        =  / !=  → plain TextField (type any regex pattern freely) */}
+                    <Box sx={{ display: 'flex', alignItems: 'center', flex: 1 }}>
+                      <Typography sx={{ mr: 0.5, color: 'text.secondary' }}>"</Typography>
+                      {needsSuggestions(condition.attribute) ? (
+                        <Autocomplete
+                          freeSolo
+                          size="small"
+                          options={getSuggestions(condition.attribute)}
+                          getOptionLabel={(option) => typeof option === 'string' ? option : option.value}
+                          groupBy={needsGroupBy(condition.attribute) ? (opt) => (typeof opt === 'string' ? '' : opt.group ?? '') : undefined}
+                          value={condition.value}
+                          onChange={(_, newValue) => {
+                            const value = typeof newValue === 'string' ? newValue : newValue?.value || ''
+                            updateCondition(groupIndex, conditionIndex, 'value', value)
+                          }}
+                          onInputChange={(_, newValue) => {
+                            updateCondition(groupIndex, conditionIndex, 'value', newValue)
+                          }}
+                          renderInput={(params) => (
+                            <TextField
+                              {...params}
+                              placeholder={isZh ? '输入值...' : 'Enter value...'}
+                              sx={{ minWidth: 120 }}
+                            />
+                          )}
+                          renderOption={(props, option) => {
+                            const opt = typeof option === 'string' ? { value: option, label: option } : option
+                            return (
+                              <Box component="li" {...props} key={opt.value}>
+                                <Stack>
+                                  <Typography fontFamily="monospace" fontSize="0.8rem" color="primary.main" fontWeight="bold">
+                                    {opt.value}
+                                  </Typography>
+                                  <Typography variant="caption" color="text.secondary">
+                                    {opt.label}
+                                  </Typography>
+                                </Stack>
+                              </Box>
+                            )
+                          }}
+                          sx={{ flex: 1 }}
+                        />
+                      ) : (
+                        <TextField
+                          size="small"
+                          value={condition.value}
+                          onChange={(e) => updateCondition(groupIndex, conditionIndex, 'value', e.target.value)}
+                          placeholder={isZh ? '输入值...' : 'Enter value...'}
+                          sx={{ flex: 1 }}
+                        />
+                      )}
+                      <Typography sx={{ ml: 0.5, color: 'text.secondary' }}>"</Typography>
+                    </Box>
                   </Box>
+
                 </Box>
               </Box>
             ))}
@@ -410,9 +416,9 @@ export default function TokenEditor({
 
       {/* Hint */}
       <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
-        {isZh 
-          ? '提示: 多个条件之间点击 AND/OR 可切换与/或；使用正则如 ".*ing" 匹配以-ing结尾的词；头词属性可约束语法关系。' 
-          : 'Tip: Click AND/OR between conditions to switch logic; use regex e.g. ".*ing" for words ending in -ing; head attributes constrain grammatical relations.'}
+        {isZh
+          ? '= 正则匹配（可用 NOUN|VERB、NN.*、A.*|E.* 等）；== 精确匹配；AND/OR 切换多条件逻辑。'
+          : '= regex match (e.g. NOUN|VERB, NN.*, A.*|E.*); == exact match; AND/OR toggles multi-condition logic.'}
       </Typography>
     </Paper>
   )

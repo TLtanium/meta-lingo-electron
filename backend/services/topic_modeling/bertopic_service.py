@@ -16,12 +16,19 @@ from datetime import datetime
 # Import paths from config module
 import sys
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-from config import DATA_DIR, MODELS_DIR, TOPIC_MODELING_DIR
+from config import DATA_DIR, TOPIC_MODELING_DIR
+from model_paths import resolve_model_path, get_user_models_dir
 
 logger = logging.getLogger(__name__)
 
-# Fixed SBERT model path for topic representation
-SBERT_MODEL_PATH = MODELS_DIR / "sentence_embeddings" / "paraphrase-multilingual-MiniLM-L12-v2"
+SBERT_MODEL_RELATIVE_PATH = "sentence_embeddings/paraphrase-multilingual-MiniLM-L12-v2"
+
+
+def _get_sbert_model_path() -> Path:
+    resolved = resolve_model_path(SBERT_MODEL_RELATIVE_PATH)
+    if resolved:
+        return resolved
+    return get_user_models_dir() / SBERT_MODEL_RELATIVE_PATH
 
 
 class BERTopicService:
@@ -41,11 +48,12 @@ class BERTopicService:
         try:
             from sentence_transformers import SentenceTransformer
             
-            if not SBERT_MODEL_PATH.exists():
-                raise ValueError(f"SBERT model not found at {SBERT_MODEL_PATH}")
+            sbert_model_path = _get_sbert_model_path()
+            if not sbert_model_path.exists():
+                raise ValueError(f"SBERT model not found at {sbert_model_path}")
             
             logger.info(f"Loading SBERT model for topic representation")
-            self._embedding_model = SentenceTransformer(str(SBERT_MODEL_PATH))
+            self._embedding_model = SentenceTransformer(str(sbert_model_path))
             return self._embedding_model
             
         except ImportError:
@@ -213,7 +221,8 @@ class BERTopicService:
     
     def _load_chinese_stopwords(self) -> list:
         """Load Chinese stopwords from NLTK data"""
-        stopwords_file = MODELS_DIR / "nltk" / "corpora" / "stopwords" / "chinese"
+        stopwords_root = resolve_model_path("nltk") or (get_user_models_dir() / "nltk")
+        stopwords_file = stopwords_root / "corpora" / "stopwords" / "chinese"
         
         stopwords = []
         if stopwords_file.exists():

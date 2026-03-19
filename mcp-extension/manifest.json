@@ -1,0 +1,135 @@
+{
+  "manifest_version": "0.3",
+  "name": "meta-lingo",
+  "display_name": "Meta-Lingo",
+  "version": "3.9.81",
+  "description": "Connect Claude to Meta-Lingo corpus research — run linguistic analyses, manage corpora, and export annotations directly from your AI assistant.",
+  "author": {
+    "name": "Tommy Leo"
+  },
+  "license": "Meta-Lingo Non-Commercial License",
+  "icon": "icon.png",
+  "keywords": [
+    "corpus",
+    "linguistics",
+    "NLP",
+    "concordance",
+    "collocation",
+    "word frequency",
+    "keyword",
+    "n-gram",
+    "KWIC",
+    "word sketch",
+    "USAS",
+    "MIPVU",
+    "metaphor",
+    "sentiment",
+    "topic modeling"
+  ],
+  "server": {
+    "type": "binary",
+    "entry_point": "server/meta-lingo-mcp",
+    "mcp_config": {
+      "command": "${__dirname}/server/meta-lingo-mcp",
+      "args": [],
+      "env": {
+        "METALINGO_BACKEND_URL": "${user_config.backend_url}"
+      },
+      "platform_overrides": {
+        "win32": {
+          "command": "${__dirname}/server/meta-lingo-mcp.exe"
+        }
+      }
+    }
+  },
+  "tools": [
+    {
+      "name": "list_corpora",
+      "description": "List all corpora with metadata"
+    },
+    {
+      "name": "create_corpus",
+      "description": "Create a new corpus"
+    },
+    {
+      "name": "upload_text",
+      "description": "Upload text content to a corpus"
+    },
+    {
+      "name": "get_corpus_info",
+      "description": "Get corpus details and text IDs"
+    },
+    {
+      "name": "word_frequency",
+      "description": "Analyze word frequency distribution"
+    },
+    {
+      "name": "keyword_extraction",
+      "description": "Extract keywords from a text"
+    },
+    {
+      "name": "keyness_analysis",
+      "description": "Compare keyword significance between corpora"
+    },
+    {
+      "name": "ngram_analysis",
+      "description": "Analyze n-gram patterns"
+    },
+    {
+      "name": "concordance_search",
+      "description": "Search concordance lines (KWIC)"
+    },
+    {
+      "name": "collocation_analysis",
+      "description": "Find collocations of a word"
+    },
+    {
+      "name": "word_sketch",
+      "description": "Generate word sketch (grammatical relations)"
+    },
+    {
+      "name": "semantic_domain_analysis",
+      "description": "USAS semantic domain tagging"
+    },
+    {
+      "name": "metaphor_analysis",
+      "description": "MIPVU metaphor detection"
+    },
+    {
+      "name": "sentiment_analysis",
+      "description": "NRC sentiment and emotion analysis"
+    },
+    {
+      "name": "synonym_analysis",
+      "description": "Find synonyms in corpus context"
+    },
+    {
+      "name": "sketch_difference",
+      "description": "Compare word sketches across corpora"
+    },
+    {
+      "name": "topic_modeling",
+      "description": "Discover latent topics in a corpus"
+    },
+    {
+      "name": "export_annotations",
+      "description": "Export annotations in TXT/JSON/XML"
+    }
+  ],
+  "user_config": {
+    "backend_url": {
+      "type": "string",
+      "title": "Meta-Lingo Backend URL",
+      "description": "URL of the Meta-Lingo backend service. Keep default unless you changed the port.",
+      "required": false,
+      "default": "http://127.0.0.1:8000"
+    }
+  },
+  "compatibility": {
+    "platforms": [
+      "darwin",
+      "win32",
+      "linux"
+    ]
+  }
+}

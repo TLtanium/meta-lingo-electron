@@ -7,7 +7,6 @@ import {
   IconButton,
   Tooltip,
 } from '@mui/material'
-import MenuBookIcon from '@mui/icons-material/MenuBook'
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline'
 import SettingsIcon from '@mui/icons-material/Settings'
 import LightModeIcon from '@mui/icons-material/LightMode'
@@ -17,6 +16,7 @@ import { useTranslation } from 'react-i18next'
 import { useTabStore } from '../../stores/tabStore'
 import { useSettingsStore } from '../../stores/settingsStore'
 import { DictionaryDialog } from '../Dictionary'
+import appIcon from '../../../assets/icon.png'
 
 export default function AppHeader() {
   const { t } = useTranslation()
@@ -100,7 +100,12 @@ export default function AppHeader() {
           
           {/* Logo and App Name */}
           <Box sx={{ display: 'flex', alignItems: 'center', mr: 2 }}>
-            <MenuBookIcon sx={{ mr: 1 }} />
+            <Box
+              component="img"
+              src={appIcon}
+              alt="Meta-Lingo"
+              sx={{ width: 36, height: 36, mr: 1.25, borderRadius: 0.5 }}
+            />
             <Typography
               variant="h6"
               noWrap

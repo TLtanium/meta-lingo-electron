@@ -14,12 +14,25 @@ from datetime import datetime
 # Import paths from config module
 import sys
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-from config import DATA_DIR, MODELS_DIR, TOPIC_MODELING_DIR
+from config import DATA_DIR, TOPIC_MODELING_DIR
+from model_paths import resolve_model_path, get_user_models_dir
 
 logger = logging.getLogger(__name__)
 
-# Fixed SBERT model path
-SBERT_MODEL_PATH = MODELS_DIR / "sentence_embeddings" / "paraphrase-multilingual-MiniLM-L12-v2"
+SBERT_MODEL_RELATIVE_PATH = "sentence_embeddings/paraphrase-multilingual-MiniLM-L12-v2"
+
+
+def _get_sbert_model_path() -> Path:
+    """
+    Resolve SBERT model path with fallback order:
+    1) user download dir (saves/models or userData/models)
+    2) bundled/dev models dir (repo ./models in dev)
+    """
+    resolved = resolve_model_path(SBERT_MODEL_RELATIVE_PATH)
+    if resolved:
+        return resolved
+    # Keep a deterministic fallback path for error messages.
+    return get_user_models_dir() / SBERT_MODEL_RELATIVE_PATH
 
 
 class TopicEmbeddingService:
@@ -40,7 +53,7 @@ class TopicEmbeddingService:
         try:
             from sentence_transformers import SentenceTransformer
             
-            model_path = SBERT_MODEL_PATH
+            model_path = _get_sbert_model_path()
             if not model_path.exists():
                 raise ValueError(f"SBERT model not found at {model_path}")
             
@@ -147,7 +160,7 @@ class TopicEmbeddingService:
                 'document_count': len(documents),
                 'embedding_dim': embeddings.shape[1],
                 'encoding_time': round(encoding_time, 2),
-                'model': SBERT_MODEL_PATH.name
+                    'model': _get_sbert_model_path().name
             }
         }
     
@@ -362,7 +375,7 @@ class TopicEmbeddingService:
     
     def get_model_info(self) -> Dict[str, Any]:
         """Get information about the SBERT model"""
-        model_path = Path(SBERT_MODEL_PATH)
+        model_path = _get_sbert_model_path()
         
         info = {
             'model_path': str(model_path),

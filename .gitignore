@@ -113,6 +113,11 @@ saves/dict/*.json
 saves/corpus/
 
 # ===================================
+# Downloaded/runtime model cache
+# ===================================
+saves/models/**
+
+# ===================================
 # JSON Data Files (specific)
 # ===================================
 master_metaphor_lexicon.json

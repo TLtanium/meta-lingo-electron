@@ -268,6 +268,44 @@
       "stageNrc": "NRC 情感标注中...",
       "chipSave": "保存"
     },
+    "exportAnnotated": {
+      "button": "导出语料",
+      "title": "导出标注语料",
+      "description": "选择要导出的标注类型。每种类型生成一个独立的 .txt 文件（格式为 word_TAG），所有文件打包为 zip 压缩包。",
+      "selectAll": "全选",
+      "clearAll": "清除全部",
+      "exporting": "导出中...",
+      "export": "导出",
+      "noTypesSelected": "请至少选择一种标注类型",
+      "success": "导出成功",
+      "failed": "导出失败",
+      "noTextsSelected": "请先选择文本或转录文件",
+      "format": "导出格式",
+      "formatTxt": "TXT",
+      "formatTxtDesc": "标注纯文本（word_TAG 格式），每种标注类型一个文件，打包为 zip 压缩包。",
+      "formatJson": "JSON",
+      "formatJsonDesc": "完整标注元数据，导出为单一 JSON 文件，包含所有 token、句子及文本信息。",
+      "formatXml": "XML",
+      "formatXmlDesc": "与 JSON 格式内容相同，以 XML 格式导出为单一文件。",
+      "annotationTypes": "标注类型",
+      "groupPos": "词性与语法",
+      "groupSemantics": "语义标注",
+      "groupMetaphor": "隐喻标注",
+      "types": {
+        "universal_pos": "Universal 词性",
+        "universal_pos_desc": "SpaCy 通用词性标注（如 word_NOUN、word_VERB）",
+        "penn_pos": "Penn 词性",
+        "penn_pos_desc": "Penn Treebank 细粒度词性标注（如 word_NNS、word_VBD）",
+        "lemma": "词元",
+        "lemma_desc": "每个词的原形/词典形式（如 running_run）",
+        "dep": "依存关系",
+        "dep_desc": "句法依存关系（如 word_nsubj、word_dobj）",
+        "usas": "USAS 语义域",
+        "usas_desc": "UCREL 语义分析系统语义域标签（如 word_A1.1）",
+        "mipvu": "MIPVU 隐喻",
+        "mipvu_desc": "隐喻识别标签：MET（隐喻）或 LIT（字面义）"
+      }
+    },
     "selectTextFilesFirst": "请先选择文本文件",
     "uploadFiles": "上传文件",
     "clickOrDrag": "点击或拖拽文件",
@@ -3094,6 +3132,7 @@
     "typeResetToConfirm": "输入 RESET 以确认此操作",
     "typeResetPlaceholder": "输入 RESET 以确认",
     "cancel": "取消",
+    "apply": "应用",
     "resetting": "正在重置...",
     "confirmReset": "确认重置",
     "frameworksReset": "框架已重置",
@@ -3101,6 +3140,57 @@
     "dataResetCompleted": "数据重置完成",
     "dataResetFailed": "数据重置失败",
     "factoryResetCompleted": "恢复出厂设置完成",
+    "modelManagement": {
+      "title": "模型管理",
+      "description": "下载或删除可选 ML 模型。恢复出厂设置将保留内置模型。",
+      "openDialog": "管理模型",
+      "dialogTitle": "模型管理",
+      "download": "下载",
+      "delete": "删除",
+      "cancelDownload": "取消下载",
+      "builtIn": "内置",
+      "bundledFallback": "来自内置/仓库 models",
+      "downloadFailed": "下载失败",
+      "deleteFailed": "删除失败",
+      "installed": "已安装",
+      "notInstalled": "未安装",
+      "queued": "排队中",
+      "modules": {
+        "speechToText": "语音转写（Speech-to-text）",
+        "videoObjectDetection": "视频目标检测（YOLOv8）",
+        "semanticEmbeddings": "语义嵌入（CLIP/SBERT）",
+        "alignment": "强制对齐（Wav2Vec2）",
+        "usasSemanticTagging": "USAS 语义标注（PyMUSAS-Neural）",
+        "mipvuMetaphorDetection": "MIPVU 隐喻检测（DeBERTa）"
+      },
+      "models": {
+        "whisper_large_v3_turbo": { "name": "Whisper（large-v3-turbo）" },
+        "yolov8_weights": { "name": "YOLOv8（权重）" },
+        "clip_vit_large_patch14": { "name": "CLIP（ViT-L/14）" },
+        "wav2vec2_base_960h": { "name": "Wav2Vec2（base-960h）" },
+        "sbert_paraphrase_multilingual_minilm_l12_v2": {
+          "name": "SBERT（paraphrase-multilingual-MiniLM-L12-v2）"
+        },
+        "pymusas_neural_multilingual_base_bem": {
+          "name": "PyMUSAS Neural（Multilingual Base BEM）"
+        },
+        "deberta_v3_large_clause_metaphor": {
+          "name": "MIPVU DeBERTa（小句模型）"
+        }
+      },
+      "downloadPathTitle": "下载路径",
+      "selectDownloadPathTitle": "选择下载文件夹",
+      "changeDownloadPath": "更改",
+      "resetDownloadPath": "重置",
+      "setDownloadPathFailed": "设置下载路径失败",
+      "resetDownloadPathFailed": "重置下载路径失败",
+      "electronApiUnavailable": "无法打开目录选择（Electron 对话框不可用）",
+      "manualDownloadPathTitle": "设置下载路径",
+      "manualDownloadPathDesc": "当前环境不支持 Electron 目录选择。请手动输入绝对路径。",
+      "manualDownloadPathLabel": "下载目录（绝对路径）",
+      "manualDownloadPathPlaceholder": "/Users/你的用户名/Library/Application Support/Meta-Lingo/models",
+      "manualPathInvalid": "请输入有效的目录路径"
+    },
     "resetFailed": "重置失败",
     "license": "软件许可证",
     "licenseDescription": "查看软件使用许可协议",
@@ -3169,9 +3259,30 @@
         "Z": "名称与语法词"
       }
     },
+    "mcp": {
+      "title": "MCP 服务",
+      "description": "允许 AI 助手（Claude、Cursor 等）直接使用 Meta-Lingo 的分析工具。",
+      "enabled": "启用 MCP 服务",
+      "enabledDesc": "AI 助手可连接 Meta-Lingo，进行语料库分析、上传文本和运行研究工作流。",
+      "downloadExtension": "下载扩展 (.dxt)",
+      "downloadExtensionHint": "下载后双击即可安装到 Claude Desktop，无需其他配置。",
+      "manualConfig": "手动配置",
+      "manualConfigHint": "适用于 Cursor 或其他需要 JSON 配置的 MCP 客户端。",
+      "copyConfig": "复制",
+      "copiedConfig": "配置已复制到剪贴板",
+      "copyFailed": "复制配置失败",
+      "loadError": "加载 MCP 配置失败",
+      "saveError": "保存 MCP 设置失败",
+      "statusReady": "就绪",
+      "statusDisabled": "已禁用",
+      "toolCount": "{{count}} 个工具"
+    },
     "usasMode": {
       "title": "USAS 标注模式",
       "description": "选择语义域标注使用的方法。不同模式有不同的优缺点。",
+      "currentMode": "当前策略",
+      "expandModes": "更改策略",
+      "collapseModes": "收起",
       "ruleBased": "规则消歧",
       "ruleBasedDesc": "使用 PyMUSAS 规则标注器，结合话语域识别和一文一义规则进行消歧。支持多词表达式(MWE)识别。",
       "neural": "神经网络",
@@ -3181,7 +3292,11 @@
       "loadError": "加载标注模式状态失败",
       "saveError": "保存标注模式失败",
       "saveSuccess": "标注模式已更新",
-      "modeUnavailable": "该模式不可用。请确保神经网络模型已安装。"
+      "modeUnavailable": "该模式不可用。请确保神经网络模型已安装。",
+      "disambiguationToggle": "启用消歧",
+      "disambiguationToggleDesc": "启用后，使用文本类型优先级、话语域识别和一词一义规则为每个词选择单一标签。关闭时，保留所有候选标签用于分析，每个标签都会被统计和检索。",
+      "disambiguationSaveSuccess": "消歧设置已保存",
+      "disambiguationSaveError": "保存消歧设置失败"
     }
   },
   "help": {

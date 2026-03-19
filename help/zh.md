@@ -74,7 +74,7 @@ Meta-Lingo 的开发者，2025 年入学广东外语外贸大学商务英语语�
 如果您在使用过程中有任何问题或建议，欢迎通过以下方式联系我：
 
 - **Bilibili**：[https://space.bilibili.com/294707614](https://space.bilibili.com/294707614)
-- **小红书**：[https://www.xiaohongshu.com/user/profile/5af2c7734eacab77509ec3af](https://www.xiaohongshu.com/user/profile/5af2c7734eacab77509ec3af)
+- **小红书**：[https://www.xiaohongshu.com/user/profile/6337c399000000001802d464](https://www.xiaohongshu.com/user/profile/6337c399000000001802d464)
 - **YouTube**：[https://www.youtube.com/@metalingo2026](https://www.youtube.com/@metalingo2026)
 - **邮箱**：1683619168tl@gmail.com
 
@@ -7155,9 +7155,142 @@ NMF 可视化面板提供多种图表：
 
 ---
 
+# MCP 服务
+
+Meta-Lingo 内置 **模型上下文协议 (MCP) 服务器**，允许 AI 助手自主使用 Meta-Lingo 的语料库研究工具。连接后，AI 助手可以创建语料库、上传文本、运行分析并解读结果，无需手动操作。
+
+## 支持的 AI 助手
+
+| 客户端 | 配置方式 | 说明 |
+|--------|----------|------|
+| **Claude Desktop** | 扩展 (.dxt) 或 stdio | Anthropic 桌面应用（macOS / Windows），推荐 |
+| **Claude.ai**（网页版） | 连接器（需 HTTPS） | Anthropic 网页助手，需 ngrok 或公网服务器 |
+| **Cursor** | stdio 配置 | AI 代码编辑器 |
+| 其他 MCP 客户端 | stdio 或 HTTP | 任何支持 MCP 协议的客户端 |
+
+## 配置 — Claude Desktop 扩展（推荐）
+
+最简单的连接方式。双击安装，无需编辑配置文件或使用终端。
+
+1. 确保 Meta-Lingo 正在运行（MCP 服务需要连接 Meta-Lingo 后端）。
+2. 在 Meta-Lingo **设置** → **MCP 服务** 中点击**下载扩展 (.dxt)** 按钮获取扩展文件。
+3. **双击** `.dxt` 文件 — Claude Desktop 会弹出安装提示。
+4. 确认安装。Meta-Lingo 的 18 个工具将立即可用。
+
+> **提示**：也可通过 Claude Desktop → **设置** → **扩展** → **从文件安装** 进行安装。
+
+## 配置 — Claude Desktop（手动 stdio 配置）
+
+如果你偏好手动配置，或扩展方式不可用：
+
+1. 在 Meta-Lingo 中打开**设置**，找到 **MCP 服务** 板块。
+2. 确保 MCP 服务已**启用**（开关打开）。提示：MCP 服务默认处于**未启用**状态。
+3. 展开**手动配置**，点击**复制**按钮复制 JSON 配置。
+4. 打开 Claude Desktop → **设置** → **开发者** → **编辑配置**。
+   - 这将打开 `claude_desktop_config.json` 文件。
+   - macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
+   - Windows: `%APPDATA%\Claude\claude_desktop_config.json`
+5. 将复制的 JSON 粘贴到文件中。如果文件已有内容，请合并 `mcpServers` 部分。
+6. **重启** Claude Desktop。Meta-Lingo 工具将自动出现。
+
+## 配置 — Claude.ai 网页版（高级）
+
+Claude.ai 网页版只接受 **HTTPS** 公网地址 — 本地 `http://localhost` 地址会被直接拒绝。需要使用 ngrok 等内网穿透工具暴露本地 MCP 服务器。
+
+> **注意**：Claude.ai 的自定义连接器需要 **Max**、**Team** 或 **Enterprise** 计划。
+
+1. 确保 Meta-Lingo 正在运行。
+2. 以 HTTP 模式启动 MCP 服务器。打开终端运行：
+
+   **macOS**
+   ```
+   /Applications/Meta-Lingo.app/Contents/Resources/mcp-server/meta-lingo-mcp --transport http
+   ```
+
+   **Windows**（命令提示符或 PowerShell）
+   ```
+   "C:\Program Files\Meta-Lingo\resources\mcp-server\meta-lingo-mcp.exe" --transport http
+   ```
+
+   **Linux**
+   ```
+   /opt/Meta-Lingo/resources/mcp-server/meta-lingo-mcp --transport http
+   ```
+
+   服务器将在 `http://127.0.0.1:8001/mcp` 启动。
+
+3. **通过 ngrok 暴露为 HTTPS。** 从 [ngrok.com](https://ngrok.com) 安装后运行：
+   ```
+   ngrok http 8001
+   ```
+   复制显示的 HTTPS 转发地址（如 `https://xxxx.ngrok-free.app`）。
+
+4. 打开 [claude.ai](https://claude.ai) → **设置** → **连接器** → **添加自定义连接器**。
+5. 粘贴 `https://xxxx.ngrok-free.app/mcp` 并确认。
+6. Meta-Lingo 工具将在你的 Claude.ai 对话中可用。
+
+> **注意**：使用期间需保持 MCP 服务器和 ngrok 同时运行。免费 ngrok 地址每次重启后会变化（付费可固定域名）。也可用 Cloudflare Tunnel 作为替代。
+
+## 配置 — Cursor
+
+1. 在 Meta-Lingo 中打开**设置**，找到 **MCP 服务** 板块。
+2. 展开**手动配置**，点击**复制**按钮。
+3. 在 Cursor 中：**设置** → **MCP Servers** → 添加新服务器并粘贴配置。
+
+## 可用工具 (18 个)
+
+### 语料库管理
+- **list_corpora**：列出所有语料库及其元数据
+- **create_corpus**：创建新语料库
+- **upload_text**：上传文本内容到语料库
+- **get_corpus_info**：获取语料库详情和文本 ID
+
+### 词汇分析
+- **word_frequency**：词频分析（支持词性过滤）
+- **keyword_extraction**：TF-IDF / TextRank / YAKE / RAKE 关键词提取
+- **keyness_analysis**：语料库间关键性对比
+- **ngram_analysis**：N-gram 频率分析（2-6 元组）
+
+### 语境索引
+- **concordance_search**：KWIC 搜索（精确/短语/CQL）
+- **collocation_analysis**：搭配统计分析（logDice、MI 等）
+- **word_sketch**：词图分析（语法关系概览）
+
+### 语义分析
+- **semantic_domain_analysis**：USAS 语义域分布分析
+- **metaphor_analysis**：MIPVU 隐喻检测
+- **sentiment_analysis**：NRC 情感词典分析
+
+### 其他分析
+- **synonym_analysis**：WordNet 同义词（语料库过滤）
+- **sketch_difference**：两个词的搭配概况对比
+- **topic_modeling**：LDA / BERTopic 主题建模
+
+### 导出
+- **export_annotations**：导出标注数据（TXT / JSON / XML）
+
+## 工作原理
+
+MCP 服务器是一个轻量级代理，将 AI 的工具调用转换为 Meta-Lingo REST API 请求。所有数据存储在与桌面应用相同的数据库和文件中，这意味着：
+
+- AI 创建的语料库会出现在应用的语料库管理页面中。
+- 分析结果与通过应用界面操作得到的结果完全一致。
+- 你可以通过应用手动复现 AI 发起的任何分析。
+
+## 使用示例
+
+向 AI 助手提问：
+- *"创建一个名为'政治演讲'的语料库，上传这三篇文本，并分析词频。"*
+- *"使用对数似然比比较语料库 A 和语料库 B 的关键词。"*
+- *"搜索我语料库中'democracy'的语境索引，并分析其搭配词。"*
+- *"这个语料库的主要语义域分布是什么？"*
+- *"对我的研究语料库运行 5 个主题的主题建模。"*
+
+---
+
 # 应用设置
 
-应用设置用于个性化 Meta-Lingo 的功能与外观。点击右上角**设置图标**进入，页面自上而下包含：**界面语言**、**主题与壁纸**、**Ollama 连接**、**OpenAI 兼容 API**、**USAS 标注模式**、**USAS 语义域配置**、**许可证**、**恢复出厂设置**。
+应用设置用于个性化 Meta-Lingo 的功能与外观。点击右上角**设置图标**进入，页面自上而下包含：**界面语言**、**主题与壁纸**、**Ollama 连接**、**OpenAI 兼容 API**、**USAS 标注模式**、**USAS 语义域配置**、**MCP 服务**、**许可证**、**恢复出厂设置**。
 
 ## 界面语言
 
@@ -7220,6 +7353,20 @@ NMF 可视化面板提供多种图表：
 - 先以规则标注，不确定时辅以神经网络消歧。
 - **特点**：兼顾速度与准确度。
 
+### 启用消歧
+
+通过「启用消歧」开关控制是否使用自定义消歧策略（文本类型优先级、话语域识别、一词一义规则）。
+
+- **关闭（默认）**：不执行消歧，保留所有候选标签。每个标签都会被统计和检索。
+  - 规则模式：保留所有候选标签，每个标签都参与语义域统计和 CQL 检索。
+  - 神经网络模式：使用 top_n=5 输出5个候选标签。
+  - 混合模式：使用规则模式保留所有候选标签，对 Z99 词使用神经网络 top_n=5 标注。
+  - 多词表达式（MWE）识别不受影响，MWE 后缀仍然正常添加。
+- **开启**：执行完整消歧流程，为每个词选择单一标签。
+  - 消歧策略按优先级依次执行：文本类型优先 → 话语域识别 → 一词一义规则。
+
+> **注意**：更改消歧设置后，需要重新上传或重新标注语料才能使新设置生效。已标注的语料不会自动更新。
+
 ## USAS 语义域配置
 
 为不同**文本类型**配置 USAS 标注时的**优先语义域**，用于消歧。上传语料或标注时选择的文本类型将决定使用的优先域。
@@ -7254,6 +7401,7 @@ NMF 可视化面板提供多种图表：
 - 主题建模数据（嵌入、分析结果等）
 - Word2Vec 模型
 - USAS 相关配置
+- 已下载的 ML 模型（内置 NLTK + TorchCrepe 会保留）
 
 ### 执行步骤
 
@@ -7262,5 +7410,16 @@ NMF 可视化面板提供多种图表：
 3. 点击确认按钮执行。
 
 若不使用恢复出厂设置，卸载或重装应用不会自动清除本地语料等数据；需要彻底清理时再使用本功能。
+
+## 模型管理（下载）
+
+- 在 **设置 → 模型管理** 中下载可选 ML 模型（Whisper/YOLO/CLIP/Wav2Vec2/SBERT/PyMUSAS-Neural/DeBERTa 等）。
+- 已下载的模型会存放在应用持久化目录：`userData/models`。
+- 你也可以在 **设置 → 模型管理 → 下载路径** 中修改下载目录。程序会在下载时自动创建所需的目录结构。
+- 若 **Whisper** 不可用，**语料管理 → 上传** 页面的音频/视频上传与处理会被禁用。
+
+### 开发模式说明
+
+- 开发模式下默认使用 `./saves/models`（而不是 `./models`），以避免在恢复出厂设置时误删仓库原始模型文件。
 
 

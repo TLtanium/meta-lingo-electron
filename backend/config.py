@@ -7,6 +7,9 @@ import os
 import sys
 from pathlib import Path
 
+# Unified model path helpers.
+from model_paths import get_user_models_dir
+
 
 def get_data_dir() -> Path:
     """
@@ -71,35 +74,12 @@ def get_saves_dir() -> Path:
 
 def get_models_dir() -> Path:
     """
-    Get the models directory path (for ML models)
-    
-    In packaged mode: Uses resources path from Electron
-    In development mode: Uses relative path from project root
-    
-    Returns:
-        Path to the models directory
+    Models directory path (for ML models).
+
+    In packaged mode this points to `userData/models` so downloaded models persist.
+    In development it falls back to the repo's `./models`.
     """
-    # Check if we're in packaged mode
-    if getattr(sys, 'frozen', False):
-        # First try METALINGO_RESOURCES_PATH (set by Electron)
-        resources_path = os.environ.get('METALINGO_RESOURCES_PATH')
-        if resources_path:
-            models_dir = Path(resources_path) / "models"
-            if models_dir.exists():
-                return models_dir
-        
-        # Fallback to PyInstaller _MEIPASS
-        base_path = Path(sys._MEIPASS)
-        models_dir = base_path / "models"
-        if models_dir.exists():
-            return models_dir
-    
-    # Development mode or fallback
-    backend_dir = Path(__file__).parent
-    project_root = backend_dir.parent
-    models_dir = project_root / "models"
-    
-    return models_dir
+    return get_user_models_dir()
 
 
 def get_help_dir() -> Path:

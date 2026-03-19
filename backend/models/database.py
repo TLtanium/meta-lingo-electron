@@ -7,6 +7,7 @@ import sqlite3
 import os
 import json
 import threading
+import time
 from contextlib import contextmanager
 from typing import Optional, List, Dict, Any
 from datetime import datetime
@@ -19,6 +20,27 @@ _local = threading.local()
 
 # Reentrant lock for write operations (allows same thread to acquire multiple times)
 _write_lock = threading.RLock()
+
+# #region agent log
+_DEBUG_LOG_PATH = "/Volumes/TL-TANIUM/Meta-Lingo-Electron/.cursor/debug-060f7d.log"
+
+
+def _dbg(hypothesis_id: str, location: str, message: str, data: Dict[str, Any]) -> None:
+    try:
+        payload = {
+            "sessionId": "060f7d",
+            "runId": "pre-fix",
+            "hypothesisId": hypothesis_id,
+            "location": location,
+            "message": message,
+            "data": data,
+            "timestamp": int(time.time() * 1000),
+        }
+        with open(_DEBUG_LOG_PATH, "a", encoding="utf-8") as f:
+            f.write(json.dumps(payload, ensure_ascii=False) + "\n")
+    except Exception:
+        pass
+# #endregion
 
 
 def init_database():
@@ -815,6 +837,9 @@ class TaskDB:
     @staticmethod
     def cleanup_stale_tasks():
         """Mark any pending/processing tasks as failed (called on startup)"""
+        # #region agent log
+        _dbg("H1", "database.py:cleanup_stale_tasks", "cleanup start", {"pid": os.getpid()})
+        # #endregion
         with get_db_connection() as conn:
             cursor = conn.cursor()
             cursor.execute(
@@ -826,6 +851,9 @@ class TaskDB:
             )
             affected = cursor.rowcount
             conn.commit()
+            # #region agent log
+            _dbg("H1", "database.py:cleanup_stale_tasks", "cleanup finished", {"pid": os.getpid(), "affected": int(affected or 0)})
+            # #endregion
             if affected > 0:
                 print(f"[TaskDB] Cleaned up {affected} stale task(s)")
             return affected
@@ -1609,6 +1637,3 @@ class BiblioEntryAbstractsDB:
 
 # Initialize database on module import
 init_database()
-
-# Clean up any stale tasks from previous runs
-TaskDB.cleanup_stale_tasks()

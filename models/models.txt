@@ -1,6 +1,5 @@
 ./models
 ├── metaphor_identification
-│   ├── deberta-large-metaphor-detection-en
 │   └── deberta-v3-large-clause-metaphor
 ├── multimodal_analyzer
 │   ├── clip-vit-large-patch14

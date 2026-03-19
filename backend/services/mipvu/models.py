@@ -86,26 +86,18 @@ class MetaphorModelLoader:
         if provided_path and os.path.exists(provided_path):
             return provided_path
 
-        # Check if running in PyInstaller bundle
-        if getattr(sys, 'frozen', False):
-            base_path = sys._MEIPASS
-        else:
-            base_path = os.path.dirname(os.path.abspath(__file__))
+        # Resolve via shared model path logic:
+        # - userData/models first (downloaded models)
+        # - bundled fallbacks second (built-in bundle, if any)
+        from model_paths import resolve_model_path
 
-        possible_paths = [
-            os.path.join(base_path, '..', '..', '..', 'models', 'metaphor_identification', model_name),
-            os.path.join(base_path, '..', '..', 'models', 'metaphor_identification', model_name),
-            os.path.join('models', 'metaphor_identification', model_name),
-            f'/Volumes/TL-TANIUM/Meta-Lingo-Electron/models/metaphor_identification/{model_name}',
-        ]
+        rel = f"metaphor_identification/{model_name}"
+        resolved = resolve_model_path(rel)
+        if resolved and resolved.exists():
+            logger.info(f"Found model {model_name} at {resolved}")
+            return str(resolved)
 
-        for path in possible_paths:
-            abs_path = os.path.abspath(path)
-            if os.path.exists(abs_path):
-                logger.info(f"Found model {model_name} at {abs_path}")
-                return abs_path
-
-        logger.warning(f"Model {model_name} not found in default locations. Searched: {possible_paths}")
+        logger.warning(f"Model {model_name} not found. Tried relative path: {rel}")
         return None
 
     def load_models(self) -> bool:

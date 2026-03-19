@@ -4,6 +4,7 @@ Full multimodal corpus management with file upload, transcription, and YOLO
 Supports SSE (Server-Sent Events) for real-time progress updates
 """
 
+import io
 import os
 import sys
 import uuid
@@ -139,17 +140,23 @@ async def send_progress(task_id: str, stage: str, progress: int, message: str,
 
 @router.get("/services/status")
 async def get_services_status():
-    """Get status of ML services (Whisper, YOLO, CLIP)"""
+    """Get status of ML services (Whisper, YOLO, CLIP, USAS, MIPVU)"""
     logger.info("=== GET /services/status called ===")
     
     try:
         from services.whisper_service import get_whisper_service
         from services.yolo_service import get_yolo_service
         from services.clip_service import get_clip_service
+        from services.alignment_service import WAV2VEC2_MODEL_PATH
+        from services.usas_service import get_usas_service
+        from services.mipvu_service import get_mipvu_service
+        from model_paths import resolve_model_path
         
         whisper = get_whisper_service()
         yolo = get_yolo_service()
         clip = get_clip_service()
+        usas = get_usas_service()
+        mipvu = get_mipvu_service()
         
         result = {
             "success": True,
@@ -158,6 +165,10 @@ async def get_services_status():
                     "available": whisper.is_available(),
                     "model_path": whisper.model_path
                 },
+                "wav2vec": {
+                    "available": os.path.exists(WAV2VEC2_MODEL_PATH),
+                    "model_path": WAV2VEC2_MODEL_PATH
+                },
                 "yolo": {
                     "available": yolo.is_available(),
                     "model_path": yolo.model_path
@@ -165,6 +176,27 @@ async def get_services_status():
                 "clip": {
                     "available": clip.is_available(),
                     "model_path": clip.model_path
+                },
+                "usas": {
+                    # Rule-based is bundled and treated as always available in this UI layer.
+                    # Neural/hybrid depend on the downloaded neural model folder.
+                    "rule_based": {
+                        "available": True,
+                        "model_path": ""
+                    },
+                    "neural": {
+                        "available": bool(usas.get_mode_status().get("modes", {}).get("neural", {}).get("available", False)),
+                        "model_path": str(resolve_model_path("pymusas/PyMUSAS-Neural-Multilingual-Base-BEM") or "")
+                    },
+                    "hybrid": {
+                        "available": bool(usas.get_mode_status().get("modes", {}).get("hybrid", {}).get("available", False)),
+                        "model_path": str(resolve_model_path("pymusas/PyMUSAS-Neural-Multilingual-Base-BEM") or "")
+                    }
+                },
+                "mipvu": {
+                    "available": mipvu.is_available("english")
+                    and bool(resolve_model_path("metaphor_identification/deberta-v3-large-clause-metaphor")),
+                    "model_path": str(resolve_model_path("metaphor_identification/deberta-v3-large-clause-metaphor") or "")
                 }
             }
         }
@@ -223,8 +255,8 @@ async def stream_progress(task_id: str):
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
     
-    # If task already completed, return final status immediately
-    if task.get('status') in ['completed', 'failed']:
+    # If task already terminal, return final status immediately
+    if task.get('status') in ['completed', 'failed', 'cancelled']:
         async def completed_generator():
             yield f"data: {json.dumps({'task_id': task_id, 'stage': 'done', 'progress': 100, 'message': task.get('message', 'Completed'), 'status': task.get('status'), 'result': task.get('result')})}\n\n"
         return StreamingResponse(
@@ -242,7 +274,7 @@ async def stream_progress(task_id: str):
     if not queue:
         # Task might have completed before we connected, check status
         task = TaskDB.get_by_id(task_id)
-        if task and task.get('status') in ['completed', 'failed']:
+        if task and task.get('status') in ['completed', 'failed', 'cancelled']:
             async def late_generator():
                 yield f"data: {json.dumps({'task_id': task_id, 'stage': 'done', 'progress': 100, 'message': task.get('message', 'Completed'), 'status': task.get('status'), 'result': task.get('result')})}\n\n"
             return StreamingResponse(
@@ -266,8 +298,8 @@ async def stream_progress(task_id: str):
                     event = queue.get(block=True, timeout=1.0)
                     yield f"data: {json.dumps(event)}\n\n"
                     
-                    # Stop if task completed or failed
-                    if event.get("status") in ["completed", "failed"]:
+                    # Stop if task completed/failed/cancelled
+                    if event.get("status") in ["completed", "failed", "cancelled"]:
                         logger.info(f"SSE: Task {task_id} {event.get('status')}")
                         break
                 except Empty:
@@ -280,10 +312,10 @@ async def stream_progress(task_id: str):
                         task = TaskDB.get_by_id(task_id)
                         if task:
                             db_status = task.get('status')
-                            if db_status in ['completed', 'failed']:
+                            if db_status in ['completed', 'failed', 'cancelled']:
                                 final_event = {
                                     'task_id': task_id,
-                                    'stage': 'completed' if db_status == 'completed' else 'error',
+                                    'stage': 'completed' if db_status == 'completed' else ('cancelled' if db_status == 'cancelled' else 'error'),
                                     'progress': task.get('progress', 100),
                                     'message': task.get('message', 'Completed'),
                                     'status': db_status,
@@ -564,9 +596,11 @@ async def reannotate_spacy(
                     send_progress_sync(task_id, "mipvu", 85, "Starting MIPVU annotation...")
                     
                     from services.mipvu_service import get_mipvu_service
+                    from model_paths import resolve_model_path
                     mipvu_svc = get_mipvu_service()
+                    mipvu_model_ready = bool(resolve_model_path("metaphor_identification/deberta-v3-large-clause-metaphor"))
                     
-                    if mipvu_svc.is_available(language):
+                    if mipvu_svc.is_available(language) and mipvu_model_ready:
                         mipvu_result = mipvu_svc.annotate_text(content, language, result)
                         
                         if mipvu_result.get("success"):
@@ -652,9 +686,11 @@ async def reannotate_spacy(
                     send_progress_sync(task_id, "mipvu", 70, "Starting MIPVU annotation...")
                     
                     from services.mipvu_service import get_mipvu_service
+                    from model_paths import resolve_model_path
                     mipvu_svc = get_mipvu_service()
+                    mipvu_model_ready = bool(resolve_model_path("metaphor_identification/deberta-v3-large-clause-metaphor"))
                     
-                    if mipvu_svc.is_available(language):
+                    if mipvu_svc.is_available(language) and mipvu_model_ready:
                         def media_mipvu_progress_callback(progress, message):
                             overall_progress = 70 + int(progress * 0.25)
                             send_progress_sync(task_id, "mipvu", overall_progress, message)
@@ -899,6 +935,58 @@ async def reannotate_alignment(
     }
 
 
+@router.post("/{corpus_id}/export-annotated")
+async def export_annotated(corpus_id: str, data: dict):
+    """
+    Export selected texts in annotated format.
+
+    Request body:
+        text_ids         list[str]  – IDs of texts to export
+        annotation_types list[str]  – for txt: ["universal_pos", "penn_pos", "usas", …]
+        format           str        – "txt" (default) | "json" | "xml"
+
+    txt  → zip archive; one metalingo_<type>.txt per annotation type
+    json → single metalingo_<corpus>.json with full annotation metadata
+    xml  → single metalingo_<corpus>.xml converted from the JSON structure
+    """
+    from services.corpus_export_service import CorpusExportService
+
+    text_ids         = data.get("text_ids", [])
+    annotation_types = data.get("annotation_types", [])
+    fmt              = data.get("format", "txt")
+
+    if not text_ids:
+        raise HTTPException(status_code=400, detail="No text IDs provided")
+    if fmt == "txt" and not annotation_types:
+        raise HTTPException(status_code=400, detail="No annotation types specified")
+
+    service = get_corpus_service()
+    corpus  = service.get_corpus(corpus_id)
+    if not corpus:
+        raise HTTPException(status_code=404, detail="Corpus not found")
+
+    all_texts      = service.list_texts(corpus_id)
+    selected_texts = [t for t in all_texts if t.get("id") in text_ids]
+    if not selected_texts:
+        raise HTTPException(status_code=404, detail="No matching texts found")
+
+    corpus_name = corpus.get("name", "corpus")
+    export_svc  = CorpusExportService()
+
+    # Service returns (bytes, filename, media_type) – packaging rules:
+    #   txt          → always zip, one folder per text
+    #   json / xml   → single file when 1 text; zip with one folder per text when >1
+    file_bytes, filename, media_type = export_svc.export_texts(
+        selected_texts, annotation_types, fmt=fmt, corpus_name=corpus_name
+    )
+
+    return StreamingResponse(
+        io.BytesIO(file_bytes),
+        media_type=media_type,
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
 @router.post("/factory-reset")
 async def factory_reset(data: dict):
     """
@@ -1033,6 +1121,64 @@ async def factory_reset(data: dict):
                         pass
                 deleted_items.append("Word2Vec models")
         
+        # Reset downloadable models (preserve built-in packaged models).
+        # Built-ins are stored in user models dir as well, but are protected.
+        try:
+            from model_paths import get_user_models_dir, read_builtin_models_marker
+
+            user_models_dir = get_user_models_dir()
+            built_in_rels = read_builtin_models_marker()
+
+            deleted_model_dirs: List[str] = []
+
+            # Preserve:
+            # - user_models_dir / nltk
+            # - user_models_dir / multimodal_analyzer / torchcrepe-master
+            for top_entry in user_models_dir.iterdir():
+                if not top_entry.exists():
+                    continue
+
+                if top_entry.name == "nltk":
+                    continue
+                if top_entry.name == ".built-in-models.json":
+                    continue
+
+                if top_entry.name == "multimodal_analyzer" and top_entry.is_dir():
+                    for sub in top_entry.iterdir():
+                        try:
+                            rel = str(sub.relative_to(user_models_dir)).replace(os.sep, "/")
+                        except Exception:
+                            rel = sub.name
+
+                        if rel in built_in_rels:
+                            continue
+
+                        if sub.is_dir():
+                            shutil.rmtree(sub, ignore_errors=True)
+                            deleted_model_dirs.append(rel)
+                        else:
+                            try:
+                                sub.unlink(missing_ok=True)
+                            except Exception:
+                                pass
+                    continue
+
+                # Everything else is considered user-downloaded and can be deleted.
+                if top_entry.is_dir():
+                    shutil.rmtree(top_entry, ignore_errors=True)
+                    deleted_model_dirs.append(str(top_entry.relative_to(user_models_dir)).replace(os.sep, "/"))
+                else:
+                    try:
+                        top_entry.unlink(missing_ok=True)
+                    except Exception:
+                        pass
+
+            if deleted_model_dirs:
+                deleted_items.append(f"Downloaded models: {len(deleted_model_dirs)} item(s) cleared")
+        except Exception as e:
+            # Best-effort; factory reset should still succeed even if we can't remove models.
+            logger.warning(f"Model reset (downloaded-only) failed: {e}")
+
         # Reset USAS settings to defaults
         if reset_usas:
             SETTINGS_DIR.mkdir(parents=True, exist_ok=True)
@@ -1043,11 +1189,32 @@ async def factory_reset(data: dict):
                 "priority_domains": [],
                 "default_text_type": "GEN",
                 "custom_text_types": {},
-                "text_type_overrides": {}
+                "text_type_overrides": {},
+                # Ensure disambiguation switch resets immediately after factory reset.
+                "disambiguation_enabled": False,
+                "tagging_mode": "rule_based",
             }
             with open(usas_settings_file, 'w', encoding='utf-8') as f:
                 json.dump(default_usas_settings, f, ensure_ascii=False, indent=2)
             deleted_items.append("USAS settings reset to defaults")
+
+            # USAS service is a singleton in backend/services/usas_service.py.
+            # Reset it so the next API request re-loads the freshly written settings.
+            try:
+                from services import usas_service as usas_service_module
+                usas_service_module._usas_service = None
+                deleted_items.append("USAS service singleton reset")
+            except Exception:
+                # best-effort; API may still read stale settings if this fails
+                deleted_items.append("USAS service singleton reset skipped")
+
+        # Reset MCP service settings to defaults (disabled)
+        SETTINGS_DIR.mkdir(parents=True, exist_ok=True)
+        mcp_settings_file = SETTINGS_DIR / "mcp_settings.json"
+        default_mcp_settings = {"enabled": False}
+        with open(mcp_settings_file, 'w', encoding='utf-8') as f:
+            json.dump(default_mcp_settings, f, ensure_ascii=False, indent=2)
+        deleted_items.append("MCP settings reset to defaults")
         
         logger.info(f"=== Factory reset completed: {deleted_items} ===")
         
@@ -1392,9 +1559,11 @@ async def update_transcript_segments(corpus_id: str, text_id: str, data: dict):
         mipvu_regenerated = False
         try:
             from services.mipvu_service import get_mipvu_service
+            from model_paths import resolve_model_path
             mipvu_svc = get_mipvu_service()
+            mipvu_model_ready = bool(resolve_model_path("metaphor_identification/deberta-v3-large-clause-metaphor"))
             
-            if mipvu_svc.is_available(language):
+            if mipvu_svc.is_available(language) and mipvu_model_ready:
                 logger.info(f"Regenerating MIPVU annotations for {len(existing_segments)} segments...")
                 
                 # Merge SpaCy data into segments for MIPVU
@@ -2378,6 +2547,7 @@ async def reannotate_mipvu(
     """
     from models.database import TextDB, CorpusDB, TaskDB
     from services.mipvu_service import get_mipvu_service
+    from model_paths import resolve_model_path
     
     text = TextDB.get_by_id(text_id)
     if not text:
@@ -2391,7 +2561,8 @@ async def reannotate_mipvu(
     media_type = text.get('media_type', 'text')
     
     mipvu_svc = get_mipvu_service()
-    if not mipvu_svc.is_available(language):
+    mipvu_model_ready = bool(resolve_model_path("metaphor_identification/deberta-v3-large-clause-metaphor"))
+    if (not mipvu_svc.is_available(language)) or (not mipvu_model_ready):
         return {"success": False, "error": f"MIPVU not available for language: {language} (only English supported)"}
     
     # Create task for tracking
@@ -2843,18 +3014,18 @@ def process_text_spacy_sync(
         
         # For long processing, we still need periodic progress updates
         # Create a progress callback that sends updates every 8 seconds (less than 30s timeout)
-        import time as time_local  # Rename to avoid conflicts with agent logs
+        import time
         progress_stop_event = threading.Event()
-        start_time = time_local.time()
+        start_time = time.time()
         
         def periodic_progress():
             """Send periodic progress updates to prevent timeout"""
             update_count = 0
             while not progress_stop_event.is_set():
-                time_local.sleep(8)  # Update every 8 seconds (less than 30s timeout)
+                time.sleep(8)  # Update every 8 seconds (less than 30s timeout)
                 if not progress_stop_event.is_set():
                     update_count += 1
-                    elapsed = time_local.time() - start_time
+                    elapsed = time.time() - start_time
                     # Estimate progress based on time (rough estimate, cap at 95%)
                     estimated_progress = min(95, 20 + int((elapsed / max(estimated_seconds, 1)) * 75))
                     send_progress_sync(task_id, "spacy", estimated_progress, 
@@ -2925,10 +3096,12 @@ def process_text_spacy_sync(
             send_progress_sync(task_id, "mipvu", 95, "Running MIPVU annotation...")
             
             from services.mipvu_service import get_mipvu_service
+            from model_paths import resolve_model_path
             mipvu_svc = get_mipvu_service()
             mipvu_info = None
+            mipvu_model_ready = bool(resolve_model_path("metaphor_identification/deberta-v3-large-clause-metaphor"))
             
-            if mipvu_svc.is_available(language):
+            if mipvu_svc.is_available(language) and mipvu_model_ready:
                 # Progress callback for MIPVU annotation
                 def mipvu_progress_callback(progress, message):
                     # Map MIPVU progress (0-100) to overall progress (95-99)
@@ -3113,9 +3286,11 @@ def process_media_file_sync(
             send_progress_sync(task_id, "mipvu", 80, "Starting MIPVU annotation...")
             
             from services.mipvu_service import get_mipvu_service
+            from model_paths import resolve_model_path
             mipvu_svc = get_mipvu_service()
+            mipvu_model_ready = bool(resolve_model_path("metaphor_identification/deberta-v3-large-clause-metaphor"))
             
-            if mipvu_svc.is_available(language) and transcript_data and segments and spacy_result:
+            if mipvu_svc.is_available(language) and mipvu_model_ready and transcript_data and segments and spacy_result:
                 def mipvu_progress_callback(progress, message):
                     overall_progress = 80 + int(progress * 0.15)
                     send_progress_sync(task_id, "mipvu", overall_progress, message)
@@ -3311,9 +3486,11 @@ def process_media_file_sync(
                             send_progress_sync(task_id, "mipvu", mipvu_start, "Running MIPVU annotation...")
                             
                             from services.mipvu_service import get_mipvu_service
+                            from model_paths import resolve_model_path
                             mipvu_svc = get_mipvu_service()
+                            mipvu_model_ready = bool(resolve_model_path("metaphor_identification/deberta-v3-large-clause-metaphor"))
                             
-                            if mipvu_svc.is_available(language) and transcript_data and segments and spacy_result:
+                            if mipvu_svc.is_available(language) and mipvu_model_ready and transcript_data and segments and spacy_result:
                                 def video_mipvu_callback(progress, message):
                                     pct = mipvu_start + int(progress * (annotation_end - mipvu_start) / 100)
                                     send_progress_sync(task_id, "mipvu", pct, message)
@@ -3568,6 +3745,27 @@ async def upload_files(
     metadata_dict = config_data.get("metadata", {})
 
     logger.info(f"=== Upload config: transcribe={transcribe}, yolo_annotation={yolo_annotation}, clip_annotation={clip_annotation}, clip_frame_interval={clip_frame_interval}, language={language}, gender={gender} ===")
+
+    # Strict guard: audio/video uploads require both Whisper and Wav2Vec models.
+    has_audio_or_video = any(
+        get_media_type(f.filename, f.content_type) in [MediaType.AUDIO, MediaType.VIDEO]
+        for f in files
+    )
+    if has_audio_or_video:
+        from services.whisper_service import get_whisper_service
+        from services.alignment_service import WAV2VEC2_MODEL_PATH
+        whisper_ready = get_whisper_service().is_available()
+        wav2vec_ready = os.path.exists(WAV2VEC2_MODEL_PATH)
+        if not whisper_ready:
+            raise HTTPException(
+                status_code=409,
+                detail="Whisper model is missing. Please download it from Settings > Model Management before uploading audio/video."
+            )
+        if not wav2vec_ready:
+            raise HTTPException(
+                status_code=409,
+                detail="Wav2Vec model is missing. Please download it from Settings > Model Management before uploading audio/video."
+            )
     
     # Build upload config
     metadata = TextMetadata(**metadata_dict) if metadata_dict else None

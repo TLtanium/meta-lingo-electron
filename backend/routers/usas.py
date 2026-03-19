@@ -55,6 +55,10 @@ class TaggingModeRequest(BaseModel):
     mode: Literal['rule_based', 'neural', 'hybrid']
 
 
+class DisambiguationSettingRequest(BaseModel):
+    enabled: bool
+
+
 # ==================== Endpoints ====================
 
 @router.get("/domains")
@@ -324,6 +328,52 @@ async def set_tagging_mode(request: TaggingModeRequest):
         
         result = service.set_tagging_mode(request.mode)
         
+        return {
+            "success": result["success"],
+            "data": result
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+
+# ==================== Disambiguation Setting Endpoints ====================
+
+@router.get("/disambiguation")
+async def get_disambiguation_setting():
+    """
+    Get whether disambiguation is enabled
+    """
+    try:
+        service = get_usas_service()
+        return {
+            "success": True,
+            "data": {
+                "disambiguation_enabled": service.get_disambiguation_enabled()
+            }
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+
+@router.put("/disambiguation")
+async def set_disambiguation_setting(request: DisambiguationSettingRequest):
+    """
+    Set whether disambiguation is enabled
+
+    When disabled, all candidate tags are preserved for analysis.
+    When enabled, text type priority, discourse domain recognition,
+    and one-sense-per-discourse rules select a single tag per token.
+    """
+    try:
+        service = get_usas_service()
+        result = service.set_disambiguation_enabled(request.enabled)
+
         return {
             "success": result["success"],
             "data": result

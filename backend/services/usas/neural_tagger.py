@@ -3,20 +3,21 @@ USAS Neural Semantic Tagger
 Neural network based tagging using PyMUSAS-Neural-Multilingual-Base-BEM model
 """
 
-import os
 import sys
 import logging
 from pathlib import Path
 from typing import Dict, List, Any, Optional, Tuple
 
-# Import MODELS_DIR from config
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-from config import MODELS_DIR
+from model_paths import get_user_models_dir, resolve_model_path
 
 logger = logging.getLogger(__name__)
 
-# Model path - 使用 config.py 中的 MODELS_DIR (支持打包后的路径)
-NEURAL_MODEL_PATH = MODELS_DIR / "pymusas" / "PyMUSAS-Neural-Multilingual-Base-BEM"
+NEURAL_MODEL_REL = "pymusas/PyMUSAS-Neural-Multilingual-Base-BEM"
+
+
+def _default_neural_model_path() -> Path:
+    # Prefer downloaded models, fall back to bundled (dev: repo ./models).
+    return resolve_model_path(NEURAL_MODEL_REL) or (get_user_models_dir() / NEURAL_MODEL_REL)
 
 
 class NeuralUSASTagger:
@@ -32,11 +33,11 @@ class NeuralUSASTagger:
         Args:
             model_path: Path to the neural model. If None, uses default path.
         """
-        self.model_path = Path(model_path) if model_path else NEURAL_MODEL_PATH
+        self._explicit_model_path = bool(model_path)
+        self.model_path = Path(model_path) if model_path else _default_neural_model_path()
         self.model = None
         self.tokenizer = None
         self.device = None
-        self._available = None
         self._label_to_definition = None
     
     def _check_dependencies(self) -> bool:
@@ -67,9 +68,10 @@ class NeuralUSASTagger:
     
     def is_available(self) -> bool:
         """Check if neural tagger is available"""
-        if self._available is None:
-            self._available = self._check_dependencies() and self._check_model_exists()
-        return self._available
+        if not self._explicit_model_path:
+            # Keep model_path in sync with downloads / bundled fallback.
+            self.model_path = _default_neural_model_path()
+        return self._check_dependencies() and self._check_model_exists()
     
     def load_model(self) -> bool:
         """
@@ -152,7 +154,7 @@ class NeuralUSASTagger:
             logger.error(f"Neural tagging error: {e}")
             return [['Z99'] for _ in tokens]
     
-    def tag_text(self, text: str, language: str = 'english') -> Dict[str, Any]:
+    def tag_text(self, text: str, language: str = 'english', top_n: int = 1) -> Dict[str, Any]:
         """
         Tag text with USAS semantic domains using neural model.
         Processes text sentence by sentence to preserve context and handle long texts.
@@ -203,7 +205,7 @@ class NeuralUSASTagger:
                 sent_tokens = [token.text for token in sent]
                 if sent_tokens:
                     # Tag each sentence with full context
-                    sent_predictions = self.tag_tokens(sent_tokens, top_n=1)
+                    sent_predictions = self.tag_tokens(sent_tokens, top_n=top_n)
                     all_predictions.extend(sent_predictions)
             
             # Build result tokens
@@ -321,9 +323,10 @@ class NeuralUSASTagger:
         return results
     
     def tag_segments(
-        self, 
-        segments: List[Dict], 
-        language: str = 'english'
+        self,
+        segments: List[Dict],
+        language: str = 'english',
+        top_n: int = 1
     ) -> Dict[str, Any]:
         """
         Tag transcript segments with USAS semantic domains using neural model
@@ -355,7 +358,7 @@ class NeuralUSASTagger:
                     continue
                 
                 # Tag this segment
-                tag_result = self.tag_text(seg_text, language)
+                tag_result = self.tag_text(seg_text, language, top_n=top_n)
                 
                 if tag_result['success']:
                     seg_result = {

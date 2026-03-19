@@ -31,6 +31,7 @@ import CloseIcon from '@mui/icons-material/Close'
 import AddIcon from '@mui/icons-material/Add'
 import RemoveIcon from '@mui/icons-material/Remove'
 import { useTranslation } from 'react-i18next'
+import CQLEditor from './CQLEditor'
 
 // Query types
 type QueryType = 'simple' | 'lemma' | 'phrase' | 'word' | 'character' | 'cql'
@@ -408,16 +409,25 @@ export default function CollocationFilterDialog({
           </FormControl>
         </Stack>
 
-        {/* Query value input */}
-        <TextField
-          fullWidth
-          size="small"
-          label={isZh ? '查询内容' : 'Query value'}
-          placeholder={isZh ? '输入查询内容...' : 'Enter query...'}
-          value={config.queryValue}
-          onChange={(e) => updateConfig({ queryValue: e.target.value })}
-          sx={{ mb: 3 }}
-        />
+        {/* Query value input — CQL mode shows the full CQL editor with builder */}
+        {config.queryType === 'cql' ? (
+          <Box sx={{ mb: 3 }}>
+            <CQLEditor
+              value={config.queryValue}
+              onChange={(v) => updateConfig({ queryValue: v })}
+            />
+          </Box>
+        ) : (
+          <TextField
+            fullWidth
+            size="small"
+            label={isZh ? '查询内容' : 'Query value'}
+            placeholder={isZh ? '输入查询内容...' : 'Enter query...'}
+            value={config.queryValue}
+            onChange={(e) => updateConfig({ queryValue: e.target.value })}
+            sx={{ mb: 3 }}
+          />
+        )}
 
         {/* Range options */}
         <Box sx={{ mb: 2 }}>

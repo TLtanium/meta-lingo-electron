@@ -39,6 +39,8 @@ const CQL_EXAMPLES = [
   { query: '[pos="NOUN" | pos="VERB"]', desc: { zh: '名词或动词', en: 'Noun or verb' } },
   { query: '[lemma="make"] [] [pos="NOUN"]', desc: { zh: 'make + 任意词 + 名词', en: 'make + any + noun' } },
   { query: '[word=".*ing"]', desc: { zh: '以ing结尾的词', en: 'Words ending in -ing' } },
+  { query: '[usas="A.*"]', desc: { zh: '所有 A 大类语义域（通用活动）', en: 'All USAS category A (General Actions)' } },
+  { query: '[usas="A.*|E.*"]', desc: { zh: 'A 或 E 大类语义域（正则 OR）', en: 'USAS category A or E (regex OR)' } },
   { query: '[nrc=="joy"]', desc: { zh: '包含"喜悦"情感标签的词', en: 'Tokens tagged with joy' } },
   { query: '[nrc=="positive"]', desc: { zh: '带积极情感极性的词', en: 'Tokens with positive polarity' } },
   { query: '[nrc="anger|fear"]', desc: { zh: '愤怒或恐惧情感标签（正则）', en: 'Anger or fear emotion (regex)' } },
@@ -183,10 +185,16 @@ export default function CQLEditor({
                 [dep="nsubj"] - {isZh ? '依存关系匹配' : 'Dependency match'}
               </Typography>
               <Typography variant="body2" fontFamily="monospace" fontSize="0.8rem">
-                [usas="A1"] - {isZh ? '语义域包含 (忽略 _MWE 后缀)' : 'USAS domain contains (ignores _MWE)'}
+                [usas="A1"] - {isZh ? '语义域前缀匹配，匹配 A1、A1.1… 等' : 'USAS prefix match: A1, A1.1, A1.5+…'}
               </Typography>
               <Typography variant="body2" fontFamily="monospace" fontSize="0.8rem">
-                [usas=="N3.8+"] - {isZh ? '语义域精确匹配' : 'USAS domain exact match'}
+                [usas="A.*"] - {isZh ? '语义域正则匹配，匹配所有 A 大类标签' : 'USAS regex: all tags under category A'}
+              </Typography>
+              <Typography variant="body2" fontFamily="monospace" fontSize="0.8rem">
+                [usas="A.*|E.*"] - {isZh ? '语义域正则 OR，匹配 A 或 E 大类' : 'USAS regex OR: category A or E'}
+              </Typography>
+              <Typography variant="body2" fontFamily="monospace" fontSize="0.8rem">
+                [usas=="N3.8+"] - {isZh ? '语义域精确匹配（含符号）' : 'USAS exact match (including +/-)'}
               </Typography>
               <Typography variant="body2" fontFamily="monospace" fontSize="0.8rem">
                 [nrc=="joy"] - {isZh ? '情感标签精确匹配' : 'NRC emotion exact match'}

@@ -696,21 +696,46 @@ class CQLEngine:
             return match
 
         # For usas: normalize by stripping _MWE so A1.5.1_MWE matches A1.5.1
+        # When disambiguation is off, tokens have multiple tags in usas_tags; check ALL
         if condition.attribute == 'usas':
-            token_value = (token_value or '').replace('_MWE', '')
-            if condition.operator == '==':
-                match = token_value == condition.value
-            elif condition.operator == '!==':
-                match = token_value != condition.value
-            elif condition.operator == '=':
-                # Contains: normalized tag starts with value or equals value
-                match = token_value == condition.value or (
-                    len(condition.value) > 0 and token_value.startswith(condition.value)
-                )
-            elif condition.operator == '!=':
-                match = token_value != condition.value and not (
-                    len(condition.value) > 0 and token_value.startswith(condition.value)
-                )
+            # Build list of tags to check (all tags for multi-tag tokens)
+            usas_tags = token.get('usas_tags', [])
+            primary_tag = (token_value or '').replace('_MWE', '')
+            if usas_tags and len(usas_tags) > 1:
+                tags_to_check = [(t or '').replace('_MWE', '') for t in usas_tags]
+            else:
+                tags_to_check = [primary_tag]
+
+            def _usas_tag_matches(tv: str, val: str, exact: bool) -> bool:
+                """
+                Check whether a single normalised USAS tag `tv` matches `val`.
+
+                exact=True  (== / !==): strict string equality only.
+                exact=False (=  / != ):
+                  1. Try re.fullmatch(val, tv) so that patterns like "A.*", "E[0-9].*"
+                     or "A.*|E.*" work as expected.
+                  2. Fall back to str.startswith(val) so bare prefixes like "A1"
+                     still match "A1.1", "A1.5+", etc. (backward-compatible behaviour).
+                """
+                if exact:
+                    return tv == val
+                # --- regex attempt ---
+                try:
+                    if re.fullmatch(val, tv):
+                        return True
+                except re.error:
+                    pass
+                # --- prefix fallback ---
+                return len(val) > 0 and tv.startswith(val)
+
+            if condition.operator in ('==', '='):
+                # Positive match: ANY tag matches -> True
+                exact = condition.operator == '=='
+                match = any(_usas_tag_matches(tv, condition.value, exact) for tv in tags_to_check)
+            elif condition.operator in ('!==', '!='):
+                # Negative match: ALL tags must fail -> True (token does NOT belong to domain)
+                exact = condition.operator == '!=='
+                match = not any(_usas_tag_matches(tv, condition.value, exact) for tv in tags_to_check)
             else:
                 match = False
         else:

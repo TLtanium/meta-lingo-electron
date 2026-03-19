@@ -74,7 +74,7 @@ To create an **All-in-One** language research software that integrates word freq
 If you have any questions or suggestions while using the software, feel free to contact me:
 
 - **Bilibili**: [https://space.bilibili.com/294707614](https://space.bilibili.com/294707614)
-- **Xiaohongshu**: [https://www.xiaohongshu.com/user/profile/5af2c7734eacab77509ec3af](https://www.xiaohongshu.com/user/profile/5af2c7734eacab77509ec3af)
+- **Xiaohongshu**: [https://www.xiaohongshu.com/user/profile/6337c399000000001802d464](https://www.xiaohongshu.com/user/profile/6337c399000000001802d464)
 - **YouTube**: [https://www.youtube.com/@metalingo2026](https://www.youtube.com/@metalingo2026)
 - **Email**: 1683619168tl@gmail.com
 
@@ -7142,9 +7142,142 @@ Topic modeling has four submodules: **BERTopic**, **LDA**, **LSA**, and **NMF**.
 
 ---
 
+# MCP Service
+
+Meta-Lingo includes a **Model Context Protocol (MCP) server** that allows AI assistants to autonomously use Meta-Lingo’s corpus research tools. Once connected, an AI assistant can create corpora, upload texts, run analyses, and interpret results — all without manual intervention.
+
+## Supported AI Assistants
+
+| Client | Setup Method | Description |
+|--------|-------------|-------------|
+| **Claude Desktop** | Extension (.dxt) or stdio | Anthropic’s desktop app (macOS / Windows). Recommended |
+| **Claude.ai** (web) | Connectors (HTTPS required) | Anthropic’s web assistant. Requires ngrok or public server |
+| **Cursor** | stdio config | AI code editor |
+| Other MCP clients | stdio or HTTP | Any client supporting the MCP protocol |
+
+## Setup — Claude Desktop Extension (Recommended)
+
+The easiest way to connect. Double-click to install — no config files or terminal commands needed.
+
+1. Ensure Meta-Lingo is running (the MCP service connects to Meta-Lingo’s backend).
+2. In Meta-Lingo **Settings** → **MCP Service**, click the **Download Extension (.dxt)** button to get the extension file.
+3. **Double-click** the `.dxt` file — Claude Desktop will prompt you to install.
+4. Confirm the installation. Meta-Lingo’s 18 tools will be available immediately.
+
+> **Tip**: You can also install via Claude Desktop → **Settings** → **Extensions** → **Install from file**.
+
+## Setup — Claude Desktop (Manual stdio Config)
+
+If you prefer manual configuration, or the Extension method is not available:
+
+1. Open **Settings** in Meta-Lingo, find the **MCP Service** section.
+2. Ensure the MCP service is **enabled** (toggle on). Note: MCP is **disabled by default** in Meta-Lingo.
+3. Expand **Manual Configuration**, click the **copy** button to copy the JSON configuration.
+4. Open Claude Desktop → **Settings** → **Developer** → **Edit Config**.
+   - This opens the file `claude_desktop_config.json`.
+   - macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
+   - Windows: `%APPDATA%\Claude\claude_desktop_config.json`
+5. Paste the copied JSON into the file. If the file already has content, merge the `mcpServers` section.
+6. **Restart** Claude Desktop. The Meta-Lingo tools will appear automatically.
+
+## Setup — Claude.ai Web (Advanced)
+
+Claude.ai web only accepts **HTTPS** public URLs — local `http://localhost` addresses are rejected. You need a tunneling tool like ngrok to expose the local MCP server.
+
+> **Note**: Custom connectors on Claude.ai require a **Max**, **Team**, or **Enterprise** plan.
+
+1. Ensure Meta-Lingo is running.
+2. Start the MCP server in HTTP mode. Open a terminal and run:
+
+   **macOS**
+   ```
+   /Applications/Meta-Lingo.app/Contents/Resources/mcp-server/meta-lingo-mcp --transport http
+   ```
+
+   **Windows** (Command Prompt or PowerShell)
+   ```
+   "C:\Program Files\Meta-Lingo\resources\mcp-server\meta-lingo-mcp.exe" --transport http
+   ```
+
+   **Linux**
+   ```
+   /opt/Meta-Lingo/resources/mcp-server/meta-lingo-mcp --transport http
+   ```
+
+   The server starts on `http://127.0.0.1:8001/mcp`.
+
+3. **Expose via HTTPS using ngrok.** Install from [ngrok.com](https://ngrok.com), then run:
+   ```
+   ngrok http 8001
+   ```
+   Copy the HTTPS forwarding address (e.g. `https://xxxx.ngrok-free.app`).
+
+4. Open [claude.ai](https://claude.ai) → **Settings** → **Connectors** → **Add custom connector**.
+5. Paste `https://xxxx.ngrok-free.app/mcp` and confirm.
+6. The Meta-Lingo tools will be available in your Claude.ai conversations.
+
+> **Note**: Keep both the MCP server and ngrok running during your session. Free ngrok URLs change on restart (paid plans support fixed domains). Cloudflare Tunnel is an alternative.
+
+## Setup — Cursor
+
+1. Open **Settings** in Meta-Lingo, find the **MCP Service** section.
+2. Expand **Manual Configuration**, click the **copy** button.
+3. In Cursor: **Settings** → **MCP Servers** → add a new server and paste the configuration.
+
+## Available Tools (18)
+
+### Corpus Management
+- **list_corpora**: List all corpora with metadata
+- **create_corpus**: Create a new corpus
+- **upload_text**: Upload text content to a corpus
+- **get_corpus_info**: Get corpus details and text IDs
+
+### Lexical Analysis
+- **word_frequency**: Word frequency analysis with POS filtering
+- **keyword_extraction**: TF-IDF / TextRank / YAKE / RAKE keywords
+- **keyness_analysis**: Statistical keyword comparison between corpora
+- **ngram_analysis**: N-gram frequency analysis (2–6 grams)
+
+### Concordance
+- **concordance_search**: KWIC search (exact / phrase / CQL)
+- **collocation_analysis**: Statistical collocation analysis (logDice, MI, etc.)
+- **word_sketch**: Grammatical relation profiles
+
+### Semantic Analysis
+- **semantic_domain_analysis**: USAS semantic domain distribution
+- **metaphor_analysis**: MIPVU metaphor detection
+- **sentiment_analysis**: NRC emotion lexicon analysis
+
+### Other Analysis
+- **synonym_analysis**: WordNet synonyms filtered by corpus
+- **sketch_difference**: Compare collocational profiles of two words
+- **topic_modeling**: LDA / BERTopic topic discovery
+
+### Export
+- **export_annotations**: Export annotations as TXT / JSON / XML
+
+## How It Works
+
+The MCP server is a lightweight proxy that translates AI tool calls into Meta-Lingo REST API requests. All data is stored in the same database and files as the desktop application. This means:
+
+- Corpora created by the AI appear in the app’s Corpus Management page.
+- Analysis results match what you would get through the app’s UI.
+- You can reproduce any AI-initiated analysis manually through the app.
+
+## Example Workflows
+
+Ask your AI assistant:
+- *"Create a corpus called ‘Political Speeches’, upload these three texts, and analyze word frequency."*
+- *"Compare the keywords in corpus A vs corpus B using log-likelihood."*
+- *"Search for concordances of ‘democracy’ in my corpus and analyze its collocations."*
+- *"What are the dominant semantic domains in this corpus?"*
+- *"Run topic modeling with 5 topics on my research corpus."*
+
+---
+
 # Application Settings
 
-Application Settings let you personalize Meta-Lingo’s behavior and appearance. Open them from the **settings icon** in the top-right. The page includes, in order: **Interface language**, **Theme & wallpaper**, **Ollama connection**, **OpenAI-compatible API**, **USAS tagging mode**, **USAS semantic domain configuration**, **License**, and **Factory reset**.
+Application Settings let you personalize Meta-Lingo’s behavior and appearance. Open them from the **settings icon** in the top-right. The page includes, in order: **Interface language**, **Theme & wallpaper**, **Ollama connection**, **OpenAI-compatible API**, **USAS tagging mode**, **USAS semantic domain configuration**, **MCP Service**, **License**, and **Factory reset**.
 
 ## Interface Language
 
@@ -7207,6 +7340,20 @@ Choose how USAS semantic domain tagging runs: **Rule-based**, **Neural**, or **H
 - Applies rules first, then uses the neural model for uncertain cases.
 - **Pros**: Balances speed and accuracy.
 
+### Enable Disambiguation
+
+The "Enable Disambiguation" toggle controls whether custom disambiguation strategies (text type priority, discourse domain recognition, one-sense-per-discourse) are applied.
+
+- **Off (default)**: No disambiguation is performed; all candidate tags are preserved. Each tag is counted in statistics and searchable via CQL.
+  - Rule-based mode: All candidate tags are kept; each tag participates in semantic domain statistics and CQL searches.
+  - Neural mode: Uses top_n=5 to output 5 candidate tags.
+  - Hybrid mode: Uses rule-based mode keeping all candidate tags; for Z99 words, uses neural top_n=5.
+  - Multi-word expression (MWE) identification is unaffected; the MWE suffix is still applied.
+- **On**: Full disambiguation pipeline runs, selecting a single tag per token.
+  - Disambiguation strategies execute in priority order: text type priority → discourse domain recognition → one-sense-per-discourse.
+
+> **Note**: After changing the disambiguation setting, you need to re-upload or re-annotate corpora for the new setting to take effect. Existing annotations are not automatically updated.
+
 ## USAS Semantic Domain Configuration
 
 Set **priority semantic domains** per **text type** for USAS disambiguation. The text type chosen when uploading a corpus or running annotation determines which priorities are used.
@@ -7241,6 +7388,7 @@ The following are **always** reset when you run factory reset (cannot be uncheck
 - Topic modeling data (embeddings, analysis results, etc.)
 - Word2Vec models
 - USAS-related configuration
+- Downloaded ML models (keeps built-in NLTK + TorchCrepe)
 
 ### How to Run
 
@@ -7249,4 +7397,15 @@ The following are **always** reset when you run factory reset (cannot be uncheck
 3. Click the confirm button.
 
 If you do not use Factory reset, uninstalling or reinstalling the app will not clear your local corpus data by default; use this only when you want to wipe data completely.
+
+## Model Management (Downloads)
+
+- Go to **Settings → Model Management** to download optional ML models (Whisper/YOLO/CLIP/Wav2Vec2/SBERT/PyMUSAS-Neural/DeBERTa, etc.).
+- Downloaded models are stored in the app persistent directory: `userData/models`.
+- You can change the download directory from **Settings → Model Management → Download path**. The app will create the required directory structure automatically when downloading.
+- If **Whisper** is missing, **audio/video upload and processing** are disabled in the **Corpus Management → Upload** tab.
+
+### Dev Mode Note
+
+- In development mode, Meta-Lingo defaults to `./saves/models` (not `./models`) to avoid deleting your original repository model files during factory reset.
 

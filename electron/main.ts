@@ -17,17 +17,56 @@ interface StartupStatus {
   message: string
   progress: number  // 0-100
   backendReady: boolean
+  /** Monotonic sequence number for ordering. */
+  seq: number
+  /** Startup attempt id. Increases on retry. */
+  attemptId: number
 }
 
 let startupStatus: StartupStatus = {
   stage: 'initializing',
   message: 'Initializing...',
   progress: 0,
-  backendReady: false
+  backendReady: false,
+  seq: 0,
+  attemptId: 1,
 }
 
+// #region agent log
+const _dbg = (hypothesisId: string, location: string, message: string, data: any) => {
+  try {
+    fetch('http://127.0.0.1:7243/ingest/144d6320-478f-4aca-871e-5ef953960d7e', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '060f7d' },
+      body: JSON.stringify({
+        sessionId: '060f7d',
+        runId: 'pre-fix',
+        hypothesisId,
+        location,
+        message,
+        data,
+        timestamp: Date.now()
+      })
+    }).catch(() => {})
+  } catch {}
+}
+// #endregion
+
 function updateStartupStatus(update: Partial<StartupStatus>) {
-  startupStatus = { ...startupStatus, ...update }
+  const nextAttemptId = update.attemptId ?? startupStatus.attemptId
+  const isSameAttempt = nextAttemptId === startupStatus.attemptId
+
+  // Progress should never go backwards within the same attempt.
+  const requestedProgress = update.progress ?? startupStatus.progress
+  const nextProgress = isSameAttempt ? Math.max(startupStatus.progress, requestedProgress) : requestedProgress
+
+  startupStatus = {
+    ...startupStatus,
+    ...update,
+    attemptId: nextAttemptId,
+    progress: nextProgress,
+    seq: startupStatus.seq + 1,
+  }
   // 发送状态更新到渲染进程
   // 加载中发送的消息会被 Electron 丢弃，但 did-finish-load 事件会补发最新状态
   if (mainWindow && !mainWindow.isDestroyed() && mainWindow.webContents) {
@@ -122,6 +161,15 @@ async function startBackend(extendedTimeout = false): Promise<boolean> {
   const backendPath = getBackendPath()
   const dataPath = getDataPath()
   const resourcesPath = process.resourcesPath
+  // #region agent log
+  _dbg('H2', 'electron/main.ts:startBackend', 'start backend invoked', {
+    extendedTimeout,
+    isDev,
+    backendPath,
+    dataPath,
+    resourcesPath
+  })
+  // #endregion
   
   if (!fs.existsSync(backendPath)) {
     console.error('[Backend] Backend executable not found:', backendPath)
@@ -157,6 +205,9 @@ async function startBackend(extendedTimeout = false): Promise<boolean> {
         stdio: ['ignore', 'pipe', 'pipe'],
         detached: false,
       })
+      // #region agent log
+      _dbg('H2', 'electron/main.ts:startBackend', 'backend process spawned', { pid: backendProcess?.pid ?? null })
+      // #endregion
       const logPath = !isDev ? path.join(app.getPath('userData'), 'backend.log') : null
       const appendLine = (line: string) => {
         if (logPath) {
@@ -185,6 +236,9 @@ async function startBackend(extendedTimeout = false): Promise<boolean> {
       
       backendProcess.on('error', (err) => {
         console.error('[Backend] Failed to start:', err)
+        // #region agent log
+        _dbg('H3', 'electron/main.ts:startBackend', 'backend process error event', { message: err.message })
+        // #endregion
         updateStartupStatus({ 
           stage: 'error', 
           message: `Failed to start backend: ${err.message}`, 
@@ -195,6 +249,14 @@ async function startBackend(extendedTimeout = false): Promise<boolean> {
       
       backendProcess.on('close', (code, signal) => {
         console.log('[Backend] Process exited with code:', code, 'signal:', signal)
+        // #region agent log
+        _dbg('H3', 'electron/main.ts:startBackend', 'backend process close event', {
+          code,
+          signal: signal ?? null,
+          attemptId: startupStatus.attemptId,
+          stage: startupStatus.stage
+        })
+        // #endregion
         // 如果进程在健康检查完成前退出，标记为失败
         if (code !== null && code !== 0) {
           updateStartupStatus({ 
@@ -392,8 +454,9 @@ function createWindow() {
     height: actualHeight,
     minWidth: actualMinWidth,
     minHeight: actualMinHeight,
-    maxWidth: availableWidth,
-    maxHeight: availableHeight,
+    // Avoid constraining fullscreen size on macOS. Using workArea-based max size
+    // can leave a black strip after Space swipe / return in fullscreen.
+    ...(isMac ? {} : { maxWidth: availableWidth, maxHeight: availableHeight }),
     icon: path.join(__dirname, '../assets/icons/icon_256x256.png'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -423,11 +486,25 @@ function createWindow() {
 
   // Track fullscreen state changes and notify renderer
   mainWindow.on('enter-full-screen', () => {
+    // macOS: force window to match display bounds to avoid bottom black area
+    // after switching Spaces and returning.
+    if (isMac && mainWindow && !mainWindow.isDestroyed()) {
+      const display = screen.getDisplayMatching(mainWindow.getBounds())
+      mainWindow.setBounds(display.bounds, false)
+    }
     mainWindow?.webContents.send('fullscreen-changed', true)
   })
   
   mainWindow.on('leave-full-screen', () => {
     mainWindow?.webContents.send('fullscreen-changed', false)
+  })
+
+  mainWindow.on('focus', () => {
+    if (!isMac || !mainWindow || mainWindow.isDestroyed()) return
+    if (!mainWindow.isFullScreen()) return
+    // Re-apply fullscreen bounds when app regains focus from another Space.
+    const display = screen.getDisplayMatching(mainWindow.getBounds())
+    mainWindow.setBounds(display.bounds, false)
   })
 
   if (isDev) {
@@ -520,6 +597,15 @@ ipcMain.handle('is-fullscreen', () => {
   return mainWindow?.isFullScreen() ?? false
 })
 
+ipcMain.handle('get-mcp-path', () => {
+  const isDev = !app.isPackaged
+  if (isDev) {
+    return { command: 'python', args: ['-m', 'mcp_server'], cwd: path.join(__dirname, '..', 'backend') }
+  }
+  const mcpPath = path.join(process.resourcesPath, 'mcp-server', 'meta-lingo-mcp')
+  return { command: mcpPath, args: [], cwd: '' }
+})
+
 /**
  * 继续轮询健康检查（后端进程仍在运行，只是尚未就绪）
  * 不杀死后端，给它额外 20 秒时间，避免杀掉快好了的进程再从零重启
@@ -568,10 +654,14 @@ ipcMain.handle('retry-backend', async () => {
       stage: 'initializing',
       message: 'Restarting...',
       progress: 0,
-      backendReady: false
+      backendReady: false,
+      attemptId: startupStatus.attemptId + 1,
     })
     stopBackend()
     await new Promise(resolve => setTimeout(resolve, 2000))
+    // #region agent log
+    _dbg('H3', 'electron/main.ts:retry-backend', 'manual retry requested', { attemptId: startupStatus.attemptId })
+    // #endregion
     const restarted = await startBackend(true)
     return restarted
   }

@@ -72,6 +72,7 @@ export default function EmbeddingPanel({
   const [renameDialogOpen, setRenameDialogOpen] = useState(false)
   const [embeddingToRename, setEmbeddingToRename] = useState<string | null>(null)
   const [newEmbeddingName, setNewEmbeddingName] = useState('')
+  const [hasLoaded, setHasLoaded] = useState(false)
 
   // Filter embeddings to only show those matching current text selection
   const embeddings = useMemo(() => {
@@ -105,6 +106,7 @@ export default function EmbeddingPanel({
       if (modelInfoRes.success && modelInfoRes.data) {
         setModelInfo(modelInfoRes.data)
       }
+      setHasLoaded(true)
     } catch (err) {
       setError(String(err))
     } finally {
@@ -112,15 +114,28 @@ export default function EmbeddingPanel({
     }
   }
 
-  // Reload embeddings when corpus changes
+  const ensureModelInfo = async (): Promise<ModelInfo | null> => {
+    if (modelInfo) return modelInfo
+    try {
+      const modelInfoRes = await topicModelingApi.getModelInfo()
+      if (modelInfoRes.success && modelInfoRes.data) {
+        setModelInfo(modelInfoRes.data)
+        return modelInfoRes.data
+      }
+      return null
+    } catch {
+      return null
+    }
+  }
+
+  // Reset state when corpus changes; no auto loading on page entry.
   useEffect(() => {
-    // Reset selection when corpus changes
     if (selectedEmbedding) {
       onEmbeddingSelect(null)
     }
-    // Clear embeddings list first, then reload
     setAllEmbeddings([])
-    loadData()
+    setModelInfo(null)
+    setHasLoaded(false)
   }, [corpusId])
 
   // Reset selection when text selection changes and selected embedding no longer matches
@@ -141,6 +156,12 @@ export default function EmbeddingPanel({
     setError(null)
 
     try {
+      const latestModelInfo = await ensureModelInfo()
+      if (!latestModelInfo?.exists) {
+        setError(t('topicModeling.embedding.modelNotFound'))
+        return
+      }
+
       const response = await topicModelingApi.createEmbedding(
         corpusId,
         textIds,
@@ -256,7 +277,7 @@ export default function EmbeddingPanel({
         variant="contained"
         startIcon={creating ? <CircularProgress size={16} color="inherit" /> : <PlayArrowIcon />}
         onClick={handleCreateEmbedding}
-        disabled={creating || !corpusId || textIds.length === 0 || !modelInfo?.exists}
+        disabled={creating || !corpusId || textIds.length === 0}
         fullWidth
         sx={{ mb: 2 }}
       >
@@ -289,6 +310,10 @@ export default function EmbeddingPanel({
       {!corpusId ? (
         <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 2 }}>
           {t('topicModeling.embedding.selectCorpusFirst')}
+        </Typography>
+      ) : !hasLoaded ? (
+        <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 2 }}>
+          {t('topicModeling.embedding.clickRefreshToLoad', 'Click refresh to load embeddings')}
         </Typography>
       ) : loading ? (
         <Box display="flex" justifyContent="center" p={2}>

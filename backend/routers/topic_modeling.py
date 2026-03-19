@@ -494,6 +494,15 @@ async def analyze_topics(request: AnalysisRequest):
         
     except HTTPException:
         raise
+    except ValueError as e:
+        msg = str(e)
+        if "SBERT model not found" in msg:
+            raise HTTPException(
+                status_code=409,
+                detail="SBERT_NOT_INSTALLED: Sentence-BERT model is missing. Please download it in Settings > Model Management, then retry."
+            )
+        logger.error(f"Analysis value error: {e}")
+        raise HTTPException(status_code=400, detail=msg)
     except Exception as e:
         logger.error(f"Analysis error: {e}")
         import traceback

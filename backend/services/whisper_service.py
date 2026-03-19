@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import List, Dict, Any, Optional
 from dataclasses import dataclass, asdict
 
-from config import MODELS_DIR
+from model_paths import get_user_models_dir, resolve_model_path
 
 # Import alignment and pitch services for English audio processing
 from services.alignment_service import get_alignment_service
@@ -148,8 +148,11 @@ def _ensure_ffmpeg_in_path():
         logger.warning(f"Failed to configure FFmpeg path: {e}")
         return None
 
-# Model path - 使用 config.py 中的 MODELS_DIR
-WHISPER_MODEL_PATH = str(MODELS_DIR / "multimodal_analyzer" / "whisper-large-v3-turbo")
+WHISPER_MODEL_REL = "multimodal_analyzer/whisper-large-v3-turbo"
+
+
+def _default_whisper_model_path() -> str:
+    return str(resolve_model_path(WHISPER_MODEL_REL) or (get_user_models_dir() / WHISPER_MODEL_REL))
 
 
 @dataclass
@@ -195,7 +198,8 @@ class WhisperService:
     """Whisper transcription service"""
     
     def __init__(self, model_path: str = None):
-        self.model_path = model_path or WHISPER_MODEL_PATH
+        self._explicit_model_path = bool(model_path)
+        self.model_path = model_path or _default_whisper_model_path()
         self.model = None
         self.processor = None
         self.pipe = None
@@ -215,6 +219,16 @@ class WhisperService:
     
     def initialize(self) -> bool:
         """Initialize the Whisper model"""
+        if not self._explicit_model_path:
+            # If download location changes / model becomes available, pick it up.
+            next_path = _default_whisper_model_path()
+            if next_path != self.model_path:
+                self.model_path = next_path
+                self.model = None
+                self.processor = None
+                self.pipe = None
+                self._initialized = False
+
         if self._initialized:
             return True
             
@@ -804,6 +818,8 @@ class WhisperService:
     
     def is_available(self) -> bool:
         """Check if Whisper service is available"""
+        if not self._explicit_model_path:
+            self.model_path = _default_whisper_model_path()
         return os.path.exists(self.model_path)
 
 

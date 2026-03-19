@@ -262,6 +262,44 @@
       "stageNrc": "NRC emotion annotation...",
       "chipSave": "Save"
     },
+    "exportAnnotated": {
+      "button": "Export Corpus",
+      "title": "Export Annotated Corpus",
+      "description": "Select annotation types to export. Each type generates a separate .txt file in word_TAG format, bundled into a zip archive.",
+      "selectAll": "Select All",
+      "clearAll": "Clear All",
+      "exporting": "Exporting...",
+      "export": "Export",
+      "noTypesSelected": "Please select at least one annotation type",
+      "success": "Export successful",
+      "failed": "Export failed",
+      "noTextsSelected": "Please select text or transcript files first",
+      "format": "Export Format",
+      "formatTxt": "TXT",
+      "formatTxtDesc": "Tagged plain text (word_TAG). One file per annotation type, bundled as a zip archive.",
+      "formatJson": "JSON",
+      "formatJsonDesc": "Full annotation metadata as a single JSON file containing all tokens, sentences, and text info.",
+      "formatXml": "XML",
+      "formatXmlDesc": "Same as JSON but in XML format. One file with the complete annotation structure.",
+      "annotationTypes": "Annotation Types",
+      "groupPos": "POS & Grammar",
+      "groupSemantics": "Semantics",
+      "groupMetaphor": "Metaphor",
+      "types": {
+        "universal_pos": "Universal POS",
+        "universal_pos_desc": "SpaCy Universal Part-of-Speech tag (e.g. word_NOUN, word_VERB)",
+        "penn_pos": "Penn POS",
+        "penn_pos_desc": "Penn Treebank fine-grained POS tag (e.g. word_NNS, word_VBD)",
+        "lemma": "Lemma",
+        "lemma_desc": "Base/dictionary form of each word (e.g. running_run)",
+        "dep": "Dependency",
+        "dep_desc": "Syntactic dependency relation (e.g. word_nsubj, word_dobj)",
+        "usas": "USAS Semantic Domain",
+        "usas_desc": "UCREL Semantic Analysis System domain tag (e.g. word_A1.1)",
+        "mipvu": "MIPVU Metaphor",
+        "mipvu_desc": "Metaphor identification label: MET (metaphor) or LIT (literal)"
+      }
+    },
     "selectTextFilesFirst": "Please select text files first",
     "uploadFiles": "Upload Files",
     "clickOrDrag": "Click or drag files here",
@@ -3076,6 +3114,58 @@
     "dataResetCompleted": "Data reset completed",
     "dataResetFailed": "Data reset failed",
     "factoryResetCompleted": "Factory reset completed",
+    "modelManagement": {
+      "title": "Model Management",
+      "description": "Download or delete optional ML models. Factory reset preserves built-in models.",
+      "openDialog": "Manage models",
+      "dialogTitle": "Model Management",
+      "download": "Download",
+      "delete": "Delete",
+      "cancelDownload": "Cancel download",
+      "builtIn": "Built-in",
+      "bundledFallback": "Bundled fallback",
+      "downloadFailed": "Download failed",
+      "deleteFailed": "Delete failed",
+      "installed": "Installed",
+      "notInstalled": "Not installed",
+      "queued": "Queued",
+      "modules": {
+        "speechToText": "Speech-to-text",
+        "videoObjectDetection": "Video object detection",
+        "semanticEmbeddings": "Semantic embeddings",
+        "alignment": "Alignment",
+        "usasSemanticTagging": "USAS (semantic tagging)",
+        "mipvuMetaphorDetection": "MIPVU (metaphor detection)"
+      },
+      "models": {
+        "whisper_large_v3_turbo": { "name": "Whisper (large-v3-turbo)" },
+        "yolov8_weights": { "name": "YOLOv8 (weights)" },
+        "clip_vit_large_patch14": { "name": "CLIP (ViT-L/14)" },
+        "wav2vec2_base_960h": { "name": "Wav2Vec2 (base-960h)" },
+        "sbert_paraphrase_multilingual_minilm_l12_v2": {
+          "name": "SBERT (paraphrase-multilingual-MiniLM-L12-v2)"
+        },
+        "pymusas_neural_multilingual_base_bem": {
+          "name": "PyMUSAS Neural (Multilingual Base BEM)"
+        },
+        "deberta_v3_large_clause_metaphor": {
+          "name": "MIPVU DeBERTa (clause metaphor)"
+        }
+      },
+      "downloadPathTitle": "Download path",
+      "selectDownloadPathTitle": "Select download folder",
+      "changeDownloadPath": "Change",
+      "resetDownloadPath": "Reset",
+      "setDownloadPathFailed": "Failed to set download path",
+      "resetDownloadPathFailed": "Failed to reset download path",
+      "electronApiUnavailable": "Electron file dialog is unavailable"
+      ,
+      "manualDownloadPathTitle": "Set download path",
+      "manualDownloadPathDesc": "Your environment does not support Electron directory selection. Please enter an absolute path manually.",
+      "manualDownloadPathLabel": "Download directory (absolute path)",
+      "manualDownloadPathPlaceholder": "/Users/you/Library/Application Support/Meta-Lingo/models",
+      "manualPathInvalid": "Please enter a valid directory path"
+    },
     "resetFailed": "Reset failed",
     "license": "Software License",
     "licenseDescription": "View software license agreement",
@@ -3144,9 +3234,30 @@
         "Z": "Names And Grammatical Words"
       }
     },
+    "mcp": {
+      "title": "MCP Service",
+      "description": "Allow AI assistants (Claude, Cursor, etc.) to use Meta-Lingo's analysis tools directly.",
+      "enabled": "Enable MCP Service",
+      "enabledDesc": "AI assistants can connect to Meta-Lingo for corpus analysis, text upload, and research workflows.",
+      "downloadExtension": "Download Extension (.dxt)",
+      "downloadExtensionHint": "Download and double-click to install in Claude Desktop — no further setup needed.",
+      "manualConfig": "Manual Configuration",
+      "manualConfigHint": "For Cursor or other MCP clients that require JSON configuration.",
+      "copyConfig": "Copy",
+      "copiedConfig": "Configuration copied to clipboard",
+      "copyFailed": "Failed to copy configuration",
+      "loadError": "Failed to load MCP configuration",
+      "saveError": "Failed to save MCP settings",
+      "statusReady": "Ready",
+      "statusDisabled": "Disabled",
+      "toolCount": "{{count}} tools"
+    },
     "usasMode": {
       "title": "USAS Tagging Mode",
       "description": "Select the method for semantic domain tagging. Different modes have different advantages.",
+      "currentMode": "Current strategy",
+      "expandModes": "Change strategy",
+      "collapseModes": "Collapse",
       "ruleBased": "Rule-Based Disambiguation",
       "ruleBasedDesc": "Uses PyMUSAS rule-based tagger with discourse domain recognition and one-sense-per-discourse rules. Supports Multi-Word Expression (MWE) identification.",
       "neural": "Neural Network",
@@ -3156,7 +3267,11 @@
       "loadError": "Failed to load tagging mode status",
       "saveError": "Failed to save tagging mode",
       "saveSuccess": "Tagging mode updated",
-      "modeUnavailable": "This mode is not available. Please ensure the neural model is installed."
+      "modeUnavailable": "This mode is not available. Please ensure the neural model is installed.",
+      "disambiguationToggle": "Enable Disambiguation",
+      "disambiguationToggleDesc": "When enabled, uses text type priority, discourse domain recognition, and one-sense-per-discourse rules to select a single tag per token. When disabled, all candidate tags are preserved for analysis and each tag is counted and searchable.",
+      "disambiguationSaveSuccess": "Disambiguation setting saved",
+      "disambiguationSaveError": "Failed to save disambiguation setting"
     }
   },
   "help": {

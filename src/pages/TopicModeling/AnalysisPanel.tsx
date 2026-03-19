@@ -283,7 +283,15 @@ export default function AnalysisPanel({
         setError(response.error || 'Analysis failed')
       }
     } catch (err) {
-      setError(String(err))
+      const errorStr = String(err)
+      if (errorStr.includes('SBERT_NOT_INSTALLED') || errorStr.includes('SBERT model not found')) {
+        setError(t(
+          'topicModeling.analysis.sbertMissing',
+          'Sentence-BERT model is not installed. Please go to Settings > Model Management and download the SBERT model first.'
+        ))
+      } else {
+        setError(errorStr)
+      }
     } finally {
       setAnalyzing(false)
     }

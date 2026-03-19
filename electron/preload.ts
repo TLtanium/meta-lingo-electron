@@ -6,6 +6,10 @@ export interface StartupStatus {
   message: string
   progress: number
   backendReady: boolean
+  /** Monotonic sequence number for ordering (main-process assigned). */
+  seq: number
+  /** Startup attempt id. Increases on retry; allows renderer to reset UI safely. */
+  attemptId: number
 }
 
 // Expose protected methods to renderer process

@@ -148,18 +148,24 @@ class SemanticAnalysisService:
         mipvu_data = self._load_mipvu_annotation(text)
         mipvu_tokens_map = self._build_mipvu_tokens_map(mipvu_data) if mipvu_data else {}
         
+        # Check if disambiguation was enabled when this annotation was created
+        # Default True for backward compat with old .usas.json files
+        disambiguation_enabled = usas_data.get("disambiguation_enabled", True)
+
         # Handle different annotation formats
         if "tokens" in usas_data:
             # Standard text annotation format
             tokens = self._extract_from_tokens(
-                usas_data["tokens"], pos_filter, lowercase, mipvu_tokens_map
+                usas_data["tokens"], pos_filter, lowercase, mipvu_tokens_map,
+                disambiguation_enabled=disambiguation_enabled
             )
         elif "segments" in usas_data:
             # Segment-based annotation format (for audio/video)
             for seg_id, seg_data in usas_data["segments"].items():
                 if "tokens" in seg_data:
                     seg_tokens = self._extract_from_tokens(
-                        seg_data["tokens"], pos_filter, lowercase, mipvu_tokens_map
+                        seg_data["tokens"], pos_filter, lowercase, mipvu_tokens_map,
+                        disambiguation_enabled=disambiguation_enabled
                     )
                     tokens.extend(seg_tokens)
         
@@ -288,107 +294,123 @@ class SemanticAnalysisService:
         tokens: List[Dict[str, Any]],
         pos_filter: Optional[Dict[str, Any]],
         lowercase: bool,
-        mipvu_tokens_map: Optional[Dict] = None
+        mipvu_tokens_map: Optional[Dict] = None,
+        disambiguation_enabled: bool = True
     ) -> List[Dict[str, Any]]:
         """
         Extract word and domain info from token data
-        
+
         For compound tags like 'Df/I2.2', creates separate records for each domain.
-        This means a word tagged with 'N3.8+/A2.1' will produce two records:
-        - one with domain 'N3.8+'
-        - one with domain 'A2.1'
-        
+        When disambiguation is OFF, iterates over ALL candidate tags in usas_tags,
+        creating records for each unique domain per token.
+
         Args:
             tokens: List of token dictionaries from USAS
             pos_filter: POS filter config
             lowercase: Whether to lowercase
             mipvu_tokens_map: Optional map from positions to is_metaphor values
-            
+            disambiguation_enabled: Whether disambiguation was applied
+
         Returns:
             List of token dictionaries with word, domain, pos, domain_name, is_metaphor
         """
         result = []
-        
+
         selected_pos = pos_filter.get("selectedPOS", []) if pos_filter else []
         keep_mode = pos_filter.get("keepMode", True) if pos_filter else True
         mipvu_map = mipvu_tokens_map or {}
-        
+
         for token in tokens:
             # Skip punctuation and spaces
             if token.get("is_punct") or token.get("is_space"):
                 continue
-            
+
             text = token.get("text", "")
             pos = token.get("pos", "")
             usas_tag = token.get("usas_tag", "")
-            
+
             # Skip empty tokens or tokens without USAS tag
             if not text.strip() or not usas_tag:
                 continue
-            
+
             # Skip grammatical words (Z99) and PUNCT
             if usas_tag in ("Z99", "PUNCT"):
                 continue
-            
+
             # Apply POS filter if configured
             if selected_pos:
                 if keep_mode:
-                    # Keep only selected POS
                     if pos not in selected_pos:
                         continue
                 else:
-                    # Filter out selected POS
                     if pos in selected_pos:
                         continue
             elif keep_mode and selected_pos == []:
-                # Keep mode with empty selection - allow all
                 pass
-            
+
             # Apply lowercase if requested
             word = text.lower() if lowercase else text
-            
+
             # Check if it's a MWE token (has _MWE suffix)
             is_mwe = '_MWE' in usas_tag
-            
+
             # Look up is_metaphor from MIPVU data
-            # First try by position, then by word as fallback
             start = token.get("start", -1)
             end = token.get("end", -1)
             is_metaphor = mipvu_map.get((start, end), None)
             if is_metaphor is None:
-                # Fallback: check by word (lowercase)
                 is_metaphor = mipvu_map.get(('word', text.lower()), False)
-            
-            # Parse compound tag - split by '/' to get individual domains
-            # This will split 'N3.8+/A2.1' into ['N3.8+', 'A2.1']
-            # And 'Df/I2.2_MWE' into ['Df_MWE', 'I2.2_MWE']
-            individual_domains = parse_compound_tag(usas_tag)
-            
-            # Create a record for each individual domain
-            for domain in individual_domains:
-                # Skip Z99 domains
-                if domain == 'Z99' or domain == 'Z99_MWE':
+
+            # Determine which tags to process
+            if not disambiguation_enabled:
+                # Disambiguation OFF: use all candidate tags
+                all_tags = token.get('usas_tags', [])
+                if not all_tags:
+                    all_tags = [usas_tag]
+            else:
+                # Disambiguation ON: use single primary tag
+                all_tags = [usas_tag]
+
+            # Deduplicate domains for this token
+            seen_domains = set()
+
+            for tag in all_tags:
+                if not tag or tag in ('Z99', 'PUNCT'):
                     continue
-                
-                # Get domain description (strip _MWE for lookup)
-                domain_for_lookup = domain.replace('_MWE', '') if '_MWE' in domain else domain
-                domain_name = get_domain_description(domain_for_lookup)
-                
-                # Get major category
-                category, category_name = get_major_category(domain_for_lookup)
-                
-                result.append({
-                    "word": word,
-                    "domain": domain,  # Keep full domain including _MWE suffix
-                    "domain_display": domain_for_lookup,  # Without _MWE for display
-                    "domain_name": domain_name,
-                    "category": category,
-                    "category_name": category_name,
-                    "pos": pos,
-                    "is_mwe": is_mwe or '_MWE' in domain,
-                    "is_metaphor": is_metaphor
-                })
-        
+
+                # Parse compound tag - split by '/' to get individual domains
+                individual_domains = parse_compound_tag(tag)
+
+                # Create a record for each individual domain
+                for domain in individual_domains:
+                    # Skip Z99 domains
+                    if domain == 'Z99' or domain == 'Z99_MWE':
+                        continue
+
+                    # Deduplicate: each domain counted once per token
+                    if domain in seen_domains:
+                        continue
+                    seen_domains.add(domain)
+
+                    # Get domain description (strip _MWE for lookup)
+                    domain_for_lookup = domain.replace('_MWE', '') if '_MWE' in domain else domain
+                    domain_name = get_domain_description(domain_for_lookup)
+
+                    # Get major category
+                    category, category_name = get_major_category(domain_for_lookup)
+
+                    result.append({
+                        "word": word,
+                        "domain": domain,
+                        "domain_display": domain_for_lookup,
+                        "domain_name": domain_name,
+                        "category": category,
+                        "category_name": category_name,
+                        "pos": pos,
+                        "is_mwe": is_mwe or '_MWE' in domain,
+                        "is_metaphor": is_metaphor
+                    })
+
         return result
     
     def _apply_search_filters(

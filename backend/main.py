@@ -4,6 +4,7 @@ FastAPI-based REST API for corpus research software
 """
 import sys
 import os
+import multiprocessing
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -29,6 +30,26 @@ from routers import biblio
 from routers import corpus_resource
 from routers import collocation_analysis
 from routers import nrc
+from routers import mcp
+from routers import model_management
+
+def _is_multiprocessing_helper_process() -> bool:
+    """
+    In frozen executables, multiprocessing helpers are launched as:
+    - ... --multiprocessing-fork ...
+    - ... -c "from multiprocessing.resource_tracker import main;main(...)"
+    They must NOT start uvicorn or run app startup side-effects.
+    """
+    try:
+        argv = sys.argv or []
+        joined = " ".join(argv)
+        if any(arg.startswith("--multiprocessing-fork") for arg in argv):
+            return True
+        if "multiprocessing.resource_tracker" in joined:
+            return True
+    except Exception:
+        return False
+    return False
 
 app = FastAPI(
     title="Meta-Lingo API",
@@ -43,6 +64,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["Content-Disposition"],
 )
 
 # Include routers
@@ -66,6 +88,33 @@ app.include_router(biblio.router, tags=["Bibliographic"])
 app.include_router(corpus_resource.router, prefix="/api/corpus-resource", tags=["Corpus Resource"])
 app.include_router(collocation_analysis.router, prefix="/api/collocation-analysis", tags=["Collocation Analysis"])
 app.include_router(nrc.router, tags=["NRC"])
+app.include_router(mcp.router, prefix="/api/mcp", tags=["MCP"])
+app.include_router(model_management.router, prefix="/api/model-management", tags=["Model Management"])
+
+@app.on_event("startup")
+def _copy_built_in_models_to_user_dir():
+    """
+    On first run (packaged mode), copy built-in models from the bundled location
+    into the persistent user models directory so they survive factory reset.
+    """
+    if _is_multiprocessing_helper_process():
+        return
+
+    try:
+        from model_paths import copy_built_in_models_to_user_models
+
+        copy_built_in_models_to_user_models()
+    except Exception as e:
+        # Best-effort: missing built-ins will be handled by service availability checks.
+        print(f"[Startup] Failed to copy built-in models: {e}")
+
+    # Cleanup stale tasks exactly once at backend startup.
+    # Do NOT do this in models.database module import; download subprocesses also import it.
+    try:
+        from models.database import TaskDB
+        affected = TaskDB.cleanup_stale_tasks()
+    except Exception as e:
+        pass
 
 
 @app.get("/")
@@ -79,6 +128,11 @@ async def health_check():
 
 
 if __name__ == "__main__":
+    # Required for frozen executables with multiprocessing on macOS/Windows.
+    # This lets helper subprocesses run multiprocessing internals correctly
+    # instead of entering the normal backend startup path.
+    multiprocessing.freeze_support()
+
     # 获取端口配置（优先使用环境变量）
     port = int(os.environ.get('METALINGO_PORT', 8000))
     

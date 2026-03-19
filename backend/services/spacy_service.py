@@ -865,10 +865,6 @@ class SpacyService:
         }
         
         try:
-            # #region agent log
-            chunk_annotate_start = time.time()
-            # #endregion
-            
             # Process with SpaCy - this is the time-consuming part
             doc = nlp(chunk_text)
             

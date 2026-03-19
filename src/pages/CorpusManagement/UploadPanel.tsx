@@ -303,6 +303,14 @@ export default function UploadPanel({
     }
   }
 
+  // If a model is unavailable, force-disable related UI toggles to prevent submitting unsupported work.
+  useEffect(() => {
+    if (!servicesStatus) return
+    if (servicesStatus.whisper?.available === false) setTranscribeAudio(false)
+    if (servicesStatus.yolo?.available === false) setYoloAnnotation(false)
+    if (servicesStatus.clip?.available === false) setClipAnnotation(false)
+  }, [servicesStatus])
+
   const loadTags = async () => {
     try {
       const response = await corpusApi.getAllTags()
@@ -402,6 +410,13 @@ export default function UploadPanel({
   const canUpload = () => {
     if (files.length === 0) return false
     if (isUploading) return false
+    
+    // Strict gating: if Whisper or Wav2Vec are unavailable, block any audio/video upload.
+    const whisperAvailable = servicesStatus?.whisper?.available ?? true
+    const wav2vecAvailable = servicesStatus?.wav2vec?.available ?? true
+    const hasAudioVideo = files.some(f => f.type === 'audio' || f.type === 'video')
+    if ((!whisperAvailable || !wav2vecAvailable) && hasAudioVideo) return false
+
     // Date is required for all uploads
     if (!textDate) return false
     if (createNew) {
@@ -648,6 +663,11 @@ export default function UploadPanel({
       i === index ? { ...f, expanded: !f.expanded } : f
     ))
   }
+
+  const whisperAvailable = servicesStatus?.whisper?.available ?? true
+  const wav2vecAvailable = servicesStatus?.wav2vec?.available ?? true
+  const yoloAvailable = servicesStatus?.yolo?.available ?? true
+  const clipAvailable = servicesStatus?.clip?.available ?? true
 
   const hasAudioVideo = files.some(f => f.type === 'audio' || f.type === 'video')
   const hasVideo = files.some(f => f.type === 'video')
@@ -1039,11 +1059,25 @@ export default function UploadPanel({
               <Typography variant="subtitle1" fontWeight={600} gutterBottom>
                 {t('corpus.processingOptions')}
               </Typography>
-              <Stack spacing={2}>
+              {!whisperAvailable || !wav2vecAvailable ? (
+                <Alert severity="warning" sx={{ my: 1 }}>
+                  {!whisperAvailable
+                    ? t(
+                        'corpus.whisperUnavailable',
+                        'Whisper model is missing. Audio/video upload and processing are disabled.'
+                      )
+                    : t(
+                        'corpus.wav2vecUnavailable',
+                        'Wav2Vec model is missing. Audio/video upload and processing are disabled.'
+                      )}
+                </Alert>
+              ) : (
+                <Stack spacing={2}>
                 <FormControlLabel
                   control={
                     <Checkbox
                       checked={transcribeAudio}
+                      disabled={!whisperAvailable}
                       onChange={(e) => setTranscribeAudio(e.target.checked)}
                     />
                   }
@@ -1090,6 +1124,7 @@ export default function UploadPanel({
                     control={
                       <Checkbox
                         checked={yoloAnnotation}
+                        disabled={!yoloAvailable}
                         onChange={(e) => setYoloAnnotation(e.target.checked)}
                       />
                     }
@@ -1103,6 +1138,7 @@ export default function UploadPanel({
                       control={
                         <Checkbox
                           checked={clipAnnotation}
+                          disabled={!clipAvailable}
                           onChange={(e) => setClipAnnotation(e.target.checked)}
                         />
                       }
@@ -1214,7 +1250,8 @@ export default function UploadPanel({
                     )}
                   </>
                 )}
-              </Stack>
+                </Stack>
+              )}
             </Paper>
           )}
         </Grid>
@@ -1433,6 +1470,13 @@ export default function UploadPanel({
               {!canUpload() && files.length > 0 && !textDate && (createNew ? metadata.name : targetCorpusId) && (
                 <Typography variant="caption" color="error" display="block" textAlign="center" sx={{ mt: 1 }}>
                   {t('corpus.dateRequired', '请选择日期')}
+                </Typography>
+              )}
+              {!canUpload() && files.length > 0 && hasAudioVideo && (!whisperAvailable || !wav2vecAvailable) && (
+                <Typography variant="caption" color="error" display="block" textAlign="center" sx={{ mt: 1 }}>
+                  {!whisperAvailable
+                    ? t('corpus.whisperUnavailable', 'Whisper model is missing. Audio/video upload and processing are disabled.')
+                    : t('corpus.wav2vecUnavailable', 'Wav2Vec model is missing. Audio/video upload and processing are disabled.')}
                 </Typography>
               )}
             </Box>

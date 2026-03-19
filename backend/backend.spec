@@ -35,9 +35,18 @@ hiddenimports = [
     'pydantic',
     'pydantic_core',
     'httpx',
+    'httpx_sse',
     'anyio',
     'sniffio',
     'h11',
+    'mcp',
+    'mcp.server',
+    'mcp.server.fastmcp',
+    'mcp.server.stdio',
+    'mcp.types',
+    'sse_starlette',
+    'pydantic_settings',
+    'typing_inspection',
     'httptools',
     'websockets',
     'watchfiles',
@@ -218,50 +227,10 @@ try:
 except Exception as e:
     print(f"Warning: Could not collect spacy_pkuseg: {e}")
 
-# Sentence Transformers 模型
-sbert_path = os.path.join(MODELS_PATH, 'sentence_embeddings')
-if os.path.exists(sbert_path):
-    datas.append((sbert_path, 'models/sentence_embeddings'))
-
-# Whisper 模型
-whisper_path = os.path.join(MODELS_PATH, 'multimodal_analyzer', 'whisper-large-v3-turbo')
-if os.path.exists(whisper_path):
-    datas.append((whisper_path, 'models/multimodal_analyzer/whisper-large-v3-turbo'))
-
-# YOLO 模型
-yolo_path = os.path.join(MODELS_PATH, 'multimodal_analyzer', 'yolov8')
-if os.path.exists(yolo_path):
-    datas.append((yolo_path, 'models/multimodal_analyzer/yolov8'))
-
-# CLIP 模型
-clip_path = os.path.join(MODELS_PATH, 'multimodal_analyzer', 'clip-vit-large-patch14')
-if os.path.exists(clip_path):
-    datas.append((clip_path, 'models/multimodal_analyzer/clip-vit-large-patch14'))
-
-# Wav2Vec2 模型 (强制对齐)
-wav2vec2_path = os.path.join(MODELS_PATH, 'multimodal_analyzer', 'wav2vec2-base-960h')
-if os.path.exists(wav2vec2_path):
-    datas.append((wav2vec2_path, 'models/multimodal_analyzer/wav2vec2-base-960h'))
-
 # TorchCrepe 模型 (音高提取)
 torchcrepe_path = os.path.join(MODELS_PATH, 'multimodal_analyzer', 'torchcrepe-master')
 if os.path.exists(torchcrepe_path):
     datas.append((torchcrepe_path, 'models/multimodal_analyzer/torchcrepe-master'))
-
-# PyMUSAS Neural 模型
-pymusas_neural_path = os.path.join(MODELS_PATH, 'pymusas', 'PyMUSAS-Neural-Multilingual-Base-BEM')
-if os.path.exists(pymusas_neural_path):
-    datas.append((pymusas_neural_path, 'models/pymusas/PyMUSAS-Neural-Multilingual-Base-BEM'))
-
-# MIPVU 隐喻识别模型 - HiTZ DeBERTa
-hitz_model_path = os.path.join(MODELS_PATH, 'metaphor_identification', 'deberta-large-metaphor-detection-en')
-if os.path.exists(hitz_model_path):
-    datas.append((hitz_model_path, 'models/metaphor_identification/deberta-large-metaphor-detection-en'))
-
-# MIPVU 隐喻识别模型 - Clause DeBERTa（二分类）
-finetuned_model_path = os.path.join(MODELS_PATH, 'metaphor_identification', 'deberta-v3-large-clause-metaphor')
-if os.path.exists(finetuned_model_path):
-    datas.append((finetuned_model_path, 'models/metaphor_identification/deberta-v3-large-clause-metaphor'))
 
 # 数据目录 (只包含框架定义，不包含用户数据)
 frameworks_path = os.path.join(DATA_PATH, 'frameworks')

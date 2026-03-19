@@ -113,10 +113,17 @@ export default function FactoryReset() {
           results.push(response.error || t('settings.dataResetFailed'))
       }
 
-      setResult({ 
-        success: !hasError, 
+      const resetSuccess = !hasError
+      setResult({
+        success: resetSuccess,
         message: results.join('; ') || t('settings.factoryResetCompleted')
       })
+
+      // Notify Settings sub-panels to refresh their local UI state.
+      // This avoids requiring a full page reload after factory reset.
+      if (resetSuccess) {
+        window.dispatchEvent(new CustomEvent('meta-lingo:settings-reset-completed'))
+      }
     } catch (error) {
       setResult({ success: false, message: `${t('settings.resetFailed')}: ${error}` })
     }

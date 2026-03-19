@@ -5,6 +5,7 @@
 """
 
 import re
+import json
 import os
 import sys
 from pathlib import Path
@@ -15,6 +16,7 @@ PROJECT_ROOT = Path(__file__).parent.parent
 # 文件路径
 PROJECT_MD_PATH = PROJECT_ROOT / "PROJECT.md"
 STARTUP_SCREEN_PATH = PROJECT_ROOT / "src" / "components" / "StartupScreen.tsx"
+MCP_MANIFEST_PATH = PROJECT_ROOT / "mcp-extension" / "manifest.json"
 
 
 def extract_version_from_project_md() -> str | None:
@@ -119,18 +121,36 @@ def main():
     # 比较版本号
     if project_version == startup_version:
         print("✅ 版本号一致，无需更新")
-        return 0
     else:
         print(f"⚠️  版本号不一致！")
         print(f"   将更新启动页版本号为: {project_version}")
         print()
-        
+
         if update_startup_version(project_version):
             print(f"✅ 已更新启动页版本号为: {project_version}")
-            return 0
         else:
             print("❌ 更新失败", file=sys.stderr)
             return 1
+
+    # 同步 MCP manifest.json 版本号（去掉 v 前缀）
+    version_no_v = project_version.lstrip('v')
+    if MCP_MANIFEST_PATH.exists():
+        try:
+            with open(MCP_MANIFEST_PATH, 'r', encoding='utf-8') as f:
+                manifest = json.load(f)
+            manifest_version = manifest.get('version', '')
+            if manifest_version != version_no_v:
+                manifest['version'] = version_no_v
+                with open(MCP_MANIFEST_PATH, 'w', encoding='utf-8') as f:
+                    json.dump(manifest, f, indent=2, ensure_ascii=False)
+                    f.write('\n')
+                print(f"✅ 已同步 MCP manifest 版本号: {version_no_v}")
+            else:
+                print(f"✅ MCP manifest 版本号已一致: {version_no_v}")
+        except Exception as e:
+            print(f"⚠️  同步 MCP manifest 失败: {e}", file=sys.stderr)
+
+    return 0
 
 
 if __name__ == "__main__":

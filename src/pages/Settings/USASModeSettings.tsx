@@ -10,7 +10,10 @@ import {
   RadioGroup,
   FormControlLabel,
   FormControl,
-  Chip
+  Chip,
+  Divider,
+  Switch,
+  Button
 } from '@mui/material'
 import SettingsIcon from '@mui/icons-material/Settings'
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'
@@ -38,13 +41,26 @@ export default function USASModeSettings() {
   const { t } = useTranslation()
   
   const [modeStatus, setModeStatus] = useState<ModeStatus | null>(null)
+  const [disambiguationEnabled, setDisambiguationEnabled] = useState(false)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
+  const [collapsedModeList, setCollapsedModeList] = useState(true)
 
   useEffect(() => {
     loadModeStatus()
+    loadDisambiguationSetting()
+  }, [])
+
+  useEffect(() => {
+    // After factory reset, re-fetch USAS mode + disambiguation switch state.
+    const handler = () => {
+      loadModeStatus()
+      loadDisambiguationSetting()
+    }
+    window.addEventListener('meta-lingo:settings-reset-completed', handler)
+    return () => window.removeEventListener('meta-lingo:settings-reset-completed', handler)
   }, [])
 
   const loadModeStatus = async () => {
@@ -58,6 +74,38 @@ export default function USASModeSettings() {
       setError(t('settings.usasMode.loadError'))
     } finally {
       setLoading(false)
+    }
+  }
+
+  const loadDisambiguationSetting = async () => {
+    try {
+      const response = await apiClient.get('/api/usas/disambiguation')
+      if (response.data.success) {
+        setDisambiguationEnabled(response.data.data.disambiguation_enabled)
+      }
+    } catch (err) {
+      console.error('Error loading disambiguation setting:', err)
+    }
+  }
+
+  const handleDisambiguationToggle = async (enabled: boolean) => {
+    setSaving(true)
+    setError(null)
+    setSuccess(null)
+
+    try {
+      const response = await apiClient.put('/api/usas/disambiguation', { enabled })
+      if (response.data.success) {
+        setDisambiguationEnabled(enabled)
+        setSuccess(t('settings.usasMode.disambiguationSaveSuccess'))
+      } else {
+        setError(response.data.error || t('settings.usasMode.disambiguationSaveError'))
+      }
+    } catch (err) {
+      console.error('Error setting disambiguation:', err)
+      setError(t('settings.usasMode.disambiguationSaveError'))
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -130,12 +178,29 @@ export default function USASModeSettings() {
           </Typography>
         </Box>
       ) : modeStatus ? (
-        <FormControl component="fieldset" fullWidth>
-          <RadioGroup
-            value={modeStatus.current_mode}
-            onChange={(e) => handleModeChange(e.target.value as TaggingMode)}
-          >
-            {(['rule_based', 'neural', 'hybrid'] as TaggingMode[]).map((mode) => {
+        <>
+          <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
+            <Typography variant="subtitle2" color="text.secondary">
+              {t('settings.usasMode.currentMode', 'Current strategy')}
+            </Typography>
+            <Button
+              size="small"
+              onClick={() => setCollapsedModeList(prev => !prev)}
+              disabled={saving}
+            >
+              {collapsedModeList
+                ? t('settings.usasMode.expandModes', 'Change strategy')
+                : t('settings.usasMode.collapseModes', 'Collapse')}
+            </Button>
+          </Stack>
+          <FormControl component="fieldset" fullWidth>
+            <RadioGroup
+              value={modeStatus.current_mode}
+              onChange={(e) => handleModeChange(e.target.value as TaggingMode)}
+            >
+              {(['rule_based', 'neural', 'hybrid'] as TaggingMode[])
+                .filter((mode) => !collapsedModeList || mode === modeStatus.current_mode)
+                .map((mode) => {
               const modeInfo = modeStatus.modes[mode]
               const isSelected = modeStatus.current_mode === mode
               
@@ -185,10 +250,49 @@ export default function USASModeSettings() {
                   />
                 </Box>
               )
-            })}
-          </RadioGroup>
-        </FormControl>
+              })}
+            </RadioGroup>
+          </FormControl>
+        </>
       ) : null}
+
+      {/* Disambiguation Toggle */}
+      <Divider sx={{ my: 3 }} />
+      <Box
+        sx={{
+          p: 2,
+          border: '1px solid',
+          borderColor: disambiguationEnabled ? 'primary.main' : 'divider',
+          borderRadius: 1,
+          bgcolor: disambiguationEnabled ? 'action.selected' : 'transparent',
+          transition: 'all 0.2s ease'
+        }}
+      >
+        <FormControlLabel
+          control={
+            <Switch
+              checked={disambiguationEnabled}
+              onChange={(e) => handleDisambiguationToggle(e.target.checked)}
+              disabled={saving}
+            />
+          }
+          label={
+            <Box sx={{ ml: 1 }}>
+              <Typography variant="subtitle1" fontWeight={500}>
+                {t('settings.usasMode.disambiguationToggle')}
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                {t('settings.usasMode.disambiguationToggleDesc')}
+              </Typography>
+            </Box>
+          }
+          sx={{
+            m: 0,
+            width: '100%',
+            alignItems: 'flex-start'
+          }}
+        />
+      </Box>
 
       {/* Saving indicator */}
       {saving && (

@@ -24,6 +24,7 @@ from models.corpus import (
 import sys
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from config import DATA_DIR, CORPORA_DIR, ANNOTATIONS_DIR
+from model_paths import resolve_model_path
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -744,7 +745,8 @@ class CorpusService:
             from services.mipvu_service import get_mipvu_service
             
             mipvu_svc = get_mipvu_service()
-            if not mipvu_svc.is_available(language):
+            has_mipvu_model = bool(resolve_model_path("metaphor_identification/deberta-v3-large-clause-metaphor"))
+            if (not mipvu_svc.is_available(language)) or (not has_mipvu_model):
                 logger.info(f"MIPVU not available for {language} (only English supported)")
                 return None
             
@@ -801,7 +803,8 @@ class CorpusService:
             from services.mipvu_service import get_mipvu_service
             
             mipvu_svc = get_mipvu_service()
-            if not mipvu_svc.is_available(language):
+            has_mipvu_model = bool(resolve_model_path("metaphor_identification/deberta-v3-large-clause-metaphor"))
+            if (not mipvu_svc.is_available(language)) or (not has_mipvu_model):
                 logger.info(f"MIPVU not available for {language} (only English supported)")
                 return None
             

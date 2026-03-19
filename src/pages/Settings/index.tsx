@@ -10,8 +10,10 @@ import OllamaConnection from './OllamaConnection'
 import OpenAIApiSettings from './OpenAIApiSettings'
 import USASModeSettings from './USASModeSettings'
 import USASSettings from './USASSettings'
+import MCPServerSettings from './MCPServerSettings'
 import LicenseViewer from './LicenseViewer'
 import FactoryReset from './FactoryReset'
+import ModelManagement from './ModelManagement'
 
 export default function Settings() {
   const { t } = useTranslation()
@@ -54,6 +56,16 @@ export default function Settings() {
         {/* USAS Semantic Tagging Settings (Text Type Priority) */}
         <Grid item xs={12}>
           <USASSettings />
+        </Grid>
+
+        {/* MCP Server (AI Integration) */}
+        <Grid item xs={12}>
+          <MCPServerSettings />
+        </Grid>
+
+        {/* Model Management */}
+        <Grid item xs={12}>
+          <ModelManagement />
         </Grid>
 
         {/* License Viewer */}

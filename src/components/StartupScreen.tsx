@@ -10,6 +10,8 @@ interface StartupStatus {
   message: string
   progress: number
   backendReady: boolean
+  seq?: number
+  attemptId?: number
 }
 
 interface StartupScreenProps {
@@ -84,6 +86,83 @@ export default function StartupScreen({ onReady }: StartupScreenProps) {
   const maxChecks = isDevelopment ? 20 : 60
   // 防止 onReady 被重复调用（IPC 事件与 getStartupStatus 可能同时触发）
   const onReadyCalledRef = useRef(false)
+  // IPC 状态可能乱序到达：用 seq 丢弃旧消息；用 attemptId 允许“重试”安全重置
+  const lastSeqRef = useRef<number>(-1)
+  const lastAttemptIdRef = useRef<number>(-1)
+  const maxProgressRef = useRef<number>(0)
+  const maxStepRef = useRef<number>(0)
+
+  const stageRank: Record<StartupStatus['stage'], number> = {
+    initializing: 0,
+    starting_backend: 1,
+    checking_health: 2,
+    ready: 3,
+    error: 3,
+  }
+  const maxStageRankRef = useRef<number>(0)
+
+  const applyIpcStatus = useCallback((incoming: StartupStatus) => {
+    const seq = incoming.seq ?? 0
+    const attemptId = incoming.attemptId ?? 0
+
+    // 新一轮启动（重试）允许重置 UI；同一轮内必须单调递增
+    if (attemptId > lastAttemptIdRef.current) {
+      lastAttemptIdRef.current = attemptId
+      lastSeqRef.current = -1
+      maxProgressRef.current = 0
+      maxStepRef.current = 0
+      maxStageRankRef.current = 0
+      onReadyCalledRef.current = false
+    }
+
+    // 丢弃旧消息（乱序到达会导致回退闪烁）
+    if (seq < lastSeqRef.current) return
+    lastSeqRef.current = seq
+
+    // 本地化 message（不要直接信任主进程的英文 message）
+    let localizedMessage = incoming.message
+    if (incoming.stage === 'initializing') localizedMessage = t('startup.initializing')
+    else if (incoming.stage === 'starting_backend') localizedMessage = t('startup.startingBackend')
+    else if (incoming.stage === 'checking_health') localizedMessage = t('startup.checkingHealth')
+    else if (incoming.stage === 'ready') localizedMessage = t('startup.ready')
+    else if (incoming.stage === 'error') localizedMessage = t('startup.error')
+
+    const raw = incoming.progress ?? 0
+    const mappedProgress = incoming.backendReady ? 100 : progressToStepDisplay(raw)
+    const mappedStepIndex = incoming.backendReady ? startupSteps.length : progressToStepIndex(raw)
+
+    // 单调递增：进度/步骤只增不减
+    const nextProgress = Math.max(maxProgressRef.current, mappedProgress)
+    const nextStep = Math.max(maxStepRef.current, mappedStepIndex)
+    maxProgressRef.current = nextProgress
+    maxStepRef.current = nextStep
+
+    // 单调递增：stage 只升不降（避免 initializing 覆盖 checking_health）
+    const nextRank = Math.max(maxStageRankRef.current, stageRank[incoming.stage])
+    maxStageRankRef.current = nextRank
+    const rankToStage = (rank: number): StartupStatus['stage'] => {
+      if (rank >= stageRank.ready) return 'ready'
+      if (rank >= stageRank.checking_health) return 'checking_health'
+      if (rank >= stageRank.starting_backend) return 'starting_backend'
+      return 'initializing'
+    }
+
+    const nextStage = incoming.stage === 'error' ? 'error' : rankToStage(nextRank)
+
+    setCurrentStep(nextStep)
+    setStatus({
+      ...incoming,
+      stage: incoming.backendReady ? 'ready' : (incoming.stage === 'error' ? 'error' : nextStage),
+      progress: incoming.backendReady ? 100 : nextProgress,
+      message: localizedMessage,
+      backendReady: incoming.backendReady,
+    })
+
+    if (incoming.backendReady && !onReadyCalledRef.current) {
+      onReadyCalledRef.current = true
+      setTimeout(onReady, 500)
+    }
+  }, [onReady, t])
 
   const pollBackend = useCallback(async () => {
     checkCountRef.current++
@@ -160,67 +239,13 @@ export default function StartupScreen({ onReady }: StartupScreenProps) {
       // 先注册监听器（同步），再获取初始状态（异步），避免漏掉 ready 事件
       cleanup = window.electronAPI.onStartupStatusChange((newStatus) => {
         if (!mounted) return
-        let localizedMessage = newStatus.message
-        if (newStatus.stage === 'initializing') {
-          localizedMessage = t('startup.initializing')
-        } else if (newStatus.stage === 'starting_backend') {
-          localizedMessage = t('startup.startingBackend')
-        } else if (newStatus.stage === 'checking_health') {
-          localizedMessage = t('startup.checkingHealth')
-        } else if (newStatus.stage === 'ready') {
-          localizedMessage = t('startup.ready')
-        } else if (newStatus.stage === 'error') {
-          localizedMessage = t('startup.error')
-        }
-
-        if (newStatus.backendReady) {
-          setCurrentStep(startupSteps.length)
-          setStatus({
-            ...newStatus,
-            progress: 100,
-            message: localizedMessage
-          })
-          if (!onReadyCalledRef.current) {
-            onReadyCalledRef.current = true
-            setTimeout(onReady, 500)
-          }
-        } else {
-          const raw = newStatus.progress ?? 0
-          const progress = progressToStepDisplay(raw)
-          const stepIndex = progressToStepIndex(raw)
-          setCurrentStep(stepIndex)
-          setStatus({
-            ...newStatus,
-            progress,
-            message: localizedMessage
-          })
-        }
+        applyIpcStatus(newStatus as any)
       })
 
       // 获取初始状态（在监听器注册后异步查询，防止竞态）
       window.electronAPI.getStartupStatus().then((s) => {
         if (!mounted) return
-        let localizedMessage = s.message
-        if (s.stage === 'initializing') localizedMessage = t('startup.initializing')
-        else if (s.stage === 'starting_backend') localizedMessage = t('startup.startingBackend')
-        else if (s.stage === 'checking_health') localizedMessage = t('startup.checkingHealth')
-        else if (s.stage === 'ready') localizedMessage = t('startup.ready')
-        else if (s.stage === 'error') localizedMessage = t('startup.error')
-
-        const raw = s.progress ?? 0
-        const progress = progressToStepDisplay(raw)
-        const stepIndex = s.backendReady ? startupSteps.length : progressToStepIndex(raw)
-        setCurrentStep(stepIndex)
-        setStatus({
-          stage: s.stage,
-          message: localizedMessage,
-          progress,
-          backendReady: s.backendReady
-        })
-        if (s.backendReady && !onReadyCalledRef.current) {
-          onReadyCalledRef.current = true
-          setTimeout(onReady, 500)
-        }
+        applyIpcStatus(s as any)
       })
     } else {
       // 开发模式：无 IPC，仅靠前端轮询后端健康
@@ -232,7 +257,7 @@ export default function StartupScreen({ onReady }: StartupScreenProps) {
       if (intervalId) clearInterval(intervalId)
       cleanup?.()
     }
-  }, [pollBackend, onReady, t])
+  }, [pollBackend, onReady, t, applyIpcStatus])
 
   const handleRetry = async () => {
     setRetrying(true)
@@ -492,7 +517,7 @@ export default function StartupScreen({ onReady }: StartupScreenProps) {
           opacity: 0.5
         }}
       >
-        v3.9.79
+        v3.9.81
       </Typography>
     </Box>
   )
