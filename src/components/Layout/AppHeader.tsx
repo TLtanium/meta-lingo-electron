@@ -12,6 +12,8 @@ import SettingsIcon from '@mui/icons-material/Settings'
 import LightModeIcon from '@mui/icons-material/LightMode'
 import DarkModeIcon from '@mui/icons-material/DarkMode'
 import TranslateIcon from '@mui/icons-material/Translate'
+import SmartToyIcon from '@mui/icons-material/SmartToy'
+import GridViewIcon from '@mui/icons-material/GridView'
 import { useTranslation } from 'react-i18next'
 import { useTabStore } from '../../stores/tabStore'
 import { useSettingsStore } from '../../stores/settingsStore'
@@ -21,15 +23,18 @@ import appIcon from '../../../assets/icon.png'
 export default function AppHeader() {
   const { t } = useTranslation()
   const { openTab } = useTabStore()
-  const { darkMode, setDarkMode, wallpaper } = useSettingsStore()
+  const { darkMode, setDarkMode, wallpaper, agentMode, setAgentMode } = useSettingsStore()
   const [dictDialogOpen, setDictDialogOpen] = useState(false)
   const [isMac, setIsMac] = useState(false)
+  const [isWin, setIsWin] = useState(false)
   const [isFullscreen, setIsFullscreen] = useState(false)
   
   useEffect(() => {
     // Check if running in Electron and on Mac
     if (window.electronAPI?.platform) {
-      setIsMac(window.electronAPI.platform === 'darwin')
+      const platform = window.electronAPI.platform
+      setIsMac(platform === 'darwin')
+      setIsWin(platform === 'win32')
     }
     
     // Get initial fullscreen state from Electron
@@ -52,16 +57,45 @@ export default function AppHeader() {
     }
   }, [])
 
+  // Windows: keep Window Controls Overlay background color in sync with header.
+  // This avoids the native three buttons area looking like it's "floating" over a different background.
+  useEffect(() => {
+    if (!isWin) return
+    if (!window.electronAPI?.setTitleBarOverlay) return
+
+    const overlayColor = wallpaper
+      ? darkMode
+        ? 'rgba(22, 22, 40, 0.75)'
+        : 'rgba(25, 118, 210, 0.85)'
+      : darkMode
+        ? '#1a1a28'
+        : '#1976d2' // MUI default primary.main
+
+    window.electronAPI.setTitleBarOverlay({
+      color: overlayColor,
+      symbolColor: '#fff',
+      height: 48,
+    }).catch(() => {})
+  }, [isWin, darkMode, wallpaper])
+
   const handleOpenDictionary = () => {
     setDictDialogOpen(true)
   }
 
   const handleOpenSettings = () => {
-    openTab({ type: 'settings', title: t('settings.title') })
+    if (agentMode && (window as any).__agentOpenOverlay) {
+      (window as any).__agentOpenOverlay('settings')
+    } else {
+      openTab({ type: 'settings', title: t('settings.title') })
+    }
   }
 
   const handleOpenHelp = () => {
-    openTab({ type: 'help', title: t('help.title') })
+    if (agentMode && (window as any).__agentOpenOverlay) {
+      (window as any).__agentOpenOverlay('help')
+    } else {
+      openTab({ type: 'help', title: t('help.title') })
+    }
   }
 
   const handleToggleTheme = () => {
@@ -90,13 +124,15 @@ export default function AppHeader() {
         elevation={0}
         sx={{ 
           ...headerStyle,
-          // Mac: Make the entire header draggable for window movement
-          WebkitAppRegion: isMac ? 'drag' : 'none',
+          // macOS / Windows: Make the entire header draggable for window movement
+          WebkitAppRegion: isMac || isWin ? 'drag' : 'none',
         }}
       >
         <Toolbar sx={{ minHeight: 48 }}>
-          {/* Mac: Add spacing for traffic lights (only when not fullscreen) */}
-          {isMac && <Box sx={{ width: isFullscreen ? 16 : 70, flexShrink: 0, transition: 'width 0.2s ease' }} />}
+          {/* macOS: traffic lights spacing. Windows: overlay controls are top-right, so no left spacer. */}
+          {isMac && (
+            <Box sx={{ width: isFullscreen ? 16 : 70, flexShrink: 0, transition: 'width 0.2s ease' }} />
+          )}
           
           {/* Logo and App Name */}
           <Box sx={{ display: 'flex', alignItems: 'center', mr: 2 }}>
@@ -122,16 +158,20 @@ export default function AppHeader() {
           <Box sx={{ flexGrow: 1 }} />
 
           {/* Right side icons - Make non-draggable so buttons work */}
-          <Box sx={{ 
+          <Box
+            sx={{ 
             display: 'flex', 
             alignItems: 'center', 
             gap: 0.5,
             WebkitAppRegion: 'no-drag',
+            // Windows: Use Window Controls Overlay (WCO) actual width.
+            // This prevents misalignment across DPI/themes where fixed padding (70/16) won't match.
+            paddingRight: isWin ? 'calc(env(titlebar-area-width, 0px) + 8px)' : 0,
           }}>
             {/* Dictionary Button */}
             <Tooltip title={t('dictionary.title')}>
-              <IconButton 
-                color="inherit" 
+              <IconButton
+                color="inherit"
                 size="small"
                 onClick={handleOpenDictionary}
               >
@@ -140,27 +180,35 @@ export default function AppHeader() {
             </Tooltip>
 
             <Tooltip title={darkMode ? t('settings.lightMode') : t('settings.darkMode')}>
-              <IconButton 
-                color="inherit" 
+              <IconButton
+                color="inherit"
                 size="small"
                 onClick={handleToggleTheme}
               >
                 {darkMode ? <LightModeIcon /> : <DarkModeIcon />}
               </IconButton>
             </Tooltip>
-            
+
+            {/* Agent Mode Toggle — next to Settings */}
+            <Tooltip title={agentMode ? t('agentChat.switchToStandard') : t('agentChat.switchToAgent')}>
+              <IconButton color="inherit" size="small" onClick={() => setAgentMode(!agentMode)}>
+                {agentMode ? <GridViewIcon /> : <SmartToyIcon />}
+              </IconButton>
+            </Tooltip>
+
             <Tooltip title={t('help.title')}>
-              <IconButton 
-                color="inherit" 
+              <IconButton
+                color="inherit"
                 size="small"
                 onClick={handleOpenHelp}
               >
                 <HelpOutlineIcon />
               </IconButton>
             </Tooltip>
+
             <Tooltip title={t('settings.title')}>
-              <IconButton 
-                color="inherit" 
+              <IconButton
+                color="inherit"
                 size="small"
                 onClick={handleOpenSettings}
               >

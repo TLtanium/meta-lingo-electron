@@ -40,24 +40,21 @@ class MIPVUService:
     def __init__(
         self,
         filter_path: Optional[str] = None,
-        hitz_model_path: Optional[str] = None,
         finetuned_model_path: Optional[str] = None,
         device: Optional[str] = None
     ):
         """
         Initialize the MIPVU service.
-        
+
         Args:
             filter_path: Path to metaphor_filter.json
-            hitz_model_path: Path to HiTZ model
-            finetuned_model_path: Path to fine-tuned model
+            finetuned_model_path: Path to clause-level metaphor model
             device: Device for model inference ('cuda', 'mps', 'cpu')
         """
         if self._initialized:
             return
-        
+
         self._filter_path = filter_path
-        self._hitz_model_path = hitz_model_path
         self._finetuned_model_path = finetuned_model_path
         self._device = device
         
@@ -72,7 +69,6 @@ class MIPVUService:
         if self._annotator is None:
             self._annotator = MIPVUAnnotator(
                 filter_path=self._filter_path,
-                hitz_model_path=self._hitz_model_path,
                 finetuned_model_path=self._finetuned_model_path,
                 device=self._device
             )

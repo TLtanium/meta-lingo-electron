@@ -166,13 +166,26 @@ export default function EmbeddingPanel({
         corpusId,
         textIds,
         preprocessConfig,
-        { 
-          batchSize: 32, 
-          device: 'cpu', 
+        {
+          batchSize: 32,
+          device: 'cpu',
           language: corpusLanguage,
           chunking: chunkingConfig
         }
       )
+
+      // Persist current preprocess/chunking settings so agent chat can read them
+      if (chunkingConfig) {
+        topicModelingApi.savePreprocessSettings({
+          chunking: chunkingConfig,
+          preprocess: {
+            remove_stopwords: preprocessConfig.remove_stopwords,
+            lemmatize: preprocessConfig.lemmatize,
+            lowercase: preprocessConfig.lowercase,
+            min_token_length: preprocessConfig.min_token_length,
+          },
+        }).catch(() => { /* non-critical */ })
+      }
 
       if (response.success && response.data) {
         onEmbeddingComplete?.(response.data)

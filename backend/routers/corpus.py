@@ -2963,7 +2963,7 @@ def process_text_spacy_sync(
     """
     Background task to process text files with SpaCy, USAS, and MIPVU annotation.
     Used by corpus management (plain text upload) and bibliographic visualization
-    (abstract upload). MIPVU uses the same hybrid pipeline (HiTZ + Clause model,
+    (abstract upload). MIPVU uses the same hybrid pipeline (rule + Clause model,
     pos_group_stats) as single-text re-annotation.
 
     Args:

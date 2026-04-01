@@ -16,6 +16,7 @@ import {
   InputLabel,
   Select,
   MenuItem,
+  Divider,
   CircularProgress,
   Alert
 } from '@mui/material'
@@ -25,43 +26,16 @@ import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs'
 import dayjs, { Dayjs } from 'dayjs'
 import { useTranslation } from 'react-i18next'
 import { corpusApi } from '../../api'
+import apiClient from '../../api/client'
 import type { CorpusText, TextMetadata } from '../../types'
 
-// Predefined text type options (English values for storage)
-const TEXT_TYPE_OPTIONS = [
-  'General Text',
-  'Academic Paper',
-  'Social Media',
-  'News Article',
-  'Novel/Fiction',
-  'Video Material',
-  'Audio Material',
-  'Speech/Presentation',
-  'Interview Transcript',
-  'Meeting Minutes',
-  'Technical Document',
-  'Legal Document',
-  'Medical Literature',
-  'Other'
-]
-
-// Mapping from English value to translation key
-const TEXT_TYPE_TRANSLATION_KEYS: Record<string, string> = {
-  'General Text': 'corpus.textTypes.generalText',
-  'Academic Paper': 'corpus.textTypes.academicPaper',
-  'Social Media': 'corpus.textTypes.socialMedia',
-  'News Article': 'corpus.textTypes.newsArticle',
-  'Novel/Fiction': 'corpus.textTypes.novelFiction',
-  'Video Material': 'corpus.textTypes.videoMaterial',
-  'Audio Material': 'corpus.textTypes.audioMaterial',
-  'Speech/Presentation': 'corpus.textTypes.speechPresentation',
-  'Interview Transcript': 'corpus.textTypes.interviewTranscript',
-  'Meeting Minutes': 'corpus.textTypes.meetingMinutes',
-  'Technical Document': 'corpus.textTypes.technicalDocument',
-  'Legal Document': 'corpus.textTypes.legalDocument',
-  'Medical Literature': 'corpus.textTypes.medicalLiterature',
-  'Other': 'corpus.textTypes.other'
+interface TextTypeConfig {
+  name: string
+  name_zh?: string
+  priority_domains?: string[]
 }
+
+const CUSTOM_TEXT_TYPE = '__CUSTOM__'
 
 // Predefined source options (English values for storage)
 const SOURCE_OPTIONS = [
@@ -108,28 +82,39 @@ export default function TextMetadataEditor({
   text,
   onSaved
 }: TextMetadataEditorProps) {
-  const { t } = useTranslation()
-  
+  const { t, i18n } = useTranslation()
+
   // Form state
   const [date, setDate] = useState<Dayjs | null>(null)
   const [author, setAuthor] = useState('')
   const [source, setSource] = useState('')
   const [sourceType, setSourceType] = useState('Other')
-  const [textType, setTextType] = useState('Other')
+  const [textType, setTextType] = useState('GEN')
+  const [customTextType, setCustomTextType] = useState('')
+  const [isCustomTextType, setIsCustomTextType] = useState(false)
   const [description, setDescription] = useState('')
-  
+  const [textTypeConfigs, setTextTypeConfigs] = useState<Record<string, TextTypeConfig>>({})
+
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  // Load text type configs from USAS API once
+  useEffect(() => {
+    apiClient.get('/api/usas/text-types').then(response => {
+      if (response.data?.success && response.data.data?.text_types) {
+        setTextTypeConfigs(response.data.data.text_types)
+      }
+    }).catch(() => {})
+  }, [])
 
   // Initialize form when dialog opens or text changes
   useEffect(() => {
     if (open && text) {
       const meta = text.metadata || {}
-      // Parse date string to Dayjs object
       setDate(meta.date ? dayjs(meta.date) : null)
       setAuthor(meta.author || '')
       setDescription(meta.description || '')
-      
+
       // Handle source - check if it's a preset or custom
       const savedSource = meta.source || ''
       if (SOURCE_OPTIONS.includes(savedSource)) {
@@ -139,16 +124,14 @@ export default function TextMetadataEditor({
         setSourceType('Other')
         setSource(savedSource)
       }
-      
-      // Handle text type from customFields
+
+      // Handle text type — stored as USAS code (e.g. 'GEN') or legacy string
       const savedTextType = meta.customFields?.textType || ''
-      if (TEXT_TYPE_OPTIONS.includes(savedTextType)) {
-        setTextType(savedTextType)
-      } else {
-        setTextType('Other')
-      }
-      
-      // Reset error
+      // Will be validated against configs once loaded; store as-is
+      setIsCustomTextType(false)
+      setCustomTextType('')
+      setTextType(savedTextType || 'GEN')
+
       setError(null)
     }
   }, [open, text])
@@ -182,8 +165,9 @@ export default function TextMetadataEditor({
       if (author) updatedMetadata.author = author
       if (source) updatedMetadata.source = source
       if (description) updatedMetadata.description = description
-      if (textType) {
-        updatedMetadata.customFields = { textType }
+      const effectiveTextType = isCustomTextType ? customTextType : textType
+      if (effectiveTextType) {
+        updatedMetadata.customFields = { textType: effectiveTextType }
       }
       
       console.log('[TextMetadataEditor] Sending metadata:', updatedMetadata)
@@ -302,20 +286,51 @@ export default function TextMetadataEditor({
           <FormControl fullWidth size="small">
             <InputLabel>{t('corpus.textType')}</InputLabel>
             <Select
-              value={textType}
-              onChange={(e) => setTextType(e.target.value)}
+              value={isCustomTextType ? CUSTOM_TEXT_TYPE : textType}
+              onChange={(e) => {
+                const value = e.target.value
+                if (value === CUSTOM_TEXT_TYPE) {
+                  setIsCustomTextType(true)
+                } else {
+                  setIsCustomTextType(false)
+                  setTextType(value)
+                }
+              }}
               label={t('corpus.textType')}
+              renderValue={(value) => {
+                if (value === CUSTOM_TEXT_TYPE) return t('corpus.textTypes.custom')
+                const config = textTypeConfigs[value as string]
+                if (!config) return value as string
+                return i18n.language === 'zh' ? (config.name_zh || config.name) : config.name
+              }}
             >
-              {TEXT_TYPE_OPTIONS.map(type => {
-                const translationKey = TEXT_TYPE_TRANSLATION_KEYS[type] || type
-                return (
-                  <MenuItem key={type} value={type}>
-                    {t(translationKey, type)}
+              {Object.entries(textTypeConfigs)
+                .sort(([a], [b]) => {
+                  if (a === 'GEN') return -1
+                  if (b === 'GEN') return 1
+                  return a.localeCompare(b)
+                })
+                .map(([code, config]) => (
+                  <MenuItem key={code} value={code}>
+                    {i18n.language === 'zh' ? (config.name_zh || config.name) : config.name}
                   </MenuItem>
-                )
-              })}
+                ))}
+              <Divider />
+              <MenuItem value={CUSTOM_TEXT_TYPE}>
+                {t('corpus.textTypes.custom')}
+              </MenuItem>
             </Select>
           </FormControl>
+          {isCustomTextType && (
+            <TextField
+              label={t('corpus.customTextType')}
+              value={customTextType}
+              onChange={(e) => setCustomTextType(e.target.value)}
+              fullWidth
+              size="small"
+              placeholder={t('corpus.customTextTypePlaceholder')}
+            />
+          )}
           
           {/* Description */}
           <TextField

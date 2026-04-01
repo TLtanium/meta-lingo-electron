@@ -3,6 +3,8 @@ Export tool for Meta-Lingo MCP server.
 Tools: export_annotations
 """
 import base64
+import os
+from pathlib import Path
 from mcp.server.fastmcp import FastMCP
 from mcp_server.api_client import MetaLingoClient
 
@@ -16,18 +18,31 @@ def register(mcp: FastMCP, client: MetaLingoClient):
         annotation_types: list[str] | None = None,
         format: str = "json",
     ) -> str:
-        """Export corpus annotations in various formats.
+        """Export NLP pipeline annotation results from a corpus for archival or external use.
 
-        Exports annotated corpus data that can be used for further analysis
-        in other tools or for sharing research results.
+        ⚠ THIS TOOL EXPORTS AUTOMATED NLP PIPELINE RESULTS, NOT FRAMEWORK ANNOTATIONS.
+        - "mipvu" here = token-level is_metaphor flags from the automated MIPVU tagger.
+        - "usas" here = semantic domain tags from PyMUSAS tagger.
+        These are NOT the same as manual/AI span annotations made via save_annotation().
+
+        If the user wants to ANNOTATE texts using an annotation framework (e.g. MIPVU framework,
+        theme-rheme, discourse, etc.), use:
+            list_annotation_frameworks() → get_annotation_framework() → save_annotation()
+        Do NOT call this tool for annotation tasks.
+
+        When to use THIS tool: The user explicitly wants to download/export the raw NLP
+        tagging outputs (POS, lemma, dependency, USAS semantic tags, MIPVU metaphor flags)
+        for archival, statistics scripts, or sharing outside Meta-Lingo.
 
         Available annotation types:
         - "universal_pos": Universal POS tags (NOUN, VERB, ADJ, etc.)
         - "penn_pos": Penn Treebank POS tags (NN, VB, JJ, etc.)
         - "lemma": Lemmatized word forms
         - "dep": Dependency relations
-        - "usas": USAS semantic domain tags
-        - "mipvu": MIPVU metaphor annotations
+        - "usas": USAS semantic domain tags (PyMUSAS tagger output)
+        - "mipvu": token-level metaphor flags (automated MIPVU tagger output)
+
+        Output: single JSON for one text; ZIP archive (base64) for multiple texts.
 
         Args:
             corpus_id: Corpus ID to export
@@ -47,7 +62,7 @@ def register(mcp: FastMCP, client: MetaLingoClient):
         # Get text list if not specified
         if text_ids is None:
             texts_result = await client.get(f"/api/corpus/{corpus_id}/texts")
-            texts = texts_result.get("data", [])
+            texts = texts_result.get("data", texts_result.get("texts", []))
             text_ids = [t["id"] for t in texts]
 
         if not text_ids:
@@ -67,7 +82,7 @@ def register(mcp: FastMCP, client: MetaLingoClient):
         ann_str = ", ".join(annotation_types)
 
         if format == "json" and len(text_ids) == 1:
-            # Single JSON file - return content directly
+            # Single JSON file — return content directly
             try:
                 text = content.decode("utf-8")
                 return (
@@ -77,10 +92,26 @@ def register(mcp: FastMCP, client: MetaLingoClient):
             except UnicodeDecodeError:
                 pass
 
-        # For ZIP files or large content, return base64
-        encoded = base64.b64encode(content).decode("ascii")
+        # Multi-text or binary — save to ~/Downloads/ and return path
+        downloads = Path.home() / "Downloads"
+        downloads.mkdir(exist_ok=True)
+
+        # Derive filename from corpus_id
+        corpus_short = corpus_id[:8]
+        ann_short = "_".join(annotation_types)[:30]
+        filename = f"metalingo_{corpus_short}_{ann_short}.zip"
+        save_path = downloads / filename
+
+        # Avoid overwriting: append counter if exists
+        counter = 1
+        while save_path.exists():
+            save_path = downloads / f"metalingo_{corpus_short}_{ann_short}_{counter}.zip"
+            counter += 1
+
+        save_path.write_bytes(content)
+
         return (
             f"Exported {len(text_ids)} text(s) as {format.upper()} "
             f"({ann_str}, {size_kb:.1f} KB).\n"
-            f"Binary content (base64-encoded ZIP):\n{encoded[:200]}..."
+            f"File saved to: {save_path}"
         )

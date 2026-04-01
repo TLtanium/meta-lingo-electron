@@ -45,7 +45,6 @@ class MetaphorModelLoader:
 
     def __init__(
         self,
-        hitz_model_path: Optional[str] = None,   # kept for backward compat (ignored)
         finetuned_model_path: Optional[str] = None,
         device: Optional[str] = None
     ):
@@ -53,7 +52,6 @@ class MetaphorModelLoader:
         Initialize the model loader.
 
         Args:
-            hitz_model_path: Ignored (HiTZ model removed). Kept for API compatibility.
             finetuned_model_path: Path to clause-level metaphor model.
                                   If None, uses default location.
             device: Device to use ('cuda', 'mps', 'cpu'). If None, auto-detect.

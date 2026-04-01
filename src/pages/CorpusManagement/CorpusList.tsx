@@ -531,68 +531,179 @@ export default function CorpusList({ onSelectCorpus, onCreateNew }: CorpusListPr
   )
 
   // Render list view
-  const renderListView = () => (
-    <TableContainer component={Paper}>
-      <Table>
-        <TableHead>
-          <TableRow>
-            <TableCell>{t('corpus.name')}</TableCell>
-            <TableCell>{t('corpus.language')}</TableCell>
-            <TableCell>{t('corpus.textType')}</TableCell>
-            <TableCell align="center">{t('corpus.textCount')}</TableCell>
-            <TableCell>{t('corpus.tags')}</TableCell>
-            <TableCell>{t('corpus.updatedAt')}</TableCell>
-            <TableCell align="right"></TableCell>
-          </TableRow>
-        </TableHead>
-        <TableBody>
-          {filteredCorpora
-            .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-            .map((corpus) => (
-              <TableRow
-                key={corpus.id}
-                hover
-                sx={{ cursor: 'pointer' }}
-                onClick={() => handleRowClick(corpus)}
-              >
-                <TableCell>
-                  <Typography fontWeight={500}>{corpus.name}</Typography>
-                  {corpus.description && (
-                    <Typography variant="caption" color="text.secondary" display="block" noWrap sx={{ maxWidth: 200 }}>
-                      {corpus.description}
+  const renderListView = () => {
+    const headerCellSx = {
+      fontWeight: 600,
+      fontSize: '12px',
+      color: 'text.secondary',
+      borderBottom: (theme: any) => theme.palette.mode === 'dark'
+        ? '2px solid rgba(255,255,255,0.12)'
+        : '2px solid rgba(0,0,0,0.08)',
+      py: 1.5,
+      whiteSpace: 'nowrap' as const
+    }
+    const bodyCellSx = {
+      fontSize: '13px',
+      borderBottom: (theme: any) => theme.palette.mode === 'dark'
+        ? '1px solid rgba(255,255,255,0.06)'
+        : '1px solid rgba(0,0,0,0.04)',
+      py: 1.5
+    }
+
+    return (
+      <TableContainer
+        component={Paper}
+        variant="outlined"
+        sx={{
+          borderRadius: 2,
+          border: '1px solid',
+          borderColor: 'divider'
+        }}
+      >
+        <Table>
+          <TableHead>
+            <TableRow>
+              <TableCell sx={headerCellSx}>{t('corpus.name')}</TableCell>
+              <TableCell sx={headerCellSx}>{t('corpus.language')}</TableCell>
+              <TableCell sx={headerCellSx}>{t('corpus.textType')}</TableCell>
+              <TableCell sx={headerCellSx} align="center">{t('corpus.textCount')}</TableCell>
+              <TableCell sx={headerCellSx}>{t('corpus.tags')}</TableCell>
+              <TableCell sx={headerCellSx}>{t('corpus.updatedAt')}</TableCell>
+              <TableCell sx={headerCellSx} align="right"></TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {filteredCorpora
+              .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+              .map((corpus) => (
+                <TableRow
+                  key={corpus.id}
+                  hover
+                  sx={{
+                    cursor: 'pointer',
+                    transition: 'background-color 0.15s',
+                    '&:hover': {
+                      bgcolor: (theme) => theme.palette.mode === 'dark'
+                        ? 'rgba(255,255,255,0.04)'
+                        : 'rgba(0,0,0,0.02)'
+                    }
+                  }}
+                  onClick={() => handleRowClick(corpus)}
+                >
+                  <TableCell sx={bodyCellSx}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                      <Box
+                        sx={{
+                          width: 36,
+                          height: 36,
+                          borderRadius: 2,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          bgcolor: (theme) => theme.palette.mode === 'dark'
+                            ? 'rgba(144, 202, 249, 0.15)'
+                            : 'rgba(25, 118, 210, 0.08)',
+                          flexShrink: 0
+                        }}
+                      >
+                        <FolderIcon sx={{ color: 'primary.main', fontSize: 20 }} />
+                      </Box>
+                      <Box sx={{ overflow: 'hidden' }}>
+                        <Typography fontWeight={600} fontSize="13px" noWrap>
+                          {corpus.name}
+                        </Typography>
+                        {corpus.description && (
+                          <Typography
+                            variant="caption"
+                            color="text.secondary"
+                            display="block"
+                            noWrap
+                            sx={{ fontSize: '11px', maxWidth: 250 }}
+                          >
+                            {corpus.description}
+                          </Typography>
+                        )}
+                      </Box>
+                    </Box>
+                  </TableCell>
+                  <TableCell sx={bodyCellSx}>
+                    <Typography variant="body2" fontSize="12px">
+                      {translateLanguage(corpus.language)}
                     </Typography>
-                  )}
-                </TableCell>
-                <TableCell>{translateLanguage(corpus.language)}</TableCell>
-                <TableCell>{translateTextType(corpus.textType)}</TableCell>
-                <TableCell align="center">{corpus.textCount}</TableCell>
-                <TableCell>
-                  <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
-                    {(corpus.tags || []).slice(0, 3).map(tag => (
-                      <Chip key={tag} label={tag} size="small" />
-                    ))}
-                    {(corpus.tags || []).length > 3 && (
-                      <Chip label={`+${(corpus.tags || []).length - 3}`} size="small" variant="outlined" />
-                    )}
-                  </Stack>
-                </TableCell>
-                <TableCell>
-                  {formatDate(corpus.updatedAt)}
-                </TableCell>
-                <TableCell align="right">
-                  <IconButton
-                    size="small"
-                    onClick={(e) => handleMenuOpen(e, corpus)}
-                  >
-                    <MoreVertIcon />
-                  </IconButton>
-                </TableCell>
-              </TableRow>
-            ))}
-        </TableBody>
-      </Table>
-    </TableContainer>
-  )
+                  </TableCell>
+                  <TableCell sx={bodyCellSx}>
+                    <Typography variant="body2" fontSize="12px" color="text.secondary">
+                      {translateTextType(corpus.textType)}
+                    </Typography>
+                  </TableCell>
+                  <TableCell align="center" sx={bodyCellSx}>
+                    <Chip
+                      label={corpus.textCount}
+                      size="small"
+                      color="primary"
+                      variant="outlined"
+                      sx={{
+                        height: 24,
+                        minWidth: 40,
+                        fontWeight: 600,
+                        fontSize: '12px'
+                      }}
+                    />
+                  </TableCell>
+                  <TableCell sx={bodyCellSx}>
+                    <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
+                      {(corpus.tags || []).slice(0, 3).map(tag => (
+                        <Chip
+                          key={tag}
+                          label={tag}
+                          size="small"
+                          variant="outlined"
+                          sx={{
+                            height: 22,
+                            fontSize: '0.7rem',
+                            borderColor: 'primary.light',
+                            color: 'primary.main',
+                            '& .MuiChip-label': { px: 1 }
+                          }}
+                        />
+                      ))}
+                      {(corpus.tags || []).length > 3 && (
+                        <Chip
+                          label={`+${(corpus.tags || []).length - 3}`}
+                          size="small"
+                          variant="outlined"
+                          sx={{
+                            height: 22,
+                            fontSize: '0.7rem',
+                            borderColor: 'divider',
+                            color: 'text.secondary',
+                            '& .MuiChip-label': { px: 1 }
+                          }}
+                        />
+                      )}
+                    </Stack>
+                  </TableCell>
+                  <TableCell sx={bodyCellSx}>
+                    <Typography variant="caption" color="text.secondary">
+                      {formatDate(corpus.updatedAt)}
+                    </Typography>
+                  </TableCell>
+                  <TableCell align="right" sx={bodyCellSx}>
+                    <IconButton
+                      size="small"
+                      onClick={(e) => handleMenuOpen(e, corpus)}
+                      sx={{ opacity: 0.7, '&:hover': { opacity: 1 } }}
+                    >
+                      <MoreVertIcon fontSize="small" />
+                    </IconButton>
+                  </TableCell>
+                </TableRow>
+              ))}
+          </TableBody>
+        </Table>
+      </TableContainer>
+    )
+  }
 
   // Loading skeleton
   if (loading) {

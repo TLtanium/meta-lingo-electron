@@ -19,21 +19,38 @@ NRC_EMOTIONS = [
     "negative", "positive", "sadness", "surprise", "trust"
 ]
 
-# Language -> (filename, key_column_index). English: first column; Chinese: last column
+# Language → (filename, key_column_index)
+# Column 0 = word in that language; columns 1-10 = emotion scores
 NRC_FILES = {
-    "english": ("English-NRC-EmoLex.txt", 0),
-    "en": ("English-NRC-EmoLex.txt", 0),
-    "chinese": ("Chinese-Simplified-NRC-EmoLex.txt", 11),
-    "zh": ("Chinese-Simplified-NRC-EmoLex.txt", 11),
-    "中文": ("Chinese-Simplified-NRC-EmoLex.txt", 11),
-    "英文": ("English-NRC-EmoLex.txt", 0),
+    # (filename, word_column_index)
+    # English: column 0 (English Word); all others: column 11 (translated word)
+    "english":    ("English-NRC-EmoLex.txt", 0),
+    "chinese":    ("Chinese-Simplified-NRC-EmoLex.txt", 11),
+    "danish":     ("Danish-NRC-EmoLex.txt", 11),
+    "dutch":      ("Dutch-NRC-EmoLex.txt", 11),
+    "finnish":    ("Finnish-NRC-EmoLex.txt", 11),
+    "french":     ("French-NRC-EmoLex.txt", 11),
+    "italian":    ("Italian-NRC-EmoLex.txt", 11),
+    "portuguese": ("Portuguese-NRC-EmoLex.txt", 11),
+    "russian":    ("Russian-NRC-EmoLex.txt", 11),
+    "spanish":    ("Spanish-NRC-EmoLex.txt", 11),
+    "swedish":    ("Swedish-NRC-EmoLex.txt", 11),
+}
+
+# ISO / variant aliases → canonical name
+_NRC_LANG_ALIASES = {
+    "en": "english", "zh": "chinese", "zh-cn": "chinese", "mandarin": "chinese", "cmn": "chinese",
+    "中文": "chinese", "英文": "english",
+    "da": "danish", "nl": "dutch", "fi": "finnish", "fr": "french",
+    "it": "italian", "pt": "portuguese", "ru": "russian", "es": "spanish", "sv": "swedish",
 }
 
 
 def _normalize_language(lang: str) -> str:
     if not lang:
         return "english"
-    return lang.lower().strip()
+    normalized = lang.lower().strip()
+    return _NRC_LANG_ALIASES.get(normalized, normalized)
 
 
 def _empty_scores() -> Dict[str, int]:
@@ -52,11 +69,16 @@ def load_lexicon(language: str) -> Optional[Dict[str, Dict[str, int]]]:
     if not entry:
         logger.warning(f"NRC lexicon not configured for language: {lang}, using English")
         entry = NRC_FILES["english"]
+        lang = "english"
 
     filename, key_col = entry
     nrc_dir = get_saves_dir() / "nrc"
     path = nrc_dir / filename
     if not path.exists():
+        if lang != "english":
+            logger.warning(f"NRC lexicon file not found for '{language}' ({path}). "
+                           f"Falling back to English lexicon.")
+            return load_lexicon("english")
         logger.warning(f"NRC lexicon not found: {path}")
         return None
 

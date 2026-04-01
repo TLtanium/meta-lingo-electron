@@ -477,16 +477,17 @@ export interface LanguageOption {
 }
 
 export const SUPPORTED_LANGUAGES: LanguageOption[] = [
-  { code: 'english', name: 'English', native: 'English' },
-  { code: 'chinese', name: 'Chinese', native: '中文' },
-  { code: 'spanish', name: 'Spanish', native: 'Espanol' },
-  { code: 'french', name: 'French', native: 'Francais' },
-  { code: 'german', name: 'German', native: 'Deutsch' },
-  { code: 'italian', name: 'Italian', native: 'Italiano' },
-  { code: 'portuguese', name: 'Portuguese', native: 'Portugues' },
-  { code: 'russian', name: 'Russian', native: 'Russkij' },
-  { code: 'arabic', name: 'Arabic', native: 'Arabiy' },
-  { code: 'japanese', name: 'Japanese', native: 'Nihongo' }
+  { code: 'english',    name: 'English',    native: 'English' },
+  { code: 'chinese',    name: 'Chinese',    native: '中文' },
+  { code: 'danish',     name: 'Danish',     native: 'Dansk' },
+  { code: 'dutch',      name: 'Dutch',      native: 'Nederlands' },
+  { code: 'finnish',    name: 'Finnish',    native: 'Suomi' },
+  { code: 'french',     name: 'French',     native: 'Français' },
+  { code: 'italian',    name: 'Italian',    native: 'Italiano' },
+  { code: 'portuguese', name: 'Portuguese', native: 'Português' },
+  { code: 'russian',    name: 'Russian',    native: 'Русский' },
+  { code: 'spanish',    name: 'Spanish',    native: 'Español' },
+  { code: 'swedish',    name: 'Swedish',    native: 'Svenska' },
 ]
 
 // ==================== API Response Types ====================

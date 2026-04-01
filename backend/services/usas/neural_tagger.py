@@ -182,17 +182,22 @@ class NeuralUSASTagger:
         try:
             # Use spacy for tokenization to get POS, lemma, etc.
             import spacy
-            
-            # Load appropriate spacy model for tokenization
-            lang = language.lower()
-            is_chinese = lang in ['chinese', 'zh', 'zh-cn', 'mandarin', 'cmn']
-            
-            try:
-                if is_chinese:
-                    nlp = spacy.load('zh_core_web_lg')
-                else:
-                    nlp = spacy.load('en_core_web_lg')
-            except OSError:
+            from services.spacy_service import SPACY_MODEL_MAP, LANGUAGE_ALIASES
+
+            lang = (language or 'english').lower().strip()
+            lang = LANGUAGE_ALIASES.get(lang, lang)
+            spacy_models = SPACY_MODEL_MAP.get(lang, SPACY_MODEL_MAP['english'])
+            primary, fallback = spacy_models
+
+            nlp = None
+            for model_name in [m for m in (primary, fallback) if m]:
+                try:
+                    nlp = spacy.load(model_name)
+                    break
+                except OSError:
+                    continue
+
+            if nlp is None:
                 result['error'] = f'SpaCy model not available for {language}'
                 return result
             

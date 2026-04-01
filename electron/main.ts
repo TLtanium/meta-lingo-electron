@@ -3,6 +3,18 @@ import path from 'path'
 import { spawn, ChildProcess, execSync } from 'child_process'
 import fs from 'fs'
 
+function debugLocalLog(_payload: {
+  sessionId: string
+  runId?: string
+  hypothesisId: string
+  location: string
+  message: string
+  data?: any
+  timestamp?: number
+}) {
+  // Debug instrumentation removed.
+}
+
 // Chromium flags to fix Web Audio API crash when decoding large audio files in packaged app
 // This increases memory limits and disables some security restrictions
 app.commandLine.appendSwitch('js-flags', '--max-old-space-size=4096')
@@ -10,6 +22,196 @@ app.commandLine.appendSwitch('disable-features', 'AudioServiceOutOfProcess')
 
 let mainWindow: BrowserWindow | null = null
 let backendProcess: ChildProcess | null = null
+
+function killLeftoverMetaLingoProcesses(): void {
+  if (process.platform !== 'win32') return
+  try {
+    const currentPid = process.pid
+    debugLocalLog({
+      sessionId: 'f069eb',
+      runId: 'debug-killLeftover',
+      hypothesisId: 'H7',
+      location: 'electron/main.ts:killLeftoverMetaLingoProcesses',
+      message: 'before taskkill Meta-Lingo.exe',
+      data: {
+        currentPid,
+        metaLingoPidsBefore: listPidsByImageNameWindows('Meta-Lingo.exe').slice(0, 20),
+      },
+    })
+    // Kill Electron main/renderer processes by image name, excluding current PID.
+    execSync(`taskkill /F /IM "Meta-Lingo.exe" /T /FI "PID ne ${currentPid}" 2>nul`, { stdio: 'ignore' })
+
+    debugLocalLog({
+      sessionId: 'f069eb',
+      runId: 'debug-killLeftover',
+      hypothesisId: 'H7',
+      location: 'electron/main.ts:killLeftoverMetaLingoProcesses',
+      message: 'after taskkill Meta-Lingo.exe',
+      data: {
+        currentPid,
+        metaLingoPidsAfter: listPidsByImageNameWindows('Meta-Lingo.exe').slice(0, 20),
+      },
+    })
+  } catch {
+    // best-effort only
+    debugLocalLog({
+      sessionId: 'f069eb',
+      runId: 'debug-killLeftover',
+      hypothesisId: 'H7',
+      location: 'electron/main.ts:killLeftoverMetaLingoProcesses',
+      message: 'taskkill Meta-Lingo.exe failed',
+      data: { currentPid: process.pid },
+    })
+  }
+}
+
+function listPidsByImageNameWindows(imageName: string): number[] {
+  try {
+    const out = execSync(`tasklist /FI "IMAGENAME eq ${imageName}" /FO CSV /NH`, {
+      stdio: ['ignore', 'pipe', 'ignore'],
+      encoding: 'utf8',
+    })
+
+    // If no tasks match, tasklist prints an INFO line. The regex below will simply yield an empty list.
+    const pids: number[] = []
+    for (const line of out.split(/\r?\n/)) {
+      const trimmed = line.trim()
+      if (!trimmed) continue
+      // CSV row:
+      // "meta-lingo-backend.exe","12345","Console","1","12,345 K"
+      const m = trimmed.match(/"([^"]+)",\s*"(\d+)"/)
+      if (!m) continue
+      const name = String(m[1]).toLowerCase()
+      const pid = Number(m[2])
+      if (name === imageName.toLowerCase() && Number.isFinite(pid) && pid > 0) {
+        pids.push(pid)
+      }
+    }
+    return pids
+  } catch {
+    return []
+  }
+}
+
+function killProcessListeningOnPortWindows(port: number): void {
+  if (process.platform !== 'win32') return
+  try {
+    debugLocalLog({
+      sessionId: 'f069eb',
+      runId: 'debug-portkill',
+      hypothesisId: 'H4',
+      location: 'electron/main.ts:killProcessListeningOnPortWindows',
+      message: 'invoke port kill',
+      data: { port },
+    })
+    // netstat output contains lines like:
+    //   TCP    0.0.0.0:8000   0.0.0.0:0   LISTENING   12345
+    // Note: avoid netstat "-p tcp" because it is not supported consistently across Windows versions.
+    // Filter LISTENING + the target port, then kill by extracted PID.
+    // `findstr` returns exit code 1 when there are no matches; treat that as "no listener".
+    const out = execSync(`netstat -ano | findstr LISTENING | findstr ":${port}" 2>nul || echo ""`, {
+      stdio: ['ignore', 'pipe', 'ignore'],
+      encoding: 'utf8',
+    })
+    const pids = new Set<number>()
+    const lines = out.split(/\r?\n/)
+    for (const line of lines) {
+      const m = line.match(/\s+(\d+)\s*$/)
+      if (!m) continue
+      const pid = Number(m[1])
+      if (!Number.isFinite(pid) || pid <= 0) continue
+      pids.add(pid)
+    }
+
+    debugLocalLog({
+      sessionId: 'f069eb',
+      runId: 'debug-portkill',
+      hypothesisId: 'H4',
+      location: 'electron/main.ts:killProcessListeningOnPortWindows',
+      message: 'extracted PIDs for port kill',
+      data: { port, pidCount: pids.size, pids: Array.from(pids).slice(0, 20) }
+    })
+
+    for (const pid of pids) {
+      // /T kills the process tree; /F force kills.
+      execSync(`taskkill /F /PID ${pid} /T 2>nul`, { stdio: 'ignore' })
+    }
+  } catch (err) {
+    debugLocalLog({
+      sessionId: 'f069eb',
+      runId: 'debug-portkill',
+      hypothesisId: 'H4',
+      location: 'electron/main.ts:killProcessListeningOnPortWindows',
+      message: 'netstat/findstr failed',
+      data: { port, error: (err as any)?.message ?? String(err) },
+    })
+    // best-effort only
+  }
+}
+
+function getListeningPidsOnPortWindows(port: number): number[] {
+  if (process.platform !== 'win32') return []
+  try {
+    // Always return a string (treat "no matches" as empty output).
+    const out = execSync(`netstat -ano | findstr LISTENING | findstr ":${port}" 2>nul || echo ""`, {
+      stdio: ['ignore', 'pipe', 'ignore'],
+      encoding: 'utf8',
+    })
+
+    const pids = new Set<number>()
+    const lines = out.split(/\r?\n/)
+    for (const line of lines) {
+      const m = line.match(/\s+(\d+)\s*$/)
+      if (!m) continue
+      const pid = Number(m[1])
+      if (!Number.isFinite(pid) || pid <= 0) continue
+      pids.add(pid)
+    }
+    return Array.from(pids)
+  } catch {
+    return []
+  }
+}
+
+// Windows: if a previous instance didn't exit cleanly, kill leftovers before requesting the single-instance lock.
+// Otherwise the new instance may fail to start (the old one still holds the lock) or create more zombies.
+if (process.platform === 'win32') {
+  try {
+    const currentPid = process.pid
+    debugLocalLog({
+      sessionId: 'f069eb',
+      runId: 'debug-prekill',
+      hypothesisId: 'H2',
+      location: 'electron/main.ts:preKillBeforeSingleInstanceLock',
+      message: 'pre-kill leftovers before requestSingleInstanceLock',
+      data: { pid: currentPid }
+    })
+    // Kill all previous GUI instances, but exclude current PID.
+    execSync(`taskkill /F /IM "Meta-Lingo.exe" /T /FI "PID ne ${currentPid}" 2>nul`, { stdio: 'ignore' })
+    // Kill backend/mcp helpers (names are different from main executable)
+    execSync(`taskkill /F /IM "meta-lingo-backend.exe" /T 2>nul`, { stdio: 'ignore' })
+    execSync(`taskkill /F /IM "meta-lingo-mcp.exe" /T 2>nul`, { stdio: 'ignore' })
+  } catch {
+    // best-effort only
+  }
+}
+
+// Prevent zombie multi-instance accumulation on Windows when an old process is stuck.
+const gotSingleInstanceLock = app.requestSingleInstanceLock()
+debugLocalLog({
+  sessionId: 'f069eb',
+  runId: 'debug-singleinstance',
+  hypothesisId: 'H1',
+  location: 'electron/main.ts:singleInstanceLockResult',
+  message: 'requestSingleInstanceLock result',
+  data: { gotSingleInstanceLock, pid: process.pid }
+})
+if (!gotSingleInstanceLock) {
+  app.exit(0)
+}
+
+// Windows: close/exit guard to prevent multiple exit attempts.
+let isAppClosing = false
 
 // 启动状态管理
 interface StartupStatus {
@@ -32,25 +234,7 @@ let startupStatus: StartupStatus = {
   attemptId: 1,
 }
 
-// #region agent log
-const _dbg = (hypothesisId: string, location: string, message: string, data: any) => {
-  try {
-    fetch('http://127.0.0.1:7243/ingest/144d6320-478f-4aca-871e-5ef953960d7e', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '060f7d' },
-      body: JSON.stringify({
-        sessionId: '060f7d',
-        runId: 'pre-fix',
-        hypothesisId,
-        location,
-        message,
-        data,
-        timestamp: Date.now()
-      })
-    }).catch(() => {})
-  } catch {}
-}
-// #endregion
+const _dbg = (_hypothesisId: string, _location: string, _message: string, _data: any) => {}
 
 function updateStartupStatus(update: Partial<StartupStatus>) {
   const nextAttemptId = update.attemptId ?? startupStatus.attemptId
@@ -79,6 +263,14 @@ function updateStartupStatus(update: Partial<StartupStatus>) {
  */
 function killOldBackendProcesses(): void {
   const platform = process.platform
+  debugLocalLog({
+    sessionId: 'f069eb',
+    runId: 'debug-killOldBackend',
+    hypothesisId: 'H3',
+    location: 'electron/main.ts:killOldBackendProcesses',
+    message: 'killOldBackendProcesses start',
+    data: { platform },
+  })
   try {
     if (platform === 'darwin' || platform === 'linux') {
       // macOS/Linux: 使用 pkill 终止所有 meta-lingo-backend 进程
@@ -86,11 +278,23 @@ function killOldBackendProcesses(): void {
     } else if (platform === 'win32') {
       // Windows: 使用 taskkill 终止进程
       execSync('taskkill /F /IM meta-lingo-backend.exe 2>nul || echo.', { stdio: 'ignore' })
+
+      // Port-level fallback: if a worker/child keeps the port, kill by listening PID.
+      // backend port is 8000 by default (METALINGO_PORT).
+      killProcessListeningOnPortWindows(8000)
     }
     console.log('[Backend] Killed any old backend processes')
   } catch (err) {
     // 忽略错误（可能没有旧进程需要终止）
     console.log('[Backend] No old backend processes to kill')
+    debugLocalLog({
+      sessionId: 'f069eb',
+      runId: 'debug-killOldBackend',
+      hypothesisId: 'H3',
+      location: 'electron/main.ts:killOldBackendProcesses',
+      message: 'killOldBackendProcesses no-op/failed',
+      data: { platform, error: (err as any)?.message ?? String(err) },
+    })
   }
 }
 
@@ -139,6 +343,15 @@ function getDataPath(): string {
  * @param extendedTimeout 为 true 时使用更长等待（如重试场景），给冷启动更多时间
  */
 async function startBackend(extendedTimeout = false): Promise<boolean> {
+  debugLocalLog({
+    sessionId: 'f069eb',
+    runId: 'debug-startBackend',
+    hypothesisId: 'H3',
+    location: 'electron/main.ts:startBackend',
+    message: 'startBackend invoked',
+    data: { extendedTimeout, pid: process.pid, isDev }
+  })
+
   if (isDev) {
     // 开发模式：不启动后端，让前端自己检测后端状态
     console.log('[Backend] Development mode - backend should be started manually')
@@ -173,6 +386,14 @@ async function startBackend(extendedTimeout = false): Promise<boolean> {
   
   if (!fs.existsSync(backendPath)) {
     console.error('[Backend] Backend executable not found:', backendPath)
+    debugLocalLog({
+      sessionId: 'f069eb',
+      runId: 'debug-startBackend',
+      hypothesisId: 'H3',
+      location: 'electron/main.ts:startBackend',
+      message: 'backend executable not found',
+      data: { backendPath, exists: false },
+    })
     updateStartupStatus({ 
       stage: 'error', 
       message: 'Backend executable not found', 
@@ -207,6 +428,14 @@ async function startBackend(extendedTimeout = false): Promise<boolean> {
       })
       // #region agent log
       _dbg('H2', 'electron/main.ts:startBackend', 'backend process spawned', { pid: backendProcess?.pid ?? null })
+      debugLocalLog({
+        sessionId: 'f069eb',
+        runId: 'debug-startBackend',
+        hypothesisId: 'H3',
+        location: 'electron/main.ts:startBackend',
+        message: 'backend process spawned',
+        data: { pid: backendProcess?.pid ?? null },
+      })
       // #endregion
       const logPath = !isDev ? path.join(app.getPath('userData'), 'backend.log') : null
       const appendLine = (line: string) => {
@@ -239,6 +468,14 @@ async function startBackend(extendedTimeout = false): Promise<boolean> {
         // #region agent log
         _dbg('H3', 'electron/main.ts:startBackend', 'backend process error event', { message: err.message })
         // #endregion
+        debugLocalLog({
+          sessionId: 'f069eb',
+          runId: 'debug-startBackend',
+          hypothesisId: 'H3',
+          location: 'electron/main.ts:startBackend',
+          message: 'backend process error event',
+          data: { message: err.message },
+        })
         updateStartupStatus({ 
           stage: 'error', 
           message: `Failed to start backend: ${err.message}`, 
@@ -257,6 +494,14 @@ async function startBackend(extendedTimeout = false): Promise<boolean> {
           stage: startupStatus.stage
         })
         // #endregion
+        debugLocalLog({
+          sessionId: 'f069eb',
+          runId: 'debug-startBackend',
+          hypothesisId: 'H3',
+          location: 'electron/main.ts:startBackend',
+          message: 'backend process close event',
+          data: { code, signal: signal ?? null },
+        })
         // 如果进程在健康检查完成前退出，标记为失败
         if (code !== null && code !== 0) {
           updateStartupStatus({ 
@@ -295,6 +540,14 @@ async function startBackend(extendedTimeout = false): Promise<boolean> {
             progress: 100,
             backendReady: true
           })
+          debugLocalLog({
+            sessionId: 'f069eb',
+            runId: 'debug-startBackend',
+            hypothesisId: 'H3',
+            location: 'electron/main.ts:checkBackendHealth',
+            message: 'backend health ok',
+            data: { attempts, maxAttempts },
+          })
           resolve(true)
         } else if (attempts < maxAttempts) {
           setTimeout(checkLoop, checkInterval)
@@ -304,6 +557,14 @@ async function startBackend(extendedTimeout = false): Promise<boolean> {
             stage: 'error',
             message: 'Backend health check timeout',
             progress: 0
+          })
+          debugLocalLog({
+            sessionId: 'f069eb',
+            runId: 'debug-startBackend',
+            hypothesisId: 'H3',
+            location: 'electron/main.ts:checkBackendHealth',
+            message: 'backend health timeout',
+            data: { attempts, maxAttempts },
           })
           resolve(false)
         }
@@ -344,8 +605,39 @@ async function checkBackendHealth(): Promise<boolean> {
  */
 function stopBackend(): void {
   console.log('[Backend] Stopping backend process...')
+
+  debugLocalLog({
+    sessionId: 'f069eb',
+    runId: 'debug-stopBackend',
+    hypothesisId: 'H5',
+    location: 'electron/main.ts:stopBackend',
+    message: 'stopBackend invoked',
+    data: { pid: process.pid, platform: process.platform }
+  })
+
   
   if (process.platform === 'win32') {
+    // Best-effort: destroy stdio pipes so Node/Electron doesn't keep references alive
+    try {
+      backendProcess?.stdout?.destroy()
+      backendProcess?.stderr?.destroy()
+    } catch {
+      // ignore
+    }
+
+    debugLocalLog({
+      sessionId: 'f069eb',
+      runId: 'debug-stopBackend',
+      hypothesisId: 'H6',
+      location: 'electron/main.ts:stopBackend',
+      message: 'before killing backend/mcp (tasklist snapshot)',
+      data: {
+        metaLingoPids: listPidsByImageNameWindows('Meta-Lingo.exe').slice(0, 20),
+        backendPids: listPidsByImageNameWindows('meta-lingo-backend.exe').slice(0, 20),
+        mcpPids: listPidsByImageNameWindows('meta-lingo-mcp.exe').slice(0, 20),
+      },
+    })
+
     // Windows: 强制终止所有 meta-lingo-backend 进程
     // 首先尝试终止我们启动的进程
     if (backendProcess && !backendProcess.killed) {
@@ -367,6 +659,29 @@ function stopBackend(): void {
     } catch {
       // 忽略错误
     }
+
+    // MCP server can be started independently (and may be left running if the app is force-closed)
+    try {
+      execSync('taskkill /F /IM meta-lingo-mcp.exe /T 2>nul', {
+        stdio: 'ignore',
+        timeout: 5000
+      })
+      console.log('[Backend] Killed all meta-lingo-mcp processes via taskkill')
+    } catch {
+      // 忽略错误
+    }
+
+    // Port-level fallback (most robust): kill anything still listening on backend port.
+    killProcessListeningOnPortWindows(8000)
+
+    debugLocalLog({
+      sessionId: 'f069eb',
+      runId: 'debug-portcheck-after-stop',
+      hypothesisId: 'H8',
+      location: 'electron/main.ts:stopBackend',
+      message: 'listening PIDs on 8000 after stopBackend kill attempts',
+      data: { port: 8000, pids: getListeningPidsOnPortWindows(8000).slice(0, 20) },
+    })
     
     // 备用方案：使用 WMIC 终止进程
     try {
@@ -378,6 +693,19 @@ function stopBackend(): void {
     } catch {
       // 忽略错误
     }
+
+    debugLocalLog({
+      sessionId: 'f069eb',
+      runId: 'debug-stopBackend',
+      hypothesisId: 'H6',
+      location: 'electron/main.ts:stopBackend',
+      message: 'after killing backend/mcp (tasklist snapshot)',
+      data: {
+        metaLingoPids: listPidsByImageNameWindows('Meta-Lingo.exe').slice(0, 20),
+        backendPids: listPidsByImageNameWindows('meta-lingo-backend.exe').slice(0, 20),
+        mcpPids: listPidsByImageNameWindows('meta-lingo-mcp.exe').slice(0, 20),
+      },
+    })
   } else {
     // macOS/Linux
     if (backendProcess) {
@@ -428,10 +756,11 @@ function initDataDirectories(): void {
 function createWindow() {
   // Mac 使用 hiddenInset 实现标题栏与页面融合
   const isMac = process.platform === 'darwin'
+  const isWin = process.platform === 'win32'
   
-  // Windows 标题栏占用额外高度，需要补偿
-  const windowHeight = isMac ? 930 : 965
-  const minWindowHeight = isMac ? 930 : 965
+  // Mac 使用 hiddenInset 实现标题栏与页面融合；Windows 通过 hidden + titleBarOverlay 融合后不再需要额外高度补偿
+  const windowHeight = isMac ? 930 : 930
+  const minWindowHeight = isMac ? 930 : 930
   
   // 获取主显示器信息，用于设置最大尺寸限制
   const primaryDisplay = screen.getPrimaryDisplay()
@@ -457,7 +786,11 @@ function createWindow() {
     // Avoid constraining fullscreen size on macOS. Using workArea-based max size
     // can leave a black strip after Space swipe / return in fullscreen.
     ...(isMac ? {} : { maxWidth: availableWidth, maxHeight: availableHeight }),
-    icon: path.join(__dirname, '../assets/icons/icon_256x256.png'),
+    // Windows taskbar/alt-tab icon:
+    // Use multi-resolution ICO for Windows taskbar/alt-tab to avoid scaling/cropping issues.
+    icon: isWin
+      ? path.join(__dirname, '../assets/icons/icon.ico')
+      : path.join(__dirname, '../assets/icons/icon_256x256.png'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -467,21 +800,82 @@ function createWindow() {
       allowRunningInsecureContent: true,  // Allow mixed content
     },
     frame: true,
-    titleBarStyle: isMac ? 'hiddenInset' : 'default',
+    titleBarStyle: isMac ? 'hiddenInset' : 'hidden',
+    ...(isMac ? {} : { titleBarOverlay: { height: 48, color: 'transparent', symbolColor: '#fff' } }),
     trafficLightPosition: isMac ? { x: 16, y: 14 } : undefined,
     center: true,
     show: false
   })
 
+  debugLocalLog({
+    sessionId: 'f069eb',
+    runId: 'debug-ui',
+    hypothesisId: 'H10',
+    location: 'electron/main.ts:createWindow',
+    message: 'BrowserWindow created (initial hidden)',
+    data: {
+      winId: mainWindow.id,
+      isVisible: mainWindow.isVisible(),
+      isDestroyed: mainWindow.isDestroyed(),
+      showFlag: false,
+    },
+  })
+
   mainWindow.once('ready-to-show', () => {
-    mainWindow?.show()
+    const win = mainWindow
+    const before = win?.isVisible()
+    win?.show()
+    debugLocalLog({
+      sessionId: 'f069eb',
+      runId: 'debug-ui',
+      hypothesisId: 'H10',
+      location: 'electron/main.ts:createWindow:ready-to-show',
+      message: 'ready-to-show fired (show executed)',
+      data: {
+        winId: win?.id,
+        isVisibleBefore: before,
+        isVisibleAfter: win?.isVisible(),
+      },
+    })
   })
 
   // 页面加载完成后，立即推送最新启动状态（覆盖 loading 阶段的丢失事件）
   mainWindow.webContents.on('did-finish-load', () => {
     if (mainWindow && !mainWindow.isDestroyed()) {
+      // Windows packaged flow can occasionally miss `ready-to-show`;
+      // ensure the window is visible once content has finished loading.
+      if (!mainWindow.isVisible()) {
+        mainWindow.show()
+        debugLocalLog({
+          sessionId: 'f069eb',
+          runId: 'debug-ui',
+          hypothesisId: 'H10',
+          location: 'electron/main.ts:createWindow:did-finish-load',
+          message: 'fallback show in did-finish-load',
+          data: { winId: mainWindow.id, isVisibleAfter: mainWindow.isVisible() },
+        })
+      }
       mainWindow.webContents.send('startup-status-changed', startupStatus)
+      debugLocalLog({
+        sessionId: 'f069eb',
+        runId: 'debug-ui',
+        hypothesisId: 'H10',
+        location: 'electron/main.ts:createWindow:did-finish-load',
+        message: 'did-finish-load fired',
+        data: { winId: mainWindow.id, url: mainWindow.webContents.getURL() },
+      })
     }
+  })
+
+  mainWindow.webContents.on('did-fail-load', (_event, errorCode, errorDescription, validatedURL) => {
+    debugLocalLog({
+      sessionId: 'f069eb',
+      runId: 'debug-ui',
+      hypothesisId: 'H10',
+      location: 'electron/main.ts:createWindow:did-fail-load',
+      message: 'did-fail-load fired',
+      data: { errorCode, errorDescription, validatedURL, winId: mainWindow?.id ?? null },
+    })
   })
 
   // Track fullscreen state changes and notify renderer
@@ -516,6 +910,50 @@ function createWindow() {
 
   mainWindow.on('closed', () => {
     mainWindow = null
+
+    // Windows 专用：确保窗口关闭后主进程一定退出
+    if (process.platform === 'win32' && !isAppClosing) {
+      isAppClosing = true
+      try {
+        stopBackend()
+      } catch {
+        // ignore
+      }
+      try {
+        killLeftoverMetaLingoProcesses()
+      } catch {
+        // ignore
+      }
+      try {
+        app.exit(0)
+      } catch {
+        // ignore
+      }
+    }
+  })
+
+  // Windows: when user clicks the native close button,
+  // make sure we stop backend + exit even if window-all-closed/before-quit chain is skipped.
+  mainWindow.on('close', () => {
+    if (process.platform !== 'win32' || isAppClosing) return
+    isAppClosing = true
+
+
+    try {
+      stopBackend()
+    } catch {
+      // ignore
+    }
+    try {
+      killLeftoverMetaLingoProcesses()
+    } catch {
+      // ignore
+    }
+    try {
+      app.exit(0)
+    } catch {
+      // ignore
+    }
   })
 
   // Handle external links
@@ -551,11 +989,57 @@ app.whenReady().then(async () => {
   })
 })
 
+app.on('second-instance', () => {
+  // If the second click happens while the first instance is closing,
+  // `mainWindow` may be null/destroyed/hidden, resulting in "process starts but no UI".
+  debugLocalLog({
+    sessionId: 'f069eb',
+    runId: 'debug-second-instance',
+    hypothesisId: 'H9',
+    location: 'electron/main.ts:second-instance',
+    message: 'second-instance handler snapshot',
+    data: {
+      pid: process.pid,
+      isAppClosing,
+      mainWindowExists: !!mainWindow,
+      mainWindowDestroyed: mainWindow ? mainWindow.isDestroyed() : null,
+      mainWindowVisible: mainWindow ? mainWindow.isVisible() : null,
+      mainWindowMinimized: mainWindow ? mainWindow.isMinimized() : null,
+      windowsCount: BrowserWindow.getAllWindows().length,
+    },
+  })
+
+  // Prefer the current `mainWindow`, but fall back to any existing BrowserWindow.
+  const candidateWindow =
+    mainWindow && !mainWindow.isDestroyed()
+      ? mainWindow
+      : BrowserWindow.getAllWindows()[0] ?? null
+
+  if (!candidateWindow) {
+    if (process.platform === 'win32') {
+      // Recreate UI if the app is still alive but no window exists.
+      isAppClosing = false
+      createWindow()
+    }
+    return
+  }
+
+  if (candidateWindow.isMinimized()) candidateWindow.restore()
+  if (!candidateWindow.isVisible()) candidateWindow.show()
+  candidateWindow.focus()
+})
+
 app.on('window-all-closed', () => {
   // 在 Windows 上，关闭所有窗口时先停止后端再退出
   if (process.platform !== 'darwin') {
     stopBackend()
-    app.quit()
+    // app.quit() can hang when hidden windows/handles remain.
+    // Use app.exit(0) on Windows to guarantee full process termination.
+    if (process.platform === 'win32') {
+      app.exit(0)
+    } else {
+      app.quit()
+    }
   }
 })
 
@@ -579,6 +1063,16 @@ ipcMain.handle('get-app-path', () => {
 
 ipcMain.handle('get-user-data-path', () => {
   return app.getPath('userData')
+})
+
+ipcMain.handle('set-title-bar-overlay', (_event, options: { color?: string; symbolColor?: string; height?: number }) => {
+  if (!mainWindow) return false
+  try {
+    mainWindow.setTitleBarOverlay(options)
+    return true
+  } catch {
+    return false
+  }
 })
 
 ipcMain.handle('get-backend-url', () => {

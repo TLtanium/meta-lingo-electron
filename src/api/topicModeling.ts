@@ -1090,12 +1090,22 @@ export async function updateNMFTopics(resultId: string, topics: import('../types
   return api.put<{ message: string; id: string }>(`${BASE_URL}/nmf/results/${resultId}/topics`, topics)
 }
 
+export async function getPreprocessSettings() {
+  return api.get<{ chunking: object; preprocess: object }>(`${BASE_URL}/preprocess-settings`)
+}
+
+export async function savePreprocessSettings(settings: object) {
+  return api.put<{ chunking: object; preprocess: object }>(`${BASE_URL}/preprocess-settings`, settings)
+}
+
 // ============ Export all functions ============
 
 export const topicModelingApi = {
   // Preprocess
   previewPreprocess,
   preprocessTexts,
+  getPreprocessSettings,
+  savePreprocessSettings,
   // Embedding
   createEmbedding,
   listEmbeddings,

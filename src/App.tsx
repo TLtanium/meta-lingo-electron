@@ -3,15 +3,17 @@ import { Box } from '@mui/material'
 import AppHeader from './components/Layout/AppHeader'
 import TabManager from './components/Layout/TabManager'
 import StartupScreen from './components/StartupScreen'
+import { AgentChatView } from './components/AgentChat'
+import { useSettingsStore } from './stores/settingsStore'
 
 function App() {
   const [isReady, setIsReady] = useState(false)
+  const agentMode = useSettingsStore((s) => s.agentMode)
 
   const handleReady = useCallback(() => {
     setIsReady(true)
   }, [])
 
-  // 显示启动画面直到后端就绪
   if (!isReady) {
     return <StartupScreen onReady={handleReady} />
   }
@@ -27,11 +29,19 @@ function App() {
         bgcolor: 'background.default'
       }}
     >
-      {/* App header with dictionary search */}
       <AppHeader />
 
-      {/* Tab manager - browser-like tabs, includes GDUFS watermark */}
-      <TabManager />
+      {/* TabManager stays mounted (display:none) to preserve state */}
+      <Box sx={{ display: agentMode ? 'none' : 'flex', flex: 1, overflow: 'hidden', flexDirection: 'column' }}>
+        <TabManager />
+      </Box>
+
+      {/* Agent Chat view */}
+      {agentMode && (
+        <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minHeight: 0 }}>
+          <AgentChatView />
+        </Box>
+      )}
     </Box>
   )
 }

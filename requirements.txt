@@ -112,6 +112,7 @@ wsd-torch-models>=0.1.0
 
 # Visualization
 plotly==6.5.0
+kaleido==1.2.0
 matplotlib==3.10.8
 wordcloud==1.9.3
 

@@ -452,69 +452,178 @@ export const FrameworkList: React.FC<FrameworkListProps> = ({
   )
   
   // Render list view
-  const renderListView = () => (
-    <TableContainer component={Paper} sx={{ width: '100%' }}>
-      <Table sx={{ tableLayout: 'fixed', width: '100%' }}>
-        <TableHead>
-          <TableRow>
-            <TableCell sx={{ width: '20%' }}>{t('framework.name', '名称')}</TableCell>
-            <TableCell sx={{ width: '12%' }}>{t('framework.category', '分类')}</TableCell>
-            <TableCell sx={{ width: '8%' }} align="center">{t('framework.tiers', '层级')}</TableCell>
-            <TableCell sx={{ width: '8%' }} align="center">{t('framework.labels', '标签')}</TableCell>
-            <TableCell sx={{ width: '30%' }}>{t('framework.description', '描述')}</TableCell>
-            <TableCell sx={{ width: '12%' }}>{t('common.updatedAt', '更新时间')}</TableCell>
-            <TableCell sx={{ width: '10%' }} align="right"></TableCell>
-          </TableRow>
-        </TableHead>
-        <TableBody>
-          {filteredFrameworks
-            .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-            .map((framework) => {
-              const counts = getNodeCounts(framework)
-              return (
-                <TableRow
-                  key={framework.id}
-                  hover
-                  sx={{ cursor: 'pointer' }}
-                  onClick={() => onSelect(framework)}
-                >
-                  <TableCell>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <TreeIcon color="primary" fontSize="small" />
-                      <Typography fontWeight={500}>{framework.name}</Typography>
-                    </Box>
-                  </TableCell>
-                  <TableCell>
-                    <Chip label={framework.category} size="small" variant="outlined" />
-                  </TableCell>
-                  <TableCell align="center">{counts.tiers}</TableCell>
-                  <TableCell align="center">{counts.labels}</TableCell>
-                  <TableCell>
-                    <Typography 
-                      variant="body2" 
-                      color="text.secondary" 
-                      noWrap 
-                      sx={{ maxWidth: 200 }}
-                    >
-                      {framework.description || '-'}
-                    </Typography>
-                  </TableCell>
-                  <TableCell>{formatDate(framework.updatedAt)}</TableCell>
-                  <TableCell align="right">
-                    <IconButton
-                      size="small"
-                      onClick={(e) => handleMenuOpen(e, framework)}
-                    >
-                      <MoreVertIcon />
-                    </IconButton>
-                  </TableCell>
-                </TableRow>
-              )
-            })}
-        </TableBody>
-      </Table>
-    </TableContainer>
-  )
+  const renderListView = () => {
+    const headerCellSx = {
+      fontWeight: 600,
+      fontSize: '12px',
+      color: 'text.secondary',
+      borderBottom: isDarkMode ? '2px solid rgba(255,255,255,0.12)' : '2px solid rgba(0,0,0,0.08)',
+      py: 1.5,
+      whiteSpace: 'nowrap' as const
+    }
+    const bodyCellSx = {
+      fontSize: '13px',
+      borderBottom: isDarkMode ? '1px solid rgba(255,255,255,0.06)' : '1px solid rgba(0,0,0,0.04)',
+      py: 1.5
+    }
+
+    return (
+      <TableContainer
+        component={Paper}
+        variant="outlined"
+        sx={{
+          width: '100%',
+          borderRadius: 2,
+          border: '1px solid',
+          borderColor: 'divider'
+        }}
+      >
+        <Table sx={{ tableLayout: 'fixed', width: '100%' }}>
+          <TableHead>
+            <TableRow>
+              <TableCell sx={{ ...headerCellSx, width: '22%' }}>{t('framework.name', '名称')}</TableCell>
+              <TableCell sx={{ ...headerCellSx, width: '14%' }}>{t('framework.category', '分类')}</TableCell>
+              <TableCell sx={{ ...headerCellSx, width: '8%' }} align="center">{t('framework.tiers', '层级')}</TableCell>
+              <TableCell sx={{ ...headerCellSx, width: '8%' }} align="center">{t('framework.labels', '标签')}</TableCell>
+              <TableCell sx={{ ...headerCellSx, width: '28%' }}>{t('framework.description', '描述')}</TableCell>
+              <TableCell sx={{ ...headerCellSx, width: '12%' }}>{t('common.updatedAt', '更新时间')}</TableCell>
+              <TableCell sx={{ ...headerCellSx, width: '8%' }} align="right"></TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {filteredFrameworks
+              .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+              .map((framework) => {
+                const counts = getNodeCounts(framework)
+                const categoryColor = getCategoryColor(framework.category)
+                const isCustom = framework.category === 'Customs'
+                return (
+                  <TableRow
+                    key={framework.id}
+                    hover
+                    sx={{
+                      cursor: 'pointer',
+                      transition: 'background-color 0.15s',
+                      '&:hover': {
+                        bgcolor: isDarkMode ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.02)'
+                      }
+                    }}
+                    onClick={() => onSelect(framework)}
+                  >
+                    <TableCell sx={bodyCellSx}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                        <Box
+                          sx={{
+                            width: 32,
+                            height: 32,
+                            borderRadius: 1.5,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            bgcolor: `${categoryColor}15`,
+                            flexShrink: 0
+                          }}
+                        >
+                          <TreeIcon sx={{ fontSize: 18, color: categoryColor }} />
+                        </Box>
+                        <Typography fontWeight={600} fontSize="13px" noWrap>
+                          {framework.name}
+                        </Typography>
+                      </Box>
+                    </TableCell>
+                    <TableCell sx={bodyCellSx}>
+                      <Chip
+                        icon={<FolderIcon sx={{ fontSize: 12 }} />}
+                        label={framework.category}
+                        size="small"
+                        variant="outlined"
+                        sx={{
+                          height: 24,
+                          fontSize: '11px',
+                          bgcolor: `${categoryColor}10`,
+                          color: categoryColor,
+                          borderColor: `${categoryColor}30`,
+                          '& .MuiChip-icon': { color: categoryColor }
+                        }}
+                      />
+                    </TableCell>
+                    <TableCell align="center" sx={bodyCellSx}>
+                      <Chip
+                        label={counts.tiers}
+                        size="small"
+                        sx={{
+                          height: 22,
+                          minWidth: 36,
+                          fontSize: '11px',
+                          fontWeight: 600,
+                          bgcolor: chipColors.tiers.bgcolor,
+                          color: chipColors.tiers.color,
+                          '& .MuiChip-label': { px: 1 }
+                        }}
+                      />
+                    </TableCell>
+                    <TableCell align="center" sx={bodyCellSx}>
+                      <Chip
+                        label={counts.labels}
+                        size="small"
+                        sx={{
+                          height: 22,
+                          minWidth: 36,
+                          fontSize: '11px',
+                          fontWeight: 600,
+                          bgcolor: chipColors.labels.bgcolor,
+                          color: chipColors.labels.color,
+                          '& .MuiChip-label': { px: 1 }
+                        }}
+                      />
+                    </TableCell>
+                    <TableCell sx={bodyCellSx}>
+                      <Typography
+                        variant="body2"
+                        color="text.secondary"
+                        noWrap
+                        sx={{ fontSize: '12px' }}
+                      >
+                        {framework.description || '-'}
+                      </Typography>
+                    </TableCell>
+                    <TableCell sx={bodyCellSx}>
+                      <Typography variant="caption" color="text.secondary">
+                        {formatDate(framework.updatedAt)}
+                      </Typography>
+                    </TableCell>
+                    <TableCell align="right" sx={bodyCellSx}>
+                      <Stack direction="row" spacing={0.5} justifyContent="flex-end">
+                        {isCustom && (
+                          <Chip
+                            label={t('framework.editable', '可编辑')}
+                            size="small"
+                            sx={{
+                              height: 20,
+                              fontSize: '10px',
+                              bgcolor: chipColors.editable.bgcolor,
+                              color: chipColors.editable.color,
+                              '& .MuiChip-label': { px: 0.75 }
+                            }}
+                          />
+                        )}
+                        <IconButton
+                          size="small"
+                          onClick={(e) => handleMenuOpen(e, framework)}
+                          sx={{ opacity: 0.7, '&:hover': { opacity: 1 } }}
+                        >
+                          <MoreVertIcon fontSize="small" />
+                        </IconButton>
+                      </Stack>
+                    </TableCell>
+                  </TableRow>
+                )
+              })}
+          </TableBody>
+        </Table>
+      </TableContainer>
+    )
+  }
   
   // Loading skeleton
   if (loading && allFrameworks.length === 0) {

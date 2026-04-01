@@ -33,13 +33,21 @@ def get_base_path() -> Path:
 
 class SyntaxService:
     """Syntax analysis service for constituency and dependency parsing"""
-    
+
     def __init__(self):
-        self.nlp_en = None
-        self.nlp_zh = None
+        self._models = {}  # canonical language → nlp
         self.benepar_nlp = None
         self._spacy_available = None
         self._benepar_available = None
+
+    # Legacy attribute compatibility
+    @property
+    def nlp_en(self):
+        return self._models.get('english')
+
+    @property
+    def nlp_zh(self):
+        return self._models.get('chinese')
         
         # Model paths - support both development and packaged modes
         base_path = get_base_path()
@@ -66,37 +74,40 @@ class SyntaxService:
         """Load SpaCy model for the specified language"""
         if not self._check_spacy():
             return None
-        
+
         import spacy
-        
-        lang = language.lower()
-        
-        if lang in ['chinese', 'zh', 'zh-cn', 'mandarin']:
-            if self.nlp_zh is None:
-                try:
-                    self.nlp_zh = spacy.load("zh_core_web_lg")
-                    logger.info("Loaded zh_core_web_lg model")
-                except OSError:
-                    try:
-                        self.nlp_zh = spacy.load("zh_core_web_sm")
-                        logger.info("Loaded zh_core_web_sm model (fallback)")
-                    except OSError:
-                        logger.error("No Chinese SpaCy model found")
-                        return None
-            return self.nlp_zh
-        else:
-            if self.nlp_en is None:
-                try:
-                    self.nlp_en = spacy.load("en_core_web_lg")
-                    logger.info("Loaded en_core_web_lg model")
-                except OSError:
-                    try:
-                        self.nlp_en = spacy.load("en_core_web_sm")
-                        logger.info("Loaded en_core_web_sm model (fallback)")
-                    except OSError:
-                        logger.error("No English SpaCy model found")
-                        return None
-            return self.nlp_en
+        from services.spacy_service import SPACY_MODEL_MAP, LANGUAGE_ALIASES
+
+        lang = (language or 'english').lower().strip()
+        lang = LANGUAGE_ALIASES.get(lang, lang)
+
+        if lang in self._models:
+            return self._models[lang]
+
+        models = SPACY_MODEL_MAP.get(lang)
+        if models is None:
+            logger.warning(f"No SpaCy model for '{language}' in syntax service, falling back to English")
+            lang = 'english'
+            if lang in self._models:
+                return self._models[lang]
+            models = SPACY_MODEL_MAP['english']
+
+        primary, fallback = models
+        nlp = None
+        for model_name in [m for m in (primary, fallback) if m]:
+            try:
+                nlp = spacy.load(model_name)
+                logger.info(f"Loaded SpaCy model: {model_name}")
+                break
+            except OSError:
+                continue
+
+        if nlp is None:
+            logger.error(f"No SpaCy model found for language '{language}'")
+            return None
+
+        self._models[lang] = nlp
+        return nlp
     
     def _load_benepar(self) -> bool:
         """Load benepar constituency parser"""

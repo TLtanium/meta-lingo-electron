@@ -188,17 +188,22 @@ class USASService:
             return False
     
     def is_available(self, language: str = 'english') -> bool:
-        """Check if USAS service is available for the language"""
-        # Only support English and Chinese
-        lang = language.lower()
-        if lang not in ['english', 'en', 'chinese', 'zh', 'zh-cn', 'mandarin', 'cmn']:
+        """Check if USAS service is available for the language.
+        Returns True for all 11 supported languages (rule-based or neural BEM)."""
+        from services.usas.tagger import ALL_SUPPORTED_LANGUAGES, _normalize_lang
+        lang = _normalize_lang(language)
+        if lang not in ALL_SUPPORTED_LANGUAGES:
             return False
-        
-        return self.tagger.is_available(language)
-    
+        # For new languages rule-based models may not be installed;
+        # the neural BEM tagger is the fallback — check that.
+        rule_ok = self.tagger.load_model(language) is not None
+        neural_ok = self._get_neural_tagger().is_available()
+        return rule_ok or neural_ok
+
     def get_supported_languages(self) -> List[str]:
         """Get list of supported languages"""
-        return ['english', 'chinese']
+        from services.usas.tagger import ALL_SUPPORTED_LANGUAGES
+        return list(ALL_SUPPORTED_LANGUAGES)
     
     def annotate_text(
         self,
@@ -240,20 +245,32 @@ class USASService:
         # Determine tagging mode
         mode = mode_override if mode_override else self.get_tagging_mode()
         result['tagging_mode'] = mode
-        
-        # Check language support (for rule_based, check if USAS is available)
-        if mode in ('rule_based', 'hybrid'):
-            if not self.is_available(language):
-                result['error'] = f'USAS not available for language: {language}'
+
+        # Check language support
+        if not self.is_available(language):
+            result['error'] = f'USAS not available for language: {language}'
+            return result
+
+        # For languages where rule-based model is not installed, fall back to neural
+        from services.usas.tagger import _normalize_lang
+        rule_based_available = self.tagger.load_model(language) is not None
+        if mode in ('rule_based', 'hybrid') and not rule_based_available:
+            neural = self._get_neural_tagger()
+            if neural.is_available():
+                logger.info(f"Rule-based model not available for '{language}', using neural BEM")
+                mode = 'neural'
+                result['tagging_mode'] = 'neural'
+            else:
+                result['error'] = f'No USAS model available for language: {language}'
                 return result
-        
+
         # For neural mode, check if neural model is available
         if mode == 'neural':
             neural = self._get_neural_tagger()
             if not neural.is_available():
                 result['error'] = 'Neural model not available'
                 return result
-        
+
         try:
             if mode == 'neural':
                 return self._annotate_text_neural(text, language, progress_callback)

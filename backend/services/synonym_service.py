@@ -20,19 +20,41 @@ from models.database import TextDB, CorpusDB
 import sys
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from config import MODELS_DIR
+from model_paths import get_user_models_dir, get_bundled_models_dir
 
 logger = logging.getLogger(__name__)
 
-# Configure NLTK data path to use local models
-NLTK_DATA_PATH = MODELS_DIR / "nltk"
+# Configure NLTK data path.
+# Priority:
+# 1) user models dir (downloaded/updated models)
+# 2) bundled models dir (packaged with app)
+#
+# Important: user models dir may exist but be incomplete (e.g. models/nltk exists
+# but corpora/wordnet is missing). In that case we must fall back to the bundled
+# wordnet to avoid startup crashes.
+def _has_wordnet(nltk_root: Path) -> bool:
+    return (nltk_root / "corpora" / "wordnet").exists() or (nltk_root / "corpora" / "wordnet.zip").exists()
+
+_user_nltk_root = get_user_models_dir() / "nltk"
+_bundled_nltk_root = get_bundled_models_dir() / "nltk"
+
+if _has_wordnet(_user_nltk_root):
+    NLTK_DATA_PATH = _user_nltk_root
+elif _has_wordnet(_bundled_nltk_root):
+    NLTK_DATA_PATH = _bundled_nltk_root
+else:
+    # Final best-effort fallback; _init_wordnet will handle failure gracefully.
+    NLTK_DATA_PATH = _user_nltk_root if _user_nltk_root.exists() else (_bundled_nltk_root if _bundled_nltk_root.exists() else (MODELS_DIR / "nltk"))
+
 nltk.data.path.insert(0, str(NLTK_DATA_PATH))
 
-# SpaCy POS to WordNet POS mapping
+# SpaCy POS to WordNet POS mapping.
+# Use literal POS codes to avoid touching WordNet corpus at import time.
 SPACY_TO_WORDNET_POS = {
-    'ADJ': wn.ADJ,      # adjective -> 'a'
-    'ADV': wn.ADV,      # adverb -> 'r'
-    'NOUN': wn.NOUN,    # noun -> 'n'
-    'VERB': wn.VERB,    # verb -> 'v'
+    'ADJ': 'a',      # adjective
+    'ADV': 'r',      # adverb
+    'NOUN': 'n',     # noun
+    'VERB': 'v',     # verb
 }
 
 # POS filter options mapping
@@ -47,10 +69,11 @@ POS_FILTER_OPTIONS = {
 
 # Reverse mapping for display
 WORDNET_TO_DISPLAY_POS = {
-    wn.ADJ: 'adjective',
-    wn.ADV: 'adverb',
-    wn.NOUN: 'noun',
-    wn.VERB: 'verb',
+    'a': 'adjective',
+    'r': 'adverb',
+    'n': 'noun',
+    'v': 'verb',
+    's': 'adjective',  # adjective satellite
 }
 
 

@@ -49,13 +49,14 @@ import dayjs, { Dayjs } from 'dayjs'
 import { corpusApi } from '../../api'
 import apiClient from '../../api/client'
 import NumberInput from '../../components/common/NumberInput'
-import type { 
-  MediaType, 
-  Corpus, 
-  CorpusCreate, 
+import type {
+  MediaType,
+  Corpus,
+  CorpusCreate,
   UploadResult,
   ServicesStatus
 } from '../../types'
+import { SUPPORTED_LANGUAGES } from '../../types/corpus'
 
 // Processing stages for display
 const PROCESSING_STAGES = [
@@ -98,12 +99,8 @@ const getStageName = (stage: string): string => {
   return found ? found.label : stage
 }
 
-// Language options for corpus (only English and Chinese supported for USAS semantic tagging)
-// Language codes for storage (English values)
-const LANGUAGE_OPTIONS = [
-  'english',
-  'chinese'
-]
+// Language codes for storage — derived from SUPPORTED_LANGUAGES
+const LANGUAGE_OPTIONS = SUPPORTED_LANGUAGES.map(l => l.code)
 
 // Text type config interface (from USAS settings)
 interface TextTypeConfig {
@@ -257,7 +254,9 @@ export default function UploadPanel({
     try {
       const response = await apiClient.get('/api/usas/text-types')
       if (response.data.success && response.data.data?.text_types) {
-        setTextTypeConfigs(response.data.data.text_types)
+        const configs = response.data.data.text_types
+        setTextTypeConfigs(configs)
+        setSelectedTextType(prev => prev || (configs['GEN'] ? 'GEN' : Object.keys(configs)[0] || ''))
       }
     } catch (error) {
       console.error('Failed to load text types:', error)
@@ -748,6 +747,12 @@ export default function UploadPanel({
                       }
                     }}
                     label={t('corpus.textType')}
+                    renderValue={(value) => {
+                      if (value === '__CUSTOM__') return t('corpus.textTypes.custom')
+                      const config = textTypeConfigs[value as string]
+                      if (!config) return value as string
+                      return i18n.language === 'zh' ? (config.name_zh || config.name) : config.name
+                    }}
                   >
                     {Object.entries(textTypeConfigs)
                       .sort(([a], [b]) => {
@@ -775,21 +780,6 @@ export default function UploadPanel({
                     size="small"
                     placeholder={t('corpus.customTextTypePlaceholder')}
                   />
-                )}
-                {!isCustomTextType && selectedTextType && textTypeConfigs[selectedTextType]?.priority_domains?.length > 0 && (
-                  <Box sx={{ p: 1, bgcolor: 'action.hover', borderRadius: 1 }}>
-                    <Typography variant="caption" color="text.secondary">
-                      {t('corpus.linkedDomains')}
-                    </Typography>
-                    <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap sx={{ mt: 0.5 }}>
-                      {textTypeConfigs[selectedTextType].priority_domains.slice(0, 6).map(domain => (
-                        <Chip key={domain} label={domain} size="small" variant="outlined" sx={{ height: 20, fontSize: '0.65rem' }} />
-                      ))}
-                      {textTypeConfigs[selectedTextType].priority_domains.length > 6 && (
-                        <Chip label={`+${textTypeConfigs[selectedTextType].priority_domains.length - 6}`} size="small" variant="outlined" sx={{ height: 20, fontSize: '0.65rem' }} />
-                      )}
-                    </Stack>
-                  </Box>
                 )}
                 
                 {/* Date field for uploaded files - Required */}
@@ -870,6 +860,12 @@ export default function UploadPanel({
                       }
                     }}
                     label={t('corpus.textType')}
+                    renderValue={(value) => {
+                      if (value === '__CUSTOM__') return t('corpus.textTypes.custom')
+                      const config = textTypeConfigs[value as string]
+                      if (!config) return value as string
+                      return i18n.language === 'zh' ? (config.name_zh || config.name) : config.name
+                    }}
                   >
                     {Object.entries(textTypeConfigs)
                       .sort(([a], [b]) => {
@@ -897,21 +893,6 @@ export default function UploadPanel({
                     size="small"
                     placeholder={t('corpus.customTextTypePlaceholder')}
                   />
-                )}
-                {!isCustomTextType && selectedTextType && textTypeConfigs[selectedTextType]?.priority_domains?.length > 0 && (
-                  <Box sx={{ p: 1, bgcolor: 'action.hover', borderRadius: 1 }}>
-                    <Typography variant="caption" color="text.secondary">
-                      {t('corpus.linkedDomains')}
-                    </Typography>
-                    <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap sx={{ mt: 0.5 }}>
-                      {textTypeConfigs[selectedTextType].priority_domains.slice(0, 6).map(domain => (
-                        <Chip key={domain} label={domain} size="small" variant="outlined" sx={{ height: 20, fontSize: '0.65rem' }} />
-                      ))}
-                      {textTypeConfigs[selectedTextType].priority_domains.length > 6 && (
-                        <Chip label={`+${textTypeConfigs[selectedTextType].priority_domains.length - 6}`} size="small" variant="outlined" sx={{ height: 20, fontSize: '0.65rem' }} />
-                      )}
-                    </Stack>
-                  </Box>
                 )}
 
                 {/* Source - with presets and custom */}

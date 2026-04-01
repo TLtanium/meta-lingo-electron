@@ -533,13 +533,44 @@ except ImportError:
     pass  # SpaCy not available
 
 
+# Language name → (primary model, fallback model)
+SPACY_MODEL_MAP = {
+    'english':    ('en_core_web_lg', 'en_core_web_sm'),
+    'chinese':    ('zh_core_web_lg', 'zh_core_web_sm'),
+    'danish':     ('da_core_news_sm', None),
+    'dutch':      ('nl_core_news_sm', None),
+    'finnish':    ('fi_core_news_sm', None),
+    'french':     ('fr_core_news_sm', None),
+    'italian':    ('it_core_news_sm', None),
+    'portuguese': ('pt_core_news_sm', None),
+    'russian':    ('ru_core_news_sm', None),
+    'spanish':    ('es_core_news_sm', None),
+    'swedish':    ('sv_core_news_sm', None),
+}
+
+# ISO code / variant aliases → canonical language name
+LANGUAGE_ALIASES = {
+    'en': 'english', 'zh': 'chinese', 'zh-cn': 'chinese', 'mandarin': 'chinese', 'cmn': 'chinese',
+    'da': 'danish', 'nl': 'dutch', 'fi': 'finnish', 'fr': 'french',
+    'it': 'italian', 'pt': 'portuguese', 'ru': 'russian', 'es': 'spanish', 'sv': 'swedish',
+}
+
+
 class SpacyService:
     """SpaCy NLP annotation service"""
-    
+
     def __init__(self):
-        self.nlp_en = None
-        self.nlp_zh = None
+        self._models = {}  # canonical language name → loaded nlp object
         self._spacy_available = None
+
+    # Keep legacy attributes for any code that may reference them directly
+    @property
+    def nlp_en(self):
+        return self._models.get('english')
+
+    @property
+    def nlp_zh(self):
+        return self._models.get('chinese')
     
     def _check_spacy(self) -> bool:
         """Check if spacy is available"""
@@ -578,55 +609,58 @@ class SpacyService:
         
         return nlp
     
+    def _normalize_language(self, language: str) -> str:
+        """Normalize language name to canonical form."""
+        lang = (language or 'english').lower().strip()
+        return LANGUAGE_ALIASES.get(lang, lang)
+
     def load_model(self, language: str):
         """
-        Load SpaCy model for the specified language
-        
+        Load SpaCy model for the specified language.
+
         Args:
-            language: Language code (english, chinese, etc.)
-            
+            language: Language name or ISO code (e.g. 'english', 'fr', 'danish')
+
         Returns:
             SpaCy nlp object or None
         """
         if not self._check_spacy():
             return None
-        
+
         import spacy
-        
-        # Normalize language
-        lang = language.lower()
-        
-        if lang in ['chinese', 'zh', 'zh-cn', 'mandarin']:
-            if self.nlp_zh is None:
-                try:
-                    self.nlp_zh = spacy.load("zh_core_web_lg")
-                    logger.info("Loaded zh_core_web_lg model")
-                    self.nlp_zh = self._add_custom_sentencizer(self.nlp_zh)
-                except OSError:
-                    try:
-                        self.nlp_zh = spacy.load("zh_core_web_sm")
-                        logger.info("Loaded zh_core_web_sm model (fallback)")
-                        self.nlp_zh = self._add_custom_sentencizer(self.nlp_zh)
-                    except OSError:
-                        logger.error("No Chinese SpaCy model found. Install with: pip install ./models/zh_core_web_lg-3.8.0-py3-none-any.whl")
-                        return None
-            return self.nlp_zh
-        else:
-            # Default to English
-            if self.nlp_en is None:
-                try:
-                    self.nlp_en = spacy.load("en_core_web_lg")
-                    logger.info("Loaded en_core_web_lg model")
-                    self.nlp_en = self._add_custom_sentencizer(self.nlp_en)
-                except OSError:
-                    try:
-                        self.nlp_en = spacy.load("en_core_web_sm")
-                        logger.info("Loaded en_core_web_sm model (fallback)")
-                        self.nlp_en = self._add_custom_sentencizer(self.nlp_en)
-                    except OSError:
-                        logger.error("No English SpaCy model found. Install with: pip install ./models/en_core_web_lg-3.8.0-py3-none-any.whl")
-                        return None
-            return self.nlp_en
+
+        lang = self._normalize_language(language)
+
+        if lang in self._models:
+            return self._models[lang]
+
+        models = SPACY_MODEL_MAP.get(lang)
+        if models is None:
+            # Unknown language — fall back to English
+            logger.warning(f"No SpaCy model configured for '{language}', falling back to English")
+            lang = 'english'
+            if lang in self._models:
+                return self._models[lang]
+            models = SPACY_MODEL_MAP['english']
+
+        primary, fallback = models
+        nlp = None
+        for model_name in [m for m in (primary, fallback) if m]:
+            try:
+                nlp = spacy.load(model_name)
+                logger.info(f"Loaded SpaCy model: {model_name}")
+                nlp = self._add_custom_sentencizer(nlp)
+                break
+            except OSError:
+                continue
+
+        if nlp is None:
+            logger.error(f"No SpaCy model found for language '{language}'. "
+                         f"Tried: {[m for m in (primary, fallback) if m]}")
+            return None
+
+        self._models[lang] = nlp
+        return nlp
     
     def is_available(self, language: str = "english") -> bool:
         """Check if SpaCy model is available for the language"""

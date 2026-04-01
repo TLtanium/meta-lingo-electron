@@ -137,7 +137,7 @@ async def upload_refworks_file(
     Validates format (CNKI/WOS), inserts entries, then for each entry with an abstract
     creates a text in the shadow corpus and runs the same pipeline as corpus plain text
     (SpaCy -> USAS -> MIPVU). MIPVU uses the same hybrid pipeline as corpus management
-    (HiTZ + Clause model, pos_group_stats). Returns entry/task mapping for progress polling.
+    (rule + Clause model, pos_group_stats). Returns entry/task mapping for progress polling.
     """
     library = BiblioLibraryDB.get_by_id(library_id)
     if not library:

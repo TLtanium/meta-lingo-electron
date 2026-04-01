@@ -4,6 +4,7 @@
 
 import os
 import sys
+from PyInstaller.utils.hooks import collect_all
 
 block_cipher = None
 
@@ -42,13 +43,72 @@ hiddenimports = [
     'json',
     'io',
     'base64',
+
+    # Chart export — matplotlib
+    'matplotlib',
+    'matplotlib.pyplot',
+    'matplotlib.figure',
+    'matplotlib.axes',
+    'matplotlib.cm',
+    'matplotlib.patches',
+    'matplotlib.backends',
+    'matplotlib.backends.backend_agg',
+    'numpy',
+
+    # Chart export — wordcloud / networkx
+    'wordcloud',
+    'networkx',
+    'PIL',
+    'PIL.Image',
+
+    # Chart export — plotly + kaleido (BERTopic charts)
+    'plotly',
+    'plotly.graph_objects',
+    'plotly.io',
+    'kaleido',
 ]
+
+datas = []
+binaries = []
+
+# Collect matplotlib data files (fonts, backends, style sheets, etc.)
+try:
+    mpl_datas, mpl_bins, mpl_hidden = collect_all('matplotlib')
+    mpl_datas = [d for d in mpl_datas if not os.path.basename(d[0]).startswith('._')]
+    datas += mpl_datas
+    binaries += mpl_bins
+    hiddenimports += mpl_hidden
+    print("Info: Collected matplotlib data files")
+except Exception as e:
+    print(f"Warning: Could not collect matplotlib: {e}")
+
+# Collect plotly data files
+try:
+    plotly_datas, plotly_bins, plotly_hidden = collect_all('plotly')
+    plotly_datas = [d for d in plotly_datas if not os.path.basename(d[0]).startswith('._')]
+    datas += plotly_datas
+    binaries += plotly_bins
+    hiddenimports += plotly_hidden
+    print("Info: Collected plotly data files")
+except Exception as e:
+    print(f"Warning: Could not collect plotly: {e}")
+
+# Collect kaleido data files (needed for fig.write_image())
+try:
+    kal_datas, kal_bins, kal_hidden = collect_all('kaleido')
+    kal_datas = [d for d in kal_datas if not os.path.basename(d[0]).startswith('._')]
+    datas += kal_datas
+    binaries += kal_bins
+    hiddenimports += kal_hidden
+    print("Info: Collected kaleido data files")
+except Exception as e:
+    print(f"Warning: Could not collect kaleido: {e}")
 
 a = Analysis(
     [os.path.join(BACKEND_PATH, 'mcp_server', '__main__.py')],
     pathex=[BACKEND_PATH],
-    binaries=[],
-    datas=[],
+    binaries=binaries,
+    datas=datas,
     hiddenimports=hiddenimports,
     hookspath=[],
     hooksconfig={},
@@ -56,13 +116,13 @@ a = Analysis(
     excludes=[
         # Exclude heavy ML packages not needed by MCP server
         'torch', 'torchaudio', 'torchvision',
-        'transformers', 'spacy', 'numpy', 'pandas',
-        'scipy', 'sklearn', 'matplotlib', 'plotly',
+        'transformers', 'spacy', 'pandas',
+        'scipy', 'sklearn',
         'bertopic', 'gensim', 'umap', 'hdbscan',
-        'ultralytics', 'cv2', 'PIL',
+        'ultralytics', 'cv2',
         'librosa', 'soundfile', 'parselmouth',
         'pymusas', 'nltk', 'jieba',
-        'wordcloud', 'pyLDAvis',
+        'pyLDAvis',
     ],
     win_no_prefer_redirects=False,
     win_private_assemblies=False,

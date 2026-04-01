@@ -345,7 +345,8 @@ export default function CorpusOrLibrarySelector({
     if (!selectedLibrary?.corpus_id) return 'all'
     switch (librarySelectionMode) {
       case 'all':
-        return 'all'
+        // Return actual text_id list so downstream gets a real array (not the 'all' sentinel)
+        return entriesWithTextId.map(e => e.text_id!).filter(Boolean)
       case 'keywords':
         return filteredEntries.map(e => e.text_id!).filter(Boolean)
       case 'selected':
@@ -381,8 +382,8 @@ export default function CorpusOrLibrarySelector({
         key = 'null'
       }
     } else if (dataSource === 'library' && selectedLibrary?.corpus_id) {
-      const ids = libraryTextIds
-      const allCount = ids === 'all' ? entriesWithTextId.length : ids.length
+      const ids = libraryTextIds as string[]
+      const allCount = ids.length
       if (allCount > 0) {
         const libraryEntries = librarySelectionMode === 'all'
           ? entriesWithTextId
@@ -409,7 +410,7 @@ export default function CorpusOrLibrarySelector({
           ...(librarySelectionMode === 'selected' && selectedEntryIds.length > 0 && { selectedEntryIds }),
           textDates: Object.keys(textDates).length > 0 ? textDates : undefined
         }
-        const idsKey = ids === 'all' ? `all:${entriesWithTextId.length}` : (ids as string[]).slice(0, 10).join(',') + `:${(ids as string[]).length}`
+        const idsKey = ids.slice(0, 10).join(',') + `:${ids.length}`
         key = `library:${selectedLibrary.corpus_id}:${librarySelectionMode}:${idsKey}`
       } else {
         key = 'null'
@@ -443,7 +444,7 @@ export default function CorpusOrLibrarySelector({
 
   const selectedCount = dataSource === 'corpus'
     ? (corpusTextIds === 'all' ? texts.length : corpusTextIds.length)
-    : (libraryTextIds === 'all' ? entriesWithTextId.length : libraryTextIds.length)
+    : (libraryTextIds as string[]).length
 
   return (
     <Paper sx={compact ? { p: 1.5 } : { p: 2, mb: 2 }}>

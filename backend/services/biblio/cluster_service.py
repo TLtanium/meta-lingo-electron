@@ -294,6 +294,17 @@ class ClusterService:
                             'weight': shared
                         })
         
+        # Calculate degree centrality for nodes
+        if nodes and edges:
+            adj: Dict[str, int] = defaultdict(int)
+            for edge in edges:
+                adj[edge['source']] += 1
+                adj[edge['target']] += 1
+            n_nodes = len(nodes)
+            for node in nodes:
+                degree = adj.get(node['id'], 0)
+                node['centrality'] = degree / (n_nodes - 1) if n_nodes > 1 else 0.0
+
         # Build cluster info
         cluster_info = []
         unique_clusters = sorted(set(clusters))

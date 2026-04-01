@@ -324,6 +324,9 @@ export default function AnnotationHistoryDetail({ archive, onBack }: AnnotationH
             annotations={annotations.filter(a => a.type !== 'video' && a.type !== 'audio')}
             archiveName={archive.textName || archive.resourceName || archive.id}
             excludeVideoAnnotations={isVideo || isAudio}
+            originalText={archiveData.text}
+            spacyTokens={archiveData.spacyAnnotation?.tokens}
+            frameworkName={archiveData.framework}
           />
         </TabPanel>
         

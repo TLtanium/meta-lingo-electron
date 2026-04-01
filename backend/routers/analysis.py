@@ -671,7 +671,7 @@ class MetaphorResult(BaseModel):
     is_metaphor: bool
     frequency: int
     percentage: float
-    source: str  # 'filter', 'rule', 'hitz', 'finetuned'
+    source: str  # 'filter', 'rule', 'clause', 'finetuned'
 
 
 class MetaphorSourceResult(BaseModel):
@@ -784,8 +784,8 @@ async def get_metaphor_sources():
     return [
         {"id": "filter", "name_en": "Word Filter", "name_zh": "词表过滤"},
         {"id": "rule", "name_en": "Rule Filter", "name_zh": "规则过滤"},
-        {"id": "hitz", "name_en": "HiTZ Model", "name_zh": "HiTZ模型"},
-        {"id": "finetuned", "name_en": "Fine-tuned Model", "name_zh": "微调模型"},
+        {"id": "clause", "name_en": "Clause Model", "name_zh": "从句模型"},
+        {"id": "finetuned", "name_en": "Clause Model (Function Words)", "name_zh": "从句模型（功能词）"},
     ]
 
 

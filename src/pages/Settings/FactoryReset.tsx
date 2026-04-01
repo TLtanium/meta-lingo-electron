@@ -71,7 +71,8 @@ export default function FactoryReset() {
         try {
           const fwResponse = await frameworkApi.reset()
           if (fwResponse.data?.success) {
-            results.push(fwResponse.data.message || t('settings.frameworksReset'))
+            // Use i18n strings instead of backend-returned (usually English) message.
+            results.push(t('settings.frameworksReset'))
           } else {
             hasError = true
             results.push(t('settings.frameworkResetFailed'))
@@ -99,7 +100,8 @@ export default function FactoryReset() {
         if (response.success && response.data) {
           const data = response.data as any
           if (data.success !== undefined) {
-            results.push(data.message || t('settings.dataResetCompleted'))
+            // Use i18n strings instead of backend-returned (usually English) message.
+            results.push(t('settings.dataResetCompleted'))
           } else {
             results.push(t('settings.dataResetCompleted'))
           }
@@ -110,7 +112,7 @@ export default function FactoryReset() {
           setOpenaiApiModel('')
         } else {
           hasError = true
-          results.push(response.error || t('settings.dataResetFailed'))
+          results.push(t('settings.dataResetFailed'))
       }
 
       const resetSuccess = !hasError

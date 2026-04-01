@@ -139,8 +139,8 @@ export default function TimelineView({
     const nClusters = clusterIds.length
 
     // Fixed lane height (scrollable vertically)
-    const laneHeight = 80
-    const laneGap = 24
+    const laneHeight = 46
+    const laneGap = 8
     const totalLaneH = nClusters * laneHeight + Math.max(0, nClusters - 1) * laneGap
 
     const yearStart = data.time_range.start
@@ -202,7 +202,7 @@ export default function TimelineView({
     const maxWeight = d3.max(data.nodes, d => roundedWeight(d.weight)) || 1
     const sizeScale = d3.scalePow().exponent(0.7)
       .domain([0, maxWeight])
-      .range([2.5, 28])
+      .range([2, 10])
 
     // ---- Color function based on colorScheme ----
     const isColorful = colorScheme === 'colorful'
@@ -250,20 +250,20 @@ export default function TimelineView({
 
       g.append('text')
         .attr('x', -18)
-        .attr('y', band.y + band.h / 2 - 8)
+        .attr('y', band.y + band.h / 2 - 5)
         .attr('text-anchor', 'end')
         .attr('dominant-baseline', 'middle')
-        .attr('font-size', 12)
+        .attr('font-size', 10)
         .attr('font-weight', 'bold')
         .attr('fill', rowColor)
         .text(`#${cluster.id}`)
 
       g.append('text')
         .attr('x', -18)
-        .attr('y', band.y + band.h / 2 + 8)
+        .attr('y', band.y + band.h / 2 + 6)
         .attr('text-anchor', 'end')
         .attr('dominant-baseline', 'middle')
-        .attr('font-size', 10)
+        .attr('font-size', 9)
         .attr('fill', isDark ? '#999' : '#666')
         .text(cluster.label.slice(0, 18))
     })
@@ -315,46 +315,112 @@ export default function TimelineView({
       nodesByCluster.set(n.cluster, arr)
     })
 
-    // ---- Position nodes: horizontal layout within year slots ----
+    // ---- Position nodes via constrained force simulation ----
+    // X: year-anchor force + link attraction (co-occurrence/co-citation strength)
+    // Y: fixed to cluster lane center
+    // This replicates CiteSpace's "distance ≈ structural relationship" layout
     interface NodePos { cx: number; cy: number; r: number; node: TimelineNode; color: string }
     const nodePositions = new Map<string, NodePos>()
 
+    // Build a lookup from node id → radius & color (needed before simulation)
+    const nodeRadius = new Map<string, number>()
+    const nodeColor = new Map<string, string>()
+    data.nodes.forEach(n => {
+      const clusterIndex = clusterIds.indexOf(n.cluster)
+      nodeRadius.set(n.id, sizeScale(roundedWeight(n.weight)))
+      nodeColor.set(n.id, getNodeColor(n, clusterIndex))
+    })
+
+    // Build edge lookup for force: only edges within the same cluster lane
+    const edgeWeightByPair = new Map<string, number>()
+    data.edges.forEach(e => {
+      const key = [e.source, e.target].sort().join('|')
+      edgeWeightByPair.set(key, Math.max(edgeWeightByPair.get(key) || 0, e.weight))
+    })
+
+    // Run a quick iterative force layout per cluster lane
+    // (no full D3 force — we want synchronous final positions)
     nodesByCluster.forEach((nodes, clusterId) => {
       const band = bandPositions.get(clusterId)
       if (!band) return
       const clusterIndex = clusterIds.indexOf(clusterId)
       const centerY = band.y + band.h / 2
 
-      const byYear = new Map<number, TimelineNode[]>()
-      nodes.forEach(n => {
-        const arr = byYear.get(n.year) || []
-        arr.push(n)
-        byYear.set(n.year, arr)
-      })
+      // Initial X = year center
+      const pos = new Map<string, number>()
+      nodes.forEach(n => pos.set(n.id, yearCenterX.get(n.year) || 0))
 
-      byYear.forEach((yearNodes, year) => {
-        yearNodes.sort((a, b) => roundedWeight(b.weight) - roundedWeight(a.weight))
+      const yearAnchorStrength = 0.65   // dominant: keeps nodes near their year column
+      const linkStrength = 0.04         // subtle: strong links pull nodes slightly closer
+      const repulseStrength = 0.6       // gentle: only prevents total overlap
+      const damping = 0.82              // per-iteration velocity decay to prevent oscillation
+      const iterations = 60
+      // Max drift from year anchor: half the average slot width
+      const avgSlotW = innerW / Math.max(1, allYears.length)
+      const maxDrift = avgSlotW * 0.45
 
-        const yCenterX = yearCenterX.get(year) || 0
-        const slotW = yearSlotWMap.get(year) || 40
-        const maxNodeR = sizeScale(roundedWeight(yearNodes[0].weight))
-        const overlapFactor = 0.6
+      const velocity = new Map<string, number>()
+      nodes.forEach(n => velocity.set(n.id, 0))
 
-        yearNodes.forEach((n, i) => {
-          const rw = roundedWeight(n.weight)
-          const r = sizeScale(rw)
-          let cx: number
-          if (yearNodes.length === 1) {
-            cx = yCenterX
-          } else {
-            const spreadW = Math.min(slotW * 0.8, yearNodes.length * maxNodeR * overlapFactor * 2)
-            const startX = yCenterX - spreadW / 2
-            const step = yearNodes.length > 1 ? spreadW / (yearNodes.length - 1) : 0
-            cx = startX + i * step
-          }
-          const color = getNodeColor(n, clusterIndex)
-          nodePositions.set(n.id, { cx, cy: centerY, r, node: n, color })
+      for (let iter = 0; iter < iterations; iter++) {
+        const force = new Map<string, number>()
+        nodes.forEach(n => force.set(n.id, 0))
+
+        // 1. Year anchor force (spring toward year X)
+        nodes.forEach(n => {
+          const anchor = yearCenterX.get(n.year) || 0
+          const cur = pos.get(n.id)!
+          force.set(n.id, force.get(n.id)! + (anchor - cur) * yearAnchorStrength)
         })
+
+        // 2. Link attraction: connected nodes nudge toward each other
+        nodes.forEach(a => {
+          nodes.forEach(b => {
+            if (a.id >= b.id) return
+            const key = [a.id, b.id].sort().join('|')
+            const w = edgeWeightByPair.get(key) || 0
+            if (w === 0) return
+            const diff = pos.get(b.id)! - pos.get(a.id)!
+            const pull = diff * linkStrength * Math.min(w, 5) / 5
+            force.set(a.id, force.get(a.id)! + pull)
+            force.set(b.id, force.get(b.id)! - pull)
+          })
+        })
+
+        // 3. Collision repulsion: allow partial overlap, resist total overlap only
+        nodes.forEach(a => {
+          nodes.forEach(b => {
+            if (a.id >= b.id) return
+            const rA = nodeRadius.get(a.id)!
+            const rB = nodeRadius.get(b.id)!
+            const minDist = (rA + rB) * 0.4  // allow up to 60% overlap before pushing
+            const diff = pos.get(b.id)! - pos.get(a.id)!
+            const dist = Math.abs(diff)
+            if (dist < minDist) {
+              const push = (minDist - dist) * repulseStrength
+              const dir = diff === 0 ? 1 : (diff > 0 ? 1 : -1)
+              force.set(a.id, force.get(a.id)! - dir * push)
+              force.set(b.id, force.get(b.id)! + dir * push)
+            }
+          })
+        })
+
+        // Apply with damping + clamp velocity
+        nodes.forEach(n => {
+          const v = (velocity.get(n.id)! + force.get(n.id)!) * damping
+          velocity.set(n.id, Math.max(-6, Math.min(6, v)))
+          const anchor = yearCenterX.get(n.year) || 0
+          const newX = pos.get(n.id)! + velocity.get(n.id)!
+          // Clamp to max drift from year anchor
+          pos.set(n.id, Math.max(anchor - maxDrift, Math.min(anchor + maxDrift, newX)))
+        })
+      }
+
+      nodes.forEach(n => {
+        const cx = pos.get(n.id)!
+        const r = nodeRadius.get(n.id)!
+        const color = nodeColor.get(n.id) || getNodeColor(n, clusterIndex)
+        nodePositions.set(n.id, { cx, cy: centerY, r, node: n, color })
       })
     })
 
@@ -458,19 +524,19 @@ export default function TimelineView({
     // Burst pulse animation
     nodeEls.filter(d => d.node.is_burst)
       .append('circle')
-      .attr('r', d => d.r + 3)
+      .attr('r', d => d.r + 2)
       .attr('fill', 'none')
       .attr('stroke', '#ff5722')
-      .attr('stroke-width', 1.5)
+      .attr('stroke-width', 1.2)
       .attr('opacity', 0)
       .each(function () {
         const el = d3.select(this)
         const pulse = () => {
           el.attr('opacity', 0.8)
-            .attr('r', function (d: any) { return d.r + 3 })
+            .attr('r', function (d: any) { return d.r + 2 })
             .transition().duration(1200)
             .attr('opacity', 0)
-            .attr('r', function (d: any) { return d.r + 18 })
+            .attr('r', function (d: any) { return d.r + 9 })
             .on('end', pulse)
         }
         pulse()
@@ -483,11 +549,11 @@ export default function TimelineView({
       const rowColor = getRowColor(i)
 
       rightLabelG.append('text')
-        .attr('x', innerW + 14)
+        .attr('x', innerW + 10)
         .attr('y', band.y + band.h / 2)
         .attr('text-anchor', 'start')
         .attr('dominant-baseline', 'middle')
-        .attr('font-size', 11)
+        .attr('font-size', 10)
         .attr('font-weight', 'bold')
         .attr('fill', rowColor)
         .text(`#${cluster.id} ${cluster.label}`.slice(0, 28))

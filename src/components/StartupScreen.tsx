@@ -101,6 +101,18 @@ export default function StartupScreen({ onReady }: StartupScreenProps) {
   }
   const maxStageRankRef = useRef<number>(0)
 
+  // Windows: sync Window Controls Overlay background with the startup page gradient.
+  useEffect(() => {
+    if (window.electronAPI?.platform !== 'win32') return
+    if (!window.electronAPI?.setTitleBarOverlay) return
+    window.electronAPI.setTitleBarOverlay({
+      // Make overlay transparent so startup gradient shows through directly.
+      color: 'rgba(0,0,0,0)',
+      symbolColor: '#fff',
+      height: 48,
+    }).catch(() => {})
+  }, [])
+
   const applyIpcStatus = useCallback((incoming: StartupStatus) => {
     const seq = incoming.seq ?? 0
     const attemptId = incoming.attemptId ?? 0
@@ -517,7 +529,7 @@ export default function StartupScreen({ onReady }: StartupScreenProps) {
           opacity: 0.5
         }}
       >
-        v3.9.81
+        v4.7.0
       </Typography>
     </Box>
   )

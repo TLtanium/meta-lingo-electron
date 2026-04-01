@@ -1,11 +1,11 @@
 /**
  * AnnotationDataTable - 增强的标注数据表格组件
- * 
+ *
  * 功能：
  * - 列排序（点击表头）
  * - 搜索筛选（标签/文本）
  * - 分页
- * - 导出 CSV
+ * - 三种导出格式：标注列表 / 统计表 / 全文纵向
  * - 行颜色高亮
  */
 
@@ -29,17 +29,27 @@ import {
   Typography,
   Tooltip,
   Alert,
+  Menu,
+  MenuItem,
+  ListItemIcon,
+  ListItemText,
   useTheme
 } from '@mui/material'
 import SearchIcon from '@mui/icons-material/Search'
 import DownloadIcon from '@mui/icons-material/Download'
+import TableChartIcon from '@mui/icons-material/TableChart'
+import BarChartIcon from '@mui/icons-material/BarChart'
+import ViewColumnIcon from '@mui/icons-material/ViewColumn'
 import { useTranslation } from 'react-i18next'
-import type { Annotation } from '../../../types'
+import type { Annotation, SpacyToken } from '../../../types'
 
 interface AnnotationDataTableProps {
   annotations: Annotation[]
   archiveName: string
-  excludeVideoAnnotations?: boolean  // 是否排除视频标注（type === 'video'）
+  excludeVideoAnnotations?: boolean
+  originalText?: string
+  spacyTokens?: SpacyToken[]
+  frameworkName?: string
 }
 
 type Order = 'asc' | 'desc'
@@ -85,18 +95,45 @@ const getEntityColor = (label: string): string => {
   return colors[label] || '#757575'
 }
 
-export default function AnnotationDataTable({ annotations, archiveName, excludeVideoAnnotations = false }: AnnotationDataTableProps) {
+// CSV 安全转义
+const csvEscape = (val: string): string => {
+  if (val.includes(',') || val.includes('"') || val.includes('\n')) {
+    return `"${val.replace(/"/g, '""')}"`
+  }
+  return val
+}
+
+// 下载 CSV 工具
+const downloadCsv = (content: string, filename: string) => {
+  const blob = new Blob(['\ufeff' + content], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = filename
+  link.click()
+  URL.revokeObjectURL(url)
+}
+
+export default function AnnotationDataTable({
+  annotations,
+  archiveName,
+  excludeVideoAnnotations = false,
+  originalText,
+  spacyTokens,
+  frameworkName: _frameworkName
+}: AnnotationDataTableProps) {
   const { t } = useTranslation()
   const theme = useTheme()
   const isDarkMode = theme.palette.mode === 'dark'
-  
+
   // 状态
   const [order, setOrder] = useState<Order>('asc')
   const [orderBy, setOrderBy] = useState<OrderBy>('position')
   const [searchQuery, setSearchQuery] = useState('')
   const [page, setPage] = useState(0)
   const [rowsPerPage, setRowsPerPage] = useState(10)
-  
+  const [exportAnchorEl, setExportAnchorEl] = useState<null | HTMLElement>(null)
+
   // 基础数据（排除视频标注如果需要）
   const baseData = useMemo(() => {
     if (excludeVideoAnnotations) {
@@ -104,13 +141,13 @@ export default function AnnotationDataTable({ annotations, archiveName, excludeV
     }
     return annotations
   }, [annotations, excludeVideoAnnotations])
-  
+
   // 过滤数据
   const filteredData = useMemo(() => {
     if (!searchQuery) return baseData
-    
+
     const query = searchQuery.toLowerCase()
-    return baseData.filter(ann => 
+    return baseData.filter(ann =>
       ann.label.toLowerCase().includes(query) ||
       ann.text.toLowerCase().includes(query) ||
       (ann.pos && ann.pos.toLowerCase().includes(query)) ||
@@ -118,7 +155,7 @@ export default function AnnotationDataTable({ annotations, archiveName, excludeV
       (ann.remark && ann.remark.toLowerCase().includes(query))
     )
   }, [baseData, searchQuery])
-  
+
   // 排序数据
   const sortedData = useMemo(() => {
     const comparator = (a: Annotation, b: Annotation): number => {
@@ -143,54 +180,220 @@ export default function AnnotationDataTable({ annotations, archiveName, excludeV
       }
       return order === 'asc' ? comparison : -comparison
     }
-    
+
     return [...filteredData].sort(comparator)
   }, [filteredData, order, orderBy])
-  
+
   // 分页数据
   const paginatedData = useMemo(() => {
     const start = page * rowsPerPage
     return sortedData.slice(start, start + rowsPerPage)
   }, [sortedData, page, rowsPerPage])
-  
+
   // 处理排序
   const handleSort = (property: OrderBy) => {
     const isAsc = orderBy === property && order === 'asc'
     setOrder(isAsc ? 'desc' : 'asc')
     setOrderBy(property)
   }
-  
-  // 导出 CSV
-  const handleExportCsv = () => {
-    const headers = ['#', t('annotation.label', '标签'), t('annotation.text', '文本'), 
+
+  const safeFileName = archiveName.replace(/[<>:"/\\|?*]/g, '_')
+
+  // 导出格式 1: 标注列表 (原有格式)
+  const handleExportAnnotationList = () => {
+    setExportAnchorEl(null)
+    const headers = ['#', t('annotation.label', '标签'), t('annotation.text', '文本'),
                      t('annotation.pos', '词性'), t('annotation.ner', '命名实体'),
                      t('annotation.position', '位置'), t('annotation.remark', '备注')]
-    
+
     const rows = sortedData.map((ann, idx) => [
-      idx + 1,
-      ann.label,
-      `"${ann.text.replace(/"/g, '""')}"`,
+      String(idx + 1),
+      csvEscape(ann.label),
+      csvEscape(ann.text),
       ann.pos || '-',
       ann.entity || '-',
-      ann.startPosition,
-      ann.remark ? `"${ann.remark.replace(/"/g, '""')}"` : '-'
+      String(ann.startPosition),
+      ann.remark ? csvEscape(ann.remark) : '-'
     ])
-    
+
     const csvContent = [
       headers.join(','),
       ...rows.map(row => row.join(','))
     ].join('\n')
-    
-    const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' })
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    const safeFileName = archiveName.replace(/[<>:"/\\|?*]/g, '_')
-    link.download = `${safeFileName}_annotations.csv`
-    link.click()
-    URL.revokeObjectURL(url)
+
+    downloadCsv(csvContent, `${safeFileName}_annotations.csv`)
   }
-  
+
+  // 导出格式 2: 统计表
+  const handleExportStatistics = () => {
+    setExportAnchorEl(null)
+    const total = baseData.length
+    const counts: Record<string, number> = {}
+    baseData.forEach(ann => {
+      counts[ann.label] = (counts[ann.label] || 0) + 1
+    })
+
+    const entries = Object.entries(counts).sort((a, b) => b[1] - a[1])
+
+    const headers = [
+      t('annotation.label', '标签'),
+      t('annotation.exportCount', '数量'),
+      t('annotation.exportPercentage', '占比')
+    ]
+
+    const rows = entries.map(([label, count]) => [
+      csvEscape(label),
+      String(count),
+      `${(count / total * 100).toFixed(2)}%`
+    ])
+
+    // 汇总行
+    rows.push([
+      t('annotation.totalAnnotations', '总计'),
+      String(total),
+      '100.00%'
+    ])
+
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(row => row.join(','))
+    ].join('\n')
+
+    downloadCsv(csvContent, `${safeFileName}_statistics.csv`)
+  }
+
+  // 导出格式 3: 全文纵向 (参考 annotation_demo.csv)
+  const handleExportFullText = () => {
+    setExportAnchorEl(null)
+
+    // 获取所有唯一标签名
+    const labelSet = new Set<string>()
+    baseData.forEach(ann => labelSet.add(ann.label))
+    const labels = Array.from(labelSet).sort()
+
+    // 获取分词 tokens
+    const tokens = spacyTokens && spacyTokens.length > 0
+      ? spacyTokens
+      : null
+
+    if (!tokens && !originalText) {
+      // 无法构建全文，回退到标注列表导出
+      handleExportAnnotationList()
+      return
+    }
+
+    // 构建 token 列表（基于 spacy tokens 或简单分词）
+    interface TokenInfo {
+      text: string
+      lemma: string
+      pos: string
+      ner: string
+      start: number
+      end: number
+    }
+
+    const tokenList: TokenInfo[] = tokens
+      ? tokens.map(tok => ({
+          text: tok.text,
+          lemma: tok.lemma || tok.text,
+          pos: tok.pos || '',
+          ner: '',
+          start: tok.start,
+          end: tok.end
+        }))
+      : originalText!.split(/(\s+)/).reduce<TokenInfo[]>((acc, part) => {
+          if (!part) return acc
+          const prevEnd = acc.length > 0 ? acc[acc.length - 1].end : 0
+          const start = originalText!.indexOf(part, prevEnd)
+          acc.push({
+            text: part,
+            lemma: part,
+            pos: '',
+            ner: '',
+            start: start >= 0 ? start : prevEnd,
+            end: (start >= 0 ? start : prevEnd) + part.length
+          })
+          return acc
+        }, [])
+
+    // 填充 NER 信息
+    if (tokens) {
+      // 从 spacy entities 或 annotations 中提取 NER
+      baseData.forEach(ann => {
+        if (ann.entity && ann.entity !== '-') {
+          tokenList.forEach(tok => {
+            if (tok.start >= ann.startPosition && tok.end <= ann.endPosition) {
+              tok.ner = ann.entity!
+            }
+          })
+        }
+      })
+    }
+
+    // 为每个 token 计算每个 label 的覆盖情况
+    // 对每个标注，找到覆盖的 token 范围，标记 ✓
+    const tokenLabelMap: Map<number, Set<string>> = new Map()
+    tokenList.forEach((_, idx) => tokenLabelMap.set(idx, new Set()))
+
+    baseData.forEach(ann => {
+      for (let i = 0; i < tokenList.length; i++) {
+        const tok = tokenList[i]
+        // token 与标注有交叉就算覆盖
+        if (tok.end > ann.startPosition && tok.start < ann.endPosition) {
+          tokenLabelMap.get(i)!.add(ann.label)
+        }
+      }
+    })
+
+    // 构建 CSV
+    const headers = [
+      'article_id',
+      'sentence_id',
+      'word',
+      'lemma',
+      'pos',
+      'ner',
+      ...labels
+    ]
+
+    // 分句：基于 spacy 的 sentence boundaries 或简单按标点分句
+    let sentenceId = 1
+    const rows: string[][] = []
+
+    for (let i = 0; i < tokenList.length; i++) {
+      const tok = tokenList[i]
+
+      // 跳过纯空白 token
+      if (tok.text.trim() === '') continue
+
+      const labelChecks = labels.map(label =>
+        tokenLabelMap.get(i)!.has(label) ? '✓' : ''
+      )
+
+      rows.push([
+        csvEscape(safeFileName),
+        String(sentenceId),
+        csvEscape(tok.text),
+        csvEscape(tok.lemma),
+        tok.pos || '',
+        tok.ner || '',
+        ...labelChecks
+      ])
+
+      // 遇到句末标点时递增句号
+      if (tok.text.match(/[.!?。！？]/)) {
+        sentenceId++
+      }
+    }
+
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(row => row.join(','))
+    ].join('\n')
+
+    downloadCsv(csvContent, `${safeFileName}_fulltext.csv`)
+  }
+
   // 表头样式
   const headerCellSx = {
     bgcolor: isDarkMode ? '#2a2a2a' : '#f5f5f5',
@@ -201,7 +404,7 @@ export default function AnnotationDataTable({ annotations, archiveName, excludeV
     py: 1,
     whiteSpace: 'nowrap'
   }
-  
+
   // 表格内容样式
   const bodyCellSx = {
     fontSize: '12px',
@@ -209,7 +412,7 @@ export default function AnnotationDataTable({ annotations, archiveName, excludeV
     px: 1.5,
     py: 0.75
   }
-  
+
   if (baseData.length === 0) {
     return (
       <Alert severity="info">
@@ -217,7 +420,7 @@ export default function AnnotationDataTable({ annotations, archiveName, excludeV
       </Alert>
     )
   }
-  
+
   return (
     <Box>
       {/* 工具栏 */}
@@ -239,23 +442,42 @@ export default function AnnotationDataTable({ annotations, archiveName, excludeV
             )
           }}
         />
-        
+
         <Box sx={{ flex: 1 }} />
-        
+
         <Typography variant="body2" color="text.secondary">
           {t('common.all', '共')} {filteredData.length} {t('common.items', '条')}
         </Typography>
-        
+
         <Button
           variant="outlined"
           size="small"
           startIcon={<DownloadIcon />}
-          onClick={handleExportCsv}
+          onClick={(e) => setExportAnchorEl(e.currentTarget)}
         >
           {t('annotation.exportCsv', '导出CSV')}
         </Button>
+
+        <Menu
+          anchorEl={exportAnchorEl}
+          open={Boolean(exportAnchorEl)}
+          onClose={() => setExportAnchorEl(null)}
+        >
+          <MenuItem onClick={handleExportAnnotationList}>
+            <ListItemIcon><TableChartIcon fontSize="small" /></ListItemIcon>
+            <ListItemText>{t('annotation.exportAnnotationList', '标注列表')}</ListItemText>
+          </MenuItem>
+          <MenuItem onClick={handleExportStatistics}>
+            <ListItemIcon><BarChartIcon fontSize="small" /></ListItemIcon>
+            <ListItemText>{t('annotation.exportStatistics', '统计表')}</ListItemText>
+          </MenuItem>
+          <MenuItem onClick={handleExportFullText}>
+            <ListItemIcon><ViewColumnIcon fontSize="small" /></ListItemIcon>
+            <ListItemText>{t('annotation.exportFullText', '全文纵向表')}</ListItemText>
+          </MenuItem>
+        </Menu>
       </Stack>
-      
+
       {/* 表格 */}
       <TableContainer component={Paper} sx={{ maxHeight: 500 }}>
         <Table size="small" stickyHeader>
@@ -312,7 +534,7 @@ export default function AnnotationDataTable({ annotations, archiveName, excludeV
           </TableHead>
           <TableBody>
             {paginatedData.map((ann, idx) => (
-              <TableRow 
+              <TableRow
                 key={ann.id}
                 sx={{
                   '&:hover': { bgcolor: `${ann.color}10` }
@@ -406,7 +628,7 @@ export default function AnnotationDataTable({ annotations, archiveName, excludeV
           </TableBody>
         </Table>
       </TableContainer>
-      
+
       {/* 分页 */}
       <TablePagination
         component="div"

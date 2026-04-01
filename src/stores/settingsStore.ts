@@ -37,9 +37,19 @@ interface SettingsStore {
   setOpenaiApiKey: (key: string) => void
   setOpenaiApiModel: (model: string) => void
   
+  // Agent Chat mode
+  agentMode: boolean
+  setAgentMode: (mode: boolean) => void
+
   // Theme (future use)
   darkMode: boolean
   setDarkMode: (dark: boolean) => void
+
+  // User profile
+  userName: string
+  userAvatar: string | null  // base64 data URL, null = use default
+  setUserName: (name: string) => void
+  setUserAvatar: (avatar: string | null) => void
 }
 
 export const useSettingsStore = create<SettingsStore>()(
@@ -79,9 +89,19 @@ export const useSettingsStore = create<SettingsStore>()(
       setOpenaiApiKey: (key) => set({ openaiApiKey: key }),
       setOpenaiApiModel: (model) => set({ openaiApiModel: model }),
       
+      // Agent Chat mode
+      agentMode: false,
+      setAgentMode: (mode) => set({ agentMode: mode }),
+
       // Theme
       darkMode: false,
-      setDarkMode: (dark) => set({ darkMode: dark })
+      setDarkMode: (dark) => set({ darkMode: dark }),
+
+      // User profile
+      userName: '',
+      userAvatar: null,
+      setUserName: (name) => set({ userName: name }),
+      setUserAvatar: (avatar) => set({ userAvatar: avatar }),
     }),
     {
       name: 'meta-lingo-settings'

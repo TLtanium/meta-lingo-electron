@@ -51,4 +51,8 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except (ValueError, OSError):
+        # Suppress "I/O operation on closed file" on shutdown
+        pass

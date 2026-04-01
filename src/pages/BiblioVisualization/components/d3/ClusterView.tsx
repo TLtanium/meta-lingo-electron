@@ -200,7 +200,7 @@ export default function ClusterView({
 
     const sizeScale = d3.scaleSqrt()
       .domain([0, d3.max(nodes, d => d.frequency) || 1])
-      .range([4, 28])
+      .range([4, 22])
 
     const edgeScale = d3.scaleLinear()
       .domain([1, d3.max(links, d => d.weight) || 1])
@@ -211,7 +211,7 @@ export default function ClusterView({
       .force('charge', d3.forceManyBody().strength(-300))
       .force('clusterX', d3.forceX<SimNode>(d => clusterCenters[d.cluster ?? 0]?.x ?? w / 2).strength(0.15))
       .force('clusterY', d3.forceY<SimNode>(d => clusterCenters[d.cluster ?? 0]?.y ?? h / 2).strength(0.15))
-      .force('collision', d3.forceCollide<SimNode>().radius(d => sizeScale(d.frequency) + 8))
+      .force('collision', d3.forceCollide<SimNode>().radius(d => sizeScale(d.frequency) + 6))
 
     // ---- Hull background layer (rendered at bottom) ----
     const hullG = g.append('g').attr('class', 'hulls')
@@ -249,7 +249,7 @@ export default function ClusterView({
 
     // Node circles with glow for high-centrality
     node.append('circle')
-      .attr('r', d => sizeScale(d.frequency))
+      .attr('r', d => Math.max(4, sizeScale(d.frequency)))
       .attr('fill', d => colorScale(d.cluster ?? 0))
       .attr('stroke', d => {
         const c = d3.color(colorScale(d.cluster ?? 0))
@@ -276,7 +276,7 @@ export default function ClusterView({
     node.append('text')
       .text(d => d.label.length > 15 ? d.label.substring(0, 15) + '...' : d.label)
       .attr('font-size', 10)
-      .attr('dx', d => sizeScale(d.frequency) + 3)
+      .attr('dx', d => Math.max(4, sizeScale(d.frequency)) + 3)
       .attr('dy', 3)
       .attr('fill', isDark ? '#ddd' : '#222')
       .attr('font-weight', '500')

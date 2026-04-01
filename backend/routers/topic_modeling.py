@@ -7,11 +7,23 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
+import json
 import logging
 import numpy as np
+import sys
+import os
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+
+def _get_preprocess_settings_path() -> Path:
+    if getattr(sys, 'frozen', False):
+        data_path = os.environ.get('METALINGO_DATA_PATH', '')
+        if data_path:
+            return Path(data_path) / "settings" / "bertopic_preprocess.json"
+    return Path(__file__).parent.parent.parent / "data" / "settings" / "bertopic_preprocess.json"
 
 
 # ============ Request/Response Models ============
@@ -101,6 +113,7 @@ class DynamicTopicConfig(BaseModel):
 
 class AnalysisRequest(BaseModel):
     embedding_id: str
+    nr_topics: Optional[int] = None  # Merge down to this many topics after clustering (None = keep all)
     dim_reduction: DimReductionConfig = DimReductionConfig()
     clustering: ClusteringConfig = ClusteringConfig()
     vectorizer: VectorizerConfig = VectorizerConfig()
@@ -218,6 +231,32 @@ async def get_stopwords_languages():
     except Exception as e:
         logger.error(f"Get stopwords languages error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============ Preprocess Settings Endpoints ============
+
+@router.get("/preprocess-settings")
+async def get_preprocess_settings():
+    """Get saved BERTopic preprocess and chunking settings."""
+    path = _get_preprocess_settings_path()
+    if path.exists():
+        with open(path, "r", encoding="utf-8") as f:
+            return {"success": True, "data": json.load(f)}
+    # Return defaults
+    return {"success": True, "data": {
+        "chunking": {"enabled": False, "min_tokens": 100, "max_tokens": 256, "overlap_tokens": 0},
+        "preprocess": {"remove_stopwords": False, "lemmatize": False, "lowercase": False, "min_token_length": 1},
+    }}
+
+
+@router.put("/preprocess-settings")
+async def save_preprocess_settings(request: dict):
+    """Save BERTopic preprocess and chunking settings."""
+    path = _get_preprocess_settings_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(request, f, indent=2, ensure_ascii=False)
+    return {"success": True, "data": request}
 
 
 # ============ Embedding Endpoints ============
@@ -461,9 +500,10 @@ async def analyze_topics(request: AnalysisRequest):
             config=config,
             timestamps=timestamps,
             dynamic_config=dynamic_config,
-            language=request.language
+            language=request.language,
+            nr_topics=request.nr_topics,
         )
-        
+
         # Generate a result ID and cache for visualization
         from datetime import datetime
         result_id = f"{request.embedding_id}_{datetime.now().strftime('%H%M%S')}"

@@ -32,6 +32,7 @@ from routers import collocation_analysis
 from routers import nrc
 from routers import mcp
 from routers import model_management
+from routers import agent_chat
 
 def _is_multiprocessing_helper_process() -> bool:
     """
@@ -90,6 +91,7 @@ app.include_router(collocation_analysis.router, prefix="/api/collocation-analysi
 app.include_router(nrc.router, tags=["NRC"])
 app.include_router(mcp.router, prefix="/api/mcp", tags=["MCP"])
 app.include_router(model_management.router, prefix="/api/model-management", tags=["Model Management"])
+app.include_router(agent_chat.router, prefix="/api/agent", tags=["Agent Chat"])
 
 @app.on_event("startup")
 def _copy_built_in_models_to_user_dir():

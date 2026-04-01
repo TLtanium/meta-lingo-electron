@@ -38,17 +38,57 @@ def is_mwe_token(mwe_indexes: List[Tuple[int, int]]) -> bool:
     return False
 
 
+# Language → rule-based PyMUSAS model package name
+PYMUSAS_MODEL_MAP = {
+    'english':    'en_dual_none_contextual',
+    'chinese':    'cmn_dual_upos2usas_contextual',
+    'french':     'fr_dual_upos2usas_contextual',
+    'spanish':    'es_dual_upos2usas_contextual',
+    'italian':    'it_dual_upos2usas_contextual',
+    'portuguese': 'pt_dual_upos2usas_contextual',
+    'dutch':      'nl_dual_upos2usas_contextual',
+    'russian':    'ru_dual_upos2usas_contextual',
+    'swedish':    'sv_dual_upos2usas_contextual',
+    'danish':     'da_dual_upos2usas_contextual',
+    'finnish':    'fi_dual_upos2usas_contextual',
+}
+
+# ISO / variant aliases → canonical language name (mirrors spacy_service)
+_LANG_ALIASES = {
+    'en': 'english', 'zh': 'chinese', 'zh-cn': 'chinese', 'mandarin': 'chinese', 'cmn': 'chinese',
+    'da': 'danish', 'nl': 'dutch', 'fi': 'finnish', 'fr': 'french',
+    'it': 'italian', 'pt': 'portuguese', 'ru': 'russian', 'es': 'spanish', 'sv': 'swedish',
+}
+
+ALL_SUPPORTED_LANGUAGES = list(PYMUSAS_MODEL_MAP.keys())
+
+
+def _normalize_lang(language: str) -> str:
+    lang = (language or 'english').lower().strip()
+    return _LANG_ALIASES.get(lang, lang)
+
+
 class USASTagger:
     """
-    USAS Semantic Tagger using PyMUSAS
-    Supports English and Chinese
+    USAS Semantic Tagger using PyMUSAS rule-based models.
+    Supports English, Chinese, and 9 European languages.
+    If a rule-based model for a language is not installed, load_model() returns None
+    so the caller can fall back to the neural BEM tagger.
     """
-    
+
     def __init__(self):
-        self.nlp_en = None
-        self.nlp_zh = None
+        self._rule_models = {}  # canonical lang → loaded nlp (SpaCy + PyMUSAS pipeline)
         self._spacy_available = None
         self._pymusas_available = None
+
+    # Legacy attribute compatibility
+    @property
+    def nlp_en(self):
+        return self._rule_models.get('english')
+
+    @property
+    def nlp_zh(self):
+        return self._rule_models.get('chinese')
     
     def _check_dependencies(self) -> bool:
         """Check if spacy and pymusas are available"""
@@ -72,76 +112,66 @@ class USASTagger:
     
     def load_model(self, language: str) -> Optional[Any]:
         """
-        Load SpaCy model with PyMUSAS tagger for the specified language
-        
-        Args:
-            language: Language code (english, chinese, en, zh, etc.)
-            
-        Returns:
-            SpaCy nlp object with PyMUSAS pipeline or None
+        Load SpaCy model with PyMUSAS rule-based tagger for the specified language.
+
+        Returns the cached nlp pipeline if already loaded.
+        Returns None if the SpaCy base model or the PyMUSAS rule-based package for
+        this language is not installed — the caller should then fall back to neural.
         """
         if not self._check_dependencies():
             return None
-        
+
         import spacy
-        
-        # Normalize language
-        lang = language.lower()
-        is_chinese = lang in ['chinese', 'zh', 'zh-cn', 'mandarin', 'cmn']
-        
-        if is_chinese:
-            if self.nlp_zh is None:
-                try:
-                    # Load Chinese SpaCy model
-                    nlp = spacy.load('zh_core_web_lg')
-                    logger.info("Loaded zh_core_web_lg model")
-                    
-                    # Load Chinese PyMUSAS tagger
-                    try:
-                        pymusas_tagger = spacy.load('cmn_dual_upos2usas_contextual')
-                        nlp.add_pipe('pymusas_rule_based_tagger', source=pymusas_tagger)
-                        logger.info("Added Chinese PyMUSAS tagger to pipeline")
-                    except OSError as e:
-                        logger.error(f"Failed to load Chinese PyMUSAS model: {e}")
-                        logger.info("Install with: pip install ./cmn_dual_upos2usas_contextual-0.3.3-py3-none-any.whl")
-                        return None
-                    
-                    self.nlp_zh = nlp
-                    
-                except OSError as e:
-                    logger.error(f"Failed to load Chinese SpaCy model: {e}")
-                    return None
-            
-            return self.nlp_zh
-        else:
-            # Default to English
-            if self.nlp_en is None:
-                try:
-                    # Load English SpaCy model
-                    nlp = spacy.load('en_core_web_lg')
-                    logger.info("Loaded en_core_web_lg model")
-                    
-                    # Load English PyMUSAS tagger
-                    try:
-                        pymusas_tagger = spacy.load('en_dual_none_contextual')
-                        nlp.add_pipe('pymusas_rule_based_tagger', source=pymusas_tagger)
-                        logger.info("Added English PyMUSAS tagger to pipeline")
-                    except OSError as e:
-                        logger.error(f"Failed to load English PyMUSAS model: {e}")
-                        logger.info("Install with: pip install ./en_dual_none_contextual-0.3.3-py3-none-any.whl")
-                        return None
-                    
-                    self.nlp_en = nlp
-                    
-                except OSError as e:
-                    logger.error(f"Failed to load English SpaCy model: {e}")
-                    return None
-            
-            return self.nlp_en
-    
+        from services.spacy_service import SPACY_MODEL_MAP
+
+        lang = _normalize_lang(language)
+
+        if lang in self._rule_models:
+            return self._rule_models[lang]
+
+        # SpaCy base model
+        spacy_models = SPACY_MODEL_MAP.get(lang)
+        if spacy_models is None:
+            logger.warning(f"No SpaCy model configured for '{language}'")
+            return None
+
+        primary, fallback = spacy_models
+        base_nlp = None
+        for model_name in [m for m in (primary, fallback) if m]:
+            try:
+                base_nlp = spacy.load(model_name)
+                logger.info(f"Loaded SpaCy base model: {model_name}")
+                break
+            except OSError:
+                continue
+
+        if base_nlp is None:
+            logger.error(f"No SpaCy base model found for language '{language}'")
+            return None
+
+        # PyMUSAS rule-based tagger
+        pymusas_model = PYMUSAS_MODEL_MAP.get(lang)
+        if pymusas_model is None:
+            logger.warning(f"No rule-based PyMUSAS model defined for '{language}'")
+            return None
+
+        try:
+            pymusas_tagger = spacy.load(pymusas_model)
+            base_nlp.add_pipe('pymusas_rule_based_tagger', source=pymusas_tagger)
+            logger.info(f"Added PyMUSAS rule-based tagger '{pymusas_model}' for {lang}")
+        except OSError as e:
+            logger.warning(f"PyMUSAS rule-based model '{pymusas_model}' not installed "
+                           f"for {lang}: {e}. Caller should use neural tagger.")
+            return None
+
+        self._rule_models[lang] = base_nlp
+        return base_nlp
+
     def is_available(self, language: str = 'english') -> bool:
-        """Check if USAS tagger is available for the language"""
-        return self.load_model(language) is not None
+        """Check if rule-based USAS tagger is available for the language.
+        Returns True for all known languages (rule-based OR neural BEM)."""
+        lang = _normalize_lang(language)
+        return lang in PYMUSAS_MODEL_MAP
     
     def tag_text(self, text: str, language: str = 'english') -> Dict[str, Any]:
         """

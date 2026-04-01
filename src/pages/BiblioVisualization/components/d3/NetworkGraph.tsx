@@ -35,13 +35,13 @@ interface SimulationLink extends d3.SimulationLinkDatum<SimulationNode> {
   weight: number
 }
 
-export default function NetworkGraph({ 
-  data, 
+export default function NetworkGraph({
+  data,
   loading = false,
   title,
   colorScheme = 'blue',
-  width = 800, 
-  height = 600 
+  width = 800,
+  height = 600
 }: NetworkGraphProps) {
   const { t } = useTranslation()
   const theme = useTheme()
@@ -50,6 +50,7 @@ export default function NetworkGraph({
   const containerRef = useRef<HTMLDivElement>(null)
   const [dimensions, setDimensions] = useState({ width, height })
   const [tooltip, setTooltip] = useState<{ x: number; y: number; content: string } | null>(null)
+  const [focusedCluster, setFocusedCluster] = useState<number | null>(null)
   
   // Smart tooltip positioning to avoid overflow
   const showTooltip = useCallback((event: MouseEvent, content: string) => {
@@ -113,7 +114,10 @@ export default function NetworkGraph({
       })
     
     svg.call(zoom)
-    
+
+    // Click background to clear focus
+    svg.on('click', () => setFocusedCluster(null))
+
     // Prepare data
     const nodes: SimulationNode[] = data.nodes.map(n => ({ ...n }))
     const links: SimulationLink[] = data.edges.map(e => ({
@@ -194,6 +198,11 @@ export default function NetworkGraph({
       .attr('stroke', d => d.centrality > 0.3 ? colors[5] || colors[4] : (isDarkMode ? '#666' : '#333'))
       .attr('stroke-width', d => d.centrality > 0.3 ? 3 : 2)
       .attr('opacity', 0.9)
+      .style('cursor', 'pointer')
+      .on('click', (event, d) => {
+        event.stopPropagation()
+        setFocusedCluster(prev => prev === (d.cluster ?? 0) ? null : (d.cluster ?? 0))
+      })
       .on('mouseenter', (event, d) => {
         const content = `${d.label}\n${t('biblio.frequency')}: ${d.frequency}\n${t('biblio.centrality')}: ${d.centrality.toFixed(3)}`
         showTooltip(event as unknown as MouseEvent, content)
@@ -237,7 +246,26 @@ export default function NetworkGraph({
       simulation.stop()
     }
   }, [data, dimensions, colorScheme, t, showTooltip, isDarkMode])
-  
+
+  // Apply focus opacity when cluster is clicked
+  useEffect(() => {
+    if (!svgRef.current || !data) return
+    const svg = d3.select(svgRef.current)
+    if (focusedCluster === null) {
+      svg.selectAll('.nodes g').attr('opacity', 1)
+      svg.selectAll('.links line').attr('opacity', 0.7)
+    } else {
+      svg.selectAll('.nodes g').attr('opacity', (d: any) =>
+        (d.cluster ?? 0) === focusedCluster ? 1 : 0.1
+      )
+      svg.selectAll('.links line').attr('opacity', (d: any) => {
+        const s = d.source as SimulationNode
+        const tgt = d.target as SimulationNode
+        return (s.cluster ?? 0) === focusedCluster && (tgt.cluster ?? 0) === focusedCluster ? 0.9 : 0.05
+      })
+    }
+  }, [focusedCluster, data])
+
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', width: '100%' }}>

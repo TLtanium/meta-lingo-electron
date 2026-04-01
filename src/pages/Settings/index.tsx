@@ -8,12 +8,13 @@ import LanguageSettings from './LanguageSettings'
 import WallpaperSettings from './WallpaperSettings'
 import OllamaConnection from './OllamaConnection'
 import OpenAIApiSettings from './OpenAIApiSettings'
-import USASModeSettings from './USASModeSettings'
-import USASSettings from './USASSettings'
+// import USASModeSettings from './USASModeSettings' // Disabled: system now uses Neural topn=5 exclusively; kept for potential future reuse
+// import USASSettings from './USASSettings' // Disabled: kept for potential future reuse
 import MCPServerSettings from './MCPServerSettings'
 import LicenseViewer from './LicenseViewer'
 import FactoryReset from './FactoryReset'
 import ModelManagement from './ModelManagement'
+import UserProfileSettings from './UserProfileSettings'
 
 export default function Settings() {
   const { t } = useTranslation()
@@ -28,6 +29,11 @@ export default function Settings() {
       </Typography>
 
       <Grid container spacing={3}>
+        {/* User Profile — full-width horizontal strip */}
+        <Grid item xs={12}>
+          <UserProfileSettings />
+        </Grid>
+
         {/* Language Settings */}
         <Grid item xs={12} md={6}>
           <LanguageSettings />
@@ -48,15 +54,15 @@ export default function Settings() {
           <OpenAIApiSettings />
         </Grid>
 
-        {/* USAS Tagging Mode Settings */}
-        <Grid item xs={12}>
+        {/* USAS Tagging Mode Settings — disabled: system uses Neural topn=5 exclusively */}
+        {/* <Grid item xs={12}>
           <USASModeSettings />
-        </Grid>
+        </Grid> */}
 
-        {/* USAS Semantic Tagging Settings (Text Type Priority) */}
-        <Grid item xs={12}>
+        {/* USAS Semantic Tagging Settings (Text Type Priority) — disabled */}
+        {/* <Grid item xs={12}>
           <USASSettings />
-        </Grid>
+        </Grid> */}
 
         {/* MCP Server (AI Integration) */}
         <Grid item xs={12}>

@@ -104,8 +104,8 @@ The Corpus Management module contains three main tabs:
 2. Check the "Create New Corpus" option
 3. Fill in the corpus metadata:
    - **Name** (required): Set a meaningful name for your corpus
-   - **Language**: Select the primary language (supports Chinese and English)
-   - **Text Type**: Select the text type for USAS semantic domain disambiguation
+   - **Language**: Select the primary language (supports 11 languages: English, Chinese, Danish, Dutch, Finnish, French, Italian, Portuguese, Russian, Spanish, Swedish)
+   - **Text Type**: Select the text type for USAS semantic domain priority
    - **Source**: Select or customize the corpus source
    - **Author**: Enter author information
    - **Date** (required): Select the creation or publication date
@@ -146,8 +146,11 @@ When uploading audio/video files, you can configure the following processing opt
 
 When enabled, the system will automatically transcribe audio using Whisper Large V3 Turbo model:
 - Word-level timestamps supported
-- Automatic SpaCy, USAS, and MIPVU annotation
+- Automatic SpaCy and USAS annotation for all 11 supported languages
+- MIPVU metaphor annotation for English only
+- NRC emotion annotation for all languages (requires language-specific lexicon file)
 - Transcription results saved sentence by sentence
+- Transcription language can be selected for all 11 supported languages
 
 #### English Audio Forced Alignment (Wav2Vec2)
 
@@ -156,7 +159,7 @@ For English audio, the system automatically performs after Whisper transcription
 - **TorchCrepe Pitch Extraction**: Extract fundamental frequency (F0) data using `full.pth` model
 - These data are used for waveform visualization in multimodal annotation
 
-> **Note**: Chinese audio does not support forced alignment and pitch extraction. Chinese audio can only be annotated in Text Annotation mode.
+> **Note**: Forced alignment and pitch extraction are only available for English audio. Non-English audio can only be annotated in Text Annotation mode.
 
 #### YOLO Object Detection
 
@@ -340,11 +343,11 @@ When uploading text, the system automatically performs SpaCy annotation:
 ### USAS Semantic Domain Tagging
 
 The system automatically performs USAS semantic domain tagging:
-- Based on PyMUSAS tagging engine
-- Supports Chinese and English
-- Discourse domain disambiguation
-- One-sense-per-discourse disambiguation
-- Priority domains configurable in settings
+- Uses **PyMUSAS-Neural-Multilingual-Base-BEM** (307M) model for all languages
+- Supports 11 languages: English, Chinese, Danish, Dutch, Finnish, French, Italian, Portuguese, Russian, Spanish, Swedish
+- For English and Chinese: rule-based PyMUSAS tagger is used when installed, with neural BEM as fallback
+- For other 9 languages: neural BEM multilingual model is used directly
+- Priority domains per text type configurable in settings
 
 ## Data Storage
 
@@ -1369,7 +1372,7 @@ Evaluation uses Top-N accuracy: correct if the gold tag appears in the tagger’
 | Irish | 35.6 | 51.6 |
 | Welsh | 42.0 | 56.4 |
 
-**Recommendation**: For keyness comparison (especially in semantic domain mode), set **USAS tagging mode** in Application Settings to **Neural** or **Hybrid** so that your study corpus uses the same annotation strategy as the built-in reference resources, for more comparable results.
+**Note**: All built-in reference resources and user corpora are annotated with the same **PyMUSAS-Neural-Multilingual-Base-BEM** (topn=5) strategy, ensuring comparable semantic domain distributions in keyness analysis.
 
 ### POS Filtering
 
@@ -3083,9 +3086,23 @@ USAS (UCREL Semantic Analysis System) is a semantic annotation system developed 
 **Official Documentation and Tools**:
 - PyMUSAS Official Documentation: [https://ucrel.github.io/pymusas/](https://ucrel.github.io/pymusas/)
 
-### Hybrid Annotation Method
+### USAS Annotation Method
 
-Meta-Lingo supports the hybrid annotation mode, combining rule-based and neural network methods for semantic disambiguation.
+Meta-Lingo uses the **PyMUSAS-Neural-Multilingual-Base-BEM** model (307M parameters) for USAS semantic domain tagging. The model performs **topn=5** prediction — each word is assigned up to 5 candidate tags ranked by contextual similarity — ensuring high coverage and precision across languages.
+
+**Model**: [ucrelnlp/PyMUSAS-Neural-Multilingual-Base-BEM](https://huggingface.co/ucrelnlp/PyMUSAS-Neural-Multilingual-Base-BEM)
+**Official documentation**: [https://ucrel.github.io/pymusas/](https://ucrel.github.io/pymusas/)
+
+**Evaluation accuracy (Top-1 / Top-5 from PyMUSAS official site)**:
+
+| Language | Top-1 | Top-5 |
+|----------|-------|-------|
+| English  | 70.2  | **90.1** |
+| Chinese  | 47.9  | **70.4** |
+| Finnish  | 25.9  | **42.4** |
+| Welsh    | 42.0  | **56.4** |
+
+The topn=5 output means each token stores up to 5 ranked USAS candidate tags. In semantic domain analysis, the primary (top-1) tag is used for statistics; all 5 candidates are searchable via CQL (`[usas="..."]`).
 
 **Reference Paper**:
 - Hybrid Method Paper: [https://arxiv.org/pdf/2601.09648](https://arxiv.org/pdf/2601.09648)
@@ -3812,166 +3829,31 @@ USAS semantic tags may include special suffixes to convey additional semantic in
    - Multiple semantic domains separated by `/` indicate the word belongs to multiple semantic categories
    - In semantic domain analysis statistics, each component of a compound tag is counted separately
 
-### USAS Tagging Modes
+### USAS Tagging Method
 
-The system supports three USAS tagging modes, which can be selected in "Application Settings". Different tagging modes have different technical characteristics and applicable scenarios.
+Meta-Lingo uses the **PyMUSAS-Neural-Multilingual-Base-BEM** model with **topn=5** for all USAS semantic domain annotation.
 
-#### Rule-Based Mode
+**How it works**:
 
-Rule-based mode is the system's default tagging method, implemented based on the PyMUSAS rule-based tagger.
+1. **Semantic Embedding**: The model (built on multilingual ModernBERT) converts each word and its sentence context into high-dimensional semantic vectors.
 
-**Technical Principles**:
+2. **Top-5 Prediction**: For each word, the model computes similarity against all USAS tag embeddings and outputs the **5 highest-ranked candidate tags**. These are stored in the annotation and all are searchable via CQL.
 
-1. **Dictionary Lookup**: PyMUSAS uses pre-compiled semantic dictionaries (containing single words and multi-word expressions) to look up candidate semantic tags based on word form and part-of-speech. Each word may match multiple candidate tags.
+3. **Context Awareness**: Predictions use the full sentence context, enabling disambiguation of polysemous words from context alone.
 
-2. **Multi-Word Expression Recognition (MWE)**: The system can recognize multi-word expressions (such as "give up", "in front of"), which are assigned semantic tags as a whole rather than split into individual words. MWE tags are suffixed with `_MWE` for distinction.
+4. **Sentence-by-Sentence Processing**: The system processes text sentence by sentence to preserve complete context for each token.
 
-3. **Disambiguation Processing**: When a word has multiple candidate tags, the system attempts disambiguation strategies in **strict priority order**. Once a strategy successfully selects a tag, subsequent strategies are not executed:
+**Accuracy (PyMUSAS official, Top-1 / Top-5)**:
 
-   **Priority 1 - Text Type Priority**:
-   - Checks the text type selected during upload (such as medical, legal, sports)
-   - According to the priority semantic domain list corresponding to the text type, checks candidate tags in order
-   - If a candidate tag belongs to a priority semantic domain, immediately selects that tag and disambiguation ends
-   - Example: When text type is "medical", tags like B1 (Anatomy), B2 (Health & Disease) have priority
-   
-   **Priority 2 - Discourse Domain Recognition**:
-   - Only executed if Text Type Priority fails to select a tag
-   - Counts the semantic tag distribution of all words in the entire text
-   - Calculates the occurrence ratio of 21 major categories (A-Z)
-   - Identifies the dominant semantic domain (category with >20% proportion)
-   - If a candidate tag belongs to the major category of the dominant domain, selects that tag
-   - Example: If category N (Numbers & Measurement) accounts for 35% of the text, N-category candidate tags are prioritized
-   
-   **Priority 3 - One-Sense-Per-Discourse Rule**:
-   - Only executed if the previous two strategies fail to select a tag
-   - Based on the linguistic assumption that "the same lemma should maintain the same meaning within the same text"
-   - Counts all semantic tag votes for the same lemma in the text
-   - If a tag's vote share exceeds 50% and that tag is in the current candidate list, selects that tag
-   - Example: If "bank" appears 5 times in the text and 4 times is tagged as I1.1 (Finance), I1.1 is prioritized
-   
-   **Default Selection**:
-   - If all three strategies above fail to select a tag, selects the first tag in the candidate list
+| Language | Top-1 | Top-5 |
+|----------|-------|-------|
+| English  | 70.2  | **90.1** |
+| Chinese  | 47.9  | **70.4** |
+| Finnish  | 25.9  | **42.4** |
+| Welsh    | 42.0  | **56.4** |
 
-4. **Compound Tag Processing**: Some words may be annotated with compound tags (such as `A3+/Q2.2`), which the system will split into independent tags for statistics.
+Official documentation: [https://ucrel.github.io/pymusas/](https://ucrel.github.io/pymusas/)
 
-**Advantages**:
-- Supports multi-word expression (MWE) recognition
-- Fast processing speed with low resource consumption
-- Highly interpretable annotation results
-- Supports compound tags and fine-grained semantic classification
-
-**Disadvantages**:
-- Depends on dictionary coverage; words not in the dictionary cannot be annotated (marked as Z99 unknown)
-- Disambiguation rules may not be accurate in some cases
-
-#### Neural Mode
-
-Neural mode uses the pre-trained deep learning model PyMUSAS-Neural-Multilingual-Base-BEM for annotation.
-
-**Technical Principles**:
-
-1. **Semantic Embedding**: The model is fine-tuned based on multilingual ModernBERT architecture and can convert words and their context into high-dimensional semantic vectors.
-
-2. **Prediction Mechanism**: The model treats semantic tag prediction as a Word Sense Disambiguation task. For each word, the model calculates the similarity between its contextual embedding and each semantic tag embedding, selecting the tag with the highest similarity.
-
-3. **Single Tag Output**: In this mode, the system sets `top_n=1`, outputting only one semantic tag per word without additional disambiguation processing.
-
-4. **Context Awareness**: Neural networks can use the contextual information of words for prediction. Even if a word is not in the dictionary, its semantics can be inferred from context.
-
-5. **Sentence-by-Sentence Processing**: To ensure context completeness and handle long texts, the system processes text sentence by sentence. Each word is predicted within the full context of its sentence.
-
-**Advantages**:
-- High coverage, able to predict tags for all words
-- Uses contextual information for more accurate handling of polysemous words
-- Dictionary-independent, can handle new words and out-of-vocabulary words
-- Sentence-by-sentence processing supports texts of any length
-
-**Disadvantages**:
-- Does not support multi-word expression (MWE) recognition
-- Higher computational resource consumption
-- Only outputs single semantic tags, does not support compound tags
-- Slower inference speed
-
-#### Hybrid Mode
-
-Hybrid mode combines the advantages of both rule-based and neural network methods, making it the most comprehensive solution among the three modes.
-
-**Technical Principles**:
-
-1. **Rule First**: First use the PyMUSAS rule-based tagger to annotate all words and obtain candidate semantic tags (including multi-word expression recognition).
-
-2. **Neural Matching**: For words with multiple candidate tags (non-MWE, non-Z99), use neural network with `top_n=5` predictions to match against rule candidates in priority order. Matching compares only the base semantic domain name (excluding suffixes like +, -, _MWE). If matched, the original suffix from the rule candidate is preserved. The neural network processes text **sentence by sentence** to preserve full context.
-
-3. **Unknown Word Backoff**: For words marked as Z99 (unknown), use neural network `top_n=1` for prediction within the context of their sentence.
-
-4. **Disambiguation Processing**: For multi-candidate words where neural matching failed, disambiguation strategies are executed in priority order (Text Type Priority > Discourse Domain Recognition > One-Sense-Per-Discourse Rule).
-
-5. **Final Fallback**: When all disambiguation strategies fail, use neural network `top_n=1` as the final fallback.
-
-**Detailed Workflow**:
-
-**Step 1 - Rule Annotation**: Use the PyMUSAS rule-based tagger on the input text to obtain candidate semantic tag lists (including multi-word expression recognition).
-
-**Step 2 - Token Classification**: Classify words into three categories:
-- **Z99 Words**: Unknown words that the rule tagger cannot recognize
-- **Multi-tag Words**: Polysemous words with multiple candidate tags (non-MWE)
-- **Single-tag Words**: Words with only one candidate tag, or MWE words, keep as-is
-
-**Step 3 - Neural Network Processing**:
-- **Z99 Words**: Call neural network `top_n=1`, directly obtain final tag
-- **Multi-tag Words**: Call neural network `top_n=5`, match against rule candidates in priority order:
-  - Matching rule: Compare only base semantic domain names (remove +, -, _MWE suffixes)
-  - Match success: Select the corresponding rule candidate tag (preserve original suffix)
-  - Match failure: Mark as "pending disambiguation"
-
-**Step 4 - Disambiguation Processing**: For words where neural matching failed, execute disambiguation in priority order (stops on success):
-- **Priority 1**: Text Type Priority - if matched, select that tag; otherwise continue
-- **Priority 2**: Discourse Domain Recognition - if matched, select that tag; otherwise continue
-- **Priority 3**: One-Sense-Per-Discourse Rule - if votes >50%, select that tag; otherwise mark as "pending fallback"
-
-**Step 5 - Final Fallback**: For words where all disambiguation strategies failed, call neural network `top_n=1` to obtain the final tag.
-
-**Step 6 - Output Results**: Integrate all word annotation results and output the final annotated text.
-
-**Advantages**:
-- Combines the advantages of both rule mode and neural network mode
-- Supports multi-word expression recognition
-- High coverage (neural network supplements unknown words and disambiguation failures)
-- Triple neural fallback mechanism: multi-tag matching + unknown word backoff + disambiguation failure fallback
-- Neural network and rule candidates collaborate on decisions, preserving rule suffix information
-- Annotation quality typically better than single modes
-
-**Disadvantages**:
-- Highest computational resource consumption
-- Slowest processing speed
-- Requires loading both rule model and neural network model
-
-#### Mode Selection Recommendations
-
-| Scenario | Recommended Mode | Reason |
-|----------|------------------|--------|
-| Quick analysis | Rule-Based | Fast speed, low resource consumption |
-| Contains many technical terms | Hybrid | Neural network can supplement technical vocabulary |
-| Requires high coverage | Neural / Hybrid | Can handle unknown words |
-| Focus on multi-word expressions | Rule-Based / Hybrid | Supports MWE recognition |
-| Resource-constrained environment | Rule-Based | No GPU required |
-| Pursuing highest accuracy | Hybrid | Combines advantages of both methods |
-
-#### Mode Settings
-
-You can select the USAS tagging mode in the "Application Settings" page:
-
-1. Go to the "Application Settings" page
-2. Find the "USAS Tagging Mode" settings panel
-3. Select the desired mode (Rule-Based / Neural / Hybrid)
-4. The system will automatically save the settings
-
-The configured mode will apply to:
-- Automatic USAS annotation during corpus upload
-- USAS re-annotation in the corpus detail page
-- Annotation process in the semantic domain analysis module
-
-**Note**: Neural mode and Hybrid mode require the neural network model files to be installed. If the model is not installed, these two options will be displayed as unavailable.
 
 ### Usage Tips
 
@@ -4637,7 +4519,7 @@ logDice is a statistical method for measuring word collocation strength, calcula
 
 ## Overview
 
-The Bibliographic Visualization module manages and analyzes academic literature data, supporting Refworks format import from Web of Science (WOS) and CNKI. It supports uploading PDFs per entry with first-page thumbnails, and 11 AI-generated fields (research objective, research design, etc.) from PDF or abstract; relevance star rating (including no rating; click current star to clear), tags and notes editing; CSV export (without the Paper column) and detail PDF export. Visualization provides 9 chart types: Network, Cluster, Timeline, Timezone, Burst Detection, Citation Chord, Ridgeline Plot, Heatmap, and Word Cloud.
+The Bibliographic Visualization module manages and analyzes academic literature data, supporting Refworks format import from Web of Science (WOS) and CNKI. It supports uploading PDFs per entry with first-page thumbnails, and 11 AI-generated fields (research objective, research design, etc.) from PDF or abstract; relevance star rating (including no rating; click current star to clear), tags and notes editing; CSV export (without the Paper column) and detail PDF export. Visualization provides 7 chart types: Network, Cluster, Timeline, Timezone, Burst Detection, Heatmap, and Word Cloud.
 
 ## Interface Layout
 
@@ -4699,7 +4581,7 @@ In the "Library Detail" tab:
 
 - **Export CSV**: Exports by current filters and visible columns; **does not include the Paper column**; header order: Relevance, Title, DOI, Authors, Year, Journal, Abstract, Keywords, Citations, visible AI columns, Tags, Notes (UTF-8 BOM).
 
-- **Re-annotation**: Same backend as Corpus Management; MIPVU uses Clause model full annotation (English-only); NRC supports Chinese and English.
+- **Re-annotation**: Same backend as Corpus Management; MIPVU uses Clause model full annotation (English-only); NRC supports all 11 languages (requires language lexicon file in `saves/nrc/`).
 
 ### Entry Detail Dialog
 
@@ -4738,7 +4620,7 @@ In library detail you can set, for each entry:
    - Number of skipped entries (if any)
    - Parse errors (if any)
 
-**Abstract annotation pipeline**: Each entry with an abstract is written to the shadow corpus and runs the same pipeline as Corpus Management: SpaCy → USAS → MIPVU → NRC. MIPVU uses the Clause model (deberta-v3-large-clause-metaphor) for full-coverage metaphor annotation; NRC emotion annotation uses NRC-EmoLex and supports Chinese and English, providing data for the Sentiment Analysis module.
+**Abstract annotation pipeline**: Each entry with an abstract is written to the shadow corpus and runs the same pipeline as Corpus Management: SpaCy → USAS → MIPVU → NRC. MIPVU uses the Clause model (deberta-v3-large-clause-metaphor) for full-coverage metaphor annotation (English only); NRC emotion annotation uses NRC-EmoLex and supports all 11 languages, providing data for the Sentiment Analysis module. (Bibliography libraries continue to support English and Chinese only for library creation.)
 
 ### File Formats
 
@@ -4827,17 +4709,15 @@ Use slider to select year range:
 
 ## Visualization Analysis
 
-In the "Visualization" tab, you can generate various visualization charts. The system provides **9 visualization tabs** with scrollable tab navigation when they overflow:
+In the "Visualization" tab, you can generate various visualization charts. The system provides **7 visualization tabs** with scrollable tab navigation when they overflow:
 
 1. **Network** — Collaboration and co-occurrence networks
 2. **Cluster** — Force-directed cluster grouping with convex hull visualization
 3. **Timeline** — Cluster swim-lanes with dynamic year spacing
 4. **Timezone** — Keyword/author distribution by time slices
 5. **Burst Detection** — Gantt-chart style burst trends
-6. **Citation Chord** — Citing/cited journal chord diagram
-7. **Ridgeline Plot** — Landscape-style density ridges
-8. **Heatmap** — Contour density with scatter overlay
-9. **Word Cloud** — Title/abstract word cloud
+6. **Heatmap** — Contour density with scatter overlay
+7. **Word Cloud** — Title/abstract word cloud
 
 ### Common Interactions
 
@@ -4849,7 +4729,7 @@ All D3 charts support the following interactions:
 
 ### Common Color Schemes
 
-Most charts (Network, Cluster, Timeline, Timezone, Citation Chord, Ridgeline) share the same color scheme selector with 7 options: Blue, Green, Purple, Orange, Red, Teal, Colorful. Burst Detection and Heatmap use their own independent color settings, and Word Cloud uses a dedicated colormap.
+Most charts (Network, Cluster, Timeline, Timezone, Burst Detection) share the same color scheme selector with 7 options: Blue, Green, Purple, Orange, Red, Teal, Colorful. Heatmap uses its own independent color scale, and Word Cloud uses a dedicated colormap.
 
 ---
 
@@ -4912,7 +4792,7 @@ Timeline view uses a horizontal swim-lane layout showing cluster evolution over 
 
 | Parameter | Range | Default | Description |
 |-----------|-------|---------|-------------|
-| X-Axis Scale | 0.5–5 | 1 | Stretch or compress total horizontal length; horizontal scrollbar appears when needed |
+| X-Axis Scale | 0.5–5 | 2 | Stretch or compress total horizontal length; horizontal scrollbar appears when needed |
 | Weight Precision | 0–6 | 4 | Decimal places for weight values; affects granularity of node size differences |
 | Color Scheme | 7 options | Blue | Each year column uses different shades; "Colorful" mode uses a different hue family per row |
 
@@ -4920,8 +4800,9 @@ Timeline view uses a horizontal swim-lane layout showing cluster evolution over 
 
 - **Dynamic year spacing**: Horizontal space per year is allocated proportionally to publication volume (using `sqrt(count)` ratio), avoiding wasted space during publication gaps and overcrowding during dense years
 - **Cluster swim-lanes**: Left side shows cluster labels (Cluster #0, #1, ...), each row has a highlighted line from its first to last node's year position
-- **Node circles**: Size reflects weight (citation count + term count + tiny offset for uniqueness); higher weight precision produces more varied circle sizes; same-year nodes stack by weight (largest underneath) with horizontal offset to avoid complete overlap
-- **Connection arcs**: Quadratic Bézier arcs connect related nodes. Both **within-lane arcs** (nodes in the same cluster sharing keywords) and **cross-lane arcs** (nodes in different clusters sharing 2+ keywords) are shown; cross-lane arc curvature scales automatically with vertical distance
+- **Node circles**: Size reflects weight (citation count + term count); higher weight precision produces more varied circle sizes. Nodes in the same year slot are positioned using a constrained force simulation: **year-anchor force** keeps each node near its publication year; **link-attraction force** pulls co-cited or co-occurring nodes closer together; **collision force** prevents total overlap. As a result, nodes that are strongly related appear close together even if they partially overlap, while weakly related nodes spread apart.
+- **Distance = structural relationship**: The horizontal distance between nodes reflects **co-occurrence / co-citation strength**, not just time. Close nodes share strong structural links; distant nodes are weakly related or belong to different research directions. This follows CiteSpace's Timezone View convention.
+- **Connection arcs**: Quadratic Bézier arcs connect nodes with shared keywords. Both **within-lane arcs** (same cluster, shared keywords) and **cross-lane arcs** (different clusters, 2+ shared keywords) are shown; cross-lane arc curvature scales with vertical distance. Arc color derives from the source node's color; thickness reflects edge weight. **Arcs do not indicate citation order** — they show co-occurrence / co-citation relationships.
 - **Hover tooltip**: Shows term name, year, weight value, and cluster
 - **Horizontal scrolling**: Scrollbar appears automatically when X-Axis Scale > 1
 
@@ -4977,64 +4858,29 @@ Burst strength indicates significance:
 
 ---
 
-### Citation Chord
-
-Citation Chord displays the citation relationship between citing and cited journals as a bipartite chord diagram. The left arc represents citing journals, the right arc represents cited journals, with Bezier curves connecting them to show citation flow.
-
-#### Configuration Parameters
-
-| Parameter | Range | Default | Description |
-|-----------|-------|---------|-------------|
-| Arc Angle | 30°–90° | 90° | Controls the opening angle of left/right arcs; smaller angle = flatter arcs, shorter curves |
-| Color Scheme | 7 options | Blue | Citing/cited node and link colors |
-
-#### Chart Features
-
-- **Bipartite arc layout**: Left arc = Citing journals, Right arc = Cited journals
-- **Arc nodes**: Size reflects citation/cited frequency
-- **Flow curves**: Bezier curves connect citing to cited; line width reflects citation volume; hover highlights related nodes
-- **Adaptive arc angle**: Chart maintains constant visual height as angle changes (calculated via `R = H / sin(θ)`)
-- **Adaptive labels**: Labels auto-hide when node span is too small at smaller angles, with collision detection to avoid overlap
-
----
-
-### Ridgeline Plot
-
-Ridgeline Plot displays cluster density distributions in landscape view style. Each cluster occupies one row, X-axis = year, using area curves to show publication density per year.
-
-#### Configuration Parameters
-
-| Parameter | Range | Default | Description |
-|-----------|-------|---------|-------------|
-| X-Axis Scale | 0.5–5 | 1 | Stretch or compress total horizontal length |
-| Color Scheme | 7 options | Colorful | Each cluster uses a different color gradient; "Colorful" mode uses rainbow gradient |
-
-#### Chart Features
-
-- **Dynamic year spacing**: Same as Timeline view; horizontal space per year allocated by publication volume
-- **Ridge stacking**: Each cluster's area curve is offset vertically, creating a ridge-stacking effect
-- **Gradient fill**: Area curves use light-to-dark color gradients
-- **Horizontal scrolling**: Scrollbar appears when X-Axis Scale > 1
-- **Custom X-axis**: Due to dynamic spacing, tick marks and year labels are drawn manually
-
----
-
 ### Heatmap
 
-Heatmap uses `d3.contourDensity()` to calculate 2D density contours, displaying literature clustering in coordinate space with continuous gradient colors.
+Heatmap uses `d3.contourDensity()` to calculate 2D density contours, displaying literature clustering in coordinate space with continuous gradient colors. The X/Y axes represent the two principal coordinates derived from a similarity matrix of the bibliographic data (comparable to MDS or PCoA in CiteSpace).
 
 #### Configuration Parameters
 
 | Parameter | Range | Default | Description |
 |-----------|-------|---------|-------------|
-| Bandwidth | 0.05–2.0 | 0.15 | Kernel density estimation bandwidth; larger values produce smoother contours |
+| Bandwidth | 0.05–2.0 | 0.15 | Kernel density estimation bandwidth; larger values produce smoother contours, smaller values reveal finer local clusters |
 | Color Scale | Turbo / Blue / Green / Purple / Orange / Red / Teal | Turbo | Heatmap color scale (separate from the common color scheme) |
 
 #### Chart Features
 
-- **Contour layers**: Multiple filled contour layers; color from light to dark represents low to high density
-- **Scatter overlay**: Original data points overlaid as semi-transparent circles on top of contours
+- **Contour layers**: Multiple filled contour layers; color from light (cool) to dark (warm) represents density from low to high — areas with the warmest/darkest color contain the most densely clustered literature
+- **Scatter overlay**: Original data points overlaid as semi-transparent circles on top of contours; each point is one entry
 - **Hover tooltip**: Shows node name, cluster, coordinates, and weight
+
+#### How to Read the Heatmap
+
+- **Dense hot zones** (dark center of contours): Research topics that many papers address simultaneously — these are the core or mainstream research areas
+- **Isolated cool zones** (light, sparse contours at the edges): Niche or emerging topics that few papers have explored
+- **Multiple peaks**: If the heatmap shows several distinct hot zones, the field has multiple independent research clusters rather than one unified mainstream
+- **Bandwidth tuning**: If contours look blocky or noisy, increase Bandwidth; if the single large blob obscures internal structure, decrease it
 
 ---
 
@@ -5076,7 +4922,7 @@ All visualization charts support export:
 
 - **Format**: SVG (vector graphics)
 - **Advantages**: Scalable, suitable for printing and editing
-- **Full-chart export**: For charts with horizontal scrolling (Timeline, Ridgeline, etc.), export automatically captures the complete SVG content (using `getBBox()` calculation), regardless of viewport scroll position
+- **Full-chart export**: For charts with horizontal scrolling (Timeline, etc.), export automatically captures the complete SVG content (using `getBBox()` calculation), regardless of viewport scroll position
 
 ### Export PNG
 
@@ -5096,19 +4942,17 @@ All visualization charts support export:
 1. **Create Library** → **Upload Literature** → **View Details** → **Switch to Visualization tab**
 2. Start with **Network Graph** to understand overall relationship structure
 3. Use **Cluster View** to discover research topic groupings
-4. Use **Timeline** to observe cluster evolution over time
+4. Use **Timeline** to observe how clusters evolved over time; pay attention to which nodes cluster together (strong co-citation) vs. spread apart (weak relationship)
 5. Use **Burst Detection** to locate research hotspot periods
-6. Use **Citation Chord** to analyze journal citation flow
-7. Use **Ridgeline Plot** to observe density distribution and cluster shape
-8. Export charts for papers or reports
+6. Use **Heatmap** to identify the core mainstream areas vs. niche frontier topics
+7. Export charts for papers or reports
 
 ### Parameter Tuning Tips
 
 - **Too many network nodes**: Increase "Min Weight" or decrease "Max Nodes"
-- **Timeline too cramped or too sparse**: Adjust "X-Axis Scale" (> 1 stretches, < 1 compresses)
+- **Timeline too cramped or too sparse**: Adjust "X-Axis Scale" (> 1 stretches, < 1 compresses; default is 2)
 - **Timeline node sizes too similar**: Increase "Weight Precision" (more decimal places)
-- **Citation Chord labels too dense**: Decrease "Arc Angle"
-- **Heatmap contours too coarse**: Decrease "Bandwidth"; too smooth — increase "Bandwidth"
+- **Heatmap contours too coarse/noisy**: Decrease "Bandwidth"; too smooth/featureless — increase "Bandwidth"
 - **Too many cluster hulls**: Increase "Hull Threshold"
 
 ### Notes
@@ -5121,7 +4965,7 @@ All visualization charts support export:
 - Different data sources (WOS/CNKI) may have different fields; some visualizations may not apply to all sources
 - Burst detection algorithm is based on Kleinberg's statistical method; results are for reference only
 - Network and Cluster layouts are force-directed and auto-calculated; may vary slightly each refresh
-- Timeline and Ridgeline dynamic year spacing adjusts automatically based on publication volume; axis tick spacing is non-uniform
+- Timeline dynamic year spacing adjusts automatically based on publication volume; axis tick spacing is non-uniform
 
 # Annotation Mode
 
@@ -5442,7 +5286,7 @@ If video has completed YOLO detection:
 
 ### Audio Annotation
 
-> **Important**: Audio waveform annotation is only available for English audio. Chinese audio can only be annotated in Text Annotation mode.
+> **Important**: Audio waveform annotation (Wav2Vec2 forced alignment + pitch extraction) is only available for English audio. All other languages (including Chinese) can only be annotated in Text Annotation mode.
 
 #### English Audio Waveform Annotation
 
@@ -5478,9 +5322,9 @@ For English audio with forced alignment data, the system displays an interactive
 - **Current Sentence Highlighting**: Auto-highlight currently playing sentence
 - **Click to Seek**: Click transcript sentences to jump to corresponding time
 
-#### Chinese Audio Restrictions
+#### Non-English Audio Restrictions
 
-Since Wav2Vec2 forced alignment only supports English, Chinese audio:
+Since Wav2Vec2 forced alignment only supports English, all non-English audio (including Chinese, French, Spanish, etc.):
 - Does not display waveform visualization interface
 - Does not support box drawing annotation
 - Can only be annotated via Text Annotation mode
@@ -6924,7 +6768,7 @@ The module uses a left–right split layout:
 
 ### Lexicons and Dimensions
 
-- The system uses lexicon files under `saves/nrc/` that match the corpus language (e.g. English: English-NRC-EmoLex.txt, Chinese: Chinese-Simplified-NRC-EmoLex.txt).
+- The system uses lexicon files under `saves/nrc/` that match the corpus language (e.g. English: `English-NRC-EmoLex.txt`, Chinese: `Chinese-Simplified-NRC-EmoLex.txt`, French: `French-NRC-EmoLex.txt`, etc.). Supported NRC languages: English, Chinese, Danish, Dutch, Finnish, French, Italian, Portuguese, Russian, Spanish, Swedish. If the lexicon file for a language is not present, the system falls back to the English lexicon.
 - Each word that matches the lexicon receives scores for 10 dimensions: **anger**, **anticipation**, **disgust**, **fear**, **joy**, **sadness**, **surprise**, **trust**, **positive**, **negative**.
 - Words not in the lexicon have zero on all dimensions; in Polarity mode they are classified as neutral, in Dimension mode as others.
 
@@ -7142,6 +6986,47 @@ Topic modeling has four submodules: **BERTopic**, **LDA**, **LSA**, and **NMF**.
 
 ---
 
+# Standard Mode & Agent Mode
+
+Meta-Lingo provides two interface modes that you can switch between using the toggle in the top header bar. The toggle is located to the left of the Dictionary button.
+
+## Standard Mode
+
+The default mode. All corpus management and analysis modules are organized as tabs, similar to a web browser. Click any module on the Home page to open it as a new tab. You can have multiple tabs open simultaneously and switch between them freely.
+
+- **Tab bar**: Shows all open tabs. Right-click a tab for close options.
+- **Each module** has its own dedicated interface with corpus selectors, parameter panels, results tables, and visualizations.
+- Settings and Help are also opened as tabs.
+
+## Agent Mode (AI Conversation)
+
+A Claude Desktop-style conversational interface for AI-driven corpus analysis. Instead of clicking through individual modules, you describe your research task in natural language and let the AI assistant handle it.
+
+### Layout
+
+- **Left sidebar**: Conversation history. Create new conversations, switch between existing ones, or delete them.
+- **Center area**: The chat interface. When no conversation is active, a centered input box invites you to start.
+- **Tab bar**: Same visual style as Standard Mode. Settings and Help tabs appear here when opened.
+
+### How It Works
+
+1. **Ensure an AI provider is configured**: Go to Settings and connect Ollama or enable an OpenAI-compatible API.
+2. **Type your request**: For example, "List my corpora", "Analyze word frequency in corpus X", or "Find collocates of 'make' in my academic corpus."
+3. **The AI calls tools automatically**: The assistant uses Meta-Lingo's 45 built-in tools (corpus management, analysis, concordance, semantic analysis, etc.) to fulfill your request. You'll see tool calls and results displayed inline.
+4. **Review results**: The AI formats analysis results and provides interpretation.
+
+### Module Selector
+
+Click the **+** button next to the input field to choose which tool modules the AI can use. By default, all modules are available ("Let AI decide"). You can restrict to specific modules (e.g., only Concordance and Analysis) for more focused conversations.
+
+### Switching Modes
+
+Switching between Standard and Agent mode preserves your state in both:
+- Standard Mode tabs remain open and unchanged.
+- Agent Mode conversations persist across switches and app restarts.
+
+---
+
 # MCP Service
 
 Meta-Lingo includes a **Model Context Protocol (MCP) server** that allows AI assistants to autonomously use Meta-Lingo’s corpus research tools. Once connected, an AI assistant can create corpora, upload texts, run analyses, and interpret results — all without manual intervention.
@@ -7162,7 +7047,7 @@ The easiest way to connect. Double-click to install — no config files or termi
 1. Ensure Meta-Lingo is running (the MCP service connects to Meta-Lingo’s backend).
 2. In Meta-Lingo **Settings** → **MCP Service**, click the **Download Extension (.dxt)** button to get the extension file.
 3. **Double-click** the `.dxt` file — Claude Desktop will prompt you to install.
-4. Confirm the installation. Meta-Lingo’s 18 tools will be available immediately.
+4. Confirm the installation. Meta-Lingo’s 51 tools will be available immediately.
 
 > **Tip**: You can also install via Claude Desktop → **Settings** → **Extensions** → **Install from file**.
 
@@ -7224,37 +7109,120 @@ Claude.ai web only accepts **HTTPS** public URLs — local `http://localhost` ad
 2. Expand **Manual Configuration**, click the **copy** button.
 3. In Cursor: **Settings** → **MCP Servers** → add a new server and paste the configuration.
 
-## Available Tools (18)
+## Available Tools (51)
 
-### Corpus Management
-- **list_corpora**: List all corpora with metadata
-- **create_corpus**: Create a new corpus
-- **upload_text**: Upload text content to a corpus
-- **get_corpus_info**: Get corpus details and text IDs
+Meta-Lingo MCP provides 51 tools across 10 modules. Each tool is described below with its purpose, key parameters, and typical usage.
 
-### Lexical Analysis
-- **word_frequency**: Word frequency analysis with POS filtering
-- **keyword_extraction**: TF-IDF / TextRank / YAKE / RAKE keywords
-- **keyness_analysis**: Statistical keyword comparison between corpora
-- **ngram_analysis**: N-gram frequency analysis (2–6 grams)
+### Reference & Lookup (8 tools)
 
-### Concordance
-- **concordance_search**: KWIC search (exact / phrase / CQL)
-- **collocation_analysis**: Statistical collocation analysis (logDice, MI, etc.)
-- **word_sketch**: Grammatical relation profiles
+These tools retrieve metadata, validate queries, and list or create annotation frameworks. Call them before running analyses.
 
-### Semantic Analysis
-- **semantic_domain_analysis**: USAS semantic domain distribution
-- **metaphor_analysis**: MIPVU metaphor detection
-- **sentiment_analysis**: NRC emotion lexicon analysis
+- **get_pos_tags**: List all Universal POS tags (ADJ, NOUN, VERB, etc.) with descriptions. Use to understand valid POS filter values for other tools.
+- **get_usas_categories**: List the 21 USAS major semantic domain categories (A–Z). Use before `semantic_domain_analysis` to understand the taxonomy.
+- **get_metaphor_sources**: List MIPVU metaphor detection source types (word filter, MRC concreteness, etc.). Use to interpret `metaphor_analysis` results.
+- **list_reference_corpora**: List built-in reference corpora (BNC, OANC, Brown, etc.) with word counts. Use to find `resource_id` values for `keyness_resource_analysis`.
+- **validate_cql**: Validate a CQL (Corpus Query Language) expression before running a concordance search. Returns whether the syntax is valid and any error messages. Always call this before `concordance_search` with `search_mode="cql"`.
+- **list_annotation_frameworks**: List all annotation frameworks organized by category (Appraisal, SFL Grammar, Error Analysis, etc.). Returns framework IDs needed for `get_annotation_framework` and `save_annotation`.
+- **get_annotation_framework**: Get the full label tree of a specific framework by ID (e.g., `MIPVU`, `Halliday-Theme`). Shows all available labels, colors, definitions, and the hierarchy. Essential before creating annotations with `save_annotation`.
+- **create_annotation_framework**: Create a new custom annotation framework with a hierarchical label tree. Parameters: `name`, `category`, `root` (tree dict with nodes having `id`, `name`, `type` ("tier"/"label"), optional `definition`, `children`). The server auto-assigns colors.
 
-### Other Analysis
-- **synonym_analysis**: WordNet synonyms filtered by corpus
-- **sketch_difference**: Compare collocational profiles of two words
-- **topic_modeling**: LDA / BERTopic topic discovery
+### Corpus Management (7 tools)
 
-### Export
-- **export_annotations**: Export annotations as TXT / JSON / XML
+Create, inspect, upload texts, and monitor processing. These are typically the first tools called in any workflow.
+
+- **list_corpora**: Discover all corpora in the workspace. Returns corpus IDs, names, languages, text counts, tags, and descriptions. Always call this first to get the `corpus_id` needed by most other tools.
+- **create_corpus**: Create a new empty corpus. Parameters: `name`, `language` (english/chinese), `description`, `author`, `source`, `text_type`. After creating, use `upload_text` or `upload_directory` to add texts.
+- **upload_text**: Upload plain text content into a corpus. Queues background SpaCy annotation (POS, lemma, dependency, USAS, MIPVU, NRC). Parameters: `corpus_id`, `filename`, `content` or `filepath` (absolute path on disk), and optional metadata (`date`, `author`, `source`, `text_type`, `tags`). After uploading, wait for annotation to complete before running analyses.
+- **upload_directory**: Batch upload all `.txt` files from a local directory into a corpus. Parameters: `corpus_id`, `directory_path` (absolute path), optional metadata. Use instead of multiple `upload_text` calls for large collections.
+- **get_corpus_info**: Inspect a corpus and list all its texts with IDs. Returns corpus metadata plus a full text list with `text_id`, filename, type, and word count. Use this to obtain `text_id` values for text-specific operations.
+- **list_corpus_upload_tasks**: List all background processing tasks for a corpus. Use after `upload_text` / `upload_directory` to monitor annotation progress.
+- **get_processing_task_status**: Check a specific processing task by `task_id`. Returns current status (pending / processing / completed / failed).
+
+### Lexical Analysis (5 tools)
+
+Frequency, keyword, keyness, and n-gram analyses.
+
+- **word_frequency**: Analyze word frequencies with fine-grained filtering. Parameters: `search_word` with `search_type` (exact / contains / starts / ends / regex / wordlist), `search_target` (word / lemma), `pos_filter`, `min_freq`, `max_freq`, `lowercase`, `remove_stopwords`, `limit`. Supports `save_path` (CSV) and `chart_type` (bar/pie/wordcloud) with `chart_path`.
+- **keyword_extraction**: Extract keywords using NLP algorithms. Supports four algorithms: `tfidf`, `textrank`, `yake`, `rake`. Optional `config` parameter for algorithm-specific tuning (e.g., `{maxFeatures: 1000}` for TF-IDF). Also supports `pos_filter`, `save_path`, `chart_type`.
+- **keyness_analysis**: Compare keywords between two user corpora (study vs. reference). Statistics: `log_likelihood`, `chi_squared`, `log_ratio`, `dice`, `mi`, `t_score`, `simple_keyness`. Parameters include `comparison_mode` (word / lemma / domain), `min_freq`, `p_threshold`. For comparing against built-in reference corpora, use `keyness_resource_analysis` instead.
+- **keyness_resource_analysis**: Compare corpus keywords against built-in reference corpora (BNC, OANC, etc.). Use `list_reference_corpora()` first to find the `resource_id`. Same statistics and parameters as `keyness_analysis`.
+- **ngram_analysis**: Find frequent word sequences (bigrams, trigrams, etc.). Parameters: `n_values` (e.g., `[2, 3]`), `search_word`, `min_freq`, `min_word_length`, `nest` (include sub-n-grams), `pos_filter`, `limit`.
+
+### Concordance & Collocation (4 tools)
+
+KWIC search, extended context, collocation statistics, and word sketches.
+
+- **concordance_search**: Search for words/phrases in context (KWIC). Supports seven search modes: `exact`, `contains`, `starts`, `ends`, `phrase`, `wordlist`, and `cql` (Corpus Query Language). CQL enables powerful pattern queries like `[pos="ADJ"][pos="NOUN"]` (adjective+noun), `[lemma="run"]` (all forms of "run"), `[usas="A1.1"]` (semantic domain). Additional parameters: `context_size`, `sort_by` (left_context / right_context / position / frequency / random), `sort_levels` (multi-level e.g., `["1L", "2L"]`), `pos_filter`, `max_results`. Supports `chart_type` ("dispersion") with `chart_path`.
+- **get_extended_context**: Get more surrounding text for a specific concordance hit. Use the `text_id` and `position` from concordance results. Parameters: `context_chars` (default: 200), `keyword`.
+- **collocation_analysis**: Find statistically significant word co-occurrences. Statistics: `logdice` (recommended), `mi`, `mi3`, `t_score`, `z_score`, `log_likelihood`, `dice`. Parameters: `window_size`, `min_freq`, `match_mode` (lemma / word), `remove_stopwords`, `exclude_words`. Supports `save_path` and network `chart_type`.
+- **word_sketch**: Generate a grammatical profile for a word showing typical subjects, objects, modifiers, etc. Based on dependency parsing. Parameters: `pos` (NOUN / VERB / ADJ / ADV), `min_frequency`, `max_results`.
+
+### Semantic Analysis (4 tools)
+
+USAS semantic domains, metaphor, and sentiment.
+
+- **semantic_domain_analysis**: Analyze semantic domain distribution using the UCREL USAS taxonomy. Two modes: `result_mode="domain"` for domain-level stats, `"word"` for word-level tags. Supports `search_word`, `search_type`, `search_target`, `pos_filter`, `min_freq`, `max_freq`. Use `get_usas_categories()` to understand the domain codes.
+- **get_domain_words**: Drill into a specific USAS domain to see all words tagged with that code (e.g., `"E2"` for Emotion, `"A1.1"` for General actions). Returns words with frequency and POS.
+- **metaphor_analysis**: Analyze metaphor usage using MIPVU methodology. Two modes: `result_mode="word"` for word-level results, `"source"` for detection source breakdown. Supports `pos_filter`, `search_word`, `search_type`, `min_freq`, `max_freq`.
+- **sentiment_analysis**: Analyze sentiment/emotion using the NRC Emotion Lexicon. Two modes: `analysis_mode="polarity"` (positive / negative / neutral) or `"dimension"` (8 emotions: anger, anticipation, disgust, fear, joy, sadness, surprise, trust). Supports `search_word`, `search_type`, `pos_filter`.
+
+### Sketch & Synonym (3 tools)
+
+Word-level profiling: synonyms, word form lookup, and comparative analysis.
+
+- **synonym_analysis**: Find synonyms for a word that actually appear in the corpus. Uses WordNet to generate candidates, then filters to attested forms. Parameters: `word`, `pos` (NOUN / VERB / ADJ / ADV). Supports network `chart_type`.
+- **sketch_difference**: Compare collocational profiles of two words (e.g., near-synonyms "big" vs. "large"). Shows shared collocates and those unique to each word, organized by grammatical relation. Parameters: `word1`, `word2`, `pos`, `min_frequency`.
+- **get_lemma_forms**: Get all inflected forms of a lemma found in the corpus (e.g., "run" → runs, running, ran). Useful before `word_sketch` or `concordance_search` to understand morphological variation.
+
+### Topic Modeling (4 tools)
+
+LDA/LSA/NMF end-to-end analysis, and BERTopic via a 2-step embedding + analysis workflow.
+
+- **topic_modeling**: Run topic modeling end-to-end. `method` parameter selects the algorithm: `"lda"` (Latent Dirichlet Allocation, probabilistic — best for large corpora), `"lsa"` (Latent Semantic Analysis, fast linear), or `"nmf"` (Non-negative Matrix Factorization, sparse/interpretable). Core parameters: `n_topics`, `language`, `n_top_words`. Each method has its own tuning parameters (lda_passes/lda_alpha, lsa_svd_algorithm, nmf_solver/nmf_init). All methods share preprocessing options: `remove_stopwords`, `lemmatize`, `pos_filter`, `min_word_length`. Supports `save_path` (CSV) and `chart_type` (bar/wordcloud) with `chart_path`. May take 30–120 seconds depending on corpus size and method.
+- **create_bertopic_embedding**: Create SBERT sentence embeddings for BERTopic analysis (Step 1 of 2). The embedding is saved and reusable across multiple `bertopic_analyze` calls. Parameters: `corpus_id`, `text_ids`, `language`, `remove_stopwords` (keep False for SBERT), `lemmatize` (keep False). **Built-in chunking**: set `chunking_enabled=True`, `chunking_max_tokens` (default 256), `chunking_overlap_tokens` to split long texts before embedding — do not implement custom chunking. ⚠ Chunking inflates document count (e.g., 20 texts × 50 chunks ≈ 1000 "docs"), which can cause near-zero topic weights for small corpora. Use `chunking_enabled=False` unless texts are very long (>2000 words). May take 1–5 minutes.
+- **list_bertopic_embeddings**: List available BERTopic embeddings. Filter by `corpus_id`. Use to find existing embeddings for reuse without re-embedding.
+- **bertopic_analyze**: Run BERTopic analysis on an existing embedding (Step 2 of 2). Uses UMAP dimensionality reduction + HDBSCAN clustering + c-TF-IDF topic representation. Key parameters: `embedding_id`, `language`, `nr_topics` (merge to N topics after clustering; None = auto), `hdbscan_min_cluster_size` (lower = more topics; use 3–5 for small corpora), `umap_n_neighbors` (lower = more local structure), `vectorizer_min_df`, `reduce_outliers`. Supports `save_path` (CSV) and `chart_type` (barchart/heatmap/hierarchy/wordcloud) with `chart_path`.
+
+### Export (1 tool)
+
+- **export_annotations**: Export annotated corpus data for archival or external analysis. Annotation types: `universal_pos`, `penn_pos`, `lemma`, `dep`, `usas`, `mipvu`. Formats: `json` (structured), `xml` (structured), `txt` (word_TAG per token, sentences separated by newlines; USAS includes top-2 candidates). Multiple texts are packaged as ZIP.
+
+### Annotation (7 tools)
+
+Read text content, create/manage annotation archives visible in Meta-Lingo's Annotation Mode. The model name is automatically stamped into each annotation's remark field.
+
+- **get_text_content**: Get the full raw text content and character count for a specific text. Returns the complete text needed to compute absolute character offsets for annotations. Always call this first; for texts >3000 chars use `get_text_segment` to read in segments.
+- **get_text_segment**: Read a character-range slice of a text for segment-by-segment annotation of long texts. Parameters: `corpus_id`, `text_id`, `char_offset` (default: 0), `char_length` (default: 2000). Returns the slice with offset guidance so you can compute absolute positions. Use together with `save_annotation(archive_id=...)` to accumulate annotations from multiple segments into a single archive.
+- **save_annotation**: Create or update an annotation archive. Required: `corpus_name`, `text_id`, `text_name`, `framework`, `framework_category`, `text` (full raw text), `annotations` (list of spans with `text`, `startPosition`, `endPosition`, `label`, `labelPath`, `color`). Optional: `coder_name`, `archive_id` (pass the ID returned from a previous save to append new spans instead of creating a new archive). Saved archives appear in Meta-Lingo's Annotation Mode > Archives.
+- **load_annotation**: Load a specific annotation archive by ID. Returns all annotation spans with labels, positions, text, and remarks.
+- **list_annotations**: List annotation archives for a specific corpus. Filter by `text_id` or `annotation_type` (text / multimodal).
+- **list_all_annotations**: List all annotation archives across all corpora.
+- **delete_annotation**: Permanently delete an annotation archive. Irreversible.
+
+### Bibliographic Visualization (8 tools)
+
+Create and manage bibliography libraries for literature visualization. Each library has a shadow corpus whose `corpus_id` can be used with analysis tools (word_frequency, concordance_search, etc.) to analyze abstracts.
+
+- **list_biblio_libraries**: List all bibliographic libraries. Returns library IDs, names, source types, entry counts, and shadow corpus IDs.
+- **create_biblio_library**: Create a new bibliographic library. Parameters: `name`, `source_type` ("WOS" for Web of Science, "CNKI" for CNKI), `language`, `description`. Creates both the library and a shadow corpus for abstract analysis.
+- **upload_biblio_file**: Upload a bibliography export file (Web of Science plain text or CNKI Refworks format) to a library. Parameters: `library_id`, `filepath` (absolute path on disk).
+- **get_biblio_library_info**: Get details of a bibliographic library including its shadow corpus ID. Use the `corpus_id` with analysis tools to study the abstracts.
+- **biblio_network**: Generate a bibliographic network visualization (co-authorship, co-institution, co-country, keyword co-occurrence, or co-citation). Parameters: `library_id`, `network_type` ("co-author" / "co-institution" / "co-country" / "keyword-cooccur" / "co-citation"), optional year/author/keyword/journal filters. Supports `chart_path` for PNG export.
+- **biblio_temporal**: Generate temporal bibliometric visualizations. Parameters: `library_id`, `viz_type` ("timeline" / "timezone" / "burst"), filters. Supports `chart_path`.
+- **biblio_cluster**: Cluster bibliographic entries by topic or keyword similarity. Supports filters and `chart_path`.
+- **biblio_wordcloud**: Generate a word cloud from bibliographic data (titles, abstracts, keywords). Supports filters and `chart_path`.
+
+### Recommended Workflow
+
+1. **Discover**: `list_corpora` → `get_corpus_info` → identify texts
+2. **Explore**: `concordance_search` → `get_extended_context` → understand usage
+3. **Quantify**: `word_frequency` / `collocation_analysis` / `word_sketch` → measure patterns
+4. **Compare**: `keyness_analysis` / `sketch_difference` → contrast corpora or words
+5. **Categorize**: `semantic_domain_analysis` / `metaphor_analysis` / `sentiment_analysis`
+6. **Model**: `topic_modeling` (LDA/LSA/NMF) or `create_bertopic_embedding` → `bertopic_analyze` (BERTopic)
+7. **Literature**: `create_biblio_library` → `upload_biblio_file` → analyze abstracts via shadow corpus or visualize with `biblio_network` / `biblio_temporal`
+8. **Annotate**: `list_annotation_frameworks` → `get_annotation_framework` → `get_text_content` → `get_text_segment` (long texts) → `save_annotation`
+9. **Export**: `export_annotations` → share results
 
 ## How It Works
 
@@ -7268,16 +7236,21 @@ The MCP server is a lightweight proxy that translates AI tool calls into Meta-Li
 
 Ask your AI assistant:
 - *"Create a corpus called ‘Political Speeches’, upload these three texts, and analyze word frequency."*
-- *"Compare the keywords in corpus A vs corpus B using log-likelihood."*
-- *"Search for concordances of ‘democracy’ in my corpus and analyze its collocations."*
-- *"What are the dominant semantic domains in this corpus?"*
-- *"Run topic modeling with 5 topics on my research corpus."*
+- *"Compare the keywords in corpus A vs the BNC written corpus using log-likelihood."*
+- *"Search for concordances of ‘democracy’ in my corpus using CQL: `[lemma=\"democracy\"]`, then analyze its collocations."*
+- *"What are the dominant semantic domains in this corpus? Drill into the top domain to see which words contribute."*
+- *"Run LDA topic modeling with 5 topics on my research corpus."*
+- *"Create BERTopic embeddings for my corpus, then analyze to discover topics automatically."*
+- *"Create a bibliography library from my Web of Science export, then analyze adjective frequency in the abstracts."*
+- *"Use the Halliday-Theme framework to annotate the first text for theme and rheme. Save the annotations so I can review them in the app."*
+- *"Find all adjective + noun patterns in the corpus, then compare the word sketches of ‘big’ and ‘large’."*
+- *"Analyze the sentiment distribution and show me which words carry the most positive emotion."*
 
 ---
 
 # Application Settings
 
-Application Settings let you personalize Meta-Lingo’s behavior and appearance. Open them from the **settings icon** in the top-right. The page includes, in order: **Interface language**, **Theme & wallpaper**, **Ollama connection**, **OpenAI-compatible API**, **USAS tagging mode**, **USAS semantic domain configuration**, **MCP Service**, **License**, and **Factory reset**.
+Application Settings let you personalize Meta-Lingo’s behavior and appearance. Open them from the **settings icon** in the top-right. The page includes, in order: **Interface language**, **Theme & wallpaper**, **Ollama connection**, **OpenAI-compatible API**, **MCP Service**, **License**, and **Factory reset**.
 
 ## Interface Language
 
@@ -7320,48 +7293,6 @@ Optional. Used for the **AI assistant** in analysis modules; you can use either 
   - **Model name**: Model to call (e.g. `gpt-4o-mini`).
 - Use “Test connection” to verify the configuration.
 - Use this when calling OpenAI, an OpenAI-compatible service, or a local proxy.
-
-## USAS Tagging Mode
-
-Choose how USAS semantic domain tagging runs: **Rule-based**, **Neural**, or **Hybrid**. The UI shows whether each mode is available in your environment (depends on backend and models).
-
-### Rule-based Mode
-
-- Dictionary- and rule-based tagging; supports multi-word expressions (MWE) and uses discourse domain and one-sense-per-discourse disambiguation.
-- **Pros**: Fast, interpretable; good for general use.
-
-### Neural Mode
-
-- Uses a pre-trained semantic tagging model and context.
-- **Pros**: Strong contextual understanding; good when semantic accuracy matters more.
-
-### Hybrid Mode
-
-- Applies rules first, then uses the neural model for uncertain cases.
-- **Pros**: Balances speed and accuracy.
-
-### Enable Disambiguation
-
-The "Enable Disambiguation" toggle controls whether custom disambiguation strategies (text type priority, discourse domain recognition, one-sense-per-discourse) are applied.
-
-- **Off (default)**: No disambiguation is performed; all candidate tags are preserved. Each tag is counted in statistics and searchable via CQL.
-  - Rule-based mode: All candidate tags are kept; each tag participates in semantic domain statistics and CQL searches.
-  - Neural mode: Uses top_n=5 to output 5 candidate tags.
-  - Hybrid mode: Uses rule-based mode keeping all candidate tags; for Z99 words, uses neural top_n=5.
-  - Multi-word expression (MWE) identification is unaffected; the MWE suffix is still applied.
-- **On**: Full disambiguation pipeline runs, selecting a single tag per token.
-  - Disambiguation strategies execute in priority order: text type priority → discourse domain recognition → one-sense-per-discourse.
-
-> **Note**: After changing the disambiguation setting, you need to re-upload or re-annotate corpora for the new setting to take effect. Existing annotations are not automatically updated.
-
-## USAS Semantic Domain Configuration
-
-Set **priority semantic domains** per **text type** for USAS disambiguation. The text type chosen when uploading a corpus or running annotation determines which priorities are used.
-
-- **Status**: The page shows whether English and Chinese semantic resources are available.
-- **Preset text types**: Built-in types (e.g. GEN for general text) are listed in a collapsible section; click “Edit” to change priority domains for a type.
-- **Custom text types**: If present, they appear in another collapsible section; you can edit their priority domains and delete custom types.
-- In the edit dialog you select one or more semantic domains; save to apply.
 
 ## License
 

@@ -305,7 +305,8 @@ class BERTopicService:
         config: Dict[str, Any],
         timestamps: Optional[List[int]] = None,
         dynamic_config: Optional[Dict[str, Any]] = None,
-        language: str = 'english'
+        language: str = 'english',
+        nr_topics: Optional[int] = None,
     ) -> Dict[str, Any]:
         """
         Perform BERTopic analysis
@@ -332,12 +333,25 @@ class BERTopicService:
         """
         from bertopic import BERTopic
         
-        logger.info(f"Starting BERTopic analysis on {len(documents)} documents (language: {language})")
+        n_docs = len(documents)
+        logger.info(f"Starting BERTopic analysis on {n_docs} documents (language: {language})")
         start_time = time.time()
-        
+
         # Extract config
         dim_config = config.get('dim_reduction', {'method': 'UMAP', 'params': {}})
         cluster_config = config.get('clustering', {'method': 'HDBSCAN', 'params': {}})
+
+        # Auto-adjust UMAP params: n_neighbors and n_components must be < n_docs
+        if dim_config.get('method', 'UMAP') == 'UMAP':
+            umap_p = dim_config.setdefault('params', {})
+            if umap_p.get('n_neighbors', 15) >= n_docs:
+                adjusted = max(2, n_docs - 1)
+                logger.warning(f"Auto-adjusting umap_n_neighbors {umap_p.get('n_neighbors', 15)} → {adjusted} (n_docs={n_docs})")
+                umap_p['n_neighbors'] = adjusted
+            if umap_p.get('n_components', 5) >= n_docs:
+                adjusted = max(2, n_docs - 1)
+                logger.warning(f"Auto-adjusting umap_n_components {umap_p.get('n_components', 5)} → {adjusted} (n_docs={n_docs})")
+                umap_p['n_components'] = adjusted
         vec_config = config.get('vectorizer', {'type': 'CountVectorizer', 'params': {}})
         repr_config = config.get('representation_model', {})
         outlier_config = config.get('reduce_outliers', {'enabled': False})
@@ -422,7 +436,16 @@ class BERTopicService:
             
             new_outliers = sum(1 for t in topics if t == -1)
             logger.info(f"Outliers reduced from {original_outliers} to {new_outliers}")
-        
+
+        # Merge topics down to nr_topics if requested
+        if nr_topics is not None and nr_topics > 0:
+            current_n = len([t for t in topic_info['Topic'].tolist() if t != -1])
+            if current_n > nr_topics:
+                logger.info(f"Reducing {current_n} topics → {nr_topics} via reduce_topics()")
+                topic_model.reduce_topics(documents, nr_topics=nr_topics)
+                topics = topic_model.topics_
+                topic_info = topic_model.get_topic_info()
+
         # Dynamic topic analysis (topics over time)
         topics_over_time_data = None
         if timestamps is not None and len(timestamps) == len(documents):

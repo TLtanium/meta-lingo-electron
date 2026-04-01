@@ -103,7 +103,7 @@ export type MetaphorSource =
   | 'rule'        // Rule-based filter
   | 'clause'      // Clause model – non-function words (green in UI)
   | 'finetuned'   // Clause model – function words IN/DT/RB/RP (orange in UI)
-  | 'hitz'        // Legacy: HiTZ model (backward compat with existing annotations)
+  | 'hitz'        // Legacy: old annotations before Clause model (backward compat)
   | 'unknown';    // Unknown source
 
 export interface MetaphorSourceInfo {
@@ -255,7 +255,7 @@ export const METAPHOR_SOURCE_COLORS: Record<MetaphorSource, string> = {
   rule: '#2196F3',        // Blue
   clause: '#4CAF50',      // Green – Clause model, non-function words
   finetuned: '#FF9800',   // Orange – Clause model, function words (IN/DT/RB/RP)
-  hitz: '#4CAF50',        // Green – legacy HiTZ annotations (same as clause)
+  hitz: '#4CAF50',        // Green – legacy annotations (same as clause)
   unknown: '#607D8B',     // Blue Gray
 };
 

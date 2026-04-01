@@ -24,7 +24,7 @@ class MetaphorAnalysisService:
     
     Provides:
     - Frequency analysis of metaphor/literal words
-    - Grouping by source (filter, rule, hitz, finetuned)
+    - Grouping by source (filter, rule, clause, finetuned)
     - POS filtering
     - Search filtering
     """
@@ -36,7 +36,7 @@ class MetaphorAnalysisService:
         'clause': {'en': 'indirect', 'zh': '间接隐喻'},
         # Clause model – function words IN/DT/RB/RP (orange in UI)
         'finetuned': {'en': 'indirect', 'zh': '间接隐喻'},
-        # Legacy: HiTZ model results in existing annotations (treated same as clause)
+        # Legacy: old annotations before Clause model rename (treated same as clause)
         'hitz': {'en': 'indirect', 'zh': '间接隐喻'},
         'unknown': {'en': 'Unknown', 'zh': '未知'},
     }

@@ -440,6 +440,18 @@ async def save_annotation(data: SaveAnnotationRequest):
     if data.archiveId:
         existing_archive = load_archive(data.corpusName, data.archiveId)
     
+    # Merge annotations: if updating an existing archive, APPEND new spans
+    new_annotations = [ann.model_dump() for ann in data.annotations]
+    if existing_archive and data.archiveId:
+        merged_annotations = existing_archive.get('annotations', []) + new_annotations
+    else:
+        merged_annotations = new_annotations
+
+    # Preserve existing full text if this is an append call with no new text supplied
+    resolved_text = data.text
+    if existing_archive and data.archiveId and not data.text:
+        resolved_text = existing_archive.get('text', '')
+
     # Build archive data
     archive = {
         'id': archive_id,
@@ -447,8 +459,8 @@ async def save_annotation(data: SaveAnnotationRequest):
         'framework': data.framework,
         'frameworkCategory': data.frameworkCategory,
         'corpusName': data.corpusName,
-        'text': data.text,
-        'annotations': [ann.model_dump() for ann in data.annotations],
+        'text': resolved_text,
+        'annotations': merged_annotations,
         'timestamp': timestamp,
         'annotator': 'current_user'
     }

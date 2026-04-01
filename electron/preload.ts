@@ -35,6 +35,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Platform info
   platform: process.platform,
 
+  // Window controls overlay styling (Windows)
+  setTitleBarOverlay: (options: { color?: string; symbolColor?: string; height?: number }) =>
+    ipcRenderer.invoke('set-title-bar-overlay', options),
+
   // Fullscreen state
   isFullscreen: () => ipcRenderer.invoke('is-fullscreen'),
   onFullscreenChange: (callback: (isFullscreen: boolean) => void) => {
@@ -76,6 +80,8 @@ export interface ElectronAPI {
   platform: NodeJS.Platform
   isFullscreen: () => Promise<boolean>
   onFullscreenChange: (callback: (isFullscreen: boolean) => void) => () => void
+  /** Windows: update Window Controls Overlay styling to match header theme */
+  setTitleBarOverlay: (options: { color?: string; symbolColor?: string; height?: number }) => Promise<void>
   // 启动状态相关
   getStartupStatus: () => Promise<StartupStatus>
   retryBackend: () => Promise<boolean>

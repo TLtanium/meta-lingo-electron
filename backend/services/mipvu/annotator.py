@@ -35,7 +35,6 @@ class MIPVUAnnotator:
     def __init__(
         self,
         filter_path: Optional[str] = None,
-        hitz_model_path: Optional[str] = None,   # ignored (HiTZ removed)
         finetuned_model_path: Optional[str] = None,
         device: Optional[str] = None
     ):
@@ -44,14 +43,12 @@ class MIPVUAnnotator:
 
         Args:
             filter_path: Path to metaphor_filter.json
-            hitz_model_path: Ignored. Kept for backward-compatible call sites.
             finetuned_model_path: Path to clause-level metaphor model
             device: Device for model inference
         """
         self.filter = MetaphorFilter(filter_path)
         self.rules = SpaCyRuleFilter()
         self.models = MetaphorModelLoader(
-            hitz_model_path=hitz_model_path,
             finetuned_model_path=finetuned_model_path,
             device=device
         )

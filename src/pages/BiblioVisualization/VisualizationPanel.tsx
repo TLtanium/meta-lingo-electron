@@ -34,8 +34,6 @@ import SaveAltIcon from '@mui/icons-material/SaveAlt'
 import ImageIcon from '@mui/icons-material/Image'
 import AccountTreeIcon from '@mui/icons-material/AccountTree'
 import TimelineIcon from '@mui/icons-material/Timeline'
-import MapIcon from '@mui/icons-material/Map'
-import TerrainIcon from '@mui/icons-material/Terrain'
 import GradientIcon from '@mui/icons-material/Gradient'
 import { useTranslation } from 'react-i18next'
 import { NumberInput } from '../../components/common'
@@ -47,8 +45,6 @@ import type {
   TimelineVisualizationData,
   TimezoneVisualizationData,
   BurstDetectionData,
-  LandscapeVisualizationData,
-  DualMapVisualizationData,
   HeatmapVisualizationData,
   WordCloudVisualizationData
 } from '../../types/biblio'
@@ -60,9 +56,7 @@ import BurstChart from './components/d3/BurstChart'
 import WordCloud from './components/d3/WordCloud'
 import ClusterView from './components/d3/ClusterView'
 import TimelineView from './components/d3/TimelineView'
-import BipartiteChordDiagram from './components/d3/BipartiteChordDiagram'
 import HeatmapView from './components/d3/HeatmapView'
-import RidgelinePlot from './components/d3/RidgelinePlot'
 
 type VisualizationType =
   | 'co-author'
@@ -74,11 +68,9 @@ type VisualizationType =
   | 'wordcloud'
   | 'cluster'
   | 'timeline'
-  | 'citation-chord'
-  | 'landscape'
   | 'heatmap'
 
-type ChartCategory = 'network' | 'timezone' | 'burst' | 'wordcloud' | 'cluster' | 'timeline' | 'citation-chord' | 'landscape' | 'heatmap'
+type ChartCategory = 'network' | 'timezone' | 'burst' | 'wordcloud' | 'cluster' | 'timeline' | 'heatmap'
 
 interface VisualizationPanelProps {
   library: BiblioLibrary
@@ -134,8 +126,7 @@ export default function VisualizationPanel({ library }: VisualizationPanelProps)
   const [heatmapColorScheme, setHeatmapColorScheme] = useState('turbo')
   const [clusterShowHulls, setClusterShowHulls] = useState(true)
   const [clusterHullThreshold, setClusterHullThreshold] = useState(2)
-  const [chordArcAngle, setChordArcAngle] = useState(90)
-  const [xAxisScale, setXAxisScale] = useState(1)
+  const [xAxisScale, setXAxisScale] = useState(2)
   const [weightPrecision, setWeightPrecision] = useState(4)
 
   // Loading and error states
@@ -149,8 +140,6 @@ export default function VisualizationPanel({ library }: VisualizationPanelProps)
   const [wordCloudData, setWordCloudData] = useState<WordCloudVisualizationData | null>(null)
   const [clusterData, setClusterData] = useState<ClusterVisualizationData | null>(null)
   const [timelineData, setTimelineData] = useState<TimelineVisualizationData | null>(null)
-  const [landscapeData, setLandscapeData] = useState<LandscapeVisualizationData | null>(null)
-  const [dualMapData, setDualMapData] = useState<DualMapVisualizationData | null>(null)
   const [heatmapData, setHeatmapData] = useState<HeatmapVisualizationData | null>(null)
   
   // Get current visualization type
@@ -271,26 +260,6 @@ export default function VisualizationPanel({ library }: VisualizationPanelProps)
           })
           if (response.success && response.data) {
             setTimelineData(response.data)
-          }
-          break
-
-        case 'landscape':
-          response = await biblioApi.getLandscapeView({
-            library_id: library.id,
-            filters
-          })
-          if (response.success && response.data) {
-            setLandscapeData(response.data)
-          }
-          break
-
-        case 'citation-chord':
-          response = await biblioApi.getDualMapOverlay({
-            library_id: library.id,
-            filters
-          })
-          if (response.success && response.data) {
-            setDualMapData(response.data)
           }
           break
 
@@ -521,8 +490,6 @@ export default function VisualizationPanel({ library }: VisualizationPanelProps)
         case 'wordcloud': return (wordCloudData?.words?.length ?? 0) > 0
         case 'cluster': return clusterData && clusterData.nodes.length > 0
         case 'timeline': return timelineData && timelineData.nodes.length > 0
-        case 'landscape': return landscapeData && landscapeData.points.length > 0
-        case 'citation-chord': return dualMapData && (dualMapData.citing_nodes.length > 0 || dualMapData.cited_nodes.length > 0)
         case 'heatmap': return heatmapData && heatmapData.points.length > 0
         default: return false
       }
@@ -610,20 +577,6 @@ export default function VisualizationPanel({ library }: VisualizationPanelProps)
           </Box>
         )
 
-      case 'landscape':
-        return (
-          <Box sx={{ height: '100%', display: 'flex' }}>
-            <RidgelinePlot data={landscapeData} colorScheme={colorScheme} xAxisScale={xAxisScale} />
-          </Box>
-        )
-
-      case 'citation-chord':
-        return (
-          <Box sx={{ height: '100%', display: 'flex' }}>
-            <BipartiteChordDiagram data={dualMapData} colorScheme={colorScheme} arcAngle={chordArcAngle} />
-          </Box>
-        )
-
       case 'heatmap':
         return (
           <Box sx={{ height: '100%', display: 'flex' }}>
@@ -651,8 +604,6 @@ export default function VisualizationPanel({ library }: VisualizationPanelProps)
           <Tab value="timeline" icon={<TimelineIcon />} label={t('biblio.vizType.timeline')} iconPosition="start" />
           <Tab value="timezone" icon={<ViewTimelineIcon />} label={t('biblio.vizType.timezone')} iconPosition="start" />
           <Tab value="burst" icon={<TrendingUpIcon />} label={t('biblio.vizType.burst')} iconPosition="start" />
-          <Tab value="citation-chord" icon={<MapIcon />} label={t('biblio.vizType.citation-chord')} iconPosition="start" />
-          <Tab value="landscape" icon={<TerrainIcon />} label={t('biblio.vizType.ridgeline')} iconPosition="start" />
           <Tab value="heatmap" icon={<GradientIcon />} label={t('biblio.vizType.heatmap')} iconPosition="start" />
           <Tab value="wordcloud" icon={<CloudIcon />} label={t('biblio.vizType.wordcloud')} iconPosition="start" />
         </Tabs>
@@ -842,24 +793,8 @@ export default function VisualizationPanel({ library }: VisualizationPanelProps)
             </>
           )}
 
-          {/* Citation Chord Settings */}
-          {chartCategory === 'citation-chord' && (
-            <NumberInput
-              label={t('biblio.arcAngle')}
-              size="small"
-              value={chordArcAngle}
-              onChange={setChordArcAngle}
-              min={30}
-              max={90}
-              step={5}
-              integer
-              defaultValue={90}
-              sx={{ width: 140 }}
-            />
-          )}
-
-          {/* X-axis Scale: for timeline and ridgeline */}
-          {(chartCategory === 'timeline' || chartCategory === 'landscape') && (
+          {/* X-axis Scale: for timeline */}
+          {chartCategory === 'timeline' && (
             <NumberInput
               label={t('biblio.xAxisScale')}
               size="small"
@@ -905,8 +840,8 @@ export default function VisualizationPanel({ library }: VisualizationPanelProps)
             />
           )}
           
-          {/* Color Scheme: hidden for heatmap (has own selector) and burst (uses own fixed config) */}
-          {chartCategory !== 'heatmap' && chartCategory !== 'burst' && <FormControl size="small" sx={{ minWidth: 150 }}>
+          {/* Color Scheme: hidden for heatmap (has own selector) */}
+          {chartCategory !== 'heatmap' && <FormControl size="small" sx={{ minWidth: 150 }}>
             <InputLabel>{t('wordFrequency.viz.colorScheme')}</InputLabel>
             <Select
               value={chartCategory === 'wordcloud' ? wordCloudColormap : colorScheme}

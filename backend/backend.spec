@@ -64,6 +64,15 @@ hiddenimports = [
     'spacy',
     'spacy.lang.en',
     'spacy.lang.zh',
+    'spacy.lang.da',
+    'spacy.lang.nl',
+    'spacy.lang.fi',
+    'spacy.lang.fr',
+    'spacy.lang.it',
+    'spacy.lang.pt',
+    'spacy.lang.ru',
+    'spacy.lang.es',
+    'spacy.lang.sv',
     
     # Keyword Extraction
     'yake',
@@ -75,6 +84,15 @@ hiddenimports = [
     # SpaCy 模型
     'en_core_web_lg',
     'zh_core_web_lg',
+    'da_core_news_sm',
+    'nl_core_news_sm',
+    'fi_core_news_sm',
+    'fr_core_news_sm',
+    'it_core_news_sm',
+    'pt_core_news_sm',
+    'ru_core_news_sm',
+    'es_core_news_sm',
+    'sv_core_news_sm',
     
     # PyMUSAS (USAS Semantic Tagging)
     'pymusas',
@@ -85,6 +103,24 @@ hiddenimports = [
     # PyMUSAS 模型 (规则)
     'en_dual_none_contextual',
     'cmn_dual_upos2usas_contextual',
+    # 以下规则模型如已安装则打包，未安装时 PyInstaller 会打印 Warning 但不影响构建
+    'fr_dual_upos2usas_contextual',
+    'es_dual_upos2usas_contextual',
+    'it_dual_upos2usas_contextual',
+    'pt_dual_upos2usas_contextual',
+    'nl_dual_upos2usas_contextual',
+    'ru_dual_upos2usas_contextual',
+    'sv_dual_upos2usas_contextual',
+    'da_dual_upos2usas_contextual',
+    'fi_dual_upos2usas_contextual',
+
+    # pymorphy3 (俄语形态分析，ru_core_news_sm 依赖)
+    'pymorphy3',
+    'pymorphy3.analyzer',
+    'pymorphy3.tagset',
+    'pymorphy3_dicts_ru',
+    'dawg2',
+    'dawg2_python',
     
     # PyMUSAS Neural (神经网络)
     'wsd_torch_models',
@@ -193,7 +229,28 @@ try:
 except Exception as e:
     print(f"Warning: Could not collect zh_core_web_lg: {e}")
 
-# PyMUSAS 模型
+# SpaCy 模型 — 新增 9 种语言 sm 模型
+_new_spacy_sm_models = [
+    'da_core_news_sm',
+    'nl_core_news_sm',
+    'fi_core_news_sm',
+    'fr_core_news_sm',
+    'it_core_news_sm',
+    'pt_core_news_sm',
+    'ru_core_news_sm',
+    'es_core_news_sm',
+    'sv_core_news_sm',
+]
+for _model in _new_spacy_sm_models:
+    try:
+        _model_datas = collect_all(_model)[0]
+        _model_datas = [d for d in _model_datas if not os.path.basename(d[0]).startswith('._')]
+        datas += _model_datas
+        print(f"Info: Collected {_model} data files")
+    except Exception as e:
+        print(f"Warning: Could not collect {_model}: {e}")
+
+# PyMUSAS 模型 (规则)
 try:
     pymusas_en_datas = collect_all('en_dual_none_contextual')[0]
     # 过滤掉 macOS 资源叉文件
@@ -209,6 +266,27 @@ try:
     datas += pymusas_zh_datas
 except Exception as e:
     print(f"Warning: Could not collect cmn_dual_upos2usas_contextual: {e}")
+
+# PyMUSAS 规则模型 — 新增 9 种语言（若已安装则打包，未安装跳过）
+_new_pymusas_models = [
+    'fr_dual_upos2usas_contextual',
+    'es_dual_upos2usas_contextual',
+    'it_dual_upos2usas_contextual',
+    'pt_dual_upos2usas_contextual',
+    'nl_dual_upos2usas_contextual',
+    'ru_dual_upos2usas_contextual',
+    'sv_dual_upos2usas_contextual',
+    'da_dual_upos2usas_contextual',
+    'fi_dual_upos2usas_contextual',
+]
+for _pm in _new_pymusas_models:
+    try:
+        _pm_datas = collect_all(_pm)[0]
+        _pm_datas = [d for d in _pm_datas if not os.path.basename(d[0]).startswith('._')]
+        datas += _pm_datas
+        print(f"Info: Collected PyMUSAS model {_pm}")
+    except Exception as e:
+        print(f"Info: PyMUSAS model {_pm} not installed, skipping ({e})")
 
 # PyMuPDF (biblio: PDF thumbnail + text extraction)
 try:
