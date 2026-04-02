@@ -332,14 +332,22 @@ export interface CorpusResourceSearchRequest {
   lang?: 'en' | 'zh'
 }
 
+const CORPUS_RESOURCE_REFRESH_TIMEOUT = 300000
+
 export const corpusResourceApi = {
   // List all corpus resources
-  list: (lang: 'en' | 'zh' = 'en') =>
-    api.get<CorpusResourceListResponse>(`/api/corpus-resource/list?lang=${lang}`),
+  list: (lang: 'en' | 'zh' = 'en', refresh: boolean = false) =>
+    api.get<CorpusResourceListResponse>(
+      `/api/corpus-resource/list?lang=${lang}&refresh=${refresh ? '1' : '0'}`,
+      { timeout: refresh ? CORPUS_RESOURCE_REFRESH_TIMEOUT : undefined }
+    ),
 
   // Get all available tags
-  getTags: () =>
-    api.get<TagsListResponse>('/api/corpus-resource/tags'),
+  getTags: (refresh: boolean = false) =>
+    api.get<TagsListResponse>(
+      `/api/corpus-resource/tags?refresh=${refresh ? '1' : '0'}`,
+      { timeout: refresh ? CORPUS_RESOURCE_REFRESH_TIMEOUT : undefined }
+    ),
 
   // Get single corpus resource details
   get: (resourceId: string, lang: 'en' | 'zh' = 'en') =>

@@ -1315,11 +1315,19 @@ The system includes multiple pre-processed corpus resources. BNC is split into *
 | Brown | Brown Corpus | news, fiction, academic, etc. |
 | AmE06 | American English 2006 (AmE06) balanced corpus | written American English, press, magazines, fiction, etc. |
 | BE06 | British English 2006 (BE06) balanced corpus | written British English, press, magazines, fiction, etc. |
-| NOW | News on the Web | news (by country) |
+| NOW | News on the Web (2010-2024; ~24.2B words/41,104,404 texts) | news (by country) |
 | OANC | Open American National Corpus | various text genres |
-| COCA | Corpus of Contemporary American English | spoken, fiction, magazine, news, academic |
-| COHA | Corpus of Historical American English | historical American English by period |
-| GloWbE | Global Web-based English | English by country/region |
+| COCA | Corpus of Contemporary American English (1990-2019; ~1B words/485,000 texts) | spoken, fiction, magazine, news, academic |
+| COHA | Corpus of Historical American English (1810-2009; ~400M words/107,000 texts) | historical American English by period |
+| GloWbE | Global Web-based English (~2013; ~1.9B words/1.8M texts) | English by country/region |
+| Coronavirus | Coronavirus Corpus (Jan 2020 - Dec 2022; ~1.5B words/1.9M texts) | COVID-19 (by country) |
+| iWeb | The Intelligent Web Corpus (14B words/22M pages/~100,000 websites) | web / tech |
+| TV | TV Corpus (1950-2018; 325M words/75,000 episodes) | TV / spoken |
+| Movies | Movies Corpus (1930-2018; 200M words/25,000 movies) | film / spoken |
+| SOAP | SOAP Corpus (2000-2012; ~100M words) | soap opera |
+| Wikipedia | Wikipedia Corpus (1.9B words/4.4M texts) | topics / academic |
+
+About corpus sources: except `NOW`, `Brown`, `AmE06 / BE06`, `OANC`, and `BNC`, the other built-in reference corpus resources (e.g. `COCA / COHA / GloWbE / Coronavirus / iWeb / TV / Movies / SOAP / Wikipedia`) are based on sample full-text data provided by English-Corpora.org / CorpusData; sample dataset details are described on [CorpusData formats](https://www.corpusdata.org/formats.asp).
 
 **Note:** BNC 2014 contains spoken data only.
 

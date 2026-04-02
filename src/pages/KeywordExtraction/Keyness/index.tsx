@@ -195,9 +195,9 @@ export default function KeynessTab({ crossLinkParams }: KeynessTabProps = {}) {
     try {
       const lang = (i18n.language === 'zh' ? 'zh' : 'en') as 'en' | 'zh'
 
-      // Try preferred default: OANC total, if available
+      // Try preferred default: AmE06 total, if available
       try {
-        const response = await corpusResourceApi.get('oanc_total', lang)
+        const response = await corpusResourceApi.get('ame06_total', lang)
         if (response.success && response.data && response.data.success && response.data.data) {
           setSelectedResource(response.data.data)
           return

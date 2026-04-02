@@ -17,7 +17,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-v3.9.56-blue.svg" alt="Version">
+  <img src="https://img.shields.io/badge/version-v4.7.8-blue.svg" alt="Version">
   <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Windows-lightgrey.svg" alt="Platform">
   <img src="https://img.shields.io/badge/license-Non--Commercial-green.svg" alt="License">
 </p>
@@ -61,6 +61,7 @@
 | **Collocation** | KWIC search with 6 modes, CQL query language, CQL Builder |
 | **Synonym Analysis** | WordNet integration with network visualization |
 | **Semantic Domain** | USAS-based analysis with dual view (by domain/by word) |
+| **Sentiment Analysis** | NRC-EmoLex polarity + emotion dimension analysis (pie/radar) |
 | **Metaphor Analysis** | MIPVU-based detection; 3-step pipeline (word filter → rules → Clause model); source color-coding by POS |
 | **Word Sketch** | Grammar pattern analysis (50 relations), logDice scoring, difference comparison |
 | **Topic Modeling** | BERTopic, LDA, LSA, NMF with dynamic topic analysis |
@@ -79,6 +80,9 @@
 - **Bilingual Interface**: Chinese and English with real-time switching
 - **Custom Wallpaper**: Personalized application background
 - **Export Options**: CSV, PNG, SVG for all visualizations
+- **AI Assistant (optional)**: context-aware assistant for analysis modules (Ollama or OpenAI-compatible API)
+- **MCP Server Integration (optional)**: enable an MCP server so external AI assistants (e.g., Claude Desktop/Cursor) can call Meta-Lingo tools directly
+- **OpenAI-Compatible API Support (optional)**: configure compatible endpoints/keys for AI-assisted features and better model naming
 
 ## System Architecture
 
@@ -184,6 +188,17 @@ This project is currently maintained for academic research purposes. For bug rep
 
 ## Changelog
 
+### v4.7.8 (2026-04-02)
+- **Corpus Resource Popup — refresh robustness**: fixed frontend parsing when `api.get()` is wrapped as `{ success, data }`, and increased axios timeout for `refresh=1` to avoid refresh failures when rebuild takes over ~60 seconds.
+- **Corpus Resource Popup — refresh fix**: corrected the frontend parsing logic for `/api/corpus-resource/list` and `/tags` so the resource list reliably reloads after clicking “Refresh”.
+- **Keyness — default reference corpus**: switched the default reference corpus from `OANC` to `AmE06` (full corpus: `ame06_total`).
+- **Corpus Resource Cache — restart optimization**: added persistent cache for `corpus_resource_service`; rebuilding is triggered only when “Refresh” is clicked, avoiding expensive CSV scanning and aggregation after restart.
+- **Corpus Resource Popup — dialog cache**: added a “Refresh” button; when not clicked, the dialog uses local cached data to avoid reinitializing/rebuilding the resource list every time the app opens.
+- **Keyness — NOW resource card info**: expanded the `NOW` (News on the Web) country-based breakdown time range to `2010–2024`, and completed sample information in the Help examples covering `COCA/COHA/GloWbE/Coronavirus/iWeb/TV/Movies/SOAP/Wikipedia`.
+- **Corpus Resource Intro — NOW update**: updated the `NOW` resource description to `2010–2024` while keeping the resource name and tags unchanged.
+- **Corpus Resource Color Mapping**: assigned an independent color to each corpus prefix in the “reference corpora resource library” to prevent color collisions.
+- **Corpus Resource Color Mapping**: fixed color similarity between `TV` / `SOAP` and `Brown` so each resource is visually distinguishable.
+
 ### v3.9.56 (2026-03-07)
 - **Metaphor Analysis — Clause-only pipeline**: Removed HiTZ model entirely. All tokens now annotated by a single `deberta-v3-large-clause-metaphor` model using full-sentence context (max_length=192). 3-step pipeline: word-form filter → SpaCy rule filter → Clause model. Function words (IN/DT/RB/RP) keep orange tag (`finetuned`); other words use green tag (`clause`). Legacy `hitz` source in existing annotations treated as `clause` (green). Help docs updated with Clause model accuracy (Precision 78.08%, Recall 73.69%, F1 75.83; DT F1 90.87, IN F1 87.87).
 
@@ -226,7 +241,7 @@ This project is currently maintained for academic research purposes. For bug rep
 ### v3.8.86–v3.8.95 (2026-01-18–28)
 - LLM topic naming (Ollama). USAS annotation modes (rule / neural / hybrid). Stopword removal (20+ languages). Custom wallpaper. Keyword extraction enhancements. Theme/Rheme auto-annotation. Dark theme for all topic modeling visualizations.
 
-For the full version history, see [PROJECT.md](PROJECT.md) or the Git commit log.
+For the full version history, see the Git commit log.
 
 ## License
 

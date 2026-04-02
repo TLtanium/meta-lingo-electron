@@ -6,6 +6,7 @@ Provides access to pre-built corpus frequency CSV files for reference corpus com
 import os
 import re
 import csv
+import json
 import logging
 from typing import List, Dict, Any, Optional, Set, Tuple
 from pathlib import Path
@@ -54,9 +55,72 @@ def normalize_usas_domain_to_base(tag: str) -> str:
 
 class CorpusResourceService:
     """Service for managing and accessing corpus resource CSV files"""
+
+    # Persistent cache to avoid re-scanning + re-summing CSV files on every app restart.
+    _PERSISTENT_CACHE_FILENAME = "corpus_resource_service.cache.json"
+
+    def _get_persistent_cache_path(self) -> Path:
+        # Keep cache under saves/ so it survives app restarts in both dev and packaged modes.
+        # (saves/corpus/ is git-ignored; saves/.cache is not.)
+        cache_dir = get_saves_dir() / ".cache"
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        return cache_dir / self._PERSISTENT_CACHE_FILENAME
+
+    @staticmethod
+    def _key_to_json_compatible(key: Optional[Tuple[Tuple[str, float], ...]]) -> Optional[List[List[Any]]]:
+        if key is None:
+            return None
+        return [[path, mtime] for (path, mtime) in key]
+
+    def _try_load_persistent_resources(
+        self,
+        current_key: Optional[Tuple[Tuple[str, float], ...]]
+    ) -> Optional[List[Dict[str, Any]]]:
+        """Return cached resources when CSV mtimes match."""
+        if current_key is None:
+            return None
+
+        cache_path = self._get_persistent_cache_path()
+        if not cache_path.exists():
+            return None
+
+        try:
+            with open(cache_path, "r", encoding="utf-8") as f:
+                payload = json.load(f)
+            saved_key = payload.get("key")
+            # Compare normalized key shapes to avoid tuple/list mismatch
+            if saved_key != self._key_to_json_compatible(current_key):
+                return None
+            resources = payload.get("resources")
+            if isinstance(resources, list) and resources:
+                return resources
+        except Exception as e:
+            logger.warning(f"Persistent corpus resource cache load failed: {e}")
+            return None
+
+        return None
+
+    def _write_persistent_resources(
+        self,
+        current_key: Optional[Tuple[Tuple[str, float], ...]],
+        resources: List[Dict[str, Any]]
+    ):
+        if current_key is None:
+            return
+        cache_path = self._get_persistent_cache_path()
+        try:
+            payload = {
+                "key": self._key_to_json_compatible(current_key),
+                "resources": resources
+            }
+            with open(cache_path, "w", encoding="utf-8") as f:
+                json.dump(payload, f, ensure_ascii=False)
+        except Exception as e:
+            logger.warning(f"Persistent corpus resource cache write failed: {e}")
     
     # Name mapping: corpus prefix -> display name template
     CORPUS_PREFIX_NAMES = {
+        'bnc': 'BNC 1994',
         'bnc1994': 'BNC 1994',
         'bnc2014': 'BNC 2014',
         'brown': 'Brown',
@@ -77,8 +141,9 @@ class CorpusResourceService:
     
     # Display name mappings (Chinese)
     CORPUS_PREFIX_NAMES_ZH = {
+        'bnc': '英国国家语料库 1994 版',
         'bnc1994': 'BNC 1994',
-        'bnc2014': 'BNC 2014',
+        'bnc2014': '英国国家语料库 2014 版',
         'brown': 'Brown',
         'ame06': 'AmE06',
         'be06': 'BE06',
@@ -435,6 +500,7 @@ class CorpusResourceService:
         """
         # Corpus full names
         corpus_names_en = {
+            'bnc': 'British National Corpus 1994 (BNC 1994)',
             'bnc1994': 'British National Corpus 1994 (BNC 1994)',
             'bnc2014': 'British National Corpus 2014 (BNC 2014)',
             'brown': 'Brown Corpus',
@@ -453,6 +519,7 @@ class CorpusResourceService:
             'wikipedia': 'Wikipedia Corpus',
         }
         corpus_names_zh = {
+            'bnc': '英国国家语料库 1994 (BNC 1994)',
             'bnc1994': '英国国家语料库 1994 (BNC 1994)',
             'bnc2014': '英国国家语料库 2014 (BNC 2014)',
             'brown': 'Brown 语料库',
@@ -493,9 +560,9 @@ class CorpusResourceService:
             country_names = self.NOW_COUNTRIES_ZH if lang == 'zh' else self.NOW_COUNTRIES
             country = country_names.get(category, category)
             if lang == 'zh':
-                return f"来自{country}的网络新闻词频数据，{word_count_str} 词条"
+                return f"来自{country}的网络新闻词频数据（2010-2024），{word_count_str} 词条"
             else:
-                return f"News frequency data from {country}, {word_count_str} words"
+                return f"News frequency data from {country} (2010-2024), {word_count_str} words"
         
         # GloWbE country/region (localized)
         if prefix == 'glowbe' and category != 'total':
@@ -530,14 +597,31 @@ class CorpusResourceService:
             return None
         return tuple(key_parts) if key_parts else None
 
-    def list_resources(self, lang: str = 'en') -> List[Dict[str, Any]]:
+    def list_resources(self, lang: str = 'en', refresh: bool = False) -> List[Dict[str, Any]]:
         """
         List all available corpus resources.
         Results are cached by CSV set and mtimes so we don't re-sum every CSV on each request.
         """
         current_key = self._list_resources_cache_key_current()
         if (
-            self._list_resources_cache is not None
+            not refresh
+            and self._list_resources_cache is not None
+            and self._list_resources_cache_key is not None
+            and current_key == self._list_resources_cache_key
+        ):
+            return self._list_resources_cache
+
+        # Try persistent cache (survives app restarts)
+        if not refresh:
+            persisted = self._try_load_persistent_resources(current_key)
+            if persisted is not None:
+                self._list_resources_cache = persisted
+                self._list_resources_cache_key = current_key
+                return persisted
+
+        if (
+            not refresh
+            and self._list_resources_cache is not None
             and self._list_resources_cache_key is not None
             and current_key == self._list_resources_cache_key
         ):
@@ -605,6 +689,10 @@ class CorpusResourceService:
         
         self._list_resources_cache = resources
         self._list_resources_cache_key = current_key
+
+        # Best-effort persistent cache write.
+        # This is the main optimization to avoid slow first-load after app restart.
+        self._write_persistent_resources(current_key, resources)
         return resources
     
     def get_resource(self, resource_id: str, lang: str = 'en') -> Optional[Dict[str, Any]]:
@@ -624,7 +712,7 @@ class CorpusResourceService:
                 return resource
         return None
     
-    def get_all_tags(self, lang: str = 'en') -> List[str]:
+    def get_all_tags(self, lang: str = 'en', refresh: bool = False) -> List[str]:
         """
         Get all unique tags across all resources
         
@@ -634,7 +722,7 @@ class CorpusResourceService:
         Returns:
             List of unique tags
         """
-        resources = self.list_resources(lang)
+        resources = self.list_resources(lang, refresh=refresh)
         tags = set()
         tag_key = 'tags_zh' if lang == 'zh' else 'tags_en'
         

@@ -48,27 +48,35 @@ function formatWordCount(count: number): string {
 // Keys correspond to CorpusResource.prefix values (see backend CorpusResourceService)
 const CORPUS_COLORS: Record<string, string> = {
   // Legacy / generic
-  bnc: '#1976d2',      // Blue
+  bnc: '#42a5f5',      // Light blue (BNC 1994)
   brown: '#7b1fa2',    // Purple
   ame06: '#c62828',    // Red (American English 2006)
   be06: '#283593',     // Indigo (British English 2006)
   now: '#388e3c',      // Green
-  oanc: '#f57c00',     // Orange
+  oanc: '#ef6c00',     // Orange (OANC)
   // BNC variants
-  bnc1994: '#1976d2',  // Blue
+  bnc1994: '#1976d2',  // Blue (BNC 1994 folder prefix)
   bnc2014: '#1565c0',  // Darker blue
   // COCA / COHA
   coca: '#00897b',     // Teal
   coha: '#00695c',     // Dark teal
   // Web-based corpora
-  glowbe: '#6d4c41',   // Brown
+  glowbe: '#6d4c41',   // Brown (GloWbE)
   // Other large corpora
-  coronavirus: '#c2185b', // Pink
-  iweb: '#5d4037',     // Brownish
+  coronavirus: '#ad1457', // Deep pink (Coronavirus)
+  iweb: '#8d6e63',     // Warm brownish (iWeb)
   movies: '#ff7043',   // Deep orange
-  soap: '#8e24aa',     // Purple
-  tv: '#7b1fa2',       // Purple (align with Brown)
+  soap: '#d81b60',     // Pink (SOAP)
+  tv: '#1e88e5',       // Blue (TV)
   wikipedia: '#0097a7' // Cyan
+}
+
+function getPrefixLabel(prefix: string): string {
+  // Some CSVs are stored under the bnc1994 folder but named with prefix "bnc_*.csv"
+  // So we alias "bnc" to the expected "BNC1994" display.
+  if (prefix === 'bnc' || prefix === 'bnc1994') return 'BNC1994'
+  if (prefix === 'bnc2014') return 'BNC2014'
+  return prefix.toUpperCase()
 }
 
 export const CorpusResourceCard: React.FC<CorpusResourceCardProps> = ({
@@ -123,7 +131,7 @@ export const CorpusResourceCard: React.FC<CorpusResourceCardProps> = ({
               <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 0.5 }}>
                 <Chip
                   size="small"
-                  label={resource.prefix.toUpperCase()}
+                  label={getPrefixLabel(resource.prefix)}
                   sx={{
                     height: 18,
                     bgcolor: `${corpusColor}15`,
@@ -173,7 +181,7 @@ export const CorpusResourceCard: React.FC<CorpusResourceCardProps> = ({
           {/* Corpus type badge */}
           <Chip
             size="small"
-            label={resource.prefix.toUpperCase()}
+            label={getPrefixLabel(resource.prefix)}
             sx={{
               alignSelf: 'flex-start',
               mb: 1,

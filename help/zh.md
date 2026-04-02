@@ -1315,11 +1315,19 @@ $$\chi^2 = \sum \frac{(O - E)^2}{E}$$
 | Brown | Brown 语料库 | 新闻、小说、学术等 |
 | AmE06 | 美国英语语料库 2006 (AmE06) | 美式英语、平衡语料、报刊、杂志、小说等 |
 | BE06 | 英国英语语料库 2006 (BE06) | 英式英语、平衡语料、报刊、杂志、小说等 |
-| NOW | News on the Web | 新闻（按国家划分） |
+| NOW | News on the Web（2010-2024；约24.2B词/41,104,404文本） | 新闻（按国家划分） |
 | OANC | 开放美国国家语料库 | 多种文本体裁 |
-| COCA | 当代美语语料库 | 口语、小说、杂志、新闻、学术 |
-| COHA | 历史美语语料库 | 按时期划分的历史英语 |
-| GloWbE | 全球网络英语语料库 | 按国家/地区划分的英语 |
+| COCA | 当代美语语料库（1990-2019；约1B词/485,000文本） | 口语、小说、杂志、新闻、学术 |
+| COHA | 历史美语语料库（1810-2009；约400M词/107,000文本） | 按时期划分的历史英语 |
+| GloWbE | 全球网络英语语料库（约2013；约1.9B词/1.8M文本） | 按国家/地区划分的英语 |
+| Coronavirus | 新冠语料库（Jan 2020 - Dec 2022；约1.5B词/1.9M文本） | COVID-19（按国家划分） |
+| iWeb | 智能网络语料库 iWeb（14B词/22M网页/~100,000网站） | 网络/技术 |
+| TV | 电视语料库（1950-2018；325M词/75,000集） | 电视/口语 |
+| Movies | 电影语料库（1930-2018；200M词/25,000电影） | 电影/口语 |
+| SOAP | SOAP肥皂剧语料库（2000-2012；约100M词） | 肥皂剧 |
+| Wikipedia | 维基百科语料库（1.9B词/4.4M文本） | 主题 |
+
+关于语料来源：除 `NOW`、`Brown`、`AmE06 / BE06`、`OANC`、`BNC` 外，其余内置参考语料资源（如 `COCA / COHA / GloWbE / Coronavirus / iWeb / TV / Movies / SOAP / Wikipedia`）均基于 English-Corpora.org / CorpusData 提供的 sample full-text 数据进行预处理；sample 说明见 [CorpusData formats](https://www.corpusdata.org/formats.asp)。
 
 **使用说明**：BNC 2014 仅有口语语料。
 

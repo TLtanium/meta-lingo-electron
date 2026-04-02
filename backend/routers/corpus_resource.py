@@ -70,7 +70,8 @@ class FrequencyDataResponse(BaseModel):
 
 @router.get("/list", response_model=CorpusResourceListResponse)
 async def list_corpus_resources(
-    lang: str = Query('en', description="Language for display names (en or zh)")
+    lang: str = Query('en', description="Language for display names (en or zh)"),
+    refresh: bool = Query(False, description="Force rebuild corpus resource list (ignore persistent cache)")
 ):
     """
     Get list of all available corpus resources
@@ -79,7 +80,7 @@ async def list_corpus_resources(
     """
     try:
         service = get_corpus_resource_service()
-        resources = service.list_resources(lang)
+        resources = service.list_resources(lang, refresh=refresh)
         
         return {
             "success": True,
@@ -91,14 +92,16 @@ async def list_corpus_resources(
 
 
 @router.get("/tags", response_model=TagsListResponse)
-async def get_all_tags():
+async def get_all_tags(
+    refresh: bool = Query(False, description="Force rebuild corpus resource tags (ignore persistent cache)")
+):
     """
     Get all unique tags across all corpus resources (both English and Chinese)
     """
     try:
         service = get_corpus_resource_service()
-        tags_en = service.get_all_tags('en')
-        tags_zh = service.get_all_tags('zh')
+        tags_en = service.get_all_tags('en', refresh=refresh)
+        tags_zh = service.get_all_tags('zh', refresh=refresh)
         
         return {
             "success": True,
