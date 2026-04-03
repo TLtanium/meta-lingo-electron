@@ -17,7 +17,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-v4.7.8-blue.svg" alt="Version">
+  <img src="https://img.shields.io/badge/version-v4.7.85-blue.svg" alt="Version">
   <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Windows-lightgrey.svg" alt="Platform">
   <img src="https://img.shields.io/badge/license-Non--Commercial-green.svg" alt="License">
 </p>
@@ -178,7 +178,7 @@ Meta-Lingo integrates several pre-trained models:
 | TorchCrepe Full | Pitch extraction (F0) | [maxrmorrison/torchcrepe](https://github.com/maxrmorrison/torchcrepe) |
 | YOLOv8 | Object detection | Ultralytics |
 | CLIP ViT-Large-Patch14 | Image classification | OpenAI |
-| SpaCy en/zh_core_web_lg | NLP processing | Explosion |
+| SpaCy en/zh_core_web_sm | NLP processing (no static word vectors) | Explosion |
 | DeBERTa-v3-large-clause-metaphor | MIPVU metaphor detection (F1 75.83) | [tommyleo2077](https://huggingface.co/tommyleo2077/deberta-v3-large-clause-metaphor) |
 | Sentence-BERT | Text embeddings | sentence-transformers |
 
@@ -188,16 +188,29 @@ This project is currently maintained for academic research purposes. For bug rep
 
 ## Changelog
 
-### v4.7.8 (2026-04-02)
-- **Corpus Resource Popup — refresh robustness**: fixed frontend parsing when `api.get()` is wrapped as `{ success, data }`, and increased axios timeout for `refresh=1` to avoid refresh failures when rebuild takes over ~60 seconds.
-- **Corpus Resource Popup — refresh fix**: corrected the frontend parsing logic for `/api/corpus-resource/list` and `/tags` so the resource list reliably reloads after clicking “Refresh”.
-- **Keyness — default reference corpus**: switched the default reference corpus from `OANC` to `AmE06` (full corpus: `ame06_total`).
-- **Corpus Resource Cache — restart optimization**: added persistent cache for `corpus_resource_service`; rebuilding is triggered only when “Refresh” is clicked, avoiding expensive CSV scanning and aggregation after restart.
-- **Corpus Resource Popup — dialog cache**: added a “Refresh” button; when not clicked, the dialog uses local cached data to avoid reinitializing/rebuilding the resource list every time the app opens.
-- **Keyness — NOW resource card info**: expanded the `NOW` (News on the Web) country-based breakdown time range to `2010–2024`, and completed sample information in the Help examples covering `COCA/COHA/GloWbE/Coronavirus/iWeb/TV/Movies/SOAP/Wikipedia`.
-- **Corpus Resource Intro — NOW update**: updated the `NOW` resource description to `2010–2024` while keeping the resource name and tags unchanged.
-- **Corpus Resource Color Mapping**: assigned an independent color to each corpus prefix in the “reference corpora resource library” to prevent color collisions.
-- **Corpus Resource Color Mapping**: fixed color similarity between `TV` / `SOAP` and `Brown` so each resource is visually distinguishable.
+Recent releases below mirror `PROJECT.md` (abbreviated). For the full version history, see **`PROJECT.md`** at the repository root or the Git commit log.
+
+### v4.7.85 (2026-04-02)
+- **Help — Corpus SpaCy table**: In `help/zh.md` and `help/en.md`, the language/model table no longer includes a “common ISO / aliases” column; it keeps only UI language name, corpus language code, and SpaCy package name.
+
+### v4.7.84 (2026-04-02)
+- **Help — Corpus SpaCy**: Corpus Management section adds tables for supported languages vs. SpaCy packages (11 languages, `SPACY_MODEL_MAP`) and for annotation output; `src/pages/CorpusManagement/mldoc.md` links to the full help tables.
+
+### v4.7.83 (2026-04-02)
+- **SpaCy EN/ZH (lg → sm)**: Defaults switched from `en_core_web_lg` / `zh_core_web_lg` to `en_core_web_sm` / `zh_core_web_sm`; updates across `spacy_service`, `backend.spec`, BERTopic PartOfSpeech UI, preprocess, Benepar, `build.sh` / `build.bat`, help text, etc.
+
+### v4.7.82 (2026-04-02)
+- **Corpus Management — text type display**: Fixes the text-type dropdown briefly showing codes (e.g. `GEN`) before `/api/usas/text-types` loads; adds `usasTextTypeLabel` and `corpus.textTypeCodes` i18n fallbacks.
+
+### v4.7.81 (2026-04-02)
+- **Corpus resource dialog — refresh robustness**: Fixes parsing when `api.get()` returns `{ success, data }`; increases timeout for requests with `refresh=1` so refresh does not fail when rebuilds exceed ~60s.
+- **Corpus resource dialog — refresh fix**: Corrects frontend parsing for `/api/corpus-resource/list` and `/tags` so the list reloads reliably after **Refresh**.
+- **Keyness — default reference corpus**: Default reference corpus changed from `OANC` to `AmE06` (full corpus: `ame06_total`).
+- **Corpus resource cache — startup**: Persistent cache for `corpus_resource_service`; rebuild only when **Refresh** is clicked, avoiding heavy CSV work on every app launch.
+- **Corpus resource dialog — dialog cache**: **Refresh** button added; without it, the dialog uses cached data to avoid rebuilding the resource list every time it opens.
+- **Keyness — NOW card**: `NOW` (News on the Web) country breakdown time range set to `2010–2024`; help examples completed for COCA/COHA/GloWbE/Coronavirus/iWeb/TV/Movies/SOAP/Wikipedia.
+- **Corpus resource intro — NOW**: `NOW` description updated to `2010–2024`; resource name and tags unchanged.
+- **Corpus resource colors**: Distinct color per corpus prefix; fixes TV/SOAP vs. Brown being too similar.
 
 ### v3.9.56 (2026-03-07)
 - **Metaphor Analysis — Clause-only pipeline**: Removed HiTZ model entirely. All tokens now annotated by a single `deberta-v3-large-clause-metaphor` model using full-sentence context (max_length=192). 3-step pipeline: word-form filter → SpaCy rule filter → Clause model. Function words (IN/DT/RB/RP) keep orange tag (`finetuned`); other words use green tag (`clause`). Legacy `hitz` source in existing annotations treated as `clause` (green). Help docs updated with Clause model accuracy (Precision 78.08%, Recall 73.69%, F1 75.83; DT F1 90.87, IN F1 87.87).
@@ -240,8 +253,6 @@ This project is currently maintained for academic research purposes. For bug rep
 
 ### v3.8.86–v3.8.95 (2026-01-18–28)
 - LLM topic naming (Ollama). USAS annotation modes (rule / neural / hybrid). Stopword removal (20+ languages). Custom wallpaper. Keyword extraction enhancements. Theme/Rheme auto-annotation. Dark theme for all topic modeling visualizations.
-
-For the full version history, see the Git commit log.
 
 ## License
 

@@ -154,6 +154,19 @@
     "audioType": "音频",
     "videoType": "视频",
     "transcriptNotAvailable": "转录内容不可用。文件可能仍在处理中，或未启用转录功能。",
+    "textTypeCodes": {
+      "GEN": "通用文本",
+      "MED": "医学文献",
+      "LAW": "法律文档",
+      "FIN": "金融/经济",
+      "POL": "政治话语",
+      "MIL": "军事文献",
+      "SPT": "体育报道",
+      "SCI": "自然科学",
+      "IT": "信息技术",
+      "AGR": "农业相关",
+      "REL": "宗教文献"
+    },
     "textTypes": {
       "generalText": "通用文本",
       "academicPaper": "学术论文",

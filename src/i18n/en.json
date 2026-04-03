@@ -148,6 +148,19 @@
     "audioType": "Audio",
     "videoType": "Video",
     "transcriptNotAvailable": "Transcript not available. The file may still be processing or transcription was not enabled.",
+    "textTypeCodes": {
+      "GEN": "General Text",
+      "MED": "Medical Literature",
+      "LAW": "Legal Document",
+      "FIN": "Finance/Economics",
+      "POL": "Political Discourse",
+      "MIL": "Military Literature",
+      "SPT": "Sports Report",
+      "SCI": "Natural Science",
+      "IT": "Information Technology",
+      "AGR": "Agriculture Related",
+      "REL": "Religious Literature"
+    },
     "textTypes": {
       "generalText": "General Text",
       "academicPaper": "Academic Paper",

@@ -126,14 +126,11 @@ class SyntaxService:
             
             # Load SpaCy model first
             try:
-                nlp = spacy.load("en_core_web_lg")
+                nlp = spacy.load("en_core_web_sm")
             except OSError:
-                try:
-                    nlp = spacy.load("en_core_web_sm")
-                except OSError:
-                    logger.error("No English SpaCy model found for benepar")
-                    self._benepar_available = False
-                    return False
+                logger.error("No English SpaCy model found for benepar (en_core_web_sm required)")
+                self._benepar_available = False
+                return False
             
             # Add benepar pipeline
             if not nlp.has_pipe("benepar"):

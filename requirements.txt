@@ -151,9 +151,9 @@ wrapt==2.0.1
 pyinstaller==6.17.0
 pyinstaller-hooks-contrib==2025.10
 
-# SpaCy Models (install from local whl files)
-# ./models/en_core_web_lg-3.8.0-py3-none-any.whl
-# ./models/zh_core_web_lg-3.8.0-py3-none-any.whl
+# SpaCy Models (install from local whl files; English/Chinese use web_sm)
+# ./models/en_core_web_sm-3.8.0-py3-none-any.whl
+# ./models/zh_core_web_sm-3.8.0-py3-none-any.whl
 
 # PyMUSAS Models (install from local whl files)
 # ./en_dual_none_contextual-0.3.3-py3-none-any.whl

@@ -2998,7 +2998,7 @@ def process_text_spacy_sync(
         base_name = Path(save_path).stem
         output_dir = Path(save_dir)
         
-        # Estimate processing time (roughly 10000 chars/second for en_core_web_lg)
+        # Estimate processing time (roughly 10000 chars/second for en_core_web_sm)
         total_chars = len(content)
         estimated_seconds = max(10, total_chars // 10000)
         estimated_minutes = estimated_seconds // 60

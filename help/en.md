@@ -334,11 +334,37 @@ Click the edit icon to modify text metadata:
 
 ### SpaCy Automatic Annotation
 
-When uploading text, the system automatically performs SpaCy annotation:
-- **POS Tagging**: Uses Universal POS tagset
-- **Named Entity Recognition (NER)**: Identifies persons, locations, organizations, etc.
-- **Dependency Parsing**: Analyzes syntactic relationships between words
-- **Lemmatization**: Gets the base form of words
+The corpus **language** you choose when creating a corpus selects the SpaCy pipeline (see backend `SPACY_MODEL_MAP`). **All models below are `sm`-sized (compact) and do not ship static word vectors.** English and Chinese use `core_web_sm`; the other nine European languages use `core_news_sm` (small “news” pipelines).
+
+#### Supported languages and SpaCy models
+
+| Language (UI) | Corpus language code | SpaCy package |
+|---------------|----------------------|---------------|
+| English | `english` | `en_core_web_sm` |
+| Chinese | `chinese` | `zh_core_web_sm` |
+| Danish | `danish` | `da_core_news_sm` |
+| Dutch | `dutch` | `nl_core_news_sm` |
+| Finnish | `finnish` | `fi_core_news_sm` |
+| French | `french` | `fr_core_news_sm` |
+| Italian | `italian` | `it_core_news_sm` |
+| Portuguese | `portuguese` | `pt_core_news_sm` |
+| Russian | `russian` | `ru_core_news_sm` |
+| Spanish | `spanish` | `es_core_news_sm` |
+| Swedish | `swedish` | `sv_core_news_sm` |
+
+#### Annotation output (same structure for all languages)
+
+SpaCy JSON for each text uses the **same kinds of fields** across languages (tag inventories may differ by language):
+
+| Category | Description |
+|----------|-------------|
+| **POS** | Universal POS (`pos_`) and fine-grained tags where available (`tag_`, e.g. English PTB-style) |
+| **Lemma** | Lemma / base form (`lemma_`) |
+| **Dependencies** | Head index and dependency label (`dep` / `head`) |
+| **NER** | Entity spans and labels (when the pipeline includes NER) |
+| **Sentences** | Sentence boundaries for listing and downstream tools |
+
+**Not stored**: token vectors (`token.vector`) or other embeddings—only structured linguistic annotations.
 
 ### USAS Semantic Domain Tagging
 
@@ -6083,7 +6109,7 @@ The analysis panel is used to configure BERTopic analysis parameters:
   - **Diversity**: Range 0.0-1.0 (default: 0.3)
   - **Top N Words**: Range 5-20 (default: 10)
 
-- **PartOfSpeech**: POS-based topic representation (only supports lg models)
+- **PartOfSpeech**: POS-based topic representation (choose **`en_core_web_sm`** or **`zh_core_web_sm`**, matching the default SpaCy models for corpora)
   - **Top N Words**: Range 5-20 (default: 10)
   - **POS Patterns**: e.g., [['NOUN'], ['ADJ', 'NOUN']]
 

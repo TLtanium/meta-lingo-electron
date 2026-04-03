@@ -176,7 +176,7 @@
 
 **Wmatrix**: 使用 CLAWS (Constituent Likelihood Automatic Word-tagging System)
 
-**应用**: 使用 SpaCy (`en_core_web_lg`)
+**应用**: 使用 SpaCy (`en_core_web_sm`)
 - 分词边界可能不同
 - 影响到标签分配的词语边界
 

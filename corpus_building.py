@@ -2,7 +2,7 @@
 """
 云端算力版：语料构建脚本，PTB POS + lemma + USAS (neural n=1)。
 - 全部相对路径：解压后在本目录运行即可。语料 ./corpus，输出 ./output，模型 ./PyMUSAS-Neural-Multilingual-Base-BEM。
-- SpaCy 使用 en_core_web_lg（可选 GPU：需安装 spacy[cuda*] 后本脚本会尝试 prefer_gpu）；PyMUSAS 神经模型上 GPU。
+- SpaCy 使用 en_core_web_sm（可选 GPU：需安装 spacy[cuda*] 后本脚本会尝试 prefer_gpu）；PyMUSAS 神经模型上 GPU。
 - 收集文件时过滤 ._*、.DS_Store 等 macOS 系统文件。
 Run: 解压后 cd 到本目录，conda activate <env> && python corpus_building.py
 """
@@ -533,7 +533,7 @@ _neural_tokenizer = None
 
 
 def _get_nlp():
-    """Lazy-load SpaCy en_core_web_lg；若已安装 spacy[cuda*] 会尝试使用 GPU。仅保留 tagger+lemmatizer，用 sentencizer 分句。"""
+    """Lazy-load SpaCy en_core_web_sm；若已安装 spacy[cuda*] 会尝试使用 GPU。仅保留 tagger+lemmatizer，用 sentencizer 分句。"""
     global _nlp
     if _nlp is None:
         import spacy
@@ -543,11 +543,11 @@ def _get_nlp():
             logger.info("[模型] SpaCy 将尝试使用 GPU（需已安装 spacy[cuda*]）")
         except Exception:
             pass
-        _nlp = spacy.load("en_core_web_lg")
+        _nlp = spacy.load("en_core_web_sm")
         if "sentencizer" not in _nlp.pipe_names:
             _nlp.add_pipe("sentencizer", first=True)
         _nlp.disable_pipes("parser", "ner")
-        logger.info("[模型] SpaCy en_core_web_lg 加载完成（已关 parser/ner），耗时 %.2f 秒", time.time() - t0)
+        logger.info("[模型] SpaCy en_core_web_sm 加载完成（已关 parser/ner），耗时 %.2f 秒", time.time() - t0)
     return _nlp
 
 

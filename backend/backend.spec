@@ -81,9 +81,9 @@ hiddenimports = [
     # Constituency Parsing
     'benepar',
     
-    # SpaCy 模型
-    'en_core_web_lg',
-    'zh_core_web_lg',
+    # SpaCy 模型（中英 web_sm，无词向量）
+    'en_core_web_sm',
+    'zh_core_web_sm',
     'da_core_news_sm',
     'nl_core_news_sm',
     'fi_core_news_sm',
@@ -214,20 +214,20 @@ if os.path.exists(nltk_data_path):
 
 # SpaCy 模型 - 从 site-packages 收集
 try:
-    spacy_en_datas = collect_all('en_core_web_lg')[0]
+    spacy_en_datas = collect_all('en_core_web_sm')[0]
     # 过滤掉 macOS 资源叉文件
     spacy_en_datas = [d for d in spacy_en_datas if not os.path.basename(d[0]).startswith('._')]
     datas += spacy_en_datas
 except Exception as e:
-    print(f"Warning: Could not collect en_core_web_lg: {e}")
+    print(f"Warning: Could not collect en_core_web_sm: {e}")
 
 try:
-    spacy_zh_datas = collect_all('zh_core_web_lg')[0]
+    spacy_zh_datas = collect_all('zh_core_web_sm')[0]
     # 过滤掉 macOS 资源叉文件
     spacy_zh_datas = [d for d in spacy_zh_datas if not os.path.basename(d[0]).startswith('._')]
     datas += spacy_zh_datas
 except Exception as e:
-    print(f"Warning: Could not collect zh_core_web_lg: {e}")
+    print(f"Warning: Could not collect zh_core_web_sm: {e}")
 
 # SpaCy 模型 — 新增 9 种语言 sm 模型
 _new_spacy_sm_models = [

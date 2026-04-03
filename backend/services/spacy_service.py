@@ -535,8 +535,8 @@ except ImportError:
 
 # Language name → (primary model, fallback model)
 SPACY_MODEL_MAP = {
-    'english':    ('en_core_web_lg', 'en_core_web_sm'),
-    'chinese':    ('zh_core_web_lg', 'zh_core_web_sm'),
+    'english':    ('en_core_web_sm', None),
+    'chinese':    ('zh_core_web_sm', None),
     'danish':     ('da_core_news_sm', None),
     'dutch':      ('nl_core_news_sm', None),
     'finnish':    ('fi_core_news_sm', None),

@@ -334,11 +334,37 @@ Meta-Lingo 支持多种文件格式：
 
 ### SpaCy 自动标注
 
-上传文本时，系统自动进行 SpaCy 标注：
-- **词性标注 (POS)**：使用 Universal POS 标签集
-- **命名实体识别 (NER)**：识别人名、地名、组织等
-- **依存句法分析**：分析词语间的句法关系
-- **词形还原 (Lemma)**：获取词语的原形
+创建语料库时选择的「语言」决定使用哪套 SpaCy 模型（与后端 `SPACY_MODEL_MAP` 一致）。**所有下列模型均为 `sm` 规模（体积小），均不含静态词向量**；英语、中文为 `core_web_sm`，其余 9 种欧洲语言为 `core_news_sm`（新闻领域小模型）。
+
+#### 各支持语言与 SpaCy 模型
+
+| 语言（界面显示） | 语料库语言代码 | SpaCy 模型包 |
+|------------------|----------------|--------------|
+| 英语 | `english` | `en_core_web_sm` |
+| 中文 | `chinese` | `zh_core_web_sm` |
+| 丹麦语 | `danish` | `da_core_news_sm` |
+| 荷兰语 | `dutch` | `nl_core_news_sm` |
+| 芬兰语 | `finnish` | `fi_core_news_sm` |
+| 法语 | `french` | `fr_core_news_sm` |
+| 意大利语 | `italian` | `it_core_news_sm` |
+| 葡萄牙语 | `portuguese` | `pt_core_news_sm` |
+| 俄语 | `russian` | `ru_core_news_sm` |
+| 西班牙语 | `spanish` | `es_core_news_sm` |
+| 瑞典语 | `swedish` | `sv_core_news_sm` |
+
+#### 模型标注输出（各语言一致）
+
+写入各文本的 SpaCy 标注 JSON 时，**各语言输出的字段类型一致**（具体标签集随语言略有不同），主要包括：
+
+| 类别 | 说明 |
+|------|------|
+| **词性 (POS)** | Universal POS（`pos_`）及语言可用的细粒度词性（`tag_`，如英语 Penn Treebank 风格） |
+| **词形还原 (Lemma)** | 词元/原形（`lemma_`） |
+| **依存句法** | 支配词索引、依存关系类型（`dep` / `head`） |
+| **命名实体 (NER)** | 实体文本、类型标签、字符偏移（若管道包含 NER） |
+| **分句** | 句子边界（用于列表与下游模块） |
+
+**不保存**：词向量（`token.vector`）等嵌入；仅保存上述结构化语言学标注。
 
 ### USAS 语义域标注
 
@@ -6096,7 +6122,7 @@ BERTopic 的工作流程包括以下步骤：
   - **多样性（diversity）**：范围 0.0-1.0（默认：0.3）
   - **Top N 词数**：范围 5-20（默认：10）
 
-- **PartOfSpeech**：基于词性的主题表示（仅支持 lg 模型）
+- **PartOfSpeech**：基于词性的主题表示（可选 **`en_core_web_sm`** / **`zh_core_web_sm`**，与语料库默认 SpaCy 一致）
   - **Top N 词数**：范围 5-20（默认：10）
   - **词性模式**：如 [['NOUN'], ['ADJ', 'NOUN']]
 

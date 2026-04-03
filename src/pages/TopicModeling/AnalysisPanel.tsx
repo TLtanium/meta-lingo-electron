@@ -176,7 +176,7 @@ export default function AnalysisPanel({
         top_n_words: 10
       },
       PartOfSpeech: {
-        model: 'en_core_web_lg',  // Only lg models are installed
+        model: 'en_core_web_sm',
         top_n_words: 10,
         pos_patterns: [['NOUN'], ['ADJ', 'NOUN']]
       }
@@ -398,8 +398,8 @@ export default function AnalysisPanel({
                 label={t('topicModeling.representation.spacyModel')}
                 onChange={(e) => updateParam('model', e.target.value)}
               >
-                <MenuItem value="en_core_web_lg">en_core_web_lg (English)</MenuItem>
-                <MenuItem value="zh_core_web_lg">zh_core_web_lg (Chinese)</MenuItem>
+                <MenuItem value="en_core_web_sm">en_core_web_sm (English)</MenuItem>
+                <MenuItem value="zh_core_web_sm">zh_core_web_sm (Chinese)</MenuItem>
               </Select>
             </FormControl>
             <NumberInput

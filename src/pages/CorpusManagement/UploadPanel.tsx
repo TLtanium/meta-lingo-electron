@@ -41,7 +41,7 @@ import HourglassEmptyIcon from '@mui/icons-material/HourglassEmpty'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import ExpandLessIcon from '@mui/icons-material/ExpandLess'
 import { useTranslation } from 'react-i18next'
-import i18n from '../../i18n'
+import { getUsasTextTypeDisplayLabel } from '../../utils/usasTextTypeLabel'
 import { DatePicker } from '@mui/x-date-pickers/DatePicker'
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider'
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs'
@@ -169,7 +169,7 @@ export default function UploadPanel({
   onCorpusCreated,
   onUploadComplete 
 }: UploadPanelProps) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   
   // Corpus metadata for new corpus
   const [createNew, setCreateNew] = useState(true)
@@ -749,9 +749,12 @@ export default function UploadPanel({
                     label={t('corpus.textType')}
                     renderValue={(value) => {
                       if (value === '__CUSTOM__') return t('corpus.textTypes.custom')
-                      const config = textTypeConfigs[value as string]
-                      if (!config) return value as string
-                      return i18n.language === 'zh' ? (config.name_zh || config.name) : config.name
+                      return getUsasTextTypeDisplayLabel(
+                        value as string,
+                        textTypeConfigs[value as string],
+                        t,
+                        i18n
+                      )
                     }}
                   >
                     {Object.entries(textTypeConfigs)
@@ -762,7 +765,7 @@ export default function UploadPanel({
                       })
                       .map(([code, config]) => (
                         <MenuItem key={code} value={code}>
-                          {i18n.language === 'zh' ? (config.name_zh || config.name) : config.name}
+                          {getUsasTextTypeDisplayLabel(code, config, t, i18n)}
                         </MenuItem>
                       ))}
                     <Divider />
@@ -862,9 +865,12 @@ export default function UploadPanel({
                     label={t('corpus.textType')}
                     renderValue={(value) => {
                       if (value === '__CUSTOM__') return t('corpus.textTypes.custom')
-                      const config = textTypeConfigs[value as string]
-                      if (!config) return value as string
-                      return i18n.language === 'zh' ? (config.name_zh || config.name) : config.name
+                      return getUsasTextTypeDisplayLabel(
+                        value as string,
+                        textTypeConfigs[value as string],
+                        t,
+                        i18n
+                      )
                     }}
                   >
                     {Object.entries(textTypeConfigs)
@@ -875,7 +881,7 @@ export default function UploadPanel({
                       })
                       .map(([code, config]) => (
                         <MenuItem key={code} value={code}>
-                          {i18n.language === 'zh' ? (config.name_zh || config.name) : config.name}
+                          {getUsasTextTypeDisplayLabel(code, config, t, i18n)}
                         </MenuItem>
                       ))}
                     <Divider />
