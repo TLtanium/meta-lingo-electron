@@ -39,6 +39,16 @@ logger = logging.getLogger(__name__)
 # Settings file path
 USAS_SETTINGS_FILE = SETTINGS_DIR / "usas_settings.json"
 
+# Single source of truth for defaults (Settings UI hides mode picker; upload uses these.)
+DEFAULT_USAS_SETTINGS: Dict[str, Any] = {
+    'priority_domains': [],
+    'default_text_type': 'GEN',
+    'custom_text_types': {},
+    'text_type_overrides': {},
+    'tagging_mode': 'neural',  # BEM neural; with disambiguation off → top_n=5 per token
+    'disambiguation_enabled': False,
+}
+
 # Tagging mode type
 TaggingMode = Literal['rule_based', 'neural', 'hybrid']
 
@@ -73,14 +83,7 @@ class USASService:
     
     def _load_settings(self) -> Dict[str, Any]:
         """Load user settings from file"""
-        default_settings = {
-            'priority_domains': [],
-            'default_text_type': 'GEN',
-            'custom_text_types': {},
-            'text_type_overrides': {},  # User modifications to preset text types
-            'tagging_mode': 'rule_based',  # Default tagging mode
-            'disambiguation_enabled': False  # Disambiguation off by default
-        }
+        default_settings = dict(DEFAULT_USAS_SETTINGS)
         
         try:
             SETTINGS_DIR.mkdir(parents=True, exist_ok=True)
@@ -96,9 +99,9 @@ class USASService:
     
     def get_tagging_mode(self) -> TaggingMode:
         """Get current tagging mode"""
-        mode = self.settings.get('tagging_mode', 'rule_based')
+        mode = self.settings.get('tagging_mode', DEFAULT_USAS_SETTINGS['tagging_mode'])
         if mode not in ('rule_based', 'neural', 'hybrid'):
-            mode = 'rule_based'
+            mode = DEFAULT_USAS_SETTINGS['tagging_mode']
         return mode
     
     def set_tagging_mode(self, mode: TaggingMode) -> Dict[str, Any]:
@@ -127,7 +130,10 @@ class USASService:
     
     def get_disambiguation_enabled(self) -> bool:
         """Get whether disambiguation is enabled"""
-        return self.settings.get('disambiguation_enabled', False)
+        return self.settings.get(
+            'disambiguation_enabled',
+            DEFAULT_USAS_SETTINGS['disambiguation_enabled'],
+        )
 
     def set_disambiguation_enabled(self, enabled: bool) -> Dict[str, Any]:
         """
@@ -999,13 +1005,13 @@ class USASService:
             if not self.is_available(language):
                 result['error'] = f'USAS not available for language: {language}'
                 return result
-        
+
         if mode == 'neural':
             neural = self._get_neural_tagger()
             if not neural.is_available():
                 result['error'] = 'Neural model not available'
                 return result
-        
+
         try:
             if mode == 'neural':
                 return self._annotate_segments_neural(segments, language)

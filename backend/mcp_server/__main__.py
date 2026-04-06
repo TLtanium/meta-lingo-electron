@@ -13,6 +13,19 @@ import argparse
 # Ensure backend directory is on the path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+# Remove macOS AppleDouble resource-fork files (._*) from the PyInstaller bundle
+# BEFORE any matplotlib import, which crashes on these binary files when scanning stylelib.
+if getattr(sys, 'frozen', False):
+    _internal = os.path.join(os.path.dirname(sys.executable), '_internal')
+    if os.path.isdir(_internal):
+        for _root, _dirs, _files in os.walk(_internal):
+            for _f in _files:
+                if _f.startswith('._'):
+                    try:
+                        os.remove(os.path.join(_root, _f))
+                    except OSError:
+                        pass
+
 from mcp_server.server import create_server
 
 

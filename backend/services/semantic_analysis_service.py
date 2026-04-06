@@ -3,7 +3,6 @@ Semantic Domain Analysis Service
 Provides semantic domain statistics using USAS annotation data
 """
 
-import os
 import re
 import json
 import logging
@@ -19,7 +18,9 @@ from services.usas.domain_config import (
     USAS_DOMAINS,
     parse_usas_domains_file
 )
+from services.usas.annotation_meta import infer_disambiguation_enabled
 from services.usas.disambiguator import parse_compound_tag
+from services.corpus_path_utils import resolve_stored_path, find_usas_sidecar_path
 
 logger = logging.getLogger(__name__)
 
@@ -142,15 +143,15 @@ class SemanticAnalysisService:
         # Get USAS annotation data
         usas_data = self._load_usas_annotation(text)
         if not usas_data:
+            logger.debug("No USAS annotation for text %s, skipping", text.get('id'))
             return tokens
         
         # Get MIPVU annotation data for metaphor info
         mipvu_data = self._load_mipvu_annotation(text)
         mipvu_tokens_map = self._build_mipvu_tokens_map(mipvu_data) if mipvu_data else {}
         
-        # Check if disambiguation was enabled when this annotation was created
-        # Default True for backward compat with old .usas.json files
-        disambiguation_enabled = usas_data.get("disambiguation_enabled", True)
+        # Align with saved tagging_mode when key omitted (neural → multi-tag stats).
+        disambiguation_enabled = infer_disambiguation_enabled(usas_data)
 
         # Handle different annotation formats
         if "tokens" in usas_data:
@@ -161,7 +162,12 @@ class SemanticAnalysisService:
             )
         elif "segments" in usas_data:
             # Segment-based annotation format (for audio/video)
-            for seg_id, seg_data in usas_data["segments"].items():
+            seg_keys = sorted(
+                usas_data["segments"].keys(),
+                key=lambda k: (int(k) if str(k).isdigit() else 999999, str(k)),
+            )
+            for seg_id in seg_keys:
+                seg_data = usas_data["segments"][seg_id]
                 if "tokens" in seg_data:
                     seg_tokens = self._extract_from_tokens(
                         seg_data["tokens"], pos_filter, lowercase, mipvu_tokens_map,
@@ -185,10 +191,10 @@ class SemanticAnalysisService:
         
         # For audio/video, check transcript JSON first
         if media_type in ['audio', 'video']:
-            transcript_json = text.get('transcript_json_path')
-            if transcript_json and os.path.exists(transcript_json):
+            tjp = resolve_stored_path(text.get('transcript_json_path'))
+            if tjp and tjp.is_file():
                 try:
-                    with open(transcript_json, 'r', encoding='utf-8') as f:
+                    with open(tjp, 'r', encoding='utf-8') as f:
                         data = json.load(f)
                     if 'usas_annotations' in data:
                         return data['usas_annotations']
@@ -196,22 +202,78 @@ class SemanticAnalysisService:
                     logger.warning(f"Failed to load transcript USAS: {e}")
         
         # For plain text, use .usas.json file
-        content_path = text.get('content_path')
+        content_path = resolve_stored_path(text.get('content_path'))
         if not content_path:
+            logger.warning(
+                "USAS: cannot resolve content_path for text %s: %r",
+                text.get('id'), text.get('content_path')
+            )
             return None
-        
-        content_path = Path(content_path)
-        usas_path = content_path.parent / f"{content_path.stem}.usas.json"
-        
-        if usas_path.exists():
+
+        usas_path = find_usas_sidecar_path(content_path)
+        sidecar_present = bool(usas_path and usas_path.exists())
+
+        if sidecar_present:
             try:
                 with open(usas_path, 'r', encoding='utf-8') as f:
-                    return json.load(f)
+                    data = json.load(f)
+                return data
             except Exception as e:
                 logger.warning(f"Failed to load USAS annotation: {e}")
-        
+                return None
+
+        canon = content_path.parent / f"{content_path.stem}.usas.json"
+        logger.warning(
+            "USAS annotation not found for text %s: tried sidecar near %s (canonical %s)",
+            text.get('id'), content_path, canon
+        )
+
+        # No sidecar on disk (common when packaged async pipeline skipped USAS write). Regenerate once and persist.
+        if media_type == 'text' and content_path.is_file():
+            regen = self._regenerate_usas_sidecar_if_missing(text, content_path)
+            if regen is not None:
+                return regen
+
         return None
-    
+
+    def _regenerate_usas_sidecar_if_missing(
+        self, text: Dict[str, Any], content_path: Path
+    ) -> Optional[Dict[str, Any]]:
+        """Run USAS on file text and save ``{stem}.usas.json`` when sidecar was never written."""
+        corpus_id = text.get("corpus_id")
+        if not corpus_id:
+            return None
+        corpus = CorpusDB.get_by_id(corpus_id)
+        if not corpus:
+            return None
+        language = corpus.get("language") or "english"
+        text_type = corpus.get("text_type")
+        try:
+            from services.usas_service import get_usas_service
+
+            usas_svc = get_usas_service()
+            if not usas_svc.is_available(language):
+                return None
+            with open(content_path, "r", encoding="utf-8") as f:
+                raw = f.read()
+            if not raw.strip():
+                return None
+            result = usas_svc.annotate_text(raw, language, text_type)
+            if not result.get("success"):
+                return None
+            out_path = content_path.parent / f"{content_path.stem}.usas.json"
+            with open(out_path, "w", encoding="utf-8") as f:
+                json.dump(result, f, ensure_ascii=False, indent=2)
+            logger.info(
+                "Wrote missing USAS sidecar for text %s at %s",
+                text.get("id"),
+                out_path,
+            )
+            return result
+        except Exception as e:
+            logger.warning("USAS lazy regeneration failed: %s", e)
+            return None
+
     def _load_mipvu_annotation(self, text: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         """
         Load MIPVU annotation for a text
@@ -226,10 +288,10 @@ class SemanticAnalysisService:
         
         # For audio/video, check transcript JSON first
         if media_type in ['audio', 'video']:
-            transcript_json = text.get('transcript_json_path')
-            if transcript_json and os.path.exists(transcript_json):
+            tjp = resolve_stored_path(text.get('transcript_json_path'))
+            if tjp and tjp.is_file():
                 try:
-                    with open(transcript_json, 'r', encoding='utf-8') as f:
+                    with open(tjp, 'r', encoding='utf-8') as f:
                         data = json.load(f)
                     if 'mipvu_annotations' in data:
                         return data['mipvu_annotations']
@@ -237,11 +299,10 @@ class SemanticAnalysisService:
                     logger.warning(f"Failed to load transcript MIPVU: {e}")
         
         # For plain text, use .mipvu.json file
-        content_path = text.get('content_path')
+        content_path = resolve_stored_path(text.get('content_path'))
         if not content_path:
             return None
         
-        content_path = Path(content_path)
         mipvu_path = content_path.parent / f"{content_path.stem}.mipvu.json"
         
         if mipvu_path.exists():
@@ -325,16 +386,25 @@ class SemanticAnalysisService:
             if token.get("is_punct") or token.get("is_space"):
                 continue
 
-            text = token.get("text", "")
+            text = token.get("text") or token.get("word") or ""
             pos = token.get("pos", "")
-            usas_tag = token.get("usas_tag", "")
+            usas_tag = token.get("usas_tag", "") or ""
 
-            # Skip empty tokens or tokens without USAS tag
-            if not text.strip() or not usas_tag:
+            # Skip empty surface form
+            if not text.strip():
                 continue
 
-            # Skip grammatical words (Z99) and PUNCT
-            if usas_tag in ("Z99", "PUNCT"):
+            # Build candidate tag list before applying primary-only skips (aligns with
+            # sentiment USAS path: when disambiguation is off, Z99 primary may still
+            # have valid domains in usas_tags — e.g. rule-based multi-candidate tokens.)
+            if not disambiguation_enabled:
+                all_tags = token.get("usas_tags") or []
+                if not all_tags:
+                    all_tags = [usas_tag] if usas_tag else []
+            else:
+                all_tags = [usas_tag] if usas_tag else []
+
+            if not all_tags:
                 continue
 
             # Apply POS filter if configured
@@ -351,31 +421,22 @@ class SemanticAnalysisService:
             # Apply lowercase if requested
             word = text.lower() if lowercase else text
 
-            # Check if it's a MWE token (has _MWE suffix)
-            is_mwe = '_MWE' in usas_tag
+            # MWE / metaphor: use primary tag if present, else first non-empty candidate
+            primary_for_mwe = usas_tag or next((t for t in all_tags if t), "")
+            is_mwe = "_MWE" in primary_for_mwe or any("_MWE" in t for t in all_tags if t)
 
             # Look up is_metaphor from MIPVU data
             start = token.get("start", -1)
             end = token.get("end", -1)
             is_metaphor = mipvu_map.get((start, end), None)
             if is_metaphor is None:
-                is_metaphor = mipvu_map.get(('word', text.lower()), False)
-
-            # Determine which tags to process
-            if not disambiguation_enabled:
-                # Disambiguation OFF: use all candidate tags
-                all_tags = token.get('usas_tags', [])
-                if not all_tags:
-                    all_tags = [usas_tag]
-            else:
-                # Disambiguation ON: use single primary tag
-                all_tags = [usas_tag]
+                is_metaphor = mipvu_map.get(("word", text.lower()), False)
 
             # Deduplicate domains for this token
             seen_domains = set()
 
             for tag in all_tags:
-                if not tag or tag in ('Z99', 'PUNCT'):
+                if not tag or tag in ("Z99", "PUNCT"):
                     continue
 
                 # Parse compound tag - split by '/' to get individual domains
@@ -384,7 +445,7 @@ class SemanticAnalysisService:
                 # Create a record for each individual domain
                 for domain in individual_domains:
                     # Skip Z99 domains
-                    if domain == 'Z99' or domain == 'Z99_MWE':
+                    if domain == "Z99" or domain == "Z99_MWE":
                         continue
 
                     # Deduplicate: each domain counted once per token
@@ -393,7 +454,7 @@ class SemanticAnalysisService:
                     seen_domains.add(domain)
 
                     # Get domain description (strip _MWE for lookup)
-                    domain_for_lookup = domain.replace('_MWE', '') if '_MWE' in domain else domain
+                    domain_for_lookup = domain.replace("_MWE", "") if "_MWE" in domain else domain
                     domain_name = get_domain_description(domain_for_lookup)
 
                     # Get major category
@@ -407,7 +468,7 @@ class SemanticAnalysisService:
                         "category": category,
                         "category_name": category_name,
                         "pos": pos,
-                        "is_mwe": is_mwe or '_MWE' in domain,
+                        "is_mwe": is_mwe or "_MWE" in domain,
                         "is_metaphor": is_metaphor
                     })
 

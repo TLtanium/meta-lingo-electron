@@ -146,6 +146,12 @@ export default function VarianceDialog({
     
     const colors = COLOR_SCHEMES[colorScheme]
     
+    // Background rect
+    svg.append('rect')
+      .attr('width', width)
+      .attr('height', height)
+      .attr('fill', isDarkMode ? '#1e1e2e' : '#fafafa')
+
     // Create tooltip
     const tooltip = d3.select(tooltipRef.current)
       .style('position', 'fixed')
@@ -271,17 +277,23 @@ export default function VarianceDialog({
     }
     
     // X axis
-    g.append('g')
+    const xAxisG = g.append('g')
       .attr('transform', `translate(0,${innerHeight})`)
       .call(d3.axisBottom(xScale).ticks(optimizeResult.results.length).tickFormat(d => String(d)))
-      .selectAll('text')
+
+    xAxisG.selectAll('text')
       .attr('font-size', '11px')
-    
+      .attr('fill', isDarkMode ? '#aaa' : '#333')
+
+    xAxisG.selectAll('path, line')
+      .attr('stroke', isDarkMode ? '#555' : '#ccc')
+
     // Y axis
     const yAxis = g.append('g')
       .call(d3.axisLeft(yScale).ticks(6).tickFormat(d => `${(Number(d) * 100).toFixed(0)}%`))
-    
-    yAxis.selectAll('text').attr('font-size', '11px')
+
+    yAxis.selectAll('text').attr('font-size', '11px').attr('fill', isDarkMode ? '#aaa' : '#333')
+    yAxis.selectAll('path, line').attr('stroke', isDarkMode ? '#555' : '#ccc')
     
     yAxis.append('text')
       .attr('fill', colors[0])

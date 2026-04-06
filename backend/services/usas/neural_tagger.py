@@ -73,46 +73,92 @@ class NeuralUSASTagger:
             self.model_path = _default_neural_model_path()
         return self._check_dependencies() and self._check_model_exists()
     
+    @staticmethod
+    def _detect_bem_arch_params(model_path: Path) -> dict:
+        """
+        Detect BEM architecture params by inspecting the safetensors weight keys.
+
+        The PyMUSAS BEM model's root config.json contains only the base transformer
+        config (ModernBERT), not BEM's own init params. huggingface_hub's mixin
+        therefore cannot populate the required BEM.__init__ arguments automatically.
+        We inspect the weight file to infer them so we can pass them explicitly.
+        """
+        params = {
+            "base_model_name": "PyMUSAS-Neural-Multilingual-Base-BEM",
+            "freeze_base_model": True,
+            "number_transformer_encoder_layers": 0,
+            "add_scalar_mixer": False,
+        }
+        safetensors_file = model_path / "model.safetensors"
+        if not safetensors_file.exists():
+            return params
+        try:
+            from safetensors import safe_open
+            with safe_open(str(safetensors_file), framework="pt") as f:
+                keys = set(f.keys())
+            # Detect scalar mixer
+            params["add_scalar_mixer"] = any(k.startswith("scalar_mix.") for k in keys)
+            # Detect extra transformer encoder layers
+            layer_indices = set()
+            for k in keys:
+                if k.startswith("token_transformer.layers."):
+                    parts = k.split(".")
+                    if len(parts) > 2 and parts[2].isdigit():
+                        layer_indices.add(int(parts[2]))
+            params["number_transformer_encoder_layers"] = len(layer_indices)
+        except Exception as e:
+            logger.warning(f"Could not inspect safetensors for BEM arch params: {e}")
+        return params
+
     def load_model(self) -> bool:
         """
         Load the neural model
-        
+
         Returns:
             True if model loaded successfully, False otherwise
         """
         if self.model is not None:
             return True
-        
+
         if not self.is_available():
             return False
-        
+
         try:
             import torch
             from wsd_torch_models.bem import BEM
             from transformers import AutoTokenizer
-            
+
             logger.info(f"Loading neural USAS model from: {self.model_path}")
-            
+
+            # BEM.from_pretrained() relies on huggingface_hub PyTorchModelHubMixin,
+            # which reads BEM init params from the root config.json.  However, the
+            # downloaded model's config.json is the base-transformer (ModernBERT)
+            # config, not the BEM config — so required init args are missing.
+            # We detect the architecture from the safetensors weight keys and pass
+            # them explicitly so from_pretrained can complete model construction.
+            arch_params = self._detect_bem_arch_params(self.model_path)
+            logger.info(f"Detected BEM arch params: {arch_params}")
+
             # Load model
-            self.model = BEM.from_pretrained(str(self.model_path))
+            self.model = BEM.from_pretrained(str(self.model_path), **arch_params)
             self.tokenizer = AutoTokenizer.from_pretrained(
-                str(self.model_path), 
+                str(self.model_path),
                 add_prefix_space=True
             )
-            
+
             # Set to evaluation mode
             self.model.eval()
-            
+
             # Choose device
             self.device = "cuda" if torch.cuda.is_available() else "cpu"
             self.model.to(device=self.device)
-            
+
             # Store label definitions for reference
             self._label_to_definition = self.model.label_to_definition
-            
+
             logger.info(f"Neural USAS model loaded successfully on {self.device}")
             return True
-            
+
         except Exception as e:
             logger.error(f"Failed to load neural model: {e}")
             self.model = None

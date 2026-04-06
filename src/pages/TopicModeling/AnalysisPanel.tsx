@@ -209,10 +209,27 @@ export default function AnalysisPanel({
       if (response.success && response.data) {
         setEstimationResult(response.data)
       } else {
-        setEstimationError(response.error || 'Estimation failed')
+        const errMsg = response.error || 'Estimation failed'
+        // Provide a user-friendly message for the probabilities recalculation case
+        if (errMsg.includes('PROBABILITIES_NEEDS_RECALC')) {
+          setEstimationError(
+            t('topicModeling.analysis.probabilitiesNeedsRecalc') ||
+            'The probabilities strategy requires re-running analysis with "probabilities" strategy selected. This will enable calculate_probabilities automatically.'
+          )
+        } else {
+          setEstimationError(errMsg)
+        }
       }
     } catch (err) {
-      setEstimationError(String(err))
+      const errStr = String(err)
+      if (errStr.includes('PROBABILITIES_NEEDS_RECALC')) {
+        setEstimationError(
+          t('topicModeling.analysis.probabilitiesNeedsRecalc') ||
+          'The probabilities strategy requires re-running analysis with "probabilities" strategy selected.'
+        )
+      } else {
+        setEstimationError(errStr)
+      }
     } finally {
       setEstimating(false)
     }
@@ -880,6 +897,17 @@ export default function AnalysisPanel({
                   <MenuItem value="embeddings">embeddings</MenuItem>
                 </Select>
               </FormControl>
+
+              {/* Warn that probabilities strategy requires a dedicated analysis run */}
+              {outlierConfig.strategy === 'probabilities' && (
+                <Alert severity="info" sx={{ py: 0.5 }}>
+                  <Typography variant="caption">
+                    {t('topicModeling.analysis.probabilitiesStrategyNote') ||
+                      'The probabilities strategy requires running analysis with this strategy selected (calculate_probabilities is auto-enabled). Re-run analysis after selecting this strategy to enable estimation.'}
+                  </Typography>
+                </Alert>
+              )}
+
               <NumberInput
                 label="threshold"
                 size="small"
@@ -894,16 +922,14 @@ export default function AnalysisPanel({
                 defaultValue={0}
                 fullWidth
               />
-              
-              {/* Estimate Outliers Button - requires enabled outlier reduction, completed analysis with outliers */}
+
+              {/* Estimate Outliers Button - requires completed analysis with outliers */}
               <Tooltip title={
-                !outlierConfig.enabled
-                  ? (t('topicModeling.analysis.enableOutlierFirst') || 'Enable outlier reduction first')
-                  : !resultId 
-                    ? (t('topicModeling.analysis.runAnalysisFirst') || 'Run analysis first')
-                    : outlierCount <= 0
-                      ? (t('topicModeling.analysis.noOutliersToEstimate') || 'No outliers to estimate')
-                      : ''
+                !resultId
+                  ? (t('topicModeling.analysis.runAnalysisFirst') || 'Run analysis first')
+                  : outlierCount <= 0
+                    ? (t('topicModeling.analysis.noOutliersToEstimate') || 'No outliers to estimate')
+                    : ''
               }>
                 <span>
                   <Button
@@ -911,12 +937,12 @@ export default function AnalysisPanel({
                     size="small"
                     color="warning"
                     onClick={handleEstimateOutliers}
-                    disabled={!outlierConfig.enabled || !resultId || outlierCount <= 0 || estimating}
+                    disabled={!resultId || outlierCount <= 0 || estimating}
                     fullWidth
                     startIcon={estimating ? <CircularProgress size={16} color="inherit" /> : null}
                   >
-                    {estimating 
-                      ? t('common.loading') 
+                    {estimating
+                      ? t('common.loading')
                       : t('topicModeling.analysis.estimateOutliers') || 'Estimate Outliers'
                     }
                   </Button>

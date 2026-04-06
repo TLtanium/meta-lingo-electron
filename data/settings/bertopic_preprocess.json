@@ -1,0 +1,14 @@
+{
+  "chunking": {
+    "enabled": true,
+    "min_tokens": 100,
+    "max_tokens": 256,
+    "overlap_tokens": 0
+  },
+  "preprocess": {
+    "remove_stopwords": false,
+    "lemmatize": false,
+    "lowercase": false,
+    "min_token_length": 1
+  }
+}

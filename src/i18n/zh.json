@@ -2144,7 +2144,9 @@
       "estimationResult": "预估结果",
       "currentOutliers": "当前离群值",
       "estimatedOutliers": "处理后离群值",
-      "reducedCount": "可减少数量"
+      "reducedCount": "可减少数量",
+      "probabilitiesNeedsRecalc": "概率策略需要重新运行分析并选择 \"probabilities\" 策略。这将自动启用 calculate_probabilities。",
+      "probabilitiesStrategyNote": "概率策略需要在分析时选中此策略（系统会自动启用 calculate_probabilities）。请先选择此策略并重新运行分析，再进行预估。"
     },
     "representation": {
       "type": "表示模型类型",

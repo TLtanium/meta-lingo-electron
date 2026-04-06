@@ -8,7 +8,7 @@ import LanguageSettings from './LanguageSettings'
 import WallpaperSettings from './WallpaperSettings'
 import OllamaConnection from './OllamaConnection'
 import OpenAIApiSettings from './OpenAIApiSettings'
-// import USASModeSettings from './USASModeSettings' // Disabled: system now uses Neural topn=5 exclusively; kept for potential future reuse
+// import USASModeSettings from './USASModeSettings' // Hidden: defaults enforced in backend (DEFAULT_USAS_SETTINGS: neural + disambiguation off → top_n=5)
 // import USASSettings from './USASSettings' // Disabled: kept for potential future reuse
 import MCPServerSettings from './MCPServerSettings'
 import LicenseViewer from './LicenseViewer'
@@ -54,7 +54,7 @@ export default function Settings() {
           <OpenAIApiSettings />
         </Grid>
 
-        {/* USAS Tagging Mode Settings — disabled: system uses Neural topn=5 exclusively */}
+        {/* USAS Tagging Mode Settings — hidden; backend DEFAULT_USAS_SETTINGS = neural + top_n=5 (disambiguation off) */}
         {/* <Grid item xs={12}>
           <USASModeSettings />
         </Grid> */}

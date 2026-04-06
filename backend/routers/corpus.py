@@ -21,6 +21,7 @@ from pydantic import BaseModel
 # Import paths from config module
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from config import DATA_DIR, SAVES_DIR, CORPORA_DIR, SETTINGS_DIR, TOPIC_MODELING_DIR, WORD2VEC_DIR, ANNOTATIONS_DIR
+from services.usas_service import DEFAULT_USAS_SETTINGS
 
 from models.database import CorpusDB, TextDB, TagDB, TaskDB
 from models.corpus import (
@@ -34,6 +35,7 @@ from models.corpus import (
     UploadResponse, TaskResponse, TagListResponse
 )
 from services.corpus_service import get_corpus_service
+from services.corpus_path_utils import resolve_stored_path
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -147,17 +149,17 @@ async def get_services_status():
         from services.whisper_service import get_whisper_service
         from services.yolo_service import get_yolo_service
         from services.clip_service import get_clip_service
-        from services.alignment_service import WAV2VEC2_MODEL_PATH
         from services.usas_service import get_usas_service
         from services.mipvu_service import get_mipvu_service
         from model_paths import resolve_model_path
-        
+
         whisper = get_whisper_service()
         yolo = get_yolo_service()
         clip = get_clip_service()
         usas = get_usas_service()
         mipvu = get_mipvu_service()
-        
+
+        wav2vec_path = resolve_model_path("multimodal_analyzer/wav2vec2-base-960h")
         result = {
             "success": True,
             "data": {
@@ -166,8 +168,8 @@ async def get_services_status():
                     "model_path": whisper.model_path
                 },
                 "wav2vec": {
-                    "available": os.path.exists(WAV2VEC2_MODEL_PATH),
-                    "model_path": WAV2VEC2_MODEL_PATH
+                    "available": bool(wav2vec_path),
+                    "model_path": str(wav2vec_path) if wav2vec_path else ""
                 },
                 "yolo": {
                     "available": yolo.is_available(),
@@ -542,11 +544,13 @@ async def reannotate_spacy(
                 return
             
             if media_type == 'text':
-                # Text file - re-annotate the content
-                content_path = text.get('content_path')
-                if not content_path or not os.path.exists(content_path):
+                # Text file - re-annotate the content (resolve like semantic analysis / packaged cwd)
+                raw_cp = text.get('content_path')
+                rp = resolve_stored_path(raw_cp) if raw_cp else None
+                if not rp or not rp.is_file():
                     send_progress_sync(task_id, "error", 0, "Content file not found", status="failed")
                     return
+                content_path = str(rp)
                 
                 send_progress_sync(task_id, "spacy", 20, "Reading content...")
                 
@@ -583,12 +587,16 @@ async def reannotate_spacy(
                             send_progress_sync(task_id, "usas", overall_progress, message)
                         
                         usas_result = usas_svc.annotate_text(content, language, text_type, usas_progress_callback)
-                        
+
                         if usas_result.get("success"):
                             usas_path = output_dir / f"{base_name}.usas.json"
                             with open(usas_path, 'w', encoding='utf-8') as f:
                                 json.dump(usas_result, f, ensure_ascii=False, indent=2)
                             send_progress_sync(task_id, "usas", 80, "USAS annotation completed")
+                        else:
+                            usas_err = usas_result.get("error", "Unknown error")
+                            logger.warning(f"USAS annotation failed during upload: {usas_err}")
+                            send_progress_sync(task_id, "usas", 80, f"USAS annotation failed: {usas_err}")
                     else:
                         send_progress_sync(task_id, "usas", 80, "USAS not available for this language, skipping...")
                     
@@ -1184,18 +1192,9 @@ async def factory_reset(data: dict):
             SETTINGS_DIR.mkdir(parents=True, exist_ok=True)
             usas_settings_file = SETTINGS_DIR / "usas_settings.json"
             
-            # Write default USAS settings
-            default_usas_settings = {
-                "priority_domains": [],
-                "default_text_type": "GEN",
-                "custom_text_types": {},
-                "text_type_overrides": {},
-                # Ensure disambiguation switch resets immediately after factory reset.
-                "disambiguation_enabled": False,
-                "tagging_mode": "rule_based",
-            }
+            # Align with services.usas_service.DEFAULT_USAS_SETTINGS (neural + top_n=5 when disambiguation off).
             with open(usas_settings_file, 'w', encoding='utf-8') as f:
-                json.dump(default_usas_settings, f, ensure_ascii=False, indent=2)
+                json.dump(dict(DEFAULT_USAS_SETTINGS), f, ensure_ascii=False, indent=2)
             deleted_items.append("USAS settings reset to defaults")
 
             # USAS service is a singleton in backend/services/usas_service.py.
@@ -1584,15 +1583,17 @@ async def update_transcript_segments(corpus_id: str, text_id: str, data: dict):
                                         'lemma': t.get('lemma', ''),
                                         'pos': t.get('pos', ''),
                                         'tag': t.get('tag', ''),
-                                        'dep': t.get('dep', '')
+                                        'dep': t.get('dep', ''),
+                                        'start': t.get('start', 0),
+                                        'end': t.get('end', 0),
                                     } for t in seg_spacy.get('tokens', [])
                                 ]
                             }]
                         }
                     segments_with_spacy.append({**seg, 'spacy_data': spacy_data})
-                
+
                 mipvu_result = mipvu_svc.annotate_segments(segments_with_spacy, language)
-                
+
                 if mipvu_result:
                     transcript_data['mipvu_annotations'] = {
                         "success": True,
@@ -2334,11 +2335,13 @@ async def reannotate_usas(
             send_progress_sync(task_id, "usas", 10, "Loading USAS service...")
             
             if media_type == 'text':
-                # Text file - re-annotate the content
-                content_path = text.get('content_path')
-                if not content_path or not os.path.exists(content_path):
+                # Text file - re-annotate the content (resolve like semantic analysis)
+                raw_cp = text.get('content_path')
+                rp = resolve_stored_path(raw_cp) if raw_cp else None
+                if not rp or not rp.is_file():
                     send_progress_sync(task_id, "error", 0, "Content file not found", status="failed")
                     return
+                content_path = str(rp)
                 
                 send_progress_sync(task_id, "usas", 20, "Reading content...")
                 
@@ -2977,6 +2980,16 @@ def process_text_spacy_sync(
     logger.info(f"=== Starting SpaCy background processing for task {task_id} ===")
     
     try:
+        # Align with DB-stored paths + METALINGO_DATA_PATH: relative paths must not
+        # resolve against the backend cwd (packaged app), or sidecars end up outside userData.
+        resolved_save = resolve_stored_path(save_path)
+        if resolved_save is not None and resolved_save.is_file():
+            save_path = str(resolved_save)
+            save_dir = str(resolved_save.parent)
+        elif save_path and os.path.isfile(save_path):
+            save_path = os.path.abspath(save_path)
+            save_dir = str(Path(save_path).parent)
+
         send_progress_sync(task_id, "initializing", 5, "Loading SpaCy model...")
         
         from services.spacy_service import get_spacy_service
@@ -3084,14 +3097,17 @@ def process_text_spacy_sync(
                     usas_path = output_dir / f"{base_name}.usas.json"
                     with open(usas_path, 'w', encoding='utf-8') as f:
                         json.dump(usas_result, f, ensure_ascii=False, indent=2)
-                    
+
                     logger.info(f"Saved USAS annotation: {usas_path}")
                     usas_info = {
                         "path": str(usas_path),
                         "tokens": len(usas_result.get("tokens", [])),
                         "dominant_domain": usas_result.get("dominant_domain")
                     }
-            
+                else:
+                    usas_err = usas_result.get("error", "Unknown error")
+                    logger.warning(f"USAS annotation failed during upload: {usas_err}")
+
             # Perform MIPVU annotation (only for English)
             send_progress_sync(task_id, "mipvu", 95, "Running MIPVU annotation...")
             
@@ -3312,13 +3328,15 @@ def process_media_file_sync(
                                         'lemma': t.get('lemma', ''),
                                         'pos': t.get('pos', ''),
                                         'tag': t.get('tag', ''),
-                                        'dep': t.get('dep', '')
+                                        'dep': t.get('dep', ''),
+                                        'start': t.get('start', 0),
+                                        'end': t.get('end', 0),
                                     } for t in seg_spacy.get('tokens', [])
                                 ]
                             }]
                         }
                     segments_with_spacy.append({**seg, 'spacy_data': spacy_data})
-                
+
                 mipvu_result = mipvu_svc.annotate_segments(segments_with_spacy, language, mipvu_progress_callback)
                 if mipvu_result:
                     transcript_data['mipvu_annotations'] = {"success": True, "segments": mipvu_result}
@@ -3512,7 +3530,9 @@ def process_media_file_sync(
                                                         'lemma': t.get('lemma', ''),
                                                         'pos': t.get('pos', ''),
                                                         'tag': t.get('tag', ''),
-                                                        'dep': t.get('dep', '')
+                                                        'dep': t.get('dep', ''),
+                                                        'start': t.get('start', 0),
+                                                        'end': t.get('end', 0),
                                                     } for t in seg_spacy.get('tokens', [])
                                                 ]
                                             }]
@@ -3753,9 +3773,9 @@ async def upload_files(
     )
     if has_audio_or_video:
         from services.whisper_service import get_whisper_service
-        from services.alignment_service import WAV2VEC2_MODEL_PATH
+        from model_paths import resolve_model_path as _resolve
         whisper_ready = get_whisper_service().is_available()
-        wav2vec_ready = os.path.exists(WAV2VEC2_MODEL_PATH)
+        wav2vec_ready = bool(_resolve("multimodal_analyzer/wav2vec2-base-960h"))
         if not whisper_ready:
             raise HTTPException(
                 status_code=409,

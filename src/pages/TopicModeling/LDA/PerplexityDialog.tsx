@@ -20,7 +20,6 @@ import {
   MenuItem,
   IconButton,
   Tooltip,
-  Divider,
   Chip,
   useTheme
 } from '@mui/material'
@@ -30,7 +29,6 @@ import ImageIcon from '@mui/icons-material/Image'
 import { useTranslation } from 'react-i18next'
 import * as d3 from 'd3'
 import type { LDAOptimizeResult } from '../../../types/topicModeling'
-import { useResizeObserver, useTooltip } from '../components/visualizations/d3/useD3'
 
 interface PerplexityDialogProps {
   open: boolean
@@ -51,9 +49,8 @@ export default function PerplexityDialog({ open, onClose, data }: PerplexityDial
   const isDarkMode = theme.palette.mode === 'dark'
   const containerRef = useRef<HTMLDivElement>(null)
   const svgRef = useRef<SVGSVGElement>(null)
+  const tooltipRef = useRef<HTMLDivElement>(null)
   const [colorScheme, setColorScheme] = useState<keyof typeof COLOR_SCHEMES>('default')
-  const dimensions = useResizeObserver(containerRef)
-  const tooltip = useTooltip()
   
   // Export SVG
   const handleExportSVG = useCallback(() => {
@@ -80,47 +77,63 @@ export default function PerplexityDialog({ open, onClose, data }: PerplexityDial
 
     try {
       const html2canvas = (await import('html2canvas')).default
+      const bgColor = container.style.background || (isDarkMode ? '#1e1e2e' : '#fafafa')
       const canvas = await html2canvas(container, {
-        backgroundColor: '#fafafa',
+        backgroundColor: bgColor,
         scale: 3,
         useCORS: true
       })
-      
       canvas.toBlob((blob) => {
         if (!blob) return
-        
         const url = URL.createObjectURL(blob)
         const link = document.createElement('a')
         link.href = url
         link.download = 'lda-perplexity-curve.png'
         link.click()
-        
         URL.revokeObjectURL(url)
       }, 'image/png')
     } catch (error) {
       console.error('Failed to export PNG:', error)
     }
-  }, [])
-  
-  // Render chart function
-  const renderChart = useCallback(() => {
-    if (!svgRef.current || !dimensions || !data?.results?.length) return
-    
-    const { width, height } = dimensions
-    if (width === 0 || height === 0) return
-    
+  }, [isDarkMode])
+
+  // Draw chart — same direct useEffect pattern as LSA/NMF dialogs
+  useEffect(() => {
+    if (!open || !containerRef.current || !svgRef.current || !data?.results?.length) return
+
+    const container = containerRef.current
     const svg = d3.select(svgRef.current)
     svg.selectAll('*').remove()
-    
+
+    const { width, height } = container.getBoundingClientRect()
+    if (width === 0 || height === 0) return
+
+    // Create tooltip
+    const tooltip = d3.select(tooltipRef.current)
+      .style('position', 'fixed')
+      .style('visibility', 'hidden')
+      .style('background', isDarkMode ? 'rgba(50,50,50,0.95)' : 'rgba(0,0,0,0.85)')
+      .style('color', isDarkMode ? '#e0e0e0' : 'white')
+      .style('padding', '10px 14px')
+      .style('border-radius', '6px')
+      .style('font-size', '12px')
+      .style('pointer-events', 'none')
+      .style('z-index', '1000')
+      .style('box-shadow', isDarkMode ? '0 2px 8px rgba(0,0,0,0.4)' : '0 2px 8px rgba(0,0,0,0.2)')
+
+    svg
+      .attr('width', width)
+      .attr('height', height)
+
     const margin = { top: 70, right: 80, bottom: 60, left: 70 }
     const innerWidth = width - margin.left - margin.right
     const innerHeight = height - margin.top - margin.bottom
-    
+
     if (innerWidth <= 0 || innerHeight <= 0) return
-    
+
     const colors = COLOR_SCHEMES[colorScheme]
-    
-    // Title - BERTopic style (consistent with other visualizations)
+
+    // Title
     svg.append('text')
       .attr('x', width / 2)
       .attr('y', 28)
@@ -129,7 +142,7 @@ export default function PerplexityDialog({ open, onClose, data }: PerplexityDial
       .attr('font-weight', 'bold')
       .attr('fill', isDarkMode ? '#e0e0e0' : '#2c3e50')
       .text(t('topicModeling.lda.viz.perplexity', 'Topic Number Optimization'))
-    
+
     // Subtitle
     svg.append('text')
       .attr('x', width / 2)
@@ -138,244 +151,169 @@ export default function PerplexityDialog({ open, onClose, data }: PerplexityDial
       .attr('font-size', '12px')
       .attr('fill', isDarkMode ? '#999' : '#666')
       .text(t('topicModeling.lda.viz.perplexityCoherence', 'Perplexity & Coherence Scores'))
-    
+
     const g = svg.append('g')
       .attr('transform', `translate(${margin.left},${margin.top})`)
-    
+
     // X scale
     const xScale = d3.scaleLinear()
       .domain(d3.extent(data.results, d => d.num_topics) as [number, number])
       .range([0, innerWidth])
-    
+
     // Filter valid data
     const perplexityData = data.results.filter(d => d.perplexity !== null)
     const coherenceData = data.results.filter(d => d.coherence !== null)
-    
-    // Y scales for perplexity (left axis)
+
+    // Y scales
     const perplexityExtent = d3.extent(perplexityData, d => d.perplexity) as [number, number]
     const yPerplexity = d3.scaleLinear()
       .domain([perplexityExtent[0] * 0.9, perplexityExtent[1] * 1.1])
       .range([innerHeight, 0])
-    
-    // Y scale for coherence (right axis)
+
     const coherenceExtent = d3.extent(coherenceData, d => d.coherence) as [number, number]
     const yCoherence = d3.scaleLinear()
       .domain([coherenceExtent[0] * 0.9, coherenceExtent[1] * 1.1])
       .range([innerHeight, 0])
-    
+
     // Grid lines
     g.append('g')
       .attr('class', 'grid')
       .selectAll('line')
       .data(yPerplexity.ticks(6))
       .join('line')
-      .attr('x1', 0)
-      .attr('x2', innerWidth)
-      .attr('y1', d => yPerplexity(d))
-      .attr('y2', d => yPerplexity(d))
+      .attr('x1', 0).attr('x2', innerWidth)
+      .attr('y1', d => yPerplexity(d)).attr('y2', d => yPerplexity(d))
       .attr('stroke', isDarkMode ? '#444' : '#e0e0e0')
       .attr('stroke-dasharray', '3,3')
-    
-    // Draw perplexity line
+
+    // Perplexity line
     if (perplexityData.length > 0) {
       const perplexityLine = d3.line<typeof data.results[0]>()
         .x(d => xScale(d.num_topics))
         .y(d => yPerplexity(d.perplexity!))
         .curve(d3.curveMonotoneX)
-      
+
       g.append('path')
         .datum(perplexityData)
-        .attr('fill', 'none')
-        .attr('stroke', colors[0])
-        .attr('stroke-width', 2.5)
+        .attr('fill', 'none').attr('stroke', colors[0]).attr('stroke-width', 2.5)
         .attr('d', perplexityLine)
-      
-      // Perplexity points
+
       g.selectAll('.perplexity-point')
         .data(perplexityData)
         .join('circle')
         .attr('class', 'perplexity-point')
-        .attr('cx', d => xScale(d.num_topics))
-        .attr('cy', d => yPerplexity(d.perplexity!))
-        .attr('r', 6)
-        .attr('fill', colors[0])
-        .attr('stroke', isDarkMode ? '#1e1e2e' : 'white')
-        .attr('stroke-width', 2)
+        .attr('cx', d => xScale(d.num_topics)).attr('cy', d => yPerplexity(d.perplexity!))
+        .attr('r', 6).attr('fill', colors[0])
+        .attr('stroke', isDarkMode ? '#1e1e2e' : 'white').attr('stroke-width', 2)
         .attr('cursor', 'pointer')
-        .on('mouseenter', function(event, d) {
+        .on('mouseover', function(event, d) {
           d3.select(this).attr('r', 9)
-          tooltip.show(`
-            <div style="margin-bottom:4px;">
-              <span style="display:inline-block;width:10px;height:10px;background:${colors[0]};border-radius:2px;margin-right:8px;"></span>
-              <span style="font-weight:bold;color:${colors[0]}">${t('topicModeling.lda.results.perplexity')}</span>
-            </div>
-            <div style="color:${isDarkMode ? '#aaa' : '#555'};">
-              <span style="font-weight:500;">${t('topicModeling.lda.params.numTopics')}:</span> 
-              <span style="font-weight:bold;color:${isDarkMode ? '#e0e0e0' : '#333'}">${d.num_topics}</span>
-            </div>
-            <div style="color:${isDarkMode ? '#aaa' : '#555'};">
-              <span style="font-weight:500;">${t('topicModeling.visualization.score', 'Score')}:</span> 
-              <span style="font-weight:bold;color:${isDarkMode ? '#e0e0e0' : '#333'}">${d.perplexity?.toFixed(2)}</span>
-            </div>
-          `, event as unknown as MouseEvent)
+          tooltip.style('visibility', 'visible').html(`
+            <strong>${t('topicModeling.lda.results.perplexity')}</strong><br/>
+            ${t('topicModeling.lda.params.numTopics')}: ${d.num_topics}<br/>
+            Score: ${d.perplexity?.toFixed(2)}
+          `)
         })
         .on('mousemove', function(event) {
-          tooltip.move(event as unknown as MouseEvent)
+          tooltip.style('top', (event.pageY + 10) + 'px').style('left', (event.pageX + 10) + 'px')
         })
-        .on('mouseleave', function() {
+        .on('mouseout', function() {
           d3.select(this).attr('r', 6)
-          tooltip.hide()
+          tooltip.style('visibility', 'hidden')
         })
     }
-    
-    // Draw coherence line
+
+    // Coherence line
     if (coherenceData.length > 0) {
       const coherenceLine = d3.line<typeof data.results[0]>()
         .x(d => xScale(d.num_topics))
         .y(d => yCoherence(d.coherence!))
         .curve(d3.curveMonotoneX)
-      
+
       g.append('path')
         .datum(coherenceData)
-        .attr('fill', 'none')
-        .attr('stroke', colors[1])
-        .attr('stroke-width', 2.5)
+        .attr('fill', 'none').attr('stroke', colors[1]).attr('stroke-width', 2.5)
         .attr('d', coherenceLine)
-      
-      // Coherence points
+
       g.selectAll('.coherence-point')
         .data(coherenceData)
         .join('circle')
         .attr('class', 'coherence-point')
-        .attr('cx', d => xScale(d.num_topics))
-        .attr('cy', d => yCoherence(d.coherence!))
-        .attr('r', 6)
-        .attr('fill', colors[1])
-        .attr('stroke', isDarkMode ? '#1e1e2e' : 'white')
-        .attr('stroke-width', 2)
+        .attr('cx', d => xScale(d.num_topics)).attr('cy', d => yCoherence(d.coherence!))
+        .attr('r', 6).attr('fill', colors[1])
+        .attr('stroke', isDarkMode ? '#1e1e2e' : 'white').attr('stroke-width', 2)
         .attr('cursor', 'pointer')
-        .on('mouseenter', function(event, d) {
+        .on('mouseover', function(event, d) {
           d3.select(this).attr('r', 9)
-          tooltip.show(`
-            <div style="margin-bottom:4px;">
-              <span style="display:inline-block;width:10px;height:10px;background:${colors[1]};border-radius:2px;margin-right:8px;"></span>
-              <span style="font-weight:bold;color:${colors[1]}">${t('topicModeling.lda.results.coherence')}</span>
-            </div>
-            <div style="color:${isDarkMode ? '#aaa' : '#555'};">
-              <span style="font-weight:500;">${t('topicModeling.lda.params.numTopics')}:</span> 
-              <span style="font-weight:bold;color:${isDarkMode ? '#e0e0e0' : '#333'}">${d.num_topics}</span>
-            </div>
-            <div style="color:${isDarkMode ? '#aaa' : '#555'};">
-              <span style="font-weight:500;">${t('topicModeling.visualization.score', 'Score')}:</span> 
-              <span style="font-weight:bold;color:${isDarkMode ? '#e0e0e0' : '#333'}">${d.coherence?.toFixed(4)}</span>
-            </div>
-          `, event as unknown as MouseEvent)
+          tooltip.style('visibility', 'visible').html(`
+            <strong>${t('topicModeling.lda.results.coherence')}</strong><br/>
+            ${t('topicModeling.lda.params.numTopics')}: ${d.num_topics}<br/>
+            Score: ${d.coherence?.toFixed(4)}
+          `)
         })
         .on('mousemove', function(event) {
-          tooltip.move(event as unknown as MouseEvent)
+          tooltip.style('top', (event.pageY + 10) + 'px').style('left', (event.pageX + 10) + 'px')
         })
-        .on('mouseleave', function() {
+        .on('mouseout', function() {
           d3.select(this).attr('r', 6)
-          tooltip.hide()
+          tooltip.style('visibility', 'hidden')
         })
     }
-    
+
     // X axis
-    g.append('g')
+    const xAxis = g.append('g')
       .attr('transform', `translate(0,${innerHeight})`)
       .call(d3.axisBottom(xScale).ticks(data.results.length).tickFormat(d => String(d)))
-      .selectAll('text')
-      .attr('font-size', '11px')
-    
+    xAxis.selectAll('text').attr('font-size', '11px').attr('fill', isDarkMode ? '#aaa' : '#333')
+    xAxis.selectAll('path, line').attr('stroke', isDarkMode ? '#555' : '#ccc')
+
     // Left Y axis (Perplexity)
-    const leftAxis = g.append('g')
-      .call(d3.axisLeft(yPerplexity).ticks(6))
-    
-    leftAxis.selectAll('text').attr('font-size', '11px')
+    const leftAxis = g.append('g').call(d3.axisLeft(yPerplexity).ticks(6))
+    leftAxis.selectAll('text').attr('font-size', '11px').attr('fill', isDarkMode ? '#aaa' : '#333')
     leftAxis.selectAll('path, line').attr('stroke', colors[0])
-    
     leftAxis.append('text')
-      .attr('fill', colors[0])
-      .attr('transform', 'rotate(-90)')
-      .attr('y', -55)
-      .attr('x', -innerHeight / 2)
-      .attr('text-anchor', 'middle')
-      .attr('font-size', '12px')
-      .attr('font-weight', 'bold')
+      .attr('fill', colors[0]).attr('transform', 'rotate(-90)')
+      .attr('y', -55).attr('x', -innerHeight / 2)
+      .attr('text-anchor', 'middle').attr('font-size', '12px').attr('font-weight', 'bold')
       .text(t('topicModeling.lda.results.perplexity'))
-    
+
     // Right Y axis (Coherence)
     const rightAxis = g.append('g')
       .attr('transform', `translate(${innerWidth}, 0)`)
       .call(d3.axisRight(yCoherence).ticks(6))
-    
-    rightAxis.selectAll('text').attr('font-size', '11px')
+    rightAxis.selectAll('text').attr('font-size', '11px').attr('fill', isDarkMode ? '#aaa' : '#333')
     rightAxis.selectAll('path, line').attr('stroke', colors[1])
-    
     rightAxis.append('text')
-      .attr('fill', colors[1])
-      .attr('transform', 'rotate(-90)')
-      .attr('y', 55)
-      .attr('x', -innerHeight / 2)
-      .attr('text-anchor', 'middle')
-      .attr('font-size', '12px')
-      .attr('font-weight', 'bold')
+      .attr('fill', colors[1]).attr('transform', 'rotate(-90)')
+      .attr('y', 55).attr('x', -innerHeight / 2)
+      .attr('text-anchor', 'middle').attr('font-size', '12px').attr('font-weight', 'bold')
       .text(t('topicModeling.lda.results.coherence'))
-    
+
     // X axis label
     svg.append('text')
-      .attr('x', width / 2)
-      .attr('y', height - 10)
-      .attr('text-anchor', 'middle')
-      .attr('font-size', '12px')
+      .attr('x', width / 2).attr('y', height - 10)
+      .attr('text-anchor', 'middle').attr('font-size', '12px')
       .attr('fill', isDarkMode ? '#999' : '#666')
       .text(t('topicModeling.lda.params.numTopics', 'Number of Topics'))
-    
+
     // Legend
     const legend = svg.append('g')
       .attr('transform', `translate(${margin.left + 20}, ${margin.top - 5})`)
-    
     const legendItems = [
       { label: `${t('topicModeling.lda.results.perplexity')} (${t('topicModeling.lda.lowerBetter', 'lower is better')})`, color: colors[0] },
       { label: `${t('topicModeling.lda.results.coherence')} (${t('topicModeling.lda.higherBetter', 'higher is better')})`, color: colors[1] }
     ]
-    
     legendItems.forEach((item, i) => {
-      const row = legend.append('g')
-        .attr('transform', `translate(${i * 240}, 0)`)
-      
-      row.append('line')
-        .attr('x1', 0)
-        .attr('x2', 24)
-        .attr('y1', 0)
-        .attr('y2', 0)
-        .attr('stroke', item.color)
-        .attr('stroke-width', 2.5)
-      
-      row.append('circle')
-        .attr('cx', 12)
-        .attr('cy', 0)
-        .attr('r', 5)
-        .attr('fill', item.color)
-        .attr('stroke', isDarkMode ? '#1e1e2e' : 'white')
-        .attr('stroke-width', 1.5)
-      
-      row.append('text')
-        .attr('x', 30)
-        .attr('y', 4)
-        .attr('font-size', '11px')
-        .attr('fill', isDarkMode ? '#ccc' : '#444')
-        .text(item.label)
+      const row = legend.append('g').attr('transform', `translate(${i * 240}, 0)`)
+      row.append('line').attr('x1', 0).attr('x2', 24).attr('y1', 0).attr('y2', 0)
+        .attr('stroke', item.color).attr('stroke-width', 2.5)
+      row.append('circle').attr('cx', 12).attr('cy', 0).attr('r', 5)
+        .attr('fill', item.color).attr('stroke', isDarkMode ? '#1e1e2e' : 'white').attr('stroke-width', 1.5)
+      row.append('text').attr('x', 30).attr('y', 4).attr('font-size', '11px')
+        .attr('fill', isDarkMode ? '#ccc' : '#444').text(item.label)
     })
-    
-  }, [dimensions, data, colorScheme, tooltip, t, isDarkMode])
-  
-  // Trigger render when dimensions change
-  useEffect(() => {
-    if (open && dimensions) {
-      renderChart()
-    }
-  }, [open, dimensions, renderChart])
+
+  }, [open, data, colorScheme, t, isDarkMode])
   
   if (!data?.results?.length) return null
   
@@ -448,31 +386,19 @@ export default function PerplexityDialog({ open, onClose, data }: PerplexityDial
         </Stack>
       </Box>
       
-      <DialogContent sx={{ p: 0, overflow: 'hidden', display: 'flex', bgcolor: isDarkMode ? '#1e1e2e' : '#fafafa' }}>
+      <DialogContent dividers sx={{ p: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', bgcolor: isDarkMode ? '#1e1e2e' : 'background.paper' }}>
         <Box
           ref={containerRef}
           sx={{
-            flex: 1,
             width: '100%',
             height: '100%',
             bgcolor: isDarkMode ? '#1e1e2e' : '#fafafa',
-            overflow: 'hidden',
-            display: 'flex',
-            '& svg': {
-              display: 'block',
-              width: '100%',
-              height: '100%'
-            }
+            position: 'relative',
+            minHeight: 400
           }}
         >
-          {dimensions && dimensions.width > 0 && dimensions.height > 0 && (
-            <svg 
-              ref={svgRef} 
-              width={dimensions.width} 
-              height={dimensions.height}
-              style={{ background: isDarkMode ? 'transparent' : '#fafafa' }}
-            />
-          )}
+          <svg ref={svgRef} style={{ width: '100%', height: '100%', background: isDarkMode ? '#1e1e2e' : '#fafafa' }} />
+          <div ref={tooltipRef} />
         </Box>
       </DialogContent>
       

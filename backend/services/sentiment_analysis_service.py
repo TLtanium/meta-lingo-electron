@@ -4,7 +4,6 @@ Aggregates NRC token-level scores by polarity (positive/negative/neutral) or
 by dimension (anger, anticipation, disgust, fear, joy, sadness, surprise, trust, others).
 """
 
-import os
 import re
 import json
 import logging
@@ -18,6 +17,8 @@ import sys
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from services.usas.domain_config import get_domain_description
+from services.usas.annotation_meta import infer_disambiguation_enabled
+from services.corpus_path_utils import resolve_stored_path, find_usas_sidecar_path
 
 logger = logging.getLogger(__name__)
 
@@ -282,19 +283,18 @@ class SentimentAnalysisService:
         """Load SpaCy annotation for a text (same pattern as word_frequency_service)."""
         media_type = text.get("media_type", "text")
         if media_type in ["audio", "video"]:
-            transcript_json = text.get("transcript_json_path")
-            if transcript_json and os.path.exists(transcript_json):
+            tjp = resolve_stored_path(text.get("transcript_json_path"))
+            if tjp and tjp.is_file():
                 try:
-                    with open(transcript_json, "r", encoding="utf-8") as f:
+                    with open(tjp, "r", encoding="utf-8") as f:
                         data = json.load(f)
                     if "spacy_annotations" in data:
                         return data["spacy_annotations"]
                 except Exception as e:
                     logger.warning(f"Failed to load transcript SpaCy: {e}")
-        content_path = text.get("content_path")
+        content_path = resolve_stored_path(text.get("content_path"))
         if not content_path:
             return None
-        content_path = Path(content_path)
         spacy_path = content_path.parent / f"{content_path.stem}.spacy.json"
         if spacy_path.exists():
             try:
@@ -308,22 +308,21 @@ class SentimentAnalysisService:
         """Load USAS domain tags for a text, returning one tag per SpaCy token (aligned by index)."""
         media_type = text.get("media_type", "text")
         if media_type in ["audio", "video"]:
-            transcript_json = text.get("transcript_json_path")
-            if transcript_json and os.path.exists(transcript_json):
+            tjp = resolve_stored_path(text.get("transcript_json_path"))
+            if tjp and tjp.is_file():
                 try:
-                    with open(transcript_json, "r", encoding="utf-8") as f:
+                    with open(tjp, "r", encoding="utf-8") as f:
                         data = json.load(f)
                     usas = data.get("usas_annotations", {})
                     return self._extract_usas_tags_flat(usas)
                 except Exception as e:
                     logger.warning(f"Failed to load transcript USAS: {e}")
             return []
-        content_path = text.get("content_path")
+        content_path = resolve_stored_path(text.get("content_path"))
         if not content_path:
             return []
-        content_path = Path(content_path)
-        usas_path = content_path.parent / f"{content_path.stem}.usas.json"
-        if not usas_path.exists():
+        usas_path = find_usas_sidecar_path(content_path)
+        if not usas_path:
             return []
         try:
             with open(usas_path, "r", encoding="utf-8") as f:
@@ -337,9 +336,10 @@ class SentimentAnalysisService:
         """
         Flatten USAS annotation tokens to a list of tags (one entry per token).
         When disambiguation is off, each entry is a list of tags (all candidates).
-        When disambiguation is on (or for old data), each entry is a single string.
+        When disambiguation is on, each entry is a single string.
+        Missing ``disambiguation_enabled`` uses ``infer_disambiguation_enabled`` (neural files → off).
         """
-        disambiguation_enabled = usas_data.get("disambiguation_enabled", True)
+        disambiguation_enabled = infer_disambiguation_enabled(usas_data)
         tags = []
         token_list = []
         if "tokens" in usas_data:
@@ -367,10 +367,10 @@ class SentimentAnalysisService:
         """Load NRC token_scores for a text. Plain text: .nrc.json; media: transcript nrc_annotations."""
         media_type = text.get("media_type", "text")
         if media_type in ["audio", "video"]:
-            transcript_json = text.get("transcript_json_path")
-            if transcript_json and os.path.exists(transcript_json):
+            tjp = resolve_stored_path(text.get("transcript_json_path"))
+            if tjp and tjp.is_file():
                 try:
-                    with open(transcript_json, "r", encoding="utf-8") as f:
+                    with open(tjp, "r", encoding="utf-8") as f:
                         data = json.load(f)
                     nrc = data.get("nrc_annotations", {})
                     if not nrc.get("success") or "segments" not in nrc:
@@ -383,10 +383,9 @@ class SentimentAnalysisService:
                 except Exception as e:
                     logger.warning(f"Failed to load transcript NRC: {e}")
             return []
-        content_path = text.get("content_path")
+        content_path = resolve_stored_path(text.get("content_path"))
         if not content_path:
             return []
-        content_path = Path(content_path)
         nrc_path = content_path.parent / f"{content_path.stem}.nrc.json"
         if not nrc_path.exists():
             return []

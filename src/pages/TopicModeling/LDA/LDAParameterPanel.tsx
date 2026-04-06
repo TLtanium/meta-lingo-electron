@@ -30,7 +30,8 @@ import {
   Slider,
   Grid,
   LinearProgress,
-  Chip
+  Chip,
+  useTheme
 } from '@mui/material'
 import { NumberInput } from '../../../components/common'
 import PlayArrowIcon from '@mui/icons-material/PlayArrow'
@@ -570,6 +571,8 @@ function OptimizeDialog({
   error,
   t
 }: OptimizeDialogProps) {
+  const theme = useTheme()
+  const isDarkMode = theme.palette.mode === 'dark'
   const containerRef = useRef<HTMLDivElement>(null)
   const svgRef = useRef<SVGSVGElement>(null)
   const tooltipRef = useRef<HTMLDivElement>(null)
@@ -594,32 +597,32 @@ function OptimizeDialog({
     const tooltip = d3.select(tooltipRef.current)
       .style('position', 'fixed')
       .style('visibility', 'hidden')
-      .style('background', 'rgba(0,0,0,0.85)')
-      .style('color', 'white')
+      .style('background', isDarkMode ? 'rgba(50,50,50,0.95)' : 'rgba(0,0,0,0.85)')
+      .style('color', isDarkMode ? '#e0e0e0' : 'white')
       .style('padding', '10px 14px')
       .style('border-radius', '6px')
       .style('font-size', '12px')
       .style('pointer-events', 'none')
       .style('z-index', '1000')
-      .style('box-shadow', '0 2px 8px rgba(0,0,0,0.2)')
-    
-    // Title - BERTopic style (consistent with other visualizations)
+      .style('box-shadow', isDarkMode ? '0 2px 8px rgba(0,0,0,0.4)' : '0 2px 8px rgba(0,0,0,0.2)')
+
+    // Title
     svg.append('text')
       .attr('x', width / 2)
       .attr('y', 28)
       .attr('text-anchor', 'middle')
       .attr('font-size', '18px')
       .attr('font-weight', 'bold')
-      .attr('fill', '#2c3e50')
+      .attr('fill', isDarkMode ? '#e0e0e0' : '#2c3e50')
       .text(t('topicModeling.lda.optimizeTitle', 'Topic Number Optimization'))
-    
+
     // Subtitle
     svg.append('text')
       .attr('x', width / 2)
       .attr('y', 48)
       .attr('text-anchor', 'middle')
       .attr('font-size', '12px')
-      .attr('fill', '#666')
+      .attr('fill', isDarkMode ? '#999' : '#666')
       .text(t('topicModeling.lda.viz.perplexityCoherence', 'Perplexity & Coherence Scores'))
     
     const g = svg
@@ -659,7 +662,7 @@ function OptimizeDialog({
       .attr('x2', innerWidth)
       .attr('y1', d => yPerplexity(d))
       .attr('y2', d => yPerplexity(d))
-      .attr('stroke', '#e0e0e0')
+      .attr('stroke', isDarkMode ? '#444' : '#e0e0e0')
       .attr('stroke-dasharray', '3,3')
     
     // Draw perplexity line
@@ -685,7 +688,7 @@ function OptimizeDialog({
         .attr('cy', d => yPerplexity(d.perplexity!))
         .attr('r', 6)
         .attr('fill', colors[0])
-        .attr('stroke', 'white')
+        .attr('stroke', isDarkMode ? '#1e1e2e' : 'white')
         .attr('stroke-width', 2)
         .attr('cursor', 'pointer')
         .on('mouseover', function(event, d) {
@@ -728,7 +731,7 @@ function OptimizeDialog({
         .attr('cy', d => yCoherence(d.coherence!))
         .attr('r', 6)
         .attr('fill', colors[1])
-        .attr('stroke', 'white')
+        .attr('stroke', isDarkMode ? '#1e1e2e' : 'white')
         .attr('stroke-width', 2)
         .attr('cursor', 'pointer')
         .on('mouseover', function(event, d) {
@@ -749,17 +752,16 @@ function OptimizeDialog({
     }
     
     // X axis
-    g.append('g')
+    const xAxisG = g.append('g')
       .attr('transform', `translate(0,${innerHeight})`)
       .call(d3.axisBottom(xScale).ticks(optimizeResult.results.length).tickFormat(d => String(d)))
-      .selectAll('text')
-      .attr('font-size', '11px')
-    
+    xAxisG.selectAll('text').attr('font-size', '11px').attr('fill', isDarkMode ? '#aaa' : '#333')
+    xAxisG.selectAll('path, line').attr('stroke', isDarkMode ? '#555' : '#ccc')
+
     // Left Y axis (Perplexity)
     const leftAxis = g.append('g')
       .call(d3.axisLeft(yPerplexity).ticks(6))
-    
-    leftAxis.selectAll('text').attr('font-size', '11px')
+    leftAxis.selectAll('text').attr('font-size', '11px').attr('fill', isDarkMode ? '#aaa' : '#333')
     leftAxis.selectAll('path, line').attr('stroke', colors[0])
     
     leftAxis.append('text')
@@ -777,7 +779,7 @@ function OptimizeDialog({
       .attr('transform', `translate(${innerWidth}, 0)`)
       .call(d3.axisRight(yCoherence).ticks(6))
     
-    rightAxis.selectAll('text').attr('font-size', '11px')
+    rightAxis.selectAll('text').attr('font-size', '11px').attr('fill', isDarkMode ? '#aaa' : '#333')
     rightAxis.selectAll('path, line').attr('stroke', colors[1])
     
     rightAxis.append('text')
@@ -796,7 +798,7 @@ function OptimizeDialog({
       .attr('y', height - 10)
       .attr('text-anchor', 'middle')
       .attr('font-size', '12px')
-      .attr('fill', '#666')
+      .attr('fill', isDarkMode ? '#999' : '#666')
       .text(t('topicModeling.lda.params.numTopics', 'Number of Topics'))
     
     // Legend
@@ -825,18 +827,18 @@ function OptimizeDialog({
         .attr('cy', 0)
         .attr('r', 5)
         .attr('fill', item.color)
-        .attr('stroke', 'white')
+        .attr('stroke', isDarkMode ? '#1e1e2e' : 'white')
         .attr('stroke-width', 1.5)
-      
+
       row.append('text')
         .attr('x', 30)
         .attr('y', 4)
         .attr('font-size', '11px')
-        .attr('fill', '#444')
+        .attr('fill', isDarkMode ? '#ccc' : '#444')
         .text(item.label)
     })
     
-  }, [open, optimizeResult, colorScheme, t])
+  }, [open, optimizeResult, colorScheme, t, isDarkMode])
   
   // Export SVG
   const handleExportSVG = useCallback(() => {
@@ -864,7 +866,7 @@ function OptimizeDialog({
     try {
       const html2canvas = (await import('html2canvas')).default
       const canvas = await html2canvas(container, {
-        backgroundColor: '#fafafa',
+        backgroundColor: isDarkMode ? '#1e1e2e' : '#fafafa',
         scale: 3,
         useCORS: true
       })
@@ -992,12 +994,12 @@ function OptimizeDialog({
             sx={{
               width: '100%',
               height: '100%',
-              bgcolor: '#fafafa',
+              bgcolor: isDarkMode ? '#1e1e2e' : '#fafafa',
               position: 'relative',
               minHeight: 500
             }}
           >
-            <svg ref={svgRef} style={{ width: '100%', height: '100%' }} />
+            <svg ref={svgRef} style={{ width: '100%', height: '100%', background: isDarkMode ? '#1e1e2e' : '#fafafa' }} />
             <div ref={tooltipRef} />
           </Box>
         ) : (

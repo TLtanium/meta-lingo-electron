@@ -174,7 +174,7 @@ Meta-Lingo integrates several pre-trained models:
 | Model | Purpose | Source |
 |-------|---------|--------|
 | Whisper Large V3 Turbo | Audio transcription | OpenAI |
-| Wav2Vec2-base-960h | Forced alignment (English) | Facebook |
+| Wav2Vec2-base-960h | Forced alignment (English) | [ModelScope — facebook/wav2vec2-base-960h](https://modelscope.cn/models/facebook/wav2vec2-base-960h/summary) |
 | TorchCrepe Full | Pitch extraction (F0) | [maxrmorrison/torchcrepe](https://github.com/maxrmorrison/torchcrepe) |
 | YOLOv8 | Object detection | Ultralytics |
 | CLIP ViT-Large-Patch14 | Image classification | OpenAI |
@@ -189,6 +189,11 @@ This project is currently maintained for academic research purposes. For bug rep
 ## Changelog
 
 Recent releases below mirror `PROJECT.md` (abbreviated). For the full version history, see **`PROJECT.md`** at the repository root or the Git commit log.
+
+### v4.7.98 (2026-04-06)
+- **Wav2Vec2 (multimodal alignment)**: ModelScope download id `facebook/wav2vec2-base-960h` in `model_manifest_constants.py`; docs/help/README updated. Model Management dialog does not show an extra ModelScope link line (avoid redundancy). See `PROJECT.md`.
+- **Video transcript auto-annotation (MIPVU)**: `corpus.py` video upload path now passes SpaCy token `start`/`end` into MIPVU merge (parity with audio). Re-run MIPVU or re-upload to refresh old transcripts.
+- **BERTopic dynamic / topics over time**: Embeddings now save `{id}_docs.json` so chunk texts with newlines cannot desync document rows from vectors (fixes missing evolution chart when dates exist). Recreate embeddings if load fails; visualization tab also keys off `topics_over_time` data.
 
 ### v4.7.85 (2026-04-02)
 - **Help — Corpus SpaCy table**: In `help/zh.md` and `help/en.md`, the language/model table no longer includes a “common ISO / aliases” column; it keeps only UI language name, corpus language code, and SpaCy package name.

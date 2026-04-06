@@ -3,6 +3,7 @@ Topic Modeling Embedding Service
 SBERT-based text embedding for topic modeling
 """
 
+import json
 import logging
 import os
 import time
@@ -137,15 +138,19 @@ class TopicEmbeddingService:
         np.save(str(embedding_path), embeddings)
         logger.info(f"Embeddings saved to {embedding_path}")
         
-        # Save corresponding documents (for matching during analysis)
+        # Save corresponding documents (for matching during analysis).
+        # JSON array avoids corruption when a chunk contains newline characters (line-based *_docs.txt cannot round-trip).
         documents_path = self.embedding_dir / f"{base_name}_docs.txt"
         with open(documents_path, 'w', encoding='utf-8') as f:
             f.write('\n'.join(documents))
         logger.info(f"Documents saved to {documents_path}")
+        docs_json_path = self.embedding_dir / f"{base_name}_docs.json"
+        with open(docs_json_path, 'w', encoding='utf-8') as f:
+            json.dump(documents, f, ensure_ascii=False)
+        logger.info(f"Documents (JSON) saved to {docs_json_path}")
         
         # Save text_ids mapping (for date metadata in dynamic topic analysis)
         if text_ids and len(text_ids) == len(documents):
-            import json
             text_ids_path = self.embedding_dir / f"{base_name}_text_ids.json"
             with open(text_ids_path, 'w', encoding='utf-8') as f:
                 json.dump(text_ids, f)
@@ -154,6 +159,7 @@ class TopicEmbeddingService:
         return {
             'embedding_path': str(embedding_path),
             'documents_path': str(documents_path),
+            'documents_json_path': str(docs_json_path),
             'embedding_id': base_name,
             'shape': list(embeddings.shape),
             'stats': {
@@ -176,22 +182,51 @@ class TopicEmbeddingService:
         """
         embedding_path = self.embedding_dir / f"{embedding_id}.npy"
         documents_path = self.embedding_dir / f"{embedding_id}_docs.txt"
+        docs_json_path = self.embedding_dir / f"{embedding_id}_docs.json"
         text_ids_path = self.embedding_dir / f"{embedding_id}_text_ids.json"
         
         if not embedding_path.exists():
             raise FileNotFoundError(f"Embedding file not found: {embedding_path}")
         
         embeddings = np.load(str(embedding_path))
+        n_rows = int(embeddings.shape[0])
         
-        documents = []
-        if documents_path.exists():
+        documents: List[str] = []
+        if docs_json_path.exists():
+            with open(docs_json_path, 'r', encoding='utf-8') as f:
+                documents = json.load(f)
+            if not isinstance(documents, list):
+                raise ValueError(f"Invalid {docs_json_path.name}: expected JSON array of strings")
+            if len(documents) != n_rows:
+                raise ValueError(
+                    f"Embedding {embedding_id}: documents_json length ({len(documents)}) != embedding rows ({n_rows})"
+                )
+        elif documents_path.exists():
             with open(documents_path, 'r', encoding='utf-8') as f:
                 documents = f.read().split('\n')
+            while len(documents) > n_rows and documents[-1] == '':
+                documents.pop()
+            if len(documents) != n_rows:
+                logger.error(
+                    "Legacy _docs.txt line count (%s) != embedding rows (%s). "
+                    "This usually means a text chunk contained newline characters. "
+                    "Re-run preprocessing and create a new embedding (saves _docs.json).",
+                    len(documents),
+                    n_rows,
+                )
+                raise ValueError(
+                    f"Embedding document count ({len(documents)}) does not match embedding matrix rows ({n_rows}). "
+                    f"Recreate the embedding for '{embedding_id}' so documents are stored as JSON."
+                )
+        else:
+            raise FileNotFoundError(
+                f"Missing document sidecar for embedding '{embedding_id}': "
+                f"expected {docs_json_path.name} or {documents_path.name}"
+            )
         
         # Load text_ids mapping if exists (for chunked embeddings)
         text_ids = None
         if text_ids_path.exists():
-            import json
             with open(text_ids_path, 'r', encoding='utf-8') as f:
                 text_ids = json.load(f)
         
@@ -236,7 +271,6 @@ class TopicEmbeddingService:
             source_text_ids = None
             if source_text_ids_path.exists():
                 try:
-                    import json
                     with open(source_text_ids_path, 'r', encoding='utf-8') as f:
                         source_text_ids = json.load(f)
                 except:
@@ -280,6 +314,7 @@ class TopicEmbeddingService:
         """
         embedding_path = self.embedding_dir / f"{embedding_id}.npy"
         documents_path = self.embedding_dir / f"{embedding_id}_docs.txt"
+        docs_json_path = self.embedding_dir / f"{embedding_id}_docs.json"
         text_ids_path = self.embedding_dir / f"{embedding_id}_text_ids.json"
         source_text_ids_path = self.embedding_dir / f"{embedding_id}_source_text_ids.json"
 
@@ -293,6 +328,10 @@ class TopicEmbeddingService:
         if documents_path.exists():
             documents_path.unlink()
             logger.info(f"Deleted documents file: {documents_path}")
+
+        if docs_json_path.exists():
+            docs_json_path.unlink()
+            logger.info(f"Deleted documents JSON file: {docs_json_path}")
 
         if text_ids_path.exists():
             text_ids_path.unlink()
@@ -322,6 +361,7 @@ class TopicEmbeddingService:
         
         embedding_path = self.embedding_dir / f"{embedding_id}.npy"
         documents_path = self.embedding_dir / f"{embedding_id}_docs.txt"
+        docs_json_path = self.embedding_dir / f"{embedding_id}_docs.json"
         text_ids_path = self.embedding_dir / f"{embedding_id}_text_ids.json"
         source_text_ids_path = self.embedding_dir / f"{embedding_id}_source_text_ids.json"
 
@@ -330,6 +370,7 @@ class TopicEmbeddingService:
 
         new_embedding_path = self.embedding_dir / f"{new_name}.npy"
         new_documents_path = self.embedding_dir / f"{new_name}_docs.txt"
+        new_docs_json_path = self.embedding_dir / f"{new_name}_docs.json"
         new_text_ids_path = self.embedding_dir / f"{new_name}_text_ids.json"
         new_source_text_ids_path = self.embedding_dir / f"{new_name}_source_text_ids.json"
 
@@ -344,6 +385,10 @@ class TopicEmbeddingService:
         if documents_path.exists():
             documents_path.rename(new_documents_path)
             logger.info(f"Renamed documents: {documents_path} -> {new_documents_path}")
+
+        if docs_json_path.exists():
+            docs_json_path.rename(new_docs_json_path)
+            logger.info(f"Renamed documents JSON: {docs_json_path} -> {new_docs_json_path}")
 
         if text_ids_path.exists():
             text_ids_path.rename(new_text_ids_path)
@@ -389,7 +434,6 @@ class TopicEmbeddingService:
             config_path = model_path / "config.json"
             if config_path.exists():
                 try:
-                    import json
                     with open(config_path, 'r') as f:
                         config = json.load(f)
                     info['hidden_size'] = config.get('hidden_size')

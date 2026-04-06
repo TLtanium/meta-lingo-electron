@@ -36,7 +36,7 @@ def create_server(backend_url: str = "http://127.0.0.1:8000") -> FastMCP:
         "meta-lingo",
         instructions=(
             "Meta-Lingo is a corpus linguistics research application. "
-            "You have 50 tools for corpus management, lexical analysis, "
+            "You have 53 tools for corpus management, lexical analysis, "
             "concordance/KWIC, collocations, word sketches, semantic domains "
             "(USAS), metaphor detection (MIPVU), sentiment (NRC), synonyms, "
             "topic modeling, annotation, bibliographic visualization, "

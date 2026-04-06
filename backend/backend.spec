@@ -125,6 +125,8 @@ hiddenimports = [
     # PyMUSAS Neural (神经网络)
     'wsd_torch_models',
     'wsd_torch_models.bem',
+    'safetensors',
+    'safetensors.torch',
     
     # 深度学习
     'torch',
@@ -132,6 +134,7 @@ hiddenimports = [
     'torchvision',
     'transformers',
     'transformers.models.whisper',
+    'transformers.models.wav2vec2',
     'transformers.models.deberta',
     'transformers.models.deberta_v2',
     
@@ -309,6 +312,10 @@ except Exception as e:
 torchcrepe_path = os.path.join(MODELS_PATH, 'multimodal_analyzer', 'torchcrepe-master')
 if os.path.exists(torchcrepe_path):
     datas.append((torchcrepe_path, 'models/multimodal_analyzer/torchcrepe-master'))
+
+# --- PyMUSAS Neural BEM（PyMUSAS-Neural-Multilingual-Base-BEM）---
+# 故意不加入 datas：权重体积大，由「模型管理」下载到 userData/models（见 model_paths.resolve_model_path）。
+# 请勿在此处 collect 整个 models/pymusas/，以免打进安装包。
 
 # 数据目录 (只包含框架定义，不包含用户数据)
 frameworks_path = os.path.join(DATA_PATH, 'frameworks')

@@ -93,6 +93,12 @@ export default function ReconstructionErrorDialog({
     
     const colors = COLOR_SCHEMES[colorScheme]
     
+    // Background rect
+    svg.append('rect')
+      .attr('width', width)
+      .attr('height', height)
+      .attr('fill', isDarkMode ? '#1e1e2e' : '#fafafa')
+
     // Create tooltip
     const tooltip = d3.select(tooltipRef.current)
       .style('position', 'fixed')
@@ -243,17 +249,27 @@ export default function ReconstructionErrorDialog({
     }
     
     // X axis
-    g.append('g')
+    const xAxisG = g.append('g')
       .attr('transform', `translate(0,${innerHeight})`)
       .call(d3.axisBottom(xScale).ticks(data.length).tickFormat(d => String(d)))
-      .selectAll('text')
+
+    xAxisG.selectAll('text')
       .attr('font-size', '11px')
-    
+      .attr('fill', isDarkMode ? '#aaa' : '#333')
+
+    xAxisG.selectAll('path, line')
+      .attr('stroke', isDarkMode ? '#555' : '#ccc')
+
     // Y axis
-    g.append('g')
+    const yAxisG = g.append('g')
       .call(d3.axisLeft(yScale).ticks(6).tickFormat(d => d3.format('.2f')(d as number)))
-      .selectAll('text')
+
+    yAxisG.selectAll('text')
       .attr('font-size', '11px')
+      .attr('fill', isDarkMode ? '#aaa' : '#333')
+
+    yAxisG.selectAll('path, line')
+      .attr('stroke', isDarkMode ? '#555' : '#ccc')
     
     // X axis label
     svg.append('text')

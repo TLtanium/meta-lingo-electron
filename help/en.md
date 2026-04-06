@@ -155,7 +155,7 @@ When enabled, the system will automatically transcribe audio using Whisper Large
 #### English Audio Forced Alignment (Wav2Vec2)
 
 For English audio, the system automatically performs after Whisper transcription:
-- **Wav2Vec2 Forced Alignment**: Generate word-level timestamps using `wav2vec2-base-960h` model
+- **Wav2Vec2 Forced Alignment**: Generate word-level timestamps using `wav2vec2-base-960h` model (download from **ModelScope**: [facebook/wav2vec2-base-960h](https://modelscope.cn/models/facebook/wav2vec2-base-960h/summary) via **Settings → Model Management**)
 - **TorchCrepe Pitch Extraction**: Extract fundamental frequency (F0) data using `full.pth` model
 - These data are used for waveform visualization in multimodal annotation
 
@@ -6115,18 +6115,37 @@ The analysis panel is used to configure BERTopic analysis parameters:
 
 #### Outlier Handling
 
-- **Enable Outlier Handling**: Whether to handle outlier documents
-- **Handling Strategy**:
-  - **distributions**: Distribution-based strategy
-  - **probabilities**: Probability-based strategy
-  - **c-tf-idf**: c-TF-IDF-based strategy
-  - **embeddings**: Embedding-based strategy
+BERTopic uses density-based clustering (HDBSCAN). Documents that do not fit into any cluster are labelled **outliers** with topic ID `-1`. Some outliers are normal; too many may indicate overly fine-grained clustering or a highly mixed corpus. Outlier handling reassigns these documents to the most appropriate topic.
 
-- **Threshold**: Range 0.0-1.0 (default: 0.0)
+- **Enable Outlier Handling**: When enabled, outlier documents are automatically reassigned to topics after analysis completes.
+
+- **Handling Strategy**: Controls how the best-matching topic is found for each outlier document.
+
+  | Strategy | How it works | Best for |
+  |----------|-------------|----------|
+  | **distributions** | Splits each document into sliding-window segments, computes c-TF-IDF similarity to each topic, assigns the highest-scoring topic | Longer documents with varied vocabulary; automatically falls back to `embeddings` if words are out-of-vocabulary (OOV) |
+  | **probabilities** | Uses HDBSCAN's soft-membership probability matrix (2D) to assign the topic with the highest probability | Requires running analysis with this strategy selected first — `calculate_probabilities=True` is auto-enabled |
+  | **c-tf-idf** | Computes the outlier document's c-TF-IDF vector and finds the topic with the highest cosine similarity | Fastest option; works well for short documents |
+  | **embeddings** | Computes cosine similarity between SBERT sentence vectors of outlier documents and topic centroids | Most robust and general; not affected by vocabulary constraints; recommended for diverse or multilingual corpora |
+
+  > **Automatic fallback**: If the `distributions` strategy reduces zero outliers (usually due to OOV vocabulary), the system automatically retries with the `embeddings` strategy.
+
+- **Threshold**: Range 0.0–1.0 (default: 0.0).
+  - A document is only reassigned if its similarity to the best-matching topic **exceeds** the threshold.
+  - At `0.0`, all outliers are forcibly assigned to their most similar topic (maximum reduction).
+  - Higher values enforce stricter assignments — fewer outliers reassigned, but with higher confidence.
+  - Use "Estimate Outliers" to test different threshold values before running the full analysis.
+
 - **Outlier Estimation**:
-  - Click "Estimate Outliers" button to estimate outlier count after processing
-  - Need to run analysis first before estimation
-  - Estimation results show current and estimated outlier counts
+  - Click "Estimate Outliers" to simulate the effect of the current strategy and threshold **without modifying the analysis results**.
+  - Can be used even when outlier handling is not yet enabled, to help decide whether to activate it.
+  - Results show: current outlier count, estimated count after processing, and the number that would be reduced.
+  - If the **probabilities** strategy is selected but analysis has not yet been run with that strategy, a prompt will ask you to re-run analysis first.
+
+- **Recommended workflow**:
+  1. Run analysis without outlier handling to review initial results.
+  2. Use "Estimate Outliers" to test different strategies and thresholds (start with `embeddings` + threshold 0.0).
+  3. Enable outlier handling and re-run analysis once satisfied.
 
 ### Running Analysis
 

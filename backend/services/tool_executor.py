@@ -2,7 +2,7 @@
 Tool executor for Agent Chat mode.
 Reuses MCP tool functions by creating a FastMCP server instance
 and extracting the registered async functions. This avoids duplicating
-the 45 tool implementations and their REST API call logic.
+the 53 tool implementations and their REST API call logic.
 """
 import json
 import logging

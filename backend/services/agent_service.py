@@ -2,7 +2,13 @@
 Agent service for Meta-Lingo Agent Chat mode.
 Orchestrates the LLM <-> tool-calling loop with SSE streaming.
 Supports both Ollama and OpenAI-compatible providers.
+
+Streaming architecture (inspired by claude-code-main):
+- LLM responses stream token-by-token to the frontend
+- Multiple tool calls execute in parallel via asyncio.gather
+- Context compression preserves tool names and key statistics
 """
+import asyncio
 import json
 import logging
 import re
@@ -24,6 +30,17 @@ LLM_TIMEOUT = 300.0  # 5 minutes
 _COMPRESS_THRESHOLD_CHARS = 60_000
 # Keep this many recent messages fully intact during compression
 _COMPRESS_KEEP_RECENT = 12
+
+# Tools whose results are short reference data — keep more during compression
+_REFERENCE_TOOLS = {
+    "get_pos_tags", "get_usas_categories", "get_metaphor_sources",
+    "list_reference_corpora", "validate_cql",
+    "list_annotation_frameworks", "get_annotation_framework",
+    "list_corpora", "get_corpus_info", "list_corpus_upload_tasks",
+    "get_processing_task_status", "get_bertopic_preprocess_settings",
+    "list_bertopic_embeddings", "list_biblio_libraries",
+    "get_biblio_library_info",
+}
 
 # System prompt — Lemy's personality + research capabilities
 SYSTEM_PROMPT = (
@@ -267,34 +284,45 @@ class AgentService:
 
         try:
             for iteration in range(MAX_ITERATIONS):
-                # Call LLM
-                response = await self._call_llm(
+                # ── Stream LLM response ──
+                content_chunks: list[str] = []
+                tool_calls: list[dict] = []
+                has_error = False
+
+                async for event in self._stream_llm(
                     provider, provider_config, full_messages, tools
-                )
+                ):
+                    if event["type"] == "text_delta":
+                        content_chunks.append(event["content"])
+                        # Forward text deltas to frontend in real-time
+                        # (only when this turns out to be the final text response)
+                        # We buffer during streaming and decide after stream ends
+                    elif event["type"] == "tool_calls":
+                        tool_calls = event["tool_calls"]
+                    elif event["type"] == "error":
+                        yield event
+                        has_error = True
+                        break
 
-                if response is None:
-                    yield {"type": "error", "message": "lemy_no_response"}
-                    break
-                if "error" in response:
-                    yield {"type": "error", "message": response["error"], "error_key": response.get("error_key")}
+                if has_error:
                     break
 
-                # Check for tool calls
-                tool_calls = response.get("tool_calls", [])
-                content = response.get("content", "") or ""
+                content = "".join(content_chunks)
 
                 if not tool_calls:
-                    # Final text response — strip English chain-of-thought prefix in Chinese mode
+                    # Final text response — stream to frontend
                     if content:
                         content = _strip_thinking_prefix(content, language)
                         yield {"type": "text_delta", "content": content}
                     break
 
-                # Execute tool calls
+                # ── Execute tool calls (parallel when possible) ──
                 assistant_msg: dict[str, Any] = {"role": "assistant", "content": content}
                 assistant_msg["tool_calls"] = tool_calls
                 full_messages.append(assistant_msg)
 
+                # Parse tool calls and check loop guards
+                parsed_calls: list[tuple[dict, str, dict, bool]] = []
                 for tc in tool_calls:
                     tool_name = tc.get("function", {}).get("name", "")
                     try:
@@ -302,33 +330,56 @@ class AgentService:
                     except json.JSONDecodeError:
                         tool_args = {}
 
-                    yield {"type": "tool_call", "name": tool_name, "arguments": tool_args}
-
-                    # Loop-guard: skip re-execution if this analysis tool already ran
+                    # Check loop guard
+                    should_skip = False
                     if tool_name in _ANALYSIS_TOOLS:
                         called_analysis[tool_name] = called_analysis.get(tool_name, 0) + 1
                         if called_analysis[tool_name] > 1:
-                            stop_result = (
-                                "[Loop guard] This analysis tool has already been called in this "
-                                "session and the results are already in the conversation. "
-                                "Do NOT call any analysis tools again. "
-                                "Write your final response now using the results already obtained."
-                            )
-                            # Emit tool_result so the frontend marks the tool call as done
-                            yield {"type": "tool_result", "name": tool_name, "result": stop_result}
-                            full_messages.append({
-                                "role": "tool",
-                                "tool_call_id": tc.get("id", ""),
-                                "content": stop_result,
-                            })
-                            continue
+                            should_skip = True
 
-                    # Execute tool
-                    result = await self.executor.execute(tool_name, tool_args)
+                    parsed_calls.append((tc, tool_name, tool_args, should_skip))
 
+                # Emit all tool_call events first
+                for tc, tool_name, tool_args, should_skip in parsed_calls:
+                    yield {"type": "tool_call", "name": tool_name, "arguments": tool_args}
+
+                # Execute tools in parallel
+                async def _execute_one(
+                    tc: dict, name: str, args: dict, skip: bool
+                ) -> tuple[dict, str, str]:
+                    """Execute a single tool, return (tc, name, result)."""
+                    if skip:
+                        return (tc, name, (
+                            "[Loop guard] This analysis tool has already been called in this "
+                            "session and the results are already in the conversation. "
+                            "Do NOT call any analysis tools again. "
+                            "Write your final response now using the results already obtained."
+                        ))
+                    result = await self.executor.execute(name, args)
+                    return (tc, name, result)
+
+                # Run all tools concurrently
+                tasks = [
+                    _execute_one(tc, name, args, skip)
+                    for tc, name, args, skip in parsed_calls
+                ]
+                results = await asyncio.gather(*tasks, return_exceptions=True)
+
+                # Process results in order
+                for r in results:
+                    if isinstance(r, Exception):
+                        logger.error("Tool execution exception: %s", r, exc_info=True)
+                        # Create a synthetic result
+                        yield {"type": "tool_result", "name": "unknown", "result": f"Error: {r}"}
+                        full_messages.append({
+                            "role": "tool",
+                            "tool_call_id": "",
+                            "content": f"Error: {r}",
+                        })
+                        continue
+
+                    tc, tool_name, result = r
                     yield {"type": "tool_result", "name": tool_name, "result": result}
-
-                    # Add tool result to messages
                     full_messages.append({
                         "role": "tool",
                         "tool_call_id": tc.get("id", ""),
@@ -349,30 +400,37 @@ class AgentService:
         finally:
             yield {"type": "done"}
 
-    async def _call_llm(
+    async def _stream_llm(
         self,
         provider: str,
         config: dict,
         messages: list[dict],
         tools: list[dict],
-    ) -> Optional[dict]:
-        """Call the LLM (Ollama or OpenAI) with tool definitions.
-        Returns dict with 'content' and optional 'tool_calls'."""
+    ) -> AsyncGenerator[dict, None]:
+        """Stream LLM response, yielding text_delta and tool_calls events.
+
+        Yields:
+        - {"type": "text_delta", "content": str} — incremental text chunks
+        - {"type": "tool_calls", "tool_calls": list} — accumulated tool calls
+        - {"type": "error", ...} — on failure
+        """
         if provider == "ollama":
-            return await self._call_ollama(config, messages, tools)
+            async for event in self._stream_ollama(config, messages, tools):
+                yield event
         elif provider == "openai":
-            return await self._call_openai(config, messages, tools)
+            async for event in self._stream_openai(config, messages, tools):
+                yield event
         else:
             logger.error("Unknown provider: %s", provider)
-            return None
+            yield {"type": "error", "message": "Unknown provider", "error_key": "lemy_unexpected"}
 
-    async def _call_ollama(
+    async def _stream_ollama(
         self,
         config: dict,
         messages: list[dict],
         tools: list[dict],
-    ) -> Optional[dict]:
-        """Call Ollama /api/chat with tool support."""
+    ) -> AsyncGenerator[dict, None]:
+        """Stream from Ollama /api/chat with tool support."""
         url = config.get("url", "http://localhost:11434").rstrip("/")
         model = config.get("model", "")
 
@@ -381,73 +439,110 @@ class AgentService:
         for m in messages:
             msg: dict[str, Any] = {"role": m["role"], "content": m.get("content", "") or ""}
             if m["role"] == "tool":
-                # Ollama tool results: only role + content (no tool_call_id)
                 pass
             elif m["role"] == "assistant" and "tool_calls" in m:
-                # Convert from OpenAI format back to Ollama format
-                # OpenAI: [{id, type, function: {name, arguments: str}}]
-                # Ollama: [{function: {name, arguments: dict}}]
                 msg["tool_calls"] = _denormalize_to_ollama_tool_calls(m["tool_calls"])
             ollama_messages.append(msg)
 
         body: dict[str, Any] = {
             "model": model,
             "messages": ollama_messages,
-            "stream": False,
+            "stream": True,
         }
         if tools:
             body["tools"] = tools
 
         max_attempts = 3
-        last_error: dict = {}
+        last_error: Optional[dict] = None
+
         for attempt in range(1, max_attempts + 1):
             try:
-                async with httpx.AsyncClient(timeout=LLM_TIMEOUT) as client:
-                    r = await client.post(f"{url}/api/chat", json=body)
+                async with httpx.AsyncClient(timeout=httpx.Timeout(LLM_TIMEOUT, connect=30.0)) as client:
+                    async with client.stream("POST", f"{url}/api/chat", json=body) as response:
+                        if response.status_code != 200:
+                            err_text = ""
+                            async for chunk in response.aiter_text():
+                                err_text += chunk
+                                if len(err_text) > 600:
+                                    break
 
-                if r.status_code == 200:
-                    data = r.json()
-                    msg = data.get("message", {})
-                    return {
-                        "content": msg.get("content", "") or "",
-                        "tool_calls": _normalize_ollama_tool_calls(msg.get("tool_calls")),
-                    }
+                            if response.status_code == 500 and "error parsing tool call" in err_text:
+                                logger.warning(
+                                    "Ollama tool call JSON parse error (attempt %d/%d): %s",
+                                    attempt, max_attempts, err_text[:200]
+                                )
+                                last_error = {"type": "error", "message": "lemy_bad_tool_json",
+                                              "error_key": "lemy_bad_tool_json", "detail": err_text[:200]}
+                                if attempt < max_attempts:
+                                    continue
+                                yield last_error
+                                return
 
-                err_text = r.text[:600]
-                # Ollama 500 "error parsing tool call" = model generated malformed JSON.
-                # Retry — next attempt often produces valid JSON.
-                if r.status_code == 500 and "error parsing tool call" in err_text:
-                    logger.warning(
-                        "Ollama tool call JSON parse error (attempt %d/%d): %s",
-                        attempt, max_attempts, err_text[:200]
-                    )
-                    last_error = {"error": "lemy_bad_tool_json", "error_key": "lemy_bad_tool_json", "detail": err_text[:200]}
-                    if attempt < max_attempts:
-                        continue  # retry
-                    return last_error
+                            logger.error("Ollama error %d: %s", response.status_code, err_text[:600])
+                            yield {"type": "error", "message": "lemy_llm_error",
+                                   "error_key": "lemy_llm_error",
+                                   "detail": f"{response.status_code}: {err_text[:600]}"}
+                            return
 
-                logger.error("Ollama error %d: %s", r.status_code, err_text)
-                return {"error": f"lemy_llm_error", "error_key": "lemy_llm_error", "detail": f"{r.status_code}: {err_text}"}
+                        # Stream successful response
+                        accumulated_tool_calls: list[dict] = []
+
+                        async for line in response.aiter_lines():
+                            if not line.strip():
+                                continue
+                            try:
+                                data = json.loads(line)
+                            except json.JSONDecodeError:
+                                continue
+
+                            msg_data = data.get("message", {})
+
+                            # Text content
+                            content = msg_data.get("content", "")
+                            if content:
+                                yield {"type": "text_delta", "content": content}
+
+                            # Tool calls (Ollama sends them in the final chunk)
+                            tc_list = msg_data.get("tool_calls")
+                            if tc_list:
+                                accumulated_tool_calls.extend(tc_list)
+
+                            # Check if done
+                            if data.get("done", False):
+                                break
+
+                        # Emit accumulated tool calls
+                        if accumulated_tool_calls:
+                            normalized = _normalize_ollama_tool_calls(accumulated_tool_calls)
+                            yield {"type": "tool_calls", "tool_calls": normalized}
+
+                        return  # Success
 
             except httpx.ConnectError as e:
                 logger.error("Ollama connection failed: %s", e)
-                return {"error": "lemy_no_connection", "error_key": "lemy_no_connection", "detail": url}
+                yield {"type": "error", "message": "lemy_no_connection",
+                       "error_key": "lemy_no_connection", "detail": url}
+                return
             except httpx.TimeoutException as e:
                 logger.error("Ollama timeout: %s", e)
-                return {"error": "lemy_timeout", "error_key": "lemy_timeout"}
+                yield {"type": "error", "message": "lemy_timeout", "error_key": "lemy_timeout"}
+                return
             except Exception as e:
                 logger.error("Ollama call failed: %s", e, exc_info=True)
-                return {"error": "lemy_unexpected", "error_key": "lemy_unexpected", "detail": str(e)}
+                yield {"type": "error", "message": "lemy_unexpected",
+                       "error_key": "lemy_unexpected", "detail": str(e)}
+                return
 
-        return last_error or {"error": "lemy_unexpected", "error_key": "lemy_unexpected"}
+        if last_error:
+            yield last_error
 
-    async def _call_openai(
+    async def _stream_openai(
         self,
         config: dict,
         messages: list[dict],
         tools: list[dict],
-    ) -> Optional[dict]:
-        """Call OpenAI-compatible /chat/completions with tool support."""
+    ) -> AsyncGenerator[dict, None]:
+        """Stream from OpenAI-compatible /chat/completions with tool support."""
         base_url = config.get("base_url", "").rstrip("/")
         api_key = config.get("api_key", "").strip()
         model = config.get("model", "")
@@ -460,42 +555,94 @@ class AgentService:
             "model": model,
             "messages": messages,
             "max_tokens": 4096,
+            "stream": True,
         }
         if tools:
             body["tools"] = tools
             body["tool_choice"] = "auto"
 
         try:
-            async with httpx.AsyncClient(timeout=LLM_TIMEOUT) as client:
-                r = await client.post(
+            async with httpx.AsyncClient(timeout=httpx.Timeout(LLM_TIMEOUT, connect=30.0)) as client:
+                async with client.stream(
+                    "POST",
                     f"{base_url}/chat/completions",
                     headers=headers,
                     json=body,
-                )
-                if r.status_code != 200:
-                    err_text = r.text[:500]
-                    logger.error("OpenAI error %d: %s", r.status_code, err_text)
-                    return {"error": "lemy_llm_error", "error_key": "lemy_llm_error", "detail": f"{r.status_code}: {err_text}"}
-                data = r.json()
+                ) as response:
+                    if response.status_code != 200:
+                        err_text = ""
+                        async for chunk in response.aiter_text():
+                            err_text += chunk
+                            if len(err_text) > 500:
+                                break
+                        logger.error("OpenAI error %d: %s", response.status_code, err_text)
+                        yield {"type": "error", "message": "lemy_llm_error",
+                               "error_key": "lemy_llm_error",
+                               "detail": f"{response.status_code}: {err_text[:500]}"}
+                        return
 
-            choices = data.get("choices", [])
-            if not choices:
-                return {"content": "", "tool_calls": []}
+                    # Parse SSE stream
+                    accumulated_tool_calls: dict[int, dict] = {}  # index → {id, name, arguments}
 
-            msg = choices[0].get("message", {})
-            return {
-                "content": msg.get("content", "") or "",
-                "tool_calls": msg.get("tool_calls", []),
-            }
+                    async for line in response.aiter_lines():
+                        line = line.strip()
+                        if not line or not line.startswith("data: "):
+                            continue
+                        data_str = line[6:]
+                        if data_str == "[DONE]":
+                            break
+
+                        try:
+                            data = json.loads(data_str)
+                        except json.JSONDecodeError:
+                            continue
+
+                        choices = data.get("choices", [])
+                        if not choices:
+                            continue
+
+                        delta = choices[0].get("delta", {})
+
+                        # Text content
+                        content = delta.get("content", "")
+                        if content:
+                            yield {"type": "text_delta", "content": content}
+
+                        # Tool calls (streamed incrementally by index)
+                        tc_deltas = delta.get("tool_calls", [])
+                        for tc_delta in tc_deltas:
+                            idx = tc_delta.get("index", 0)
+                            if idx not in accumulated_tool_calls:
+                                accumulated_tool_calls[idx] = {
+                                    "id": tc_delta.get("id", f"call_{idx}"),
+                                    "type": "function",
+                                    "function": {"name": "", "arguments": ""},
+                                }
+                            tc = accumulated_tool_calls[idx]
+                            fn_delta = tc_delta.get("function", {})
+                            if "name" in fn_delta:
+                                tc["function"]["name"] += fn_delta["name"]
+                            if "arguments" in fn_delta:
+                                tc["function"]["arguments"] += fn_delta["arguments"]
+                            if "id" in tc_delta and tc_delta["id"]:
+                                tc["id"] = tc_delta["id"]
+
+                    # Emit accumulated tool calls
+                    if accumulated_tool_calls:
+                        ordered = [accumulated_tool_calls[i] for i in sorted(accumulated_tool_calls)]
+                        yield {"type": "tool_calls", "tool_calls": ordered}
+
         except httpx.ConnectError as e:
             logger.error("OpenAI connection failed: %s", e)
-            return {"error": "lemy_no_connection", "error_key": "lemy_no_connection", "detail": base_url}
+            yield {"type": "error", "message": "lemy_no_connection",
+                   "error_key": "lemy_no_connection", "detail": base_url}
         except httpx.TimeoutException as e:
             logger.error("OpenAI timeout: %s", e)
-            return {"error": "lemy_timeout", "error_key": "lemy_timeout"}
+            yield {"type": "error", "message": "lemy_timeout", "error_key": "lemy_timeout"}
         except Exception as e:
             logger.error("OpenAI call failed: %s", e, exc_info=True)
-            return {"error": "lemy_unexpected", "error_key": "lemy_unexpected", "detail": str(e)}
+            yield {"type": "error", "message": "lemy_unexpected",
+                   "error_key": "lemy_unexpected", "detail": str(e)}
 
     async def close(self):
         await self.executor.close()
@@ -553,7 +700,10 @@ def _compress_messages(messages: list[dict]) -> list[dict]:
     """Truncate old tool results when total message length grows too large.
 
     Keeps the system message and the most recent _COMPRESS_KEEP_RECENT messages
-    intact; truncates the content of older tool-result messages to 300 chars.
+    intact. For older messages:
+    - Reference tool results (short, navigational): keep up to 500 chars
+    - Analysis tool results (long data tables): truncate to 200 chars
+    - Preserves tool name prefix for context continuity
     """
     total = sum(len(str(m.get("content", ""))) for m in messages)
     if total <= _COMPRESS_THRESHOLD_CHARS:
@@ -567,12 +717,29 @@ def _compress_messages(messages: list[dict]) -> list[dict]:
             compressed.append(m)
         elif m.get("role") == "tool":
             content = str(m.get("content", ""))
-            if len(content) > 300:
-                content = content[:280] + " …[truncated]"
+            # Reference tools get a more generous limit
+            tool_call_id = m.get("tool_call_id", "")
+            max_len = 500 if _is_reference_tool_result(messages, i, tool_call_id) else 200
+            if len(content) > max_len:
+                content = content[:max_len] + " …[truncated]"
             compressed.append({**m, "content": content})
         else:
             compressed.append(m)
     return compressed
+
+
+def _is_reference_tool_result(messages: list[dict], tool_idx: int, tool_call_id: str) -> bool:
+    """Check if a tool result at index tool_idx came from a reference tool.
+    Look backwards for the assistant message containing the matching tool_call."""
+    for i in range(tool_idx - 1, -1, -1):
+        m = messages[i]
+        if m.get("role") == "assistant" and "tool_calls" in m:
+            for tc in m["tool_calls"]:
+                if tc.get("id") == tool_call_id:
+                    name = tc.get("function", {}).get("name", "")
+                    return name in _REFERENCE_TOOLS
+            break
+    return False
 
 
 def _normalize_ollama_tool_calls(tool_calls: Any) -> list[dict]:

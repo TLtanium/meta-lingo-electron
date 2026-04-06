@@ -85,7 +85,7 @@
  [],
  False,
  False,
- 1775143380,
+ 1775469830,
  [('run.exe',
    'C:\\ProgramData\\anaconda3\\envs\\meta-lingo-electron\\Lib\\site-packages\\PyInstaller\\bootloader\\Windows-64bit-intel\\run.exe',
    'EXECUTABLE')],

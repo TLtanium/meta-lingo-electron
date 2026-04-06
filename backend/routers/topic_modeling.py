@@ -719,89 +719,116 @@ async def estimate_outliers(request: EstimateOutliersRequest):
     """
     try:
         import numpy as np
-        
+        from collections import Counter
+
         # Get cached result
         if request.result_id not in _analysis_cache:
             raise HTTPException(status_code=404, detail="Analysis result not found. Please run analysis first.")
-        
+
         cached = _analysis_cache[request.result_id]
         topic_model = cached.get('_topic_model')
         documents = cached.get('_documents', [])
         raw_topics = cached.get('_raw_topics')
         probs = cached.get('_probs')
-        embeddings = cached.get('_embeddings')  # Get embeddings for outlier reduction
-        
+        embeddings = cached.get('_embeddings')
+
         if topic_model is None or raw_topics is None:
             raise HTTPException(status_code=400, detail="Model data not available for outlier estimation")
-        
-        # Check if probabilities strategy is used but no probs available
-        if request.strategy == "probabilities" and probs is None:
-            raise HTTPException(
-                status_code=400, 
-                detail="Probabilities strategy requires probability values. Please re-run analysis with 'calculate_probabilities' enabled."
-            )
-        
-        # Check if embeddings strategy is used but no embeddings available
+
+        # Validate probabilities strategy: requires 2D soft-membership matrix.
+        # When calculate_probabilities=False at fit time, probs is a 1D HDBSCAN confidence
+        # array where outlier entries are 0.0 — this cannot be used for topic assignment.
+        if request.strategy == "probabilities":
+            if probs is None:
+                raise HTTPException(
+                    status_code=400,
+                    detail="PROBABILITIES_NEEDS_RECALC: The probabilities strategy requires a 2D probability matrix. Please re-run analysis with the 'probabilities' outlier strategy selected (this auto-enables calculate_probabilities)."
+                )
+            if isinstance(probs, np.ndarray) and probs.ndim == 1:
+                raise HTTPException(
+                    status_code=400,
+                    detail="PROBABILITIES_NEEDS_RECALC: The probabilities strategy requires calculate_probabilities=True at analysis time. Please re-run analysis with the 'probabilities' outlier strategy selected."
+                )
+
+        # Embeddings strategy requires embeddings data
         if request.strategy == "embeddings" and embeddings is None:
             raise HTTPException(
                 status_code=400,
                 detail="Embeddings strategy requires embeddings data. Please re-run analysis."
             )
-        
-        # Current outlier count
+
+        # Current outlier count (using raw_topics = pre-reduction assignments)
         current_outliers = int(np.sum(np.array(raw_topics) == -1))
         total_docs = len(raw_topics)
-        
-        # Estimate new outlier count using reduce_outliers
-        # IMPORTANT: For 'distributions' strategy, BERTopic's reduce_outliers internally uses
-        # the model's topics_ attribute, not the passed topics parameter.
-        # If outlier reduction was already applied during analysis, the model's topics_
-        # will be different from raw_topics, causing incorrect estimation results.
-        # We need to temporarily restore the original topics_ before estimation.
-        try:
-            # Save current model topics_ state (may have been modified by outlier reduction)
-            saved_topics = topic_model.topics_.copy() if hasattr(topic_model, 'topics_') and topic_model.topics_ is not None else None
-            
-            # Temporarily set model topics_ to raw_topics for accurate estimation
-            # This is critical for 'distributions' strategy which uses transform() internally
-            if hasattr(topic_model, 'topics_'):
-                topic_model.topics_ = list(raw_topics)
-            
-            new_topics = topic_model.reduce_outliers(
-                documents,
-                raw_topics,
-                embeddings=embeddings,  # Pass embeddings for accurate estimation
-                probabilities=probs,
-                strategy=request.strategy,
-                threshold=request.threshold
-            )
-            
-            # Restore the original model topics_ state
-            if saved_topics is not None:
-                topic_model.topics_ = saved_topics
-            
-            new_outliers = int(np.sum(np.array(new_topics) == -1))
-            reduced_count = current_outliers - new_outliers
-            
+
+        if current_outliers == 0:
             return {
                 "success": True,
-                "current_outliers": current_outliers,
-                "estimated_outliers": new_outliers,
-                "reduced_count": reduced_count,
+                "current_outliers": 0,
+                "estimated_outliers": 0,
+                "reduced_count": 0,
                 "total_documents": total_docs,
-                "current_percentage": round(current_outliers / total_docs * 100, 1) if total_docs > 0 else 0,
-                "estimated_percentage": round(new_outliers / total_docs * 100, 1) if total_docs > 0 else 0,
+                "current_percentage": 0.0,
+                "estimated_percentage": 0.0,
                 "strategy": request.strategy,
-                "threshold": request.threshold
+                "threshold": request.threshold,
             }
-        except Exception as e:
-            logger.error(f"Error estimating outliers: {e}")
-            raise HTTPException(status_code=500, detail=f"Failed to estimate outliers: {str(e)}")
-            
+
+        # We need to temporarily restore the model's internal state to match raw_topics
+        # so that BERTopic's _outliers property (based on topic_sizes_) correctly sees
+        # outlier documents and reduce_outliers does not raise "No outliers to reduce."
+        saved_topics = list(topic_model.topics_) if hasattr(topic_model, 'topics_') and topic_model.topics_ is not None else None
+        saved_topic_sizes = dict(topic_model.topic_sizes_) if hasattr(topic_model, 'topic_sizes_') else None
+
+        try:
+            # Restore topics_ and topic_sizes_ to the pre-reduction state
+            if hasattr(topic_model, 'topics_'):
+                topic_model.topics_ = list(raw_topics)
+            if hasattr(topic_model, 'topic_sizes_'):
+                topic_model.topic_sizes_ = Counter(raw_topics)
+
+            strategy = request.strategy
+            # Use the same robust fallback logic as the service
+            from services.topic_modeling.bertopic_service import get_bertopic_service
+            bertopic_service = get_bertopic_service()
+            new_topics = bertopic_service._reduce_outliers_with_fallback(
+                topic_model=topic_model,
+                documents=documents,
+                topics=list(raw_topics),
+                embeddings=embeddings,
+                probs=probs,
+                strategy=strategy,
+                threshold=request.threshold,
+            )
+
+        finally:
+            # Always restore the model state regardless of success or failure
+            if saved_topics is not None and hasattr(topic_model, 'topics_'):
+                topic_model.topics_ = saved_topics
+            if saved_topic_sizes is not None and hasattr(topic_model, 'topic_sizes_'):
+                topic_model.topic_sizes_ = saved_topic_sizes
+
+        new_outliers = int(np.sum(np.array(new_topics) == -1))
+        reduced_count = current_outliers - new_outliers
+
+        return {
+            "success": True,
+            "current_outliers": current_outliers,
+            "estimated_outliers": new_outliers,
+            "reduced_count": reduced_count,
+            "total_documents": total_docs,
+            "current_percentage": round(current_outliers / total_docs * 100, 1) if total_docs > 0 else 0,
+            "estimated_percentage": round(new_outliers / total_docs * 100, 1) if total_docs > 0 else 0,
+            "strategy": request.strategy,
+            "threshold": request.threshold,
+        }
+
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Outlier estimation error: {e}")
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
 

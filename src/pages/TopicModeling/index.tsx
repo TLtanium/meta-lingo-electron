@@ -169,6 +169,17 @@ export default function TopicModeling({ crossLinkParams }: TopicModelingProps = 
     return textIds
   }, [selectionMode, texts, textIds])
 
+  /** Show BERTopic "topics over time" viz tab when backend computed dynamic data or returned a non-empty series */
+  const bertopicHasDynamicViz = useMemo(
+    () =>
+      Boolean(
+        analysisResult?.has_dynamic_topics ||
+          (Array.isArray(analysisResult?.topics_over_time) &&
+            analysisResult!.topics_over_time!.length > 0)
+      ),
+    [analysisResult?.has_dynamic_topics, analysisResult?.topics_over_time]
+  )
+
   // Handle analysis complete
   const handleAnalysisComplete = (result: TopicAnalysisResult) => {
     setAnalysisResult(result)
@@ -262,7 +273,7 @@ export default function TopicModeling({ crossLinkParams }: TopicModelingProps = 
                       words: topic.words
                     })),
                     topicsOverTime: analysisResult?.topics_over_time,
-                    hasDynamicTopics: analysisResult?.has_dynamic_topics,
+                    hasDynamicTopics: bertopicHasDynamicViz,
                     rightTab
                   })}
                 />
@@ -336,17 +347,17 @@ export default function TopicModeling({ crossLinkParams }: TopicModelingProps = 
                 texts={texts}
                 textDates={textDates}
                 libraryId={libraryId}
-                textCount={textIds.length}
+                textCount={effectiveTextIds.length}
                 disabled={!selectedEmbedding}
               />
 
-              {/* 5. Analysis Panel */}
+              {/* 5. Analysis Panel — use effectiveTextIds (same as embedding) so "all texts" mode still sends dynamic_topic */}
               <AnalysisPanel
                 embeddingId={selectedEmbedding}
                 onAnalysisComplete={handleAnalysisComplete}
                 dynamicTopicConfig={dynamicTopicConfig}
                 corpusId={corpusId}
-                textIds={textIds}
+                textIds={effectiveTextIds}
                 corpusLanguage={corpusLanguage}
                 resultId={analysisResult?.result_id}
                 outlierCount={analysisResult?.stats?.outlier_count ?? 0}
@@ -409,7 +420,7 @@ export default function TopicModeling({ crossLinkParams }: TopicModelingProps = 
                   <Suspense fallback={<Box sx={{ flex: 1 }} />}>
                     <VisualizationPanelLazy
                       resultId={analysisResult?.result_id || null}
-                      hasDynamicTopics={analysisResult?.has_dynamic_topics || false}
+                      hasDynamicTopics={bertopicHasDynamicViz}
                     />
                   </Suspense>
                 </Box>

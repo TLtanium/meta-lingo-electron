@@ -22,6 +22,7 @@ from pathlib import Path
 from collections import Counter
 
 from models.database import TextDB, CorpusDB
+from services.corpus_path_utils import resolve_stored_path, find_usas_sidecar_path
 from .pos_filter import POSFilter
 from .cql_engine import (
     CQLEngine,
@@ -327,22 +328,21 @@ class KWICService:
         """Load USAS annotation for a text (for CQL usas attribute)."""
         media_type = text.get('media_type', 'text')
         if media_type in ('audio', 'video'):
-            transcript_json = text.get('transcript_json_path')
-            if transcript_json and os.path.exists(transcript_json):
+            tjp = resolve_stored_path(text.get('transcript_json_path'))
+            if tjp and tjp.is_file():
                 try:
-                    with open(transcript_json, 'r', encoding='utf-8') as f:
+                    with open(tjp, 'r', encoding='utf-8') as f:
                         data = json.load(f)
                     if 'usas_annotations' in data:
                         return data['usas_annotations']
                 except Exception as e:
                     logger.debug(f"Failed to load transcript USAS: {e}")
             return None
-        content_path = text.get('content_path')
+        content_path = resolve_stored_path(text.get('content_path'))
         if not content_path:
             return None
-        content_path = Path(content_path)
-        usas_path = content_path.parent / f"{content_path.stem}.usas.json"
-        if not usas_path.exists():
+        usas_path = find_usas_sidecar_path(content_path)
+        if not usas_path:
             return None
         try:
             with open(usas_path, 'r', encoding='utf-8') as f:

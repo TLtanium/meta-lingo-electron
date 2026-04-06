@@ -1,6 +1,6 @@
 """
 Tool registry for Agent Chat mode.
-Defines all 52 MCP tools in OpenAI function-calling format,
+Defines all 53 MCP tools in OpenAI function-calling format,
 grouped by module for the frontend module selector.
 """
 
@@ -74,6 +74,7 @@ TOOL_MODULES_META: list[dict[str, Any]] = [
             "get_pos_tags", "get_usas_categories", "get_metaphor_sources",
             "list_reference_corpora", "validate_cql",
             "list_annotation_frameworks", "get_annotation_framework",
+            "create_annotation_framework",
         ],
     },
     {
@@ -93,6 +94,7 @@ TOOL_MODULES_META: list[dict[str, Any]] = [
         "tools": [
             "list_biblio_libraries", "create_biblio_library",
             "upload_biblio_file", "get_biblio_library_info",
+            "biblio_network", "biblio_temporal", "biblio_cluster", "biblio_wordcloud",
         ],
     },
 ]
@@ -102,6 +104,8 @@ def _str(desc: str = "", **kw) -> dict:
     d: dict[str, Any] = {"type": "string"}
     if desc:
         d["description"] = desc
+    # JSON Schema puts `required` on the object, not per-property; Ollama rejects bool here.
+    kw.pop("required", None)
     d.update(kw)
     return d
 
@@ -110,6 +114,7 @@ def _int(desc: str = "", **kw) -> dict:
     d: dict[str, Any] = {"type": "integer"}
     if desc:
         d["description"] = desc
+    kw.pop("required", None)
     d.update(kw)
     return d
 
@@ -118,6 +123,7 @@ def _bool(desc: str = "", **kw) -> dict:
     d: dict[str, Any] = {"type": "boolean"}
     if desc:
         d["description"] = desc
+    kw.pop("required", None)
     d.update(kw)
     return d
 
@@ -126,6 +132,7 @@ def _num(desc: str = "", **kw) -> dict:
     d: dict[str, Any] = {"type": "number"}
     if desc:
         d["description"] = desc
+    kw.pop("required", None)
     d.update(kw)
     return d
 
@@ -134,6 +141,7 @@ def _arr(items: dict, desc: str = "", **kw) -> dict:
     d: dict[str, Any] = {"type": "array", "items": items}
     if desc:
         d["description"] = desc
+    kw.pop("required", None)
     d.update(kw)
     return d
 
@@ -449,11 +457,15 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
               "embedding_id": _str("Embedding ID from create_bertopic_embedding"),
               "language": _str("'english' or 'chinese'", default="english"),
               "n_top_words": _int("Top words per topic", default=10),
-              "nr_topics": _int("Merge down to this many topics after clustering (None = keep all auto-detected)", required=False),
+              "nr_topics": _int(
+                  "Merge down to this many topics after clustering (None = keep all auto-detected). Optional."
+              ),
               "umap_n_neighbors": _int("UMAP neighbors (default 15; use 5 for small corpora)", default=15),
               "umap_n_components": _int("UMAP output dimensions (default 5; use 3 for small corpora)", default=5),
               "hdbscan_min_cluster_size": _int("Min docs per cluster (default 10; use 3-5 for small corpora)", default=10),
-              "hdbscan_min_samples": _int("HDBSCAN min_samples (None=auto; set 1 for small corpora)", required=False),
+              "hdbscan_min_samples": _int(
+                  "HDBSCAN min_samples (None=auto; set 1 for small corpora). Optional."
+              ),
               "vectorizer_min_df": _int("Min doc frequency for vocabulary (default 2; use 1 for small corpora)", default=2),
               "reduce_outliers": {"type": "boolean", "description": "Reassign topic -1 outliers to nearest topic", "default": False},
           }, ["embedding_id"]),
@@ -501,6 +513,14 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
     _tool("get_annotation_framework",
           "Get detailed annotation framework with labels, colors, and hierarchy.",
           {"framework_id": _str("Framework ID")}, ["framework_id"]),
+    _tool("create_annotation_framework",
+          "Create a custom annotation framework with a label hierarchy tree.",
+          {
+              "name": _str("Framework display name"),
+              "category": _str("Category: 'Appraisal Analysis','Theme/Rheme','Error Analysis','Custom', etc."),
+              "root": {"type": "object", "description": "Root node dict with id, name, type ('tier'/'label'), children[]"},
+              "description": _str("Optional summary of what this framework annotates"),
+          }, ["name", "category", "root"]),
 
     # ─── annotation ───
     _tool("get_text_content",
@@ -599,6 +619,56 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
     _tool("get_biblio_library_info",
           "Get detailed information about a bibliographic library.",
           {"library_id": _str("Library ID")}, ["library_id"]),
+    _tool("biblio_network",
+          "Generate bibliographic co-occurrence network (co-author, keyword-cooccur, co-citation, etc.).",
+          {
+              "library_id": _str("Library ID"),
+              "network_type": _str("'co-author','co-institution','co-country','keyword-cooccur','co-citation'", default="keyword-cooccur"),
+              "min_weight": _int("Min co-occurrence weight", default=1),
+              "max_nodes": _int("Max nodes in network", default=60),
+              "year_start": _int("Filter start year (optional)"),
+              "year_end": _int("Filter end year (optional)"),
+              "author": _str("Filter by author (optional)"),
+              "keyword": _str("Filter by keyword (optional)"),
+              "journal": _str("Filter by journal (optional)"),
+              "country": _str("Filter by country (optional)"),
+          }, ["library_id"]),
+    _tool("biblio_temporal",
+          "Temporal trends in bibliographic data (timeline, timezone, burst detection).",
+          {
+              "library_id": _str("Library ID"),
+              "viz_type": _str("'timeline','timezone','burst'", default="timeline"),
+              "time_slice": _int("Year slice width", default=1),
+              "top_n": _int("Top items per time slice", default=10),
+              "burst_type": _str("For burst: 'keyword' or 'author'", default="keyword"),
+              "min_frequency": _int("For burst: min frequency", default=2),
+              "gamma": _num("For burst: Kleinberg gamma", default=1.0),
+              "year_start": _int("Filter start year (optional)"),
+              "year_end": _int("Filter end year (optional)"),
+              "keyword": _str("Filter by keyword (optional)"),
+          }, ["library_id"]),
+    _tool("biblio_cluster",
+          "Cluster bibliographic entries by keyword, author, or institution.",
+          {
+              "library_id": _str("Library ID"),
+              "cluster_by": _str("'keyword','author','institution'", default="keyword"),
+              "n_clusters": _int("Number of clusters (optional, auto-detect if omitted)"),
+              "year_start": _int("Filter start year (optional)"),
+              "year_end": _int("Filter end year (optional)"),
+              "keyword": _str("Filter by keyword (optional)"),
+          }, ["library_id"]),
+    _tool("biblio_wordcloud",
+          "Word frequency from bibliographic titles or abstracts.",
+          {
+              "library_id": _str("Library ID"),
+              "source": _str("'abstract' or 'title'", default="abstract"),
+              "max_words": _int("Max words to return", default=100),
+              "year_start": _int("Filter start year (optional)"),
+              "year_end": _int("Filter end year (optional)"),
+              "author": _str("Filter by author (optional)"),
+              "keyword": _str("Filter by keyword (optional)"),
+              "journal": _str("Filter by journal (optional)"),
+          }, ["library_id"]),
 ]
 
 

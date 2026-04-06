@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "meta-lingo",
   "display_name": "Meta-Lingo",
-  "version": "4.7.85",
+  "version": "4.7.98",
   "description": "Connect Claude to Meta-Lingo corpus research — run linguistic analyses, manage corpora, and export annotations directly from your AI assistant.",
   "author": {
     "name": "Tommy Leo"
@@ -56,6 +56,18 @@
       "description": "Upload text content to a corpus"
     },
     {
+      "name": "upload_directory",
+      "description": "Batch-upload all files in a local directory"
+    },
+    {
+      "name": "list_corpus_upload_tasks",
+      "description": "List upload/processing tasks for a corpus"
+    },
+    {
+      "name": "get_processing_task_status",
+      "description": "Get status of a processing task"
+    },
+    {
       "name": "get_corpus_info",
       "description": "Get corpus details and text IDs"
     },
@@ -72,12 +84,20 @@
       "description": "Compare keyword significance between corpora"
     },
     {
+      "name": "keyness_resource_analysis",
+      "description": "Compare keywords against built-in reference corpora"
+    },
+    {
       "name": "ngram_analysis",
       "description": "Analyze n-gram patterns"
     },
     {
       "name": "concordance_search",
-      "description": "Search concordance lines (KWIC)"
+      "description": "Search concordance lines (KWIC) with CQL support"
+    },
+    {
+      "name": "get_extended_context",
+      "description": "Get extended context around a KWIC hit"
     },
     {
       "name": "collocation_analysis",
@@ -90,6 +110,10 @@
     {
       "name": "semantic_domain_analysis",
       "description": "USAS semantic domain tagging"
+    },
+    {
+      "name": "get_domain_words",
+      "description": "Get words in a specific USAS semantic domain"
     },
     {
       "name": "metaphor_analysis",
@@ -108,12 +132,128 @@
       "description": "Compare word sketches across corpora"
     },
     {
+      "name": "get_lemma_forms",
+      "description": "Get all word forms of a lemma"
+    },
+    {
       "name": "topic_modeling",
-      "description": "Discover latent topics in a corpus"
+      "description": "Discover latent topics (LDA/LSA/NMF)"
+    },
+    {
+      "name": "create_bertopic_embedding",
+      "description": "Create BERTopic embedding for a corpus"
+    },
+    {
+      "name": "get_bertopic_preprocess_settings",
+      "description": "Get BERTopic preprocessing settings"
+    },
+    {
+      "name": "list_bertopic_embeddings",
+      "description": "List existing BERTopic embeddings"
+    },
+    {
+      "name": "bertopic_analyze",
+      "description": "Run BERTopic analysis on an embedding"
     },
     {
       "name": "export_annotations",
       "description": "Export annotations in TXT/JSON/XML"
+    },
+    {
+      "name": "get_pos_tags",
+      "description": "Get all Universal POS tags and descriptions"
+    },
+    {
+      "name": "get_usas_categories",
+      "description": "Get USAS 21 semantic domain categories"
+    },
+    {
+      "name": "get_metaphor_sources",
+      "description": "Get MIPVU metaphor detection source types"
+    },
+    {
+      "name": "list_reference_corpora",
+      "description": "List built-in reference corpora for keyness"
+    },
+    {
+      "name": "validate_cql",
+      "description": "Validate CQL query syntax"
+    },
+    {
+      "name": "list_annotation_frameworks",
+      "description": "List all annotation frameworks"
+    },
+    {
+      "name": "get_annotation_framework",
+      "description": "Get full annotation framework label tree"
+    },
+    {
+      "name": "create_annotation_framework",
+      "description": "Create a custom annotation framework"
+    },
+    {
+      "name": "get_text_content",
+      "description": "Get text content with character offsets"
+    },
+    {
+      "name": "save_annotation",
+      "description": "Save annotation spans to an archive"
+    },
+    {
+      "name": "get_text_sentences",
+      "description": "Get sentence boundaries for a text"
+    },
+    {
+      "name": "get_text_segment",
+      "description": "Get a specific text segment"
+    },
+    {
+      "name": "load_annotation",
+      "description": "Load a specific annotation archive"
+    },
+    {
+      "name": "list_annotations",
+      "description": "List annotation archives for a corpus"
+    },
+    {
+      "name": "list_all_annotations",
+      "description": "List all annotation archives"
+    },
+    {
+      "name": "delete_annotation",
+      "description": "Delete an annotation archive"
+    },
+    {
+      "name": "list_biblio_libraries",
+      "description": "List bibliographic visualization libraries"
+    },
+    {
+      "name": "create_biblio_library",
+      "description": "Create a new bibliography library"
+    },
+    {
+      "name": "upload_biblio_file",
+      "description": "Upload a bibliography file (WOS/CNKI)"
+    },
+    {
+      "name": "get_biblio_library_info",
+      "description": "Get bibliography library details"
+    },
+    {
+      "name": "biblio_network",
+      "description": "Generate bibliographic network visualization"
+    },
+    {
+      "name": "biblio_temporal",
+      "description": "Generate bibliographic temporal visualization"
+    },
+    {
+      "name": "biblio_cluster",
+      "description": "Generate bibliographic cluster analysis"
+    },
+    {
+      "name": "biblio_wordcloud",
+      "description": "Generate bibliography word cloud"
     }
   ],
   "user_config": {

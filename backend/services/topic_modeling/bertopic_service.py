@@ -97,7 +97,7 @@ class BERTopicService:
         if method == "HDBSCAN":
             from hdbscan import HDBSCAN
             from sklearn.metrics.pairwise import cosine_distances
-            
+
             # Only use valid HDBSCAN parameters
             valid_hdbscan_params = {
                 'min_cluster_size': params.get('min_cluster_size', 5),
@@ -106,7 +106,7 @@ class BERTopicService:
                 'cluster_selection_method': params.get('cluster_selection_method', 'eom'),
                 'allow_single_cluster': params.get('allow_single_cluster', False),
             }
-            
+
             # Handle alpha specially - ensure it's a valid positive float
             alpha_value = params.get('alpha', 1.0)
             try:
@@ -116,17 +116,18 @@ class BERTopicService:
             except (TypeError, ValueError):
                 alpha_value = 1.0
             valid_hdbscan_params['alpha'] = alpha_value
-            
+
             logger.info(f"HDBSCAN params: {valid_hdbscan_params}")
-            
+
             # Handle cosine metric
             if valid_hdbscan_params.get('metric') == 'cosine':
                 valid_hdbscan_params['metric'] = cosine_distances
-            
-            # Enable probability calculation if needed
-            if calculate_probabilities:
+
+            # Enable probability calculation if needed (from explicit flag OR from params)
+            # prediction_data is required for all_points_membership_vectors (probabilities strategy)
+            if calculate_probabilities or params.get('prediction_data', False):
                 valid_hdbscan_params['prediction_data'] = True
-            
+
             return HDBSCAN(**valid_hdbscan_params)
         
         elif method == "BIRCH":
@@ -298,6 +299,74 @@ class BERTopicService:
             logger.error(f"Error creating representation model: {e}")
             return None
     
+    def _reduce_outliers_with_fallback(
+        self,
+        topic_model,
+        documents: List[str],
+        topics: List[int],
+        embeddings: np.ndarray,
+        probs: Optional[np.ndarray],
+        strategy: str,
+        threshold: float,
+    ) -> List[int]:
+        """Reduce outliers using the specified strategy, with automatic fallback.
+
+        For the 'distributions' strategy, if c-TF-IDF based reduction produces zero
+        reductions (usually because outlier documents have out-of-vocabulary tokens),
+        we automatically fall back to the 'embeddings' strategy which uses pre-computed
+        SBERT embeddings and is immune to vocabulary mismatch.
+
+        For the 'probabilities' strategy, probs must be a 2D soft-membership matrix
+        (requires calculate_probabilities=True at fit time).  If a 1D array is
+        received we skip the strategy and fall back to 'embeddings' so the user still
+        gets a useful result instead of silent zero-reductions.
+        """
+        original_outlier_count = sum(1 for t in topics if t == -1)
+
+        # Guard: probabilities strategy needs a 2D matrix
+        if strategy == 'probabilities':
+            if probs is None or (isinstance(probs, np.ndarray) and probs.ndim == 1):
+                logger.warning(
+                    "probabilities strategy requires a 2D soft-membership matrix "
+                    "(calculate_probabilities=True). Falling back to embeddings strategy."
+                )
+                strategy = 'embeddings'
+
+        try:
+            new_topics = topic_model.reduce_outliers(
+                documents,
+                topics,
+                embeddings=embeddings,
+                probabilities=probs,
+                strategy=strategy,
+                threshold=threshold,
+            )
+        except Exception as e:
+            logger.error(f"reduce_outliers failed with strategy '{strategy}': {e}")
+            return topics
+
+        # For distributions strategy, fall back to embeddings if zero reductions
+        if strategy == 'distributions':
+            new_outlier_count = sum(1 for t in new_topics if t == -1)
+            if new_outlier_count == original_outlier_count and original_outlier_count > 0:
+                logger.warning(
+                    "distributions strategy produced no reductions (likely OOV vocabulary). "
+                    "Falling back to embeddings strategy."
+                )
+                try:
+                    new_topics = topic_model.reduce_outliers(
+                        documents,
+                        topics,
+                        embeddings=embeddings,
+                        strategy='embeddings',
+                        threshold=threshold,
+                    )
+                except Exception as e:
+                    logger.error(f"Embeddings fallback also failed: {e}")
+                    return topics
+
+        return new_topics
+
     def analyze(
         self,
         embeddings: np.ndarray,
@@ -356,7 +425,14 @@ class BERTopicService:
         repr_config = config.get('representation_model', {})
         outlier_config = config.get('reduce_outliers', {'enabled': False})
         calculate_probs = config.get('calculate_probabilities', False)
-        
+
+        # Auto-enable calculate_probabilities when probabilities strategy is configured.
+        # This ensures the 2D soft-membership matrix is available for estimate_outliers
+        # even if the user hasn't explicitly enabled outlier reduction during analysis.
+        if outlier_config.get('strategy') == 'probabilities':
+            calculate_probs = True
+            logger.info("Auto-enabling calculate_probabilities for probabilities outlier strategy")
+
         # Debug: Log outlier config
         logger.info(f"Outlier config received: {outlier_config}")
         
@@ -419,21 +495,24 @@ class BERTopicService:
         if outlier_config.get('enabled', False):
             logger.info("Reducing outliers...")
             original_outliers = sum(1 for t in topics if t == -1)
-            
-            new_topics = topic_model.reduce_outliers(
-                documents,
-                topics,
+            strategy = outlier_config.get('strategy', 'distributions')
+            threshold = outlier_config.get('threshold', 0.0)
+
+            new_topics = self._reduce_outliers_with_fallback(
+                topic_model=topic_model,
+                documents=documents,
+                topics=topics,
                 embeddings=embeddings,
-                probabilities=probs,
-                strategy=outlier_config.get('strategy', 'distributions'),
-                threshold=outlier_config.get('threshold', 0.0)
+                probs=probs,
+                strategy=strategy,
+                threshold=threshold,
             )
-            
+
             topic_model.topics_ = new_topics
             topic_model.update_topics(documents, topics=new_topics)
             topics = new_topics
             topic_info = topic_model.get_topic_info()
-            
+
             new_outliers = sum(1 for t in topics if t == -1)
             logger.info(f"Outliers reduced from {original_outliers} to {new_outliers}")
 

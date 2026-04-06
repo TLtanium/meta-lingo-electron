@@ -183,8 +183,11 @@ def resolve_model_path(model_relative_path: str) -> Optional[Path]:
     Resolve a model path for `model_relative_path` (relative to the models root).
 
     Priority:
-    1) user models dir
-    2) bundled models dir
+    1) user models dir (e.g. userData/models after download from Model Management)
+    2) bundled models dir (PyInstaller `_MEIPASS/models` — only small built-ins like nltk/torchcrepe)
+
+    Note: **PyMUSAS-Neural-Multilingual-Base-BEM** is not shipped in the app bundle by design
+    (`backend.spec` does not add it to `datas`); use downloads or dev repo `./models/...`.
     """
     user_candidate = get_user_models_dir() / model_relative_path
     if user_candidate.exists():

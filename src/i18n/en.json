@@ -2119,7 +2119,9 @@
       "estimationResult": "Estimation Result",
       "currentOutliers": "Current Outliers",
       "estimatedOutliers": "After Reduction",
-      "reducedCount": "Reduced Count"
+      "reducedCount": "Reduced Count",
+      "probabilitiesNeedsRecalc": "The probabilities strategy requires re-running analysis with \"probabilities\" strategy selected. This automatically enables calculate_probabilities.",
+      "probabilitiesStrategyNote": "The probabilities strategy requires running analysis with this strategy selected (calculate_probabilities is auto-enabled). Re-run analysis after selecting this strategy to enable accurate estimation."
     },
     "representation": {
       "type": "Representation Model Type",

@@ -31,6 +31,8 @@ from model_paths import (
     copy_built_in_models_to_user_models,
 )
 
+from routers.model_manifest_constants import WAV2VEC2_MODELSCOPE_MODEL_ID
+
 from models.database import TaskDB
 
 # Reuse the existing SSE progress queue implementation.
@@ -127,12 +129,12 @@ MODEL_MANIFEST: List[Dict[str, Any]] = [
         "protected": "multimodal_analyzer/clip-vit-large-patch14" in BUILTIN_MODEL_RELATIVE_PATHS,
         "expectedRelativeFiles": [],
     },
-    # Alignment
+    # Alignment — weights from ModelScope (facebook/wav2vec2-base-960h)
     {
         "id": "wav2vec2-base-960h",
         "moduleLabel": "Alignment",
         "displayName": "Wav2Vec2 (base-960h)",
-        "modelScopeRepoId": "Xenova/wav2vec2-base-960h",
+        "modelScopeRepoId": WAV2VEC2_MODELSCOPE_MODEL_ID,
         "storageRelativePath": "multimodal_analyzer/wav2vec2-base-960h",
         "protected": "multimodal_analyzer/wav2vec2-base-960h" in BUILTIN_MODEL_RELATIVE_PATHS,
         "expectedRelativeFiles": [],
