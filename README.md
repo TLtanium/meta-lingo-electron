@@ -17,7 +17,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-v4.8.44-blue.svg" alt="Version">
+  <img src="https://img.shields.io/badge/version-v4.8.45-blue.svg" alt="Version">
   <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Windows-lightgrey.svg" alt="Platform">
   <img src="https://img.shields.io/badge/license-Non--Commercial-green.svg" alt="License">
   <a href="https://doi.org/10.5281/zenodo.20091931"><img src="https://zenodo.org/badge/1143968310.svg" alt="DOI"></a>

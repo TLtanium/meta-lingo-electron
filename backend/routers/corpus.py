@@ -54,7 +54,7 @@ _progress_queues: Dict[str, Queue] = {}
 _progress_lock = threading.Lock()
 
 # Throttle DB writes so GET /tasks/ can read without blocking (SQLite lock contention)
-_progress_db_throttle: Dict[str, tuple] = {}  # task_id -> (last_progress, last_status, last_ts)
+_progress_db_throttle: Dict[str, tuple] = {}  # task_id -> (last_progress, last_status, last_ts, last_stage)
 _progress_db_throttle_lock = threading.Lock()
 PROGRESS_DB_MIN_INTERVAL = 2.0   # min seconds between DB updates per task
 PROGRESS_DB_MIN_DELTA = 8        # or when progress increased by >= this
@@ -104,11 +104,13 @@ def send_progress_sync(task_id: str, stage: str, progress: int, message: str,
     else:
         with _progress_db_throttle_lock:
             now = time.time()
-            last = _progress_db_throttle.get(task_id, (0, "", 0))
-            last_progress, last_status, last_ts = last
-            if progress - last_progress >= PROGRESS_DB_MIN_DELTA or (now - last_ts) >= PROGRESS_DB_MIN_INTERVAL:
+            last = _progress_db_throttle.get(task_id, (0, "", 0, ""))
+            last_progress, last_status, last_ts, last_stage = last
+            # Always write when the stage changes (e.g. usas→mipvu) so the UI chip updates immediately
+            stage_changed = (stage != last_stage)
+            if stage_changed or progress - last_progress >= PROGRESS_DB_MIN_DELTA or (now - last_ts) >= PROGRESS_DB_MIN_INTERVAL:
                 do_db_update = True
-                _progress_db_throttle[task_id] = (progress, status, now)
+                _progress_db_throttle[task_id] = (progress, status, now, stage)
     
     if do_db_update:
         TaskDB.update(task_id, {
