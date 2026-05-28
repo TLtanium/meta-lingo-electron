@@ -3189,16 +3189,16 @@ MIPVU（Metaphor Identification Procedure VU）是由阿姆斯特丹自由大学
 **参考文献**：
 - Steen, G., Dorst, L., Herrmann, J., Kaal, A., Krennmayr, T., & Pasma, T. (2010). *A method for linguistic metaphor identification: From MIP to MIPVU*. John Benjamins Publishing.
 
-#### Clause 小句隐喻检测模型
+#### 隐喻检测模型
 
-本系统使用基于 Microsoft DeBERTa-v3-large 微调的 Clause 小句隐喻检测模型，对全部词语进行隐喻标注。
+本系统使用 metalingo-deberta-metaphor，一个基于 DeBERTa-v3-large 并经过两阶段知识蒸馏训练的隐喻检测模型，对全部词语进行隐喻标注。
 
 **模型信息**：
-- **模型名称**：deberta-v3-large-clause-metaphor
+- **模型名称**：metalingo-deberta-metaphor
 - **基础架构**：microsoft/deberta-v3-large（0.4B 参数）
 - **任务类型**：Token Classification（二分类：non_metaphor / metaphor）
-- **训练数据**：VUA-20（VUAMC）语料库，以小句（clause）为训练单元
-- **模型来源**：[HuggingFace - tommyleo2077/deberta-v3-large-clause-metaphor](https://huggingface.co/tommyleo2077/deberta-v3-large-clause-metaphor)
+- **训练数据**：VUAMC（NAACL FLP 2018 官方划分），两阶段知识蒸馏训练
+- **模型来源**：[ModelScope - TommyLeo/metalingo-deberta-metaphor](https://modelscope.cn/models/TommyLeo/metalingo-deberta-metaphor/summary)
 
 #### DeBERTa 模型
 
@@ -3259,33 +3259,23 @@ Meta-Lingo 采用三步检测方案，结合规则过滤与 Clause 小句模型�
 
 ### 检测可靠性
 
-基于 VUA-20 数据集的评估结果：
+基于 VUAMC（NAACL FLP 2018 官方划分）的评估结果：
 
 #### 整体性能
 
 | 指标 | 数值 |
 |------|------|
-| **F1 Score** | **75.83** |
-| Precision | 78.08% |
-| Recall | 73.69% |
-| Validation F1 | ~79.05% |
-
-#### 按词性分析
-
-| 词性 | F1 |
-|------|----|
-| DT（限定词） | **90.87** |
-| IN（介词） | **87.87** |
-| RP（小品词） | **78.57** |
-| RB（副词） | **68.57** |
-| Other（其他词性） | **67.16** |
+| **F1 Score** | **81.24** |
+| Precision | 83.82% |
+| Recall | 78.81% |
+| Accuracy | 95.78% |
 
 #### 关键特点
 
 1. **全词性覆盖**：模型对所有词性进行统一标注，包括功能词（IN/DT/RB/RP）与内容词。
-2. **小句级训练**：基于 SpaCy 小句边界训练，更好地捕捉上下文语义。
+2. **两阶段知识蒸馏**：采用教师-学生蒸馏流程在 VUAMC 上训练，泛化能力更强。
 3. **二分类简洁**：直接输出 non_metaphor / metaphor，无需多标签后处理。
-4. **词性表现优异**：DT 和 IN 两类功能词 F1 分别达到 90.87 和 87.87。
+4. **高精确率**：Precision 达 83.82%，有效降低各词性的假阳性率。
 
 ### 界面布局
 
@@ -4667,7 +4657,7 @@ logDice 是一种衡量词语搭配强度的统计方法，基于 Dice 系数和
    - 跳过的文献数量（如果有）
    - 解析错误（如果有）
 
-**摘要标注流程**：每条带摘要的文献会写入影子语料库并执行与「语料库管理」相同的标注流水线：SpaCy → USAS → MIPVU → NRC。MIPVU 使用 Clause 小句模型（deberta-v3-large-clause-metaphor）进行全词性隐喻标注（仅限英语）；NRC 情感标注基于 NRC-EmoLex 词典，支持全部 11 种语言，为情感分析模块提供数据基础。（文献库创建的语言选择仍仅支持英文和中文。）
+**摘要标注流程**：每条带摘要的文献会写入影子语料库并执行与「语料库管理」相同的标注流水线：SpaCy → USAS → MIPVU → NRC。MIPVU 使用 metalingo-deberta-metaphor 进行全词性隐喻标注（仅限英语）；NRC 情感标注基于 NRC-EmoLex 词典，支持全部 11 种语言，为情感分析模块提供数据基础。（文献库创建的语言选择仍仅支持英文和中文。）
 
 ### 文件格式
 

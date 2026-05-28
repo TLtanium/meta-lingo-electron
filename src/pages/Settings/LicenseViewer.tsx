@@ -7,15 +7,16 @@ import {
   Alert,
   Snackbar,
   IconButton,
-  Tooltip
+  Tooltip,
+  Link
 } from '@mui/material'
 import { Article as ArticleIcon, ContentCopy as ContentCopyIcon } from '@mui/icons-material'
 import { useTranslation } from 'react-i18next'
 import LicenseDialog from '../../components/Settings/LicenseDialog'
 
-const CITATION_TEXT = `Leo, T. (2026).
-Meta-Lingo: A Corpus-Based Platform for Linguistic and Discourse Analysis.
-Software.`
+const DOI_URL = 'https://doi.org/10.5281/zenodo.20091932'
+
+const CITATION_TEXT = `Leo, T. (2026). Meta-Lingo: A Corpus-Based Platform for Linguistic and Discourse Analysis. Software. ${DOI_URL}`
 
 export default function LicenseViewer() {
   const { t, i18n } = useTranslation()
@@ -31,11 +32,11 @@ export default function LicenseViewer() {
       const fileName = i18n.language === 'zh' ? 'LICENSE_CN.txt' : 'LICENSE_EN.txt'
       // 使用相对路径 ./ 而不是绝对路径 /，以兼容 Electron 打包后的 file:// 协议
       const response = await fetch(`./${fileName}`)
-      
+
       if (!response.ok) {
         throw new Error(`Failed to load license: ${response.statusText}`)
       }
-      
+
       const text = await response.text()
       setLicenseText(text)
       setOpen(true)
@@ -73,10 +74,36 @@ export default function LicenseViewer() {
           </IconButton>
         </Tooltip>
       </Box>
-      
+
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
         {t('settings.licenseDescription')}
       </Typography>
+
+      {/* Citation block */}
+      <Box
+        sx={{
+          bgcolor: 'action.hover',
+          borderRadius: 1,
+          px: 2,
+          py: 1.5,
+          mb: 2,
+          borderLeft: 4,
+          borderColor: 'primary.main',
+        }}
+      >
+        <Typography variant="body2" sx={{ fontFamily: 'monospace', lineHeight: 1.8 }}>
+          Leo, T. (2026). <em>Meta-Lingo: A Corpus-Based Platform for Linguistic and Discourse Analysis.</em> Software.{' '}
+          <Link
+            href={DOI_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            underline="hover"
+            sx={{ wordBreak: 'break-all' }}
+          >
+            {DOI_URL}
+          </Link>
+        </Typography>
+      </Box>
 
       {error && (
         <Alert severity="error" sx={{ mb: 2 }}>

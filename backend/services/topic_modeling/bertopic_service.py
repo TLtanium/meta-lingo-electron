@@ -160,16 +160,52 @@ class BERTopicService:
         else:
             raise ValueError(f"Unknown clustering method: {method}")
     
-    def _create_vectorizer_model(self, vectorizer_type: str, params: Dict[str, Any], language: str = 'english'):
-        """Create vectorizer model with language-aware tokenization
-        
-        Args:
-            vectorizer_type: CountVectorizer or TfidfVectorizer
-            params: Vectorizer parameters
-            language: Corpus language (chinese/english/etc.)
+    def _load_stopwords_for_language(self, language: str) -> List[str]:
+        """Load NLTK stopwords for a given language name (e.g. 'english', 'french')"""
+        try:
+            stopwords_root = resolve_model_path("nltk") or (get_user_models_dir() / "nltk")
+            lang_lower = language.lower()
+            stopwords_file = stopwords_root / "corpora" / "stopwords" / lang_lower
+            if stopwords_file.exists():
+                with open(stopwords_file, 'r', encoding='utf-8') as f:
+                    words = [w.strip() for w in f if w.strip()]
+                logger.info(f"Loaded {len(words)} NLTK stopwords for '{language}'")
+                return words
+        except Exception as e:
+            logger.warning(f"Error loading NLTK stopwords for '{language}': {e}")
+        # Fallback to sklearn's built-in English stopwords
+        try:
+            from sklearn.feature_extraction.text import ENGLISH_STOP_WORDS
+            logger.info("Falling back to sklearn ENGLISH_STOP_WORDS")
+            return list(ENGLISH_STOP_WORDS)
+        except Exception:
+            return []
+
+    def _compile_exclusion_patterns(self, exclusion_words: List[str]):
+        """Compile exclusion word entries as regex patterns.
+
+        Each entry is tried as a regex; if invalid, it falls back to exact-match
+        (via re.escape). This means plain words work as before, while entries like
+        ``\\d{4}`` match year tokens such as 2018/2019.
         """
+        import re
+        compiled = []
+        for entry in exclusion_words:
+            try:
+                compiled.append(re.compile(entry, re.IGNORECASE))
+            except re.error:
+                compiled.append(re.compile(re.escape(entry), re.IGNORECASE))
+        return compiled
+
+    def _create_vectorizer_model(self, vectorizer_type: str, params: Dict[str, Any], language: str = 'english'):
+        """Create vectorizer model with language-aware tokenization.
+
+        Exclusion words support regex patterns (e.g. ``\\d{4}`` for year tokens).
+        Invalid patterns are silently treated as literal strings via re.escape.
+        """
+        import re
         from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
-        
+
         default_params = {
             'min_df': 1,
             'max_df': 1.0,
@@ -177,29 +213,74 @@ class BERTopicService:
             'stop_words': None
         }
         default_params.update(params)
-        
+
         # FIX: max_df=1 (int) means "appear in exactly 1 doc", not "100%"
-        # Convert integer 1 to float 1.0 to mean "100% of documents"
         if default_params.get('max_df') == 1 and isinstance(default_params.get('max_df'), int):
             default_params['max_df'] = 1.0
             logger.info("Converted max_df=1 (int) to max_df=1.0 (float) for proper interpretation")
-        
+
         # Handle ngram_range if passed as list
         if isinstance(default_params.get('ngram_range'), list):
             default_params['ngram_range'] = tuple(default_params['ngram_range'])
-        
-        # For Chinese, use jieba tokenizer
-        if language == 'chinese':
-            tokenizer = self._get_chinese_tokenizer()
-            default_params['tokenizer'] = tokenizer
-            # Don't use sklearn's built-in stop_words for Chinese
-            # Handle stop_words separately with Chinese stopwords
-            stop_words_param = default_params.pop('stop_words', None)
-            if stop_words_param and stop_words_param != 'none':
-                # Load Chinese stopwords
-                chinese_stopwords = self._load_chinese_stopwords()
-                default_params['stop_words'] = chinese_stopwords
-        
+
+        # Extract exclusion_words (not a sklearn param)
+        exclusion_words = default_params.pop('exclusion_words', None) or []
+        if isinstance(exclusion_words, list):
+            exclusion_words = [str(w).strip() for w in exclusion_words if w and str(w).strip()]
+        else:
+            exclusion_words = []
+
+        stop_words_setting = default_params.get('stop_words')
+
+        # Resolve NLTK/Chinese base stopwords list (for exact stop_words param)
+        base_stopwords: List[str] = []
+        if stop_words_setting and stop_words_setting not in (None, 'none', 'None'):
+            if language == 'chinese':
+                base_stopwords = self._load_chinese_stopwords() or []
+            else:
+                base_stopwords = self._load_stopwords_for_language(str(stop_words_setting))
+
+        if exclusion_words:
+            # Compile patterns; regex entries (e.g. \d{4}) filter via custom tokenizer
+            compiled_patterns = self._compile_exclusion_patterns(exclusion_words)
+
+            # Build base tokenize function
+            if language == 'chinese':
+                _base_tokenize = self._get_chinese_tokenizer()
+            else:
+                _tok_re = re.compile(r'(?u)\b\w\w+\b')
+                def _base_tokenize(text, _r=_tok_re):
+                    return _r.findall(text)
+
+            # Wrap with exclusion filter
+            def _exclusion_tokenizer(text, _base=_base_tokenize, _pats=compiled_patterns):
+                return [t for t in _base(text) if not any(p.fullmatch(t) for p in _pats)]
+
+            default_params['tokenizer'] = _exclusion_tokenizer
+            default_params['token_pattern'] = None  # required when tokenizer is provided
+
+            # NLTK stopwords still handled via stop_words (exact match, separate mechanism)
+            default_params['stop_words'] = base_stopwords if base_stopwords else None
+            logger.info(
+                f"Exclusion tokenizer: {len(compiled_patterns)} patterns; "
+                f"NLTK stopwords: {len(base_stopwords)}"
+            )
+        else:
+            # No exclusion words — standard path
+            if base_stopwords:
+                default_params['stop_words'] = base_stopwords
+
+            if language == 'chinese':
+                tokenizer = self._get_chinese_tokenizer()
+                default_params['tokenizer'] = tokenizer
+                default_params['token_pattern'] = None
+                if not base_stopwords:
+                    stop_words_param = default_params.get('stop_words')
+                    if stop_words_param and stop_words_param not in ('none', 'None'):
+                        default_params['stop_words'] = self._load_chinese_stopwords()
+                    else:
+                        default_params['stop_words'] = None
+
         if vectorizer_type == "CountVectorizer":
             return CountVectorizer(**default_params)
         elif vectorizer_type == "TfidfVectorizer":
@@ -208,16 +289,39 @@ class BERTopicService:
             raise ValueError(f"Unknown vectorizer type: {vectorizer_type}")
     
     def _get_chinese_tokenizer(self):
-        """Get jieba tokenizer function for Chinese text"""
+        """Get jieba tokenizer function for Chinese text.
+
+        After jieba segmentation, consecutive tokens of the form
+        <digits> + <time-unit char> (年月日号时分秒季周) are merged so that
+        patterns like ``\\d+[年月日]`` can match them in the exclusion filter.
+        Example: jieba splits '2024年' → ['2024', '年']; merging gives '2024年'.
+        """
         import jieba
-        
+
+        # Chinese time-unit single characters that follow a digit sequence
+        _TIME_UNITS = frozenset('年月日号时分秒季周')
+
         def chinese_tokenizer(text):
-            """Tokenize Chinese text using jieba"""
-            # Use jieba cut for word segmentation
+            """Tokenize Chinese text using jieba, merging number+time-unit pairs."""
             tokens = jieba.lcut(text)
+            # Merge digit token + immediately following single time-unit token
+            merged: list = []
+            i = 0
+            while i < len(tokens):
+                tok = tokens[i]
+                if (
+                    tok.isdigit()
+                    and i + 1 < len(tokens)
+                    and tokens[i + 1] in _TIME_UNITS
+                ):
+                    merged.append(tok + tokens[i + 1])
+                    i += 2
+                else:
+                    merged.append(tok)
+                    i += 1
             # Filter out single characters and whitespace
-            return [token for token in tokens if len(token.strip()) > 1]
-        
+            return [t for t in merged if len(t.strip()) > 1]
+
         return chinese_tokenizer
     
     def _load_chinese_stopwords(self) -> list:
@@ -473,7 +577,7 @@ class BERTopicService:
             vectorizer_model=vectorizer_model,
             representation_model=representation_model,
             calculate_probabilities=calculate_probs,
-            top_n_words=20  # Return up to 20 keywords per topic
+            top_n_words=50  # Return up to 50 keywords per topic
         )
         
         # Set cluster model for non-HDBSCAN methods
@@ -509,7 +613,14 @@ class BERTopicService:
             )
 
             topic_model.topics_ = new_topics
-            topic_model.update_topics(documents, topics=new_topics)
+            # Pass vectorizer_model back explicitly — BERTopic.update_topics() resets it to a
+            # default CountVectorizer when the argument is omitted, losing our custom tokenizer.
+            topic_model.update_topics(
+                documents,
+                topics=new_topics,
+                top_n_words=topic_model.top_n_words,
+                vectorizer_model=vectorizer_model,
+            )
             topics = new_topics
             topic_info = topic_model.get_topic_info()
 
@@ -521,7 +632,14 @@ class BERTopicService:
             current_n = len([t for t in topic_info['Topic'].tolist() if t != -1])
             if current_n > nr_topics:
                 logger.info(f"Reducing {current_n} topics → {nr_topics} via reduce_topics()")
+                # reduce_topics does NOT accept top_n_words; re-extract topic words with our
+                # custom vectorizer afterwards to prevent BERTopic from resetting it.
                 topic_model.reduce_topics(documents, nr_topics=nr_topics)
+                topic_model.update_topics(
+                    documents,
+                    top_n_words=topic_model.top_n_words,
+                    vectorizer_model=vectorizer_model,
+                )
                 topics = topic_model.topics_
                 topic_info = topic_model.get_topic_info()
 
@@ -670,8 +788,8 @@ class BERTopicService:
             topic_words = topic_model.get_topic(topic_id)
             words = []
             if topic_words:
-                # Filter out empty words and ensure valid data (max 20 words)
-                for w, s in topic_words[:20]:
+                # Filter out empty words and ensure valid data
+                for w, s in topic_words[:50]:
                     if w and str(w).strip():
                         words.append({'word': str(w), 'weight': float(s)})
             

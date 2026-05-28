@@ -60,6 +60,7 @@ import type { Corpus, CorpusFilters } from '../../types'
 interface CorpusListProps {
   onSelectCorpus: (corpus: Corpus) => void
   onCreateNew?: () => void
+  onCorpusUpdated?: (corpus: Corpus) => void
 }
 
 // Translation mappings for text types and sources
@@ -96,7 +97,7 @@ const SOURCE_TRANSLATION_KEYS: Record<string, string> = {
   'Other': 'corpus.sources.other'
 }
 
-export default function CorpusList({ onSelectCorpus, onCreateNew }: CorpusListProps) {
+export default function CorpusList({ onSelectCorpus, onCreateNew, onCorpusUpdated }: CorpusListProps) {
   const { t } = useTranslation()
   
   // Helper function to translate text type
@@ -244,7 +245,7 @@ export default function CorpusList({ onSelectCorpus, onCreateNew }: CorpusListPr
 
   const handleEditSave = async () => {
     if (!selectedCorpus) return
-    
+
     setSaving(true)
     try {
       const response = await corpusApi.updateCorpus(selectedCorpus.id, {
@@ -256,12 +257,17 @@ export default function CorpusList({ onSelectCorpus, onCreateNew }: CorpusListPr
         description: editFormData.description || undefined
       })
       if (response.success) {
-        // Update local state
-        setCorpora(prev => prev.map(c => 
-          c.id === selectedCorpus.id 
-            ? { ...c, ...editFormData }
-            : c
-        ))
+        // Use server-returned data as source of truth; fall back to merged form data
+        const updatedCorpus: Corpus = response.data
+          ? { ...selectedCorpus, ...response.data }
+          : { ...selectedCorpus, ...editFormData }
+
+        // Update local list state
+        setCorpora(prev => prev.map(c => c.id === selectedCorpus.id ? updatedCorpus : c))
+
+        // Notify parent so CorpusDetail prop stays in sync
+        onCorpusUpdated?.(updatedCorpus)
+
         setEditDialogOpen(false)
         setSelectedCorpus(null)
       } else {

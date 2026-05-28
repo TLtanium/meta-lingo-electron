@@ -106,7 +106,7 @@ async def get_mcp_config_info():
             "backend_url": backend_url,
             "stdio_snippet": stdio_snippet,
             "http_url": mcp_http_url,
-            "tool_count": 53,
+            "tool_count": 55,
             "has_dxt": has_dxt,
         },
     }

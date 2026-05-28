@@ -93,7 +93,7 @@ export default function EmbeddingPanel({
     try {
       // Only load embeddings if corpus is selected, filter by corpusId
       const [embeddingsRes, modelInfoRes] = await Promise.all([
-        corpusId ? topicModelingApi.listEmbeddings(corpusId) : Promise.resolve({ success: true, data: { embeddings: [] } }),
+        topicModelingApi.listEmbeddings(corpusId || undefined),
         topicModelingApi.getModelInfo()
       ])
 
@@ -311,20 +311,16 @@ export default function EmbeddingPanel({
       {/* Existing Embeddings */}
       <Typography variant="body2" color="text.secondary" gutterBottom>
         {t('topicModeling.embedding.existingFiles')}
-        {corpusId && embeddings.length > 0 && (
-          <Chip 
-            label={embeddings.length} 
-            size="small" 
+        {embeddings.length > 0 && (
+          <Chip
+            label={embeddings.length}
+            size="small"
             sx={{ ml: 1 }}
           />
         )}
       </Typography>
 
-      {!corpusId ? (
-        <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 2 }}>
-          {t('topicModeling.embedding.selectCorpusFirst')}
-        </Typography>
-      ) : !hasLoaded ? (
+      {!hasLoaded ? (
         <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 2 }}>
           {t('topicModeling.embedding.clickRefreshToLoad', 'Click refresh to load embeddings')}
         </Typography>

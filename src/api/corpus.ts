@@ -133,7 +133,13 @@ export const corpusApi = {
   // Update corpus metadata
   updateCorpus: async (id: string, data: CorpusUpdate): Promise<{ success: boolean; data?: Corpus; message?: string }> => {
     try {
-      const response = await api.put<{ success: boolean; data: Corpus }>(`${API_BASE}/${id}`, data)
+      // Convert camelCase fields to snake_case for the backend Pydantic model
+      const payload: Record<string, unknown> = { ...data }
+      if ('textType' in payload) {
+        payload['text_type'] = payload['textType']
+        delete payload['textType']
+      }
+      const response = await api.put<{ success: boolean; data: Corpus }>(`${API_BASE}/${id}`, payload)
       if (response.success && response.data) {
         const inner = response.data as any
         if (inner.success !== undefined) {

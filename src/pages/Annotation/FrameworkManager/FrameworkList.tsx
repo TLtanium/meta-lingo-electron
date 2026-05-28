@@ -154,17 +154,20 @@ export const FrameworkList: React.FC<FrameworkListProps> = ({
       if (response.data?.success && response.data?.data) {
         const fullFramework = response.data.data
         const copyName = `${fullFramework.name}_copy`
+        // Deep-clone root tree; generate a new ID for the root node but keep its name
+        // (the root node name is part of the annotation schema, not the framework display name)
         const copyRoot = JSON.parse(JSON.stringify(fullFramework.root))
         copyRoot.id = crypto.randomUUID()
-        copyRoot.name = copyName
-        
-        await frameworkApi.create({
+
+        const createResponse = await frameworkApi.create({
           name: copyName,
           category: fullFramework.category || 'Customs',
           description: fullFramework.description,
           root: copyRoot
         })
-        onRefresh()
+        if (createResponse.data?.success) {
+          onRefresh()
+        }
       }
     } catch (error) {
       console.error('Failed to copy framework:', error)
@@ -202,7 +205,7 @@ export const FrameworkList: React.FC<FrameworkListProps> = ({
       const rootNode: FrameworkNode = {
         id: crypto.randomUUID(),
         name: newName.trim(),
-        type: 'tier',
+        type: 'label',
         children: []
       }
       
@@ -236,7 +239,7 @@ export const FrameworkList: React.FC<FrameworkListProps> = ({
     }
   }
   
-  // 根据分类名称生成哈希颜色（与 MIPVU 框架颜色深度一致：80-180 区间）
+  // 根据分类名称生成哈希颜色（与现有框架颜色深度一致：80-210 区间）
   const generateCategoryColor = (category: string): string => {
     // 简单的字符串哈希函数
     let hash = 0
@@ -245,21 +248,21 @@ export const FrameworkList: React.FC<FrameworkListProps> = ({
       hash = ((hash << 5) - hash) + char
       hash = hash & hash // Convert to 32bit integer
     }
-    
+
     // 使用哈希值生成 RGB
     const r_raw = Math.abs(hash) % 256
     const g_raw = Math.abs(hash >> 8) % 256
     const b_raw = Math.abs(hash >> 16) % 256
-    
-    // 映射到 80-180 区间，与 MIPVU 框架颜色深度一致
+
+    // 映射到 80-210 区间，与现有框架颜色深度一致
     const minVal = 80
-    const maxVal = 180
+    const maxVal = 210
     const rangeSize = maxVal - minVal
-    
+
     const r = Math.floor(minVal + (r_raw / 255) * rangeSize)
     const g = Math.floor(minVal + (g_raw / 255) * rangeSize)
     const b = Math.floor(minVal + (b_raw / 255) * rangeSize)
-    
+
     return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`
   }
   

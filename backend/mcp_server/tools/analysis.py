@@ -12,6 +12,31 @@ from mcp_server.chart_export import (
 )
 
 
+def _match_word(word: str, search_word: str, search_type: str) -> bool:
+    """Client-side word filter matching the same types as the server-side searchType."""
+    import re
+    if not search_word:
+        return True
+    w = word.lower()
+    s = search_word.lower()
+    if search_type == "exact":
+        return w == s
+    elif search_type == "starts":
+        return w.startswith(s)
+    elif search_type == "ends":
+        return w.endswith(s)
+    elif search_type == "regex":
+        try:
+            return bool(re.search(s, w))
+        except re.error:
+            return False
+    elif search_type == "wordlist":
+        words = {t.strip().lower() for t in re.split(r"[,\n]", s) if t.strip()}
+        return w in words
+    else:  # "contains" (default) or "all"
+        return s in w
+
+
 def _format_freq_results(results: list, limit: int = 50) -> str:
     """Format frequency results into a readable table."""
     if not results:
@@ -159,6 +184,8 @@ def register(mcp: FastMCP, client: MetaLingoClient):
         top_n: int = 30,
         pos_filter: list[str] | None = None,
         config: Optional[dict] = None,
+        search_word: str = "",
+        search_type: str = "contains",
         save_path: str | None = None,
         chart_type: str | None = None,
         chart_path: str | None = None,
@@ -181,6 +208,9 @@ def register(mcp: FastMCP, client: MetaLingoClient):
             top_n: Number of keywords to extract (default: 30)
             pos_filter: Filter by POS tags, e.g. ["NOUN", "VERB"]
             config: Algorithm-specific parameters (see above, optional)
+            search_word: Filter results by keyword pattern (empty = no filter)
+            search_type: Match type: "exact", "contains" (default), "starts", "ends",
+                "regex", "wordlist" (comma/newline-separated list)
             save_path: Save results as CSV. Path, directory, or empty string for ~/Downloads. None = don't save.
             chart_type: Generate a chart: "bar", "pie", or "wordcloud". None = no chart.
             chart_path: Save chart path. Empty string = ~/Downloads. None = don't save.
@@ -204,7 +234,17 @@ def register(mcp: FastMCP, client: MetaLingoClient):
         if not keywords:
             return "No keywords extracted."
 
-        lines = [f"Keyword Extraction ({algorithm.upper()}, top {top_n})\n"]
+        # Client-side filter by search_word/search_type
+        if search_word:
+            keywords = [
+                kw for kw in keywords
+                if _match_word(kw.get("word", kw.get("keyword", "")), search_word, search_type)
+            ]
+            if not keywords:
+                return f'No keywords matching "{search_word}" ({search_type}).'
+
+        filter_note = f", filter={search_word!r} ({search_type})" if search_word else ""
+        lines = [f"Keyword Extraction ({algorithm.upper()}, top {top_n}{filter_note})\n"]
         lines.append(f"{'Rank':<6}{'Keyword':<30}{'Score':<12}")
         lines.append("-" * 48)
         for i, kw in enumerate(keywords[:top_n], 1):
@@ -266,6 +306,8 @@ def register(mcp: FastMCP, client: MetaLingoClient):
         min_freq: int = 3,
         p_threshold: float = 0.05,
         limit: int = 50,
+        search_word: str = "",
+        search_type: str = "contains",
         save_path: str | None = None,
         chart_type: str | None = None,
         chart_path: str | None = None,
@@ -291,6 +333,9 @@ def register(mcp: FastMCP, client: MetaLingoClient):
             min_freq: Minimum frequency in study corpus (default: 3)
             p_threshold: Significance threshold (default: 0.05)
             limit: Max results (default: 50)
+            search_word: Filter results by word pattern (empty = no filter)
+            search_type: Match type: "exact", "contains" (default), "starts", "ends",
+                "regex", "wordlist" (comma/newline-separated list)
             save_path: Save results as CSV. Path, directory, or empty string for ~/Downloads. None = don't save.
             chart_type: Generate a chart: "bar", "pie", or "wordcloud". None = no chart.
             chart_path: Save chart path. Empty string = ~/Downloads. None = don't save.
@@ -317,8 +362,18 @@ def register(mcp: FastMCP, client: MetaLingoClient):
         if not keywords:
             return "No significant keywords found."
 
+        # Client-side filter by search_word/search_type
+        if search_word:
+            keywords = [
+                kw for kw in keywords
+                if _match_word(kw.get("keyword", kw.get("word", "")), search_word, search_type)
+            ]
+            if not keywords:
+                return f'No keyness results matching "{search_word}" ({search_type}).'
+
+        filter_note = f", filter={search_word!r} ({search_type})" if search_word else ""
         lines = [
-            f"Keyness Analysis ({statistic}, mode={comparison_mode})\n",
+            f"Keyness Analysis ({statistic}, mode={comparison_mode}{filter_note})\n",
             f"{'Rank':<6}{'Word':<25}{'Keyness':<12}{'StudyF':<10}{'RefF':<10}{'Effect':<10}",
             "-" * 73,
         ]
@@ -516,6 +571,8 @@ def register(mcp: FastMCP, client: MetaLingoClient):
         min_freq: int = 3,
         p_threshold: float = 0.05,
         limit: int = 50,
+        search_word: str = "",
+        search_type: str = "contains",
         save_path: str | None = None,
         chart_type: str | None = None,
         chart_path: str | None = None,
@@ -544,6 +601,9 @@ def register(mcp: FastMCP, client: MetaLingoClient):
             min_freq: Minimum frequency in study corpus (default: 3)
             p_threshold: Significance threshold (default: 0.05)
             limit: Max results (default: 50)
+            search_word: Filter results by word pattern (empty = no filter)
+            search_type: Match type: "exact", "contains" (default), "starts", "ends",
+                "regex", "wordlist" (comma/newline-separated list)
             save_path: Save results as CSV. Path, directory, or empty string for ~/Downloads. None = don't save.
         """
         body: dict = {
@@ -568,8 +628,18 @@ def register(mcp: FastMCP, client: MetaLingoClient):
         if not keywords:
             return "No significant keywords found."
 
+        # Client-side filter by search_word/search_type
+        if search_word:
+            keywords = [
+                kw for kw in keywords
+                if _match_word(kw.get("keyword", kw.get("word", "")), search_word, search_type)
+            ]
+            if not keywords:
+                return f'No keyness results matching "{search_word}" ({search_type}).'
+
+        filter_note = f", filter={search_word!r} ({search_type})" if search_word else ""
         lines = [
-            f"Keyness vs Reference ({statistic}, resource={resource_id})\n",
+            f"Keyness vs Reference ({statistic}, resource={resource_id}{filter_note})\n",
             f"{'Rank':<6}{'Word':<25}{'Keyness':<12}{'StudyF':<10}{'RefF':<10}{'Effect':<10}",
             "-" * 73,
         ]

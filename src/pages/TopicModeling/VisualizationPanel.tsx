@@ -84,6 +84,19 @@ export default function VisualizationPanel({ resultId, hasDynamicTopics = false 
   const [vizData, setVizData] = useState<Partial<Record<VisualizationType, VisualizationData>>>({})
   const [params, setParams] = useState<Record<VisualizationType, VisualizationParams>>(DEFAULT_PARAMS)
   const chartContainerRef = useRef<HTMLDivElement>(null)
+  const [containerHeight, setContainerHeight] = useState(600)
+
+  // Track actual chart container height so Plotly components fill it exactly
+  useEffect(() => {
+    const el = chartContainerRef.current
+    if (!el) return
+    const observer = new ResizeObserver(entries => {
+      const h = entries[0]?.contentRect.height
+      if (h && h > 0) setContainerHeight(Math.floor(h))
+    })
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
 
   // Filter visualization types based on whether dynamic topics are available
   const availableVizTypes = VIZ_TYPES.filter(vt => !vt.requiresDynamic || hasDynamicTopics)
@@ -174,6 +187,24 @@ export default function VisualizationPanel({ resultId, hasDynamicTopics = false 
     }
   }
 
+  // Helper: get actual rendered Plotly dimensions
+  // Priority: _fullLayout (Plotly's internal ground truth) > offsetWidth/Height > fallback
+  const getPlotlyExportDimensions = useCallback((plotlyDiv: Element): { width: number; height: number } => {
+    const gd = plotlyDiv as any
+    const el = plotlyDiv as HTMLElement
+    // _fullLayout reflects exactly what Plotly rendered, including autosize expansions
+    const renderedWidth = gd._fullLayout?.width || el.offsetWidth || 800
+    const renderedHeight = gd._fullLayout?.height || el.offsetHeight || 600
+    // Barchart: ensure full height when rows expand beyond the visible area
+    if (currentVizType === 'barchart') {
+      const topN = (params[currentVizType]?.top_n_topics as number) || 8
+      const rows = Math.ceil(topN / 4)
+      const dynamicHeight = Math.max(renderedHeight, rows * 260 + 80)
+      return { width: renderedWidth, height: dynamicHeight }
+    }
+    return { width: renderedWidth, height: renderedHeight }
+  }, [currentVizType, params])
+
   // Export SVG - For Plotly charts, use Plotly's downloadImage
   const handleExportSVG = useCallback(() => {
     const container = chartContainerRef.current
@@ -183,11 +214,12 @@ export default function VisualizationPanel({ resultId, hasDynamicTopics = false 
     const plotlyDiv = container.querySelector('.js-plotly-plot')
     if (plotlyDiv && (window as any).Plotly) {
       try {
-        (window as any).Plotly.downloadImage(plotlyDiv as HTMLElement, {
+        const { width, height } = getPlotlyExportDimensions(plotlyDiv)
+        ;(window as any).Plotly.downloadImage(plotlyDiv as HTMLElement, {
           format: 'svg',
           filename: `topic-modeling-${currentVizType}-chart`,
-          height: 600,
-          width: 800,
+          height,
+          width,
           scale: 3
         })
         return
@@ -211,7 +243,7 @@ export default function VisualizationPanel({ resultId, hasDynamicTopics = false 
       
       URL.revokeObjectURL(url)
     }
-  }, [currentVizType])
+  }, [currentVizType, getPlotlyExportDimensions])
 
   // Export PNG - For Plotly charts, use Plotly's downloadImage
   const handleExportPNG = useCallback(async () => {
@@ -222,11 +254,12 @@ export default function VisualizationPanel({ resultId, hasDynamicTopics = false 
     const plotlyDiv = container.querySelector('.js-plotly-plot')
     if (plotlyDiv && (window as any).Plotly) {
       try {
-        (window as any).Plotly.downloadImage(plotlyDiv as HTMLElement, {
+        const { width, height } = getPlotlyExportDimensions(plotlyDiv)
+        ;(window as any).Plotly.downloadImage(plotlyDiv as HTMLElement, {
           format: 'png',
           filename: `topic-modeling-${currentVizType}-chart`,
-          height: 600,
-          width: 800,
+          height,
+          width,
           scale: 3
         })
         return
@@ -260,7 +293,7 @@ export default function VisualizationPanel({ resultId, hasDynamicTopics = false 
     } catch (error) {
       console.error('Failed to export PNG:', error)
     }
-  }, [currentVizType])
+  }, [currentVizType, params, getPlotlyExportDimensions])
 
   // Render parameter controls for current visualization type
   const renderParamControls = () => {
@@ -605,71 +638,77 @@ export default function VisualizationPanel({ resultId, hasDynamicTopics = false 
       case 'topics':
         return (
           <Box sx={{ height: '100%', display: 'flex' }}>
-            <IntertopicDistancePlot 
+            <IntertopicDistancePlot
               data={data.plotly_data}
-              height={600}
+              height={containerHeight}
             />
           </Box>
         )
-      
+
       case 'hierarchy':
         return (
           <Box sx={{ height: '100%', display: 'flex' }}>
-            <TopicHierarchyPlot 
+            <TopicHierarchyPlot
               data={data.plotly_data}
-              height={600}
+              height={containerHeight}
             />
           </Box>
         )
-      
-      case 'barchart':
+
+      case 'barchart': {
+        // BERTopic's visualize_barchart arranges topics in a grid with n_cols=4 columns.
+        // Dynamic height prevents bar compression when topic count grows.
+        const topN = currentParams.top_n_topics || 8
+        const rows = Math.ceil(topN / 4)
+        const barchartHeight = Math.max(containerHeight, rows * 260 + 80)
         return (
           <Box sx={{ height: '100%', overflow: 'auto' }}>
-            <TopicWordBarsPlot 
+            <TopicWordBarsPlot
               data={data.plotly_data}
-              height={600}
+              height={barchartHeight}
             />
           </Box>
         )
-      
+      }
+
       case 'heatmap':
         return (
           <Box sx={{ height: '100%', display: 'flex' }}>
-            <TopicSimilarityHeatmapPlot 
+            <TopicSimilarityHeatmapPlot
               data={data.plotly_data}
-              height={600}
+              height={containerHeight}
             />
           </Box>
         )
-      
+
       case 'documents':
         return (
           <Box sx={{ height: '100%', display: 'flex' }}>
-            <DocumentDistributionPlot 
+            <DocumentDistributionPlot
               data={data.plotly_data}
-              height={600}
+              height={containerHeight}
               totalDocs={data.total_docs}
               sampleSize={data.sample_size}
             />
           </Box>
         )
-      
+
       case 'term_rank':
         return (
           <Box sx={{ height: '100%', display: 'flex' }}>
-            <TermRankPlot 
+            <TermRankPlot
               data={data.plotly_data}
-              height={600}
+              height={containerHeight}
             />
           </Box>
         )
-      
+
       case 'topics_over_time':
         return (
           <Box sx={{ height: '100%', display: 'flex' }}>
-            <TopicEvolutionPlot 
+            <TopicEvolutionPlot
               data={data.plotly_data}
-              height={600}
+              height={containerHeight}
             />
           </Box>
         )

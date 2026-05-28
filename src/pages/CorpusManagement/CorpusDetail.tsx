@@ -99,6 +99,7 @@ interface CorpusDetailProps {
   corpus: Corpus
   onBack: () => void
   onUpload?: () => void
+  onCorpusUpdated?: (corpus: Corpus) => void
 }
 
 // Translation mappings for text types
@@ -120,7 +121,7 @@ const TEXT_TYPE_TRANSLATION_KEYS: Record<string, string> = {
   'Other': 'corpus.textTypes.other'
 }
 
-export default function CorpusDetail({ corpus, onBack, onUpload }: CorpusDetailProps) {
+export default function CorpusDetail({ corpus, onBack, onUpload, onCorpusUpdated }: CorpusDetailProps) {
   const { t } = useTranslation()
   
   // Helper function to translate text type
@@ -211,6 +212,56 @@ export default function CorpusDetail({ corpus, onBack, onUpload }: CorpusDetailP
   const [clipFrameInterval, setClipFrameInterval] = useState(30)
   const [clipLabels, setClipLabels] = useState<string[]>(DEFAULT_CLIP_LABELS)
   const [customClipLabel, setCustomClipLabel] = useState('')
+
+  // Corpus-level info edit dialog
+  const [corpusEditOpen, setCorpusEditOpen] = useState(false)
+  const [corpusEditForm, setCorpusEditForm] = useState({
+    name: '', language: '', author: '', source: '', textType: '', description: ''
+  })
+  const [corpusEditSaving, setCorpusEditSaving] = useState(false)
+
+  const handleCorpusEditOpen = () => {
+    setCorpusEditForm({
+      name: corpus.name || '',
+      language: corpus.language || '',
+      author: corpus.author || '',
+      source: corpus.source || '',
+      textType: corpus.textType || '',
+      description: corpus.description || ''
+    })
+    setCorpusEditOpen(true)
+  }
+
+  const handleCorpusEditSave = async () => {
+    setCorpusEditSaving(true)
+    try {
+      const response = await corpusApi.updateCorpus(corpus.id, {
+        name: corpusEditForm.name,
+        language: corpusEditForm.language || undefined,
+        author: corpusEditForm.author || undefined,
+        source: corpusEditForm.source || undefined,
+        textType: corpusEditForm.textType || undefined,
+        description: corpusEditForm.description || undefined
+      })
+      if (response.success) {
+        const updated: Corpus = response.data
+          ? { ...corpus, ...response.data }
+          : { ...corpus, ...corpusEditForm }
+        onCorpusUpdated?.(updated)
+        setCorpusEditOpen(false)
+        setSnackbarMessage(t('corpus.edit.metaSaveSuccess', 'Corpus info updated'))
+        setSnackbarOpen(true)
+      } else {
+        setSnackbarMessage(response.message || t('corpus.edit.saveFailed', 'Failed to save'))
+        setSnackbarOpen(true)
+      }
+    } catch (err) {
+      setSnackbarMessage(t('corpus.edit.saveFailed', '') + ': ' + (err as Error).message)
+      setSnackbarOpen(true)
+    } finally {
+      setCorpusEditSaving(false)
+    }
+  }
 
   // Load texts on mount
   useEffect(() => {
@@ -1328,9 +1379,16 @@ export default function CorpusDetail({ corpus, onBack, onUpload }: CorpusDetailP
         {/* Metadata panel */}
         <Grid item xs={12} md={3}>
           <Paper sx={{ p: 3 }}>
-            <Typography variant="subtitle1" fontWeight={600} gutterBottom>
-              {t('corpus.metadata')}
-            </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+              <Typography variant="subtitle1" fontWeight={600}>
+                {t('corpus.metadata')}
+              </Typography>
+              <Tooltip title={t('common.edit')}>
+                <IconButton size="small" onClick={handleCorpusEditOpen}>
+                  <EditIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            </Box>
             <Stack spacing={2}>
               <Box>
                 <Typography variant="body2" color="text.secondary">
@@ -2058,6 +2116,50 @@ export default function CorpusDetail({ corpus, onBack, onUpload }: CorpusDetailP
           onSaved={handleMetadataSaved}
         />
       )}
+
+      {/* Corpus Info Edit Dialog */}
+      <Dialog open={corpusEditOpen} onClose={() => setCorpusEditOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>{t('corpus.editInfo', 'Edit Corpus Info')}</DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ mt: 1 }}>
+            <TextField
+              label={t('corpus.name')}
+              value={corpusEditForm.name}
+              onChange={(e) => setCorpusEditForm(prev => ({ ...prev, name: e.target.value }))}
+              fullWidth required
+            />
+            <TextField
+              label={t('corpus.author')}
+              value={corpusEditForm.author}
+              onChange={(e) => setCorpusEditForm(prev => ({ ...prev, author: e.target.value }))}
+              fullWidth
+            />
+            <TextField
+              label={t('corpus.source')}
+              value={corpusEditForm.source}
+              onChange={(e) => setCorpusEditForm(prev => ({ ...prev, source: e.target.value }))}
+              fullWidth
+            />
+            <TextField
+              label={t('corpus.description')}
+              value={corpusEditForm.description}
+              onChange={(e) => setCorpusEditForm(prev => ({ ...prev, description: e.target.value }))}
+              fullWidth multiline minRows={2}
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setCorpusEditOpen(false)}>{t('common.cancel')}</Button>
+          <Button
+            onClick={handleCorpusEditSave}
+            variant="contained"
+            disabled={corpusEditSaving || !corpusEditForm.name.trim()}
+            startIcon={corpusEditSaving ? <CircularProgress size={16} /> : undefined}
+          >
+            {t('common.save')}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   )
 }

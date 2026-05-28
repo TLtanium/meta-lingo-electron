@@ -17,7 +17,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-v4.7.85-blue.svg" alt="Version">
+  <img src="https://img.shields.io/badge/version-v4.8.41-blue.svg" alt="Version">
   <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Windows-lightgrey.svg" alt="Platform">
   <img src="https://img.shields.io/badge/license-Non--Commercial-green.svg" alt="License">
   <a href="https://doi.org/10.5281/zenodo.20091931"><img src="https://zenodo.org/badge/1143968310.svg" alt="DOI"></a>
@@ -180,7 +180,7 @@ Meta-Lingo integrates several pre-trained models:
 | YOLOv8 | Object detection | Ultralytics |
 | CLIP ViT-Large-Patch14 | Image classification | OpenAI |
 | SpaCy en/zh_core_web_sm | NLP processing (no static word vectors) | Explosion |
-| DeBERTa-v3-large-clause-metaphor | MIPVU metaphor detection (F1 75.83) | [tommyleo2077](https://huggingface.co/tommyleo2077/deberta-v3-large-clause-metaphor) |
+| metalingo-deberta-metaphor | MIPVU metaphor detection (F1 81.24) | [TommyLeo](https://modelscope.cn/models/TommyLeo/metalingo-deberta-metaphor/summary) |
 | Sentence-BERT | Text embeddings | sentence-transformers |
 
 ## Contributing
@@ -190,6 +190,13 @@ This project is currently maintained for academic research purposes. For bug rep
 ## Changelog
 
 Recent releases below mirror `PROJECT.md` (abbreviated). For the full version history, see **`PROJECT.md`** at the repository root or the Git commit log.
+
+### v4.8.41 (2026-05-28)
+- **MIPVU — metalingo-deberta-metaphor**: Replaced `deberta-v3-large-clause-metaphor` with `metalingo-deberta-metaphor` (two-stage knowledge distillation, VUAMC NAACL FLP 2018 split). New metrics: F1 81.24, Precision 83.82%, Recall 78.81%, Accuracy 95.78%. ModelScope download via `TommyLeo/metalingo-deberta-metaphor`. All references updated across backend, frontend, i18n, and help docs.
+- **MCP — corpus/text metadata update tools**: Added `update_corpus_metadata` and `update_text_metadata` tools to the MCP server and Agent Chat tool registry.
+- **MCP — keyword/keyness search types**: Added `search_word` + `search_type` parameters to `keyword_extraction`, `keyness_analysis`, and `keyness_resource_analysis` tools (contains/exact/starts/ends/regex/wordlist).
+- **Agent Chat — loop guard**: Loop guard now uses argument fingerprints instead of call counts; allows up to 3 calls per tool per turn with different parameters; resets on every new user message.
+- **Settings — citation DOI**: Added DOI link (`https://doi.org/10.5281/zenodo.20091932`) to citation block in License/Citation settings.
 
 ### v4.7.98 (2026-04-06)
 - **Wav2Vec2 (multimodal alignment)**: ModelScope download id `facebook/wav2vec2-base-960h` in `model_manifest_constants.py`; docs/help/README updated. Model Management dialog does not show an extra ModelScope link line (avoid redundancy). See `PROJECT.md`.

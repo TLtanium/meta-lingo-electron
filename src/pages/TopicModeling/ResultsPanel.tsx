@@ -412,7 +412,7 @@ export default function ResultsPanel({
                 value={keywordDisplayCount}
                 onChange={(val) => setKeywordDisplayCount(val)}
                 min={1}
-                max={20}
+                max={50}
                 integer
                 size="small"
                 sx={{ width: 90 }}
@@ -661,7 +661,7 @@ export default function ResultsPanel({
                   value={keywordDisplayCount}
                   onChange={(val) => setKeywordDisplayCount(val)}
                   min={1}
-                  max={20}
+                  max={50}
                   integer
                   size="small"
                   sx={{ width: 90 }}

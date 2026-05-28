@@ -1390,48 +1390,75 @@ class TopicVisualizationService:
         """
         try:
             logger.info("Generating documents visualization (Plotly)")
-            
+
             # Prepare parameters
             docs_params = {
                 'hide_annotations': params.get('hide_document_hover', True),
                 'title': params.get('title', 'Document Topic Distribution')
             }
-            
+
             # Sample documents if needed
             sample_size = params.get('sample_size', 2000)
             n_docs = len(documents)
+
+            # Validate that topic_model.topics_ length matches documents
+            model_topics_len = len(topic_model.topics_) if hasattr(topic_model, 'topics_') and topic_model.topics_ is not None else 0
+            if model_topics_len != n_docs:
+                logger.warning(
+                    f"topic_model.topics_ length ({model_topics_len}) != documents length ({n_docs}). "
+                    "Using min to avoid index errors."
+                )
+                n_docs = min(n_docs, model_topics_len)
+                documents = documents[:n_docs]
+                embeddings = embeddings[:n_docs]
+
             if n_docs > sample_size:
                 indices = np.random.choice(n_docs, sample_size, replace=False)
                 sample_docs = [documents[i] for i in indices]
                 sample_embeddings = embeddings[indices]
+                # Pass sampled topic assignments to avoid length mismatch inside BERTopic
+                sample_topic_assignments = [topic_model.topics_[i] for i in indices]
             else:
                 sample_docs = documents
                 sample_embeddings = embeddings
-            
+                sample_topic_assignments = list(topic_model.topics_[:n_docs])
+
             # Apply custom labels to topic model first, then enable in visualization
             use_custom = params.get('custom_labels', False)
             if use_custom:
                 self._apply_custom_labels(topic_model, topics, True)
                 docs_params['custom_labels'] = True
-            
+
             # Generate Plotly figure
-            fig = topic_model.visualize_documents(sample_docs, embeddings=sample_embeddings, **docs_params)
-            
+            # Pass topics explicitly to avoid BERTopic using self.topics_ with wrong length
+            fig = topic_model.visualize_documents(
+                sample_docs,
+                topics=sample_topic_assignments,
+                embeddings=sample_embeddings,
+                **docs_params
+            )
+
             # Convert to dictionary
             fig_dict = self._convert_plotly_figure_to_dict(fig)
-            
+
             return {
                 'type': 'documents',
                 'plotly_data': fig_dict,
                 'total_docs': n_docs,
                 'sample_size': len(sample_docs)
             }
-            
+
         except Exception as e:
             logger.error(f"Error generating documents visualization (Plotly): {e}")
             import traceback
             traceback.print_exc()
-            return {'type': 'documents', 'error': str(e)}
+            error_msg = str(e)
+            if 'list index out of range' in error_msg or 'index' in error_msg.lower():
+                error_msg = (
+                    f'Document distribution visualization failed (index error with large dataset). '
+                    f'Try reducing the sample size. Details: {error_msg}'
+                )
+            return {'type': 'documents', 'error': error_msg}
     
     def generate_term_rank_plotly(
         self,

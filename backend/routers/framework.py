@@ -88,20 +88,21 @@ FrameworkNode.model_rebuild()
 def generate_color_for_path(path: str) -> str:
     """Generate a unique color based on path hash (matches frontend logic)"""
     path_hash = hashlib.md5(path.encode('utf-8')).hexdigest()
-    
+
     r_raw = int(path_hash[0:2], 16)
     g_raw = int(path_hash[2:4], 16)
     b_raw = int(path_hash[4:6], 16)
-    
-    # Map to range 80-180 to match MIPVU framework color depth
+
+    # Map to range 80-210 to match existing framework color depth
+    # (prior range 80-180 produced colors that were too dark vs. imported frameworks)
     min_val = 80
-    max_val = 180
+    max_val = 210
     range_size = max_val - min_val
-    
+
     r = min_val + int((r_raw / 255) * range_size)
     g = min_val + int((g_raw / 255) * range_size)
     b = min_val + int((b_raw / 255) * range_size)
-    
+
     return f"#{r:02x}{g:02x}{b:02x}"
 
 
@@ -168,15 +169,16 @@ def count_nodes(node: Dict) -> Dict[str, int]:
     """Count tiers and labels in a node tree"""
     if not node:
         return {'tiers': 0, 'labels': 0}
-    
+
     tiers = 1 if node.get('type') == 'tier' else 0
     labels = 1 if node.get('type') == 'label' else 0
-    
-    for child in node.get('children', []):
+
+    # Use `or []` to handle both absent key AND explicit null value (e.g. from Pydantic model_dump)
+    for child in (node.get('children') or []):
         child_counts = count_nodes(child)
         tiers += child_counts['tiers']
         labels += child_counts['labels']
-    
+
     return {'tiers': tiers, 'labels': labels}
 
 
@@ -184,10 +186,17 @@ def list_all_frameworks() -> List[Dict]:
     """List all frameworks from files"""
     frameworks = []
     for path in FRAMEWORKS_DIR.glob("*.json"):
+        # Skip macOS resource fork files (._*)
+        if path.name.startswith('._'):
+            continue
         try:
             with open(path, 'r', encoding='utf-8') as f:
                 framework = json.load(f)
+            # Only include files that have at minimum an 'id' field
+            if isinstance(framework, dict) and 'id' in framework:
                 frameworks.append(framework)
+            else:
+                print(f"[Framework List] Skipping non-framework file: {path.name}")
         except Exception as e:
             print(f"Error loading framework {path}: {e}")
     return frameworks
@@ -196,13 +205,12 @@ def list_all_frameworks() -> List[Dict]:
 def assign_colors_to_nodes(node: Dict, parent_path: str = "") -> None:
     """Recursively assign colors to label nodes based on path"""
     current_path = f"{parent_path}/{node['name']}" if parent_path else node['name']
-    
+
     if node['type'] == 'label' and not node.get('color'):
         node['color'] = generate_color_for_path(current_path)
-    
-    if node.get('children'):
-        for child in node['children']:
-            assign_colors_to_nodes(child, current_path)
+
+    for child in (node.get('children') or []):
+        assign_colors_to_nodes(child, current_path)
 
 
 def convert_folder_to_node(folder_path: Path, parent_path: str = "") -> Optional[Dict]:
@@ -263,23 +271,26 @@ async def list_frameworks():
     # Group by category
     categories_map: Dict[str, List[Dict]] = {}
     for fw in frameworks:
-        category = fw.get('category', 'Uncategorized')
-        if category not in categories_map:
-            categories_map[category] = []
-        
-        # Count nodes
-        counts = count_nodes(fw.get('root', {}))
-        
-        categories_map[category].append({
-            'id': fw['id'],
-            'name': fw['name'],
-            'category': fw['category'],
-            'description': fw.get('description'),
-            'createdAt': fw['createdAt'],
-            'updatedAt': fw['updatedAt'],
-            'tierCount': counts['tiers'],
-            'labelCount': counts['labels']
-        })
+        try:
+            category = fw.get('category') or 'Uncategorized'
+            if category not in categories_map:
+                categories_map[category] = []
+
+            # Count nodes
+            counts = count_nodes(fw.get('root', {}))
+
+            categories_map[category].append({
+                'id': fw.get('id', ''),
+                'name': fw.get('name', ''),
+                'category': category,
+                'description': fw.get('description'),
+                'createdAt': fw.get('createdAt', ''),
+                'updatedAt': fw.get('updatedAt', ''),
+                'tierCount': counts['tiers'],
+                'labelCount': counts['labels']
+            })
+        except Exception as e:
+            print(f"[Framework List] Skipping framework '{fw.get('name', 'unknown')}': {e}")
     
     # Convert to list and sort
     categories = []
@@ -324,7 +335,8 @@ async def create_framework(data: FrameworkCreate):
     now = datetime.now().isoformat()
     
     # Assign colors to label nodes
-    root_dict = data.root.model_dump()
+    # Use exclude_none=True to prevent "children": null for leaf nodes
+    root_dict = data.root.model_dump(exclude_none=True)
     assign_colors_to_nodes(root_dict)
     
     framework = {
@@ -360,7 +372,8 @@ async def update_framework(framework_id: str, data: FrameworkUpdate):
     if data.description is not None:
         framework['description'] = data.description
     if data.root is not None:
-        root_dict = data.root.model_dump()
+        # Use exclude_none=True to prevent "children": null for leaf nodes
+        root_dict = data.root.model_dump(exclude_none=True)
         assign_colors_to_nodes(root_dict)
         framework['root'] = root_dict
     
@@ -662,9 +675,9 @@ async def add_node_to_framework(framework_id: str, data: dict):
     def find_and_add(node: Dict, path_parts: list, depth: int = 0) -> bool:
         if depth == len(path_parts):
             # 找到目标节点，添加子节点
-            if 'children' not in node:
+            if not isinstance(node.get('children'), list):
                 node['children'] = []
-            
+
             # 检查是否已存在同名节点
             for child in node['children']:
                 if child['name'] == formatted_name:
@@ -685,11 +698,10 @@ async def add_node_to_framework(framework_id: str, data: dict):
             node['children'].append(new_node)
             return True
         
-        if 'children' in node:
-            for child in node['children']:
-                if child['name'] == path_parts[depth]:
-                    return find_and_add(child, path_parts, depth + 1)
-        
+        for child in (node.get('children') or []):
+            if child['name'] == path_parts[depth]:
+                return find_and_add(child, path_parts, depth + 1)
+
         return False
     
     # 解析路径
@@ -702,9 +714,9 @@ async def add_node_to_framework(framework_id: str, data: dict):
             success = find_and_add(framework['root'], path_parts)
         else:
             # 添加到根节点
-            if 'children' not in framework['root']:
+            if not isinstance(framework['root'].get('children'), list):
                 framework['root']['children'] = []
-            
+
             new_node = {
                 'id': str(uuid.uuid4()),
                 'name': formatted_name,
@@ -713,14 +725,14 @@ async def add_node_to_framework(framework_id: str, data: dict):
             }
             if node_type == 'label':
                 new_node['color'] = generate_color_for_path(formatted_name)
-            
+
             framework['root']['children'].append(new_node)
             success = True
     else:
         # 添加到根节点
-        if 'children' not in framework['root']:
+        if not isinstance(framework['root'].get('children'), list):
             framework['root']['children'] = []
-        
+
         new_node = {
             'id': str(uuid.uuid4()),
             'name': formatted_name,
@@ -729,7 +741,7 @@ async def add_node_to_framework(framework_id: str, data: dict):
         }
         if node_type == 'label':
             new_node['color'] = generate_color_for_path(formatted_name)
-        
+
         framework['root']['children'].append(new_node)
         success = True
     
@@ -765,23 +777,20 @@ async def rename_node_in_framework(framework_id: str, data: dict):
     def find_and_rename(node: Dict, path_parts: list, depth: int = 0) -> bool:
         if depth == len(path_parts) - 1:
             # 找到目标节点的父节点
-            if 'children' in node:
-                for child in node['children']:
-                    if child['name'] == path_parts[depth]:
-                        # 根据节点类型格式化名称
-                        if child.get('type') == 'tier':
-                            formatted_name = new_name.upper().replace(' ', '-')
-                        else:
-                            formatted_name = new_name.replace(' ', '-')
-                        
-                        child['name'] = formatted_name
-                        return True
-        
-        if 'children' in node:
-            for child in node['children']:
+            for child in (node.get('children') or []):
                 if child['name'] == path_parts[depth]:
-                    return find_and_rename(child, path_parts, depth + 1)
-        
+                    # 根据节点类型格式化名称
+                    if child.get('type') == 'tier':
+                        formatted_name = new_name.upper().replace(' ', '-')
+                    else:
+                        formatted_name = new_name.replace(' ', '-')
+                    child['name'] = formatted_name
+                    return True
+
+        for child in (node.get('children') or []):
+            if child['name'] == path_parts[depth]:
+                return find_and_rename(child, path_parts, depth + 1)
+
         return False
     
     path_parts = node_path.split('/')
@@ -822,17 +831,17 @@ async def delete_node_from_framework(framework_id: str, data: dict):
     def find_and_delete(node: Dict, path_parts: list, depth: int = 0) -> bool:
         if depth == len(path_parts) - 1:
             # 找到目标节点的父节点
-            if 'children' in node:
-                for i, child in enumerate(node['children']):
-                    if child['name'] == path_parts[depth]:
-                        node['children'].pop(i)
-                        return True
-        
-        if 'children' in node:
-            for child in node['children']:
+            children = node.get('children') or []
+            for i, child in enumerate(children):
                 if child['name'] == path_parts[depth]:
-                    return find_and_delete(child, path_parts, depth + 1)
-        
+                    children.pop(i)
+                    node['children'] = children
+                    return True
+
+        for child in (node.get('children') or []):
+            if child['name'] == path_parts[depth]:
+                return find_and_delete(child, path_parts, depth + 1)
+
         return False
     
     path_parts = node_path.split('/')
@@ -876,12 +885,9 @@ async def update_node_definition(framework_id: str, data: dict):
         if depth == len(path_parts):
             node['definition'] = definition
             return True
-        
-        if 'children' in node:
-            for child in node['children']:
-                if child['name'] == path_parts[depth]:
-                    return find_and_update(child, path_parts, depth + 1)
-        
+        for child in (node.get('children') or []):
+            if child['name'] == path_parts[depth]:
+                return find_and_update(child, path_parts, depth + 1)
         return False
     
     path_parts = node_path.split('/')

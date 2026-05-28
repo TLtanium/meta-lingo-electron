@@ -123,6 +123,7 @@ export interface ClusteringConfig {
     cluster_selection_method?: string
     allow_single_cluster?: boolean
     alpha?: number
+    prediction_data?: boolean
     // BIRCH params
     threshold?: number
     branching_factor?: number
@@ -143,6 +144,7 @@ export interface VectorizerConfig {
     max_df?: number
     ngram_range?: [number, number]
     stop_words?: string[] | null
+    exclusion_words?: string[] | null
   }
 }
 

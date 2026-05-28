@@ -1,7 +1,8 @@
 """
 Corpus management tools for Meta-Lingo MCP server.
-Tools: list_corpora, create_corpus, upload_text, get_corpus_info,
-       list_corpus_upload_tasks, get_processing_task_status
+Tools: list_corpora, create_corpus, upload_text, upload_directory,
+       get_corpus_info, list_corpus_upload_tasks, get_processing_task_status,
+       update_corpus_metadata, update_text_metadata
 """
 from __future__ import annotations
 
@@ -470,3 +471,146 @@ def register(mcp: FastMCP, client: MetaLingoClient):
         if not text_list:
             lines.append("  (no texts yet)")
         return "\n".join(lines)
+
+    @mcp.tool()
+    async def update_corpus_metadata(
+        corpus_id: str,
+        name: Optional[str] = None,
+        description: Optional[str] = None,
+        language: Optional[str] = None,
+        author: Optional[str] = None,
+        source: Optional[str] = None,
+        text_type: Optional[str] = None,
+        tags: Optional[list[str]] = None,
+    ) -> str:
+        """Update metadata for an existing corpus.
+
+        When to use: To change the name, description, default author, source, language,
+        USAS text_type, or tags on a corpus that was already created.
+        Only the fields you provide will be updated; omitted fields are left unchanged.
+
+        Args:
+            corpus_id: Corpus ID (from list_corpora)
+            name: New display name for the corpus
+            description: Short content-focused summary of the corpus
+            language: Corpus language (e.g. "english", "chinese")
+            author: Default author for texts in this corpus
+            source: Default source/origin for texts in this corpus
+            text_type: USAS text type code (e.g. "GEN"); empty string clears it
+            tags: Replace the corpus tag list (empty list clears all tags)
+        """
+        payload: dict = {}
+        if name is not None:
+            payload["name"] = name
+        if description is not None:
+            payload["description"] = description
+        if language is not None:
+            payload["language"] = language
+        if author is not None:
+            payload["author"] = author
+        if source is not None:
+            payload["source"] = source
+        if text_type is not None:
+            payload["text_type"] = text_type
+        if tags is not None:
+            payload["tags"] = tags
+
+        if not payload:
+            return "No fields to update. Provide at least one argument."
+
+        result = await client.put(f"/api/corpus/{corpus_id}", json_data=payload)
+        if result.get("success"):
+            updated = result.get("data", {})
+            lines = [f"Corpus {corpus_id} updated successfully."]
+            if "name" in payload:
+                lines.append(f"  name: {updated.get('name', payload['name'])}")
+            if "description" in payload:
+                lines.append(f"  description: {updated.get('description', payload['description'])}")
+            if "language" in payload:
+                lines.append(f"  language: {updated.get('language', payload['language'])}")
+            if "author" in payload:
+                lines.append(f"  author: {updated.get('author', payload['author'])}")
+            if "source" in payload:
+                lines.append(f"  source: {updated.get('source', payload['source'])}")
+            if "text_type" in payload:
+                lines.append(f"  text_type: {updated.get('text_type', payload['text_type'])}")
+            if "tags" in payload:
+                lines.append(f"  tags: {', '.join(payload['tags']) if payload['tags'] else '(none)'}")
+            return "\n".join(lines)
+        return f"Failed to update corpus: {result.get('message', result.get('detail', 'unknown error'))}"
+
+    @mcp.tool()
+    async def update_text_metadata(
+        corpus_id: str,
+        text_id: str,
+        date: Optional[str] = None,
+        author: Optional[str] = None,
+        source: Optional[str] = None,
+        description: Optional[str] = None,
+        filename: Optional[str] = None,
+        tags: Optional[list[str]] = None,
+        custom_fields: Optional[dict] = None,
+    ) -> str:
+        """Update metadata for an individual text in a corpus.
+
+        When to use: To fix or enrich the date, author, source, description, filename,
+        tags, or custom metadata fields of a text that was already uploaded.
+        Only the fields you provide will be updated; omitted fields are left unchanged.
+        Custom fields are merged with existing ones (not replaced entirely).
+
+        Args:
+            corpus_id: Corpus ID containing the text
+            text_id: Text ID (from get_corpus_info)
+            date: Publication/collection date. Accepts YYYY-MM-DD, YYYY-MM, or YYYY.
+            author: Author of the text
+            source: Source/origin of the text (e.g. "BBC News", "Survey 2024")
+            description: Short description or abstract for this text
+            filename: Rename the text file (must end in .txt for text files)
+            tags: Replace the text's tag list (empty list clears all tags)
+            custom_fields: Key-value pairs merged into existing custom fields
+                           (e.g. {"genre": "news", "region": "UK"})
+        """
+        metadata: dict = {}
+        if date is not None:
+            metadata["date"] = normalize_date(date) or date
+        if author is not None:
+            metadata["author"] = author
+        if source is not None:
+            metadata["source"] = source
+        if description is not None:
+            metadata["description"] = description
+        if custom_fields is not None:
+            metadata["custom_fields"] = custom_fields
+
+        payload: dict = {}
+        if metadata:
+            payload["metadata"] = metadata
+        if filename is not None:
+            payload["filename"] = filename
+        if tags is not None:
+            payload["tags"] = tags
+
+        if not payload:
+            return "No fields to update. Provide at least one argument."
+
+        result = await client.put(
+            f"/api/corpus/{corpus_id}/texts/{text_id}", json_data=payload
+        )
+        if result.get("success"):
+            lines = [f"Text {text_id} updated successfully."]
+            if date is not None:
+                lines.append(f"  date: {metadata.get('date', date)}")
+            if author is not None:
+                lines.append(f"  author: {author}")
+            if source is not None:
+                lines.append(f"  source: {source}")
+            if description is not None:
+                lines.append(f"  description: {description}")
+            if filename is not None:
+                lines.append(f"  filename: {filename}")
+            if tags is not None:
+                lines.append(f"  tags: {', '.join(tags) if tags else '(none)'}")
+            if custom_fields:
+                lines.append(f"  custom_fields: {custom_fields}")
+            return "\n".join(lines)
+        return f"Failed to update text: {result.get('message', result.get('detail', 'unknown error'))}"

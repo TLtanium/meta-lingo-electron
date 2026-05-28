@@ -918,21 +918,25 @@ async def merge_topics(request: MergeTopicsRequest):
         
         # Perform merge using BERTopic's merge_topics
         # merge_topics expects a list of lists, where each inner list contains topics to merge
+        top_n = getattr(topic_model, 'top_n_words', 50)
+        # Save the vectorizer before merge — update_topics resets it when vectorizer_model is omitted
+        _saved_vectorizer = topic_model.vectorizer_model
         topic_model.merge_topics(documents, [request.topics_to_merge])
-        
+        topic_model.update_topics(documents, top_n_words=top_n, vectorizer_model=_saved_vectorizer)
+
         # Get updated topic info
         updated_topic_info = topic_model.get_topic_info()
-        
+
         # Rebuild topics list
         updated_topics = []
         custom_labels = {t.get('id'): t.get('custom_label', '') for t in current_topics}
-        
+
         for _, row in updated_topic_info.iterrows():
             topic_id = int(row['Topic'])
             topic_words = topic_model.get_topic(topic_id)
             words = []
             if topic_words:
-                for w, s in topic_words[:20]:
+                for w, s in topic_words[:top_n]:
                     if w and str(w).strip():
                         words.append({'word': str(w), 'weight': float(s)})
             

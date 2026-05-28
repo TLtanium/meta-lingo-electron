@@ -22,7 +22,8 @@ import {
   FormControlLabel,
   Checkbox,
   Chip,
-  Tooltip
+  Tooltip,
+  TextField
 } from '@mui/material'
 import { NumberInput } from '../../components/common'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
@@ -71,6 +72,7 @@ export interface BERTopicAnalysisConfigSnapshot {
   representationModel: RepresentationModelConfig
   outlierConfig: OutlierConfig
   removeStopwords: boolean
+  exclusionWords: string
 }
 
 export default function AnalysisPanel({
@@ -122,7 +124,7 @@ export default function AnalysisPanel({
       metric: 'euclidean',
       cluster_selection_method: 'eom',
       allow_single_cluster: false,
-      alpha: 1.0
+      alpha: 1.0,
     }
   })
 
@@ -138,6 +140,8 @@ export default function AnalysisPanel({
   
   // Remove stopwords checkbox - language determined by corpus metadata
   const [removeStopwords, setRemoveStopwords] = useState(true)
+  // Custom exclusion words (one per line)
+  const [exclusionWords, setExclusionWords] = useState('')
 
   const [representationModel, setRepresentationModel] = useState<RepresentationModelConfig>({
     type: null,
@@ -158,9 +162,10 @@ export default function AnalysisPanel({
       vectorizer,
       representationModel,
       outlierConfig,
-      removeStopwords
+      removeStopwords,
+      exclusionWords
     })
-  }, [dimReduction, clustering, vectorizer, representationModel, outlierConfig, removeStopwords, onAnalysisConfigSnapshot])
+  }, [dimReduction, clustering, vectorizer, representationModel, outlierConfig, removeStopwords, exclusionWords, onAnalysisConfigSnapshot])
 
   // Representation model type change handler
   const handleRepresentationTypeChange = (type: RepresentationType) => {
@@ -256,13 +261,19 @@ export default function AnalysisPanel({
         }
       }
       
+      // Parse exclusion words (one per line, filter empty)
+      const exclusionWordsList = exclusionWords.trim()
+        ? exclusionWords.split('\n').map(w => w.trim()).filter(w => w.length > 0)
+        : []
+
       // Determine stop_words based on removeStopwords checkbox and corpus language
       const stopWordsValue = removeStopwords ? corpusLanguage : null
       const vectorizerWithStopwords = {
         ...vectorizer,
         params: {
           ...vectorizer.params,
-          stop_words: stopWordsValue
+          stop_words: stopWordsValue,
+          exclusion_words: exclusionWordsList.length > 0 ? exclusionWordsList : null
         }
       }
       
@@ -532,6 +543,20 @@ export default function AnalysisPanel({
                       <MenuItem value="manhattan">manhattan</MenuItem>
                     </Select>
                   </FormControl>
+                  <NumberInput
+                    label="random_state"
+                    size="small"
+                    value={dimReduction.params.random_state ?? 42}
+                    onChange={(val) => setDimReduction({
+                      ...dimReduction,
+                      params: { ...dimReduction.params, random_state: val }
+                    })}
+                    min={0}
+                    max={99999}
+                    integer
+                    defaultValue={42}
+                    fullWidth
+                  />
                 </>
               )}
 
@@ -590,7 +615,7 @@ export default function AnalysisPanel({
                   label={t('topicModeling.analysis.method')}
                   onChange={(e) => {
                     const newMethod = e.target.value as 'HDBSCAN' | 'BIRCH' | 'K-Means'
-                    const newParams = newMethod === 'HDBSCAN' 
+                    const newParams = newMethod === 'HDBSCAN'
                       ? { min_cluster_size: 5, min_samples: null, metric: 'euclidean', cluster_selection_method: 'eom', allow_single_cluster: false, alpha: 1.0 }
                       : newMethod === 'BIRCH'
                       ? { threshold: 0.5, branching_factor: 50, n_clusters: 3 }
@@ -649,6 +674,20 @@ export default function AnalysisPanel({
                       <MenuItem value="leaf">leaf</MenuItem>
                     </Select>
                   </FormControl>
+                  <NumberInput
+                    label="min_samples"
+                    size="small"
+                    value={clustering.params.min_samples ?? null}
+                    onChange={(val) => setClustering({
+                      ...clustering,
+                      params: { ...clustering.params, min_samples: val ?? null }
+                    })}
+                    min={1}
+                    max={100}
+                    integer
+                    placeholder={t('topicModeling.analysis.auto') || 'auto'}
+                    fullWidth
+                  />
                 </>
               )}
 
@@ -768,9 +807,9 @@ export default function AnalysisPanel({
                     <Typography variant="body2">
                       {t('topicModeling.vectorizer.removeStopwords')}
                     </Typography>
-                    <Chip 
-                      label={corpusLanguage} 
-                      size="small" 
+                    <Chip
+                      label={corpusLanguage}
+                      size="small"
                       variant="outlined"
                       color="default"
                     />
@@ -780,7 +819,22 @@ export default function AnalysisPanel({
               <Typography variant="caption" color="text.secondary" sx={{ ml: 4, mt: -1 }}>
                 {t('topicModeling.vectorizer.stopwordsAutoHelp')}
               </Typography>
-              
+
+              {/* Exclusion words */}
+              <TextField
+                label={t('topicModeling.vectorizer.exclusionWords')}
+                multiline
+                minRows={2}
+                maxRows={6}
+                size="small"
+                fullWidth
+                value={exclusionWords}
+                onChange={(e) => setExclusionWords(e.target.value)}
+                placeholder={t('topicModeling.vectorizer.exclusionWordsPlaceholder') || 'One word per line...'}
+                helperText={t('topicModeling.vectorizer.exclusionWordsHelp')}
+                FormHelperTextProps={{ sx: { ml: 0 } }}
+              />
+
               <NumberInput
                 label="min_df"
                 size="small"
@@ -809,6 +863,47 @@ export default function AnalysisPanel({
                 defaultValue={1.0}
                 fullWidth
               />
+
+              {/* ngram_range: two inputs for [min, max] */}
+              <Stack direction="row" spacing={1} alignItems="center">
+                <NumberInput
+                  label="ngram_min"
+                  size="small"
+                  value={(vectorizer.params.ngram_range as [number, number])?.[0] ?? 1}
+                  onChange={(val) => setVectorizer({
+                    ...vectorizer,
+                    params: {
+                      ...vectorizer.params,
+                      ngram_range: [val ?? 1, (vectorizer.params.ngram_range as [number, number])?.[1] ?? 1] as [number, number]
+                    }
+                  })}
+                  min={1}
+                  max={6}
+                  integer
+                  defaultValue={1}
+                  sx={{ flex: 1 }}
+                />
+                <NumberInput
+                  label="ngram_max"
+                  size="small"
+                  value={(vectorizer.params.ngram_range as [number, number])?.[1] ?? 1}
+                  onChange={(val) => setVectorizer({
+                    ...vectorizer,
+                    params: {
+                      ...vectorizer.params,
+                      ngram_range: [(vectorizer.params.ngram_range as [number, number])?.[0] ?? 1, val ?? 1] as [number, number]
+                    }
+                  })}
+                  min={1}
+                  max={6}
+                  integer
+                  defaultValue={1}
+                  sx={{ flex: 1 }}
+                />
+              </Stack>
+              <Typography variant="caption" color="text.secondary" sx={{ mt: -1 }}>
+                ngram_range: [{(vectorizer.params.ngram_range as [number, number])?.[0] ?? 1}, {(vectorizer.params.ngram_range as [number, number])?.[1] ?? 1}]
+              </Typography>
             </Stack>
           </AccordionDetails>
         </Accordion>
@@ -903,7 +998,7 @@ export default function AnalysisPanel({
                 <Alert severity="info" sx={{ py: 0.5 }}>
                   <Typography variant="caption">
                     {t('topicModeling.analysis.probabilitiesStrategyNote') ||
-                      'The probabilities strategy requires running analysis with this strategy selected (calculate_probabilities is auto-enabled). Re-run analysis after selecting this strategy to enable estimation.'}
+                      'The probabilities strategy requires running analysis with this strategy selected. HDBSCAN prediction_data and calculate_probabilities are auto-enabled. Re-run analysis after selecting this strategy.'}
                   </Typography>
                 </Alert>
               )}

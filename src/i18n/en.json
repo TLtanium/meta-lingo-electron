@@ -241,9 +241,11 @@
       "undoAll": "Undo All Changes",
       "saveSuccess": "Saved successfully",
       "saveFailed": "Failed to save",
+      "metaSaveSuccess": "Corpus info updated",
       "reannotating": "Re-annotating after edit...",
       "reannotated": "re-annotated"
     },
+    "editInfo": "Edit Corpus Info",
     "batchEdit": {
       "title": "Batch Edit",
       "button": "Batch Edit",
@@ -1853,8 +1855,8 @@
     "renameNode": "Rename Node",
     "newName": "New Name",
     "deleteNodeTitle": "Confirm Delete Node",
-    "deleteNodeMessage": "Are you sure you want to delete node \"{name}\"?",
-    "deleteNodeWarning": "This node contains {count} children, they will be deleted too!",
+    "deleteNodeMessage": "Are you sure you want to delete node \"{{name}}\"?",
+    "deleteNodeWarning": "This node contains {{count}} children, they will be deleted too!",
     "addError": "Failed to add",
     "renameError": "Failed to rename",
     "deleteError": "Failed to delete",
@@ -2071,7 +2073,10 @@
       "noStopwords": "No Stopwords",
       "stopwordsHelp": "Remove stopwords during vectorization to extract more meaningful topic words",
       "removeStopwords": "Remove Stopwords",
-      "stopwordsAutoHelp": "Stopwords language is automatically selected based on corpus metadata"
+      "stopwordsAutoHelp": "Stopwords language is automatically selected based on corpus metadata",
+      "exclusionWords": "Exclusion Words",
+      "exclusionWordsPlaceholder": "One word or regex per line...",
+      "exclusionWordsHelp": "Custom exclusion words. Supports regular expressions."
     },
     "corpus": {
       "title": "Corpus Selection",
@@ -2121,7 +2126,9 @@
       "estimatedOutliers": "After Reduction",
       "reducedCount": "Reduced Count",
       "probabilitiesNeedsRecalc": "The probabilities strategy requires re-running analysis with \"probabilities\" strategy selected. This automatically enables calculate_probabilities.",
-      "probabilitiesStrategyNote": "The probabilities strategy requires running analysis with this strategy selected (calculate_probabilities is auto-enabled). Re-run analysis after selecting this strategy to enable accurate estimation."
+      "probabilitiesStrategyNote": "Requires re-running analysis with this strategy selected.",
+      "auto": "auto",
+      "sbertMissing": "Sentence-BERT model is not installed. Please go to Settings > Model Management and download the SBERT model first."
     },
     "representation": {
       "type": "Representation Model Type",
@@ -3187,8 +3194,8 @@
         "pymusas_neural_multilingual_base_bem": {
           "name": "PyMUSAS Neural (Multilingual Base BEM)"
         },
-        "deberta_v3_large_clause_metaphor": {
-          "name": "MIPVU DeBERTa (clause metaphor)"
+        "metalingo_deberta_metaphor": {
+          "name": "MIPVU DeBERTa (metalingo-deberta-metaphor)"
         }
       },
       "downloadPathTitle": "Download path",

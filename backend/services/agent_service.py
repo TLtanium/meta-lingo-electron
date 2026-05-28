@@ -26,6 +26,10 @@ logger = logging.getLogger(__name__)
 MAX_ITERATIONS = 50
 LLM_TIMEOUT = 300.0  # 5 minutes
 
+# Max times the same analysis tool may be called with *different* args in one turn.
+# A call with identical args to a previous call is always blocked immediately (true loop).
+_MAX_ANALYSIS_CALLS_PER_TOOL = 3
+
 # Auto-compress old tool results once total message length exceeds this
 _COMPRESS_THRESHOLD_CHARS = 60_000
 # Keep this many recent messages fully intact during compression
@@ -86,9 +90,11 @@ SYSTEM_PROMPT = (
     "- Re-call list_corpora, get_corpus_info, or list_reference_corpora\n"
     "- Re-run the same analysis tool again\n"
     "- 'Verify' or 'confirm' by calling extra tools not needed\n"
-    "EXCEPTION — iterate at most 3 times ONLY when user explicitly says\n"
-    "'optimize', 'improve', 'find best parameters', or 're-run with better settings'.\n"
-    "Even then: iterate only the specific analysis tool, not the whole workflow.\n\n"
+    "EXCEPTION — you may re-call an analysis tool (up to 3 times per tool per turn) if:\n"
+    "  (a) the previous call failed, returned empty results, or used the wrong ID, OR\n"
+    "  (b) the user asked to 'optimize', 'improve', 'find best parameters', or similar.\n"
+    "Each retry must use different parameters — identical repeat calls are blocked automatically.\n"
+    "After 3 calls to the same tool, write your final response with the best result obtained.\n\n"
     "=== AVAILABLE TOOLS (use only what the task needs) ===\n"
     "These are available steps — NOT a required sequence. Call only what the task needs.\n"
     "- Discover: list_corpora, get_corpus_info, list_reference_corpora\n"
@@ -209,8 +215,10 @@ def _build_system_prompt(language: str = "en") -> str:
             "\n重要提醒（中文模式同样适用）："
             "\n0. 每次分析后必须附上「📋 使用的参数」表格（Markdown 表格格式，禁止用代码块或列表），"
             "\n   列出所有非默认参数，方便用户在常规模式复现。"
-            "\n2. 用户要求「优化」「跑最佳结果」「重跑」时，直接调用工具执行，不要给 Python 代码示例。"
-            "\n   有工具就用工具，可以连续调用最多 3 轮，每轮根据上一轮结果调整参数。"
+            "\n2. 分析工具在同一轮对话中最多调用 3 次（每次须使用不同参数），系统在每次用户请求时自动重置计数。"
+            "\n   允许重试的情形：(a) 上次调用失败/返回空结果/用错了 corpus_id；(b) 用户要求「优化」「重跑」「调参」。"
+            "\n   完全相同的参数重复调用会被自动拦截；达到 3 次上限后请直接撰写最终回复。"
+            "\n   有工具就用工具，不要给 Python 代码示例。"
             "\n3. BERTopic 噪声优化优先策略：结果噪声多时，长文本（文章/论文/章节/访谈，>500词）优先"
             "\n   使用文本切分策略重新embedding：create_bertopic_embedding(chunking_enabled=True, chunking_max_tokens=256)，"
             "\n   切分后每段作为独立文档，主题更聚焦。短文本（<200词）跳过切分，直接调整 UMAP/HDBSCAN 参数。"
@@ -272,7 +280,8 @@ class AgentService:
         for m in messages:
             full_messages.append({"role": m["role"], "content": m["content"]})
 
-        # Track analysis tool calls to detect unintended loops
+        # Track analysis tool calls to detect unintended loops.
+        # Reset every run_agent_turn() call, so per-user-message limits are independent.
         _ANALYSIS_TOOLS = {
             "keyness_analysis", "keyness_resource_analysis", "word_frequency",
             "concordance_search", "ngram_analysis", "collocation_analysis",
@@ -280,7 +289,10 @@ class AgentService:
             "semantic_domain_analysis", "metaphor_analysis", "sentiment_analysis",
             "topic_modeling", "bertopic_analyze", "synonym_analysis",
         }
-        called_analysis: dict[str, int] = {}  # tool_name → call count this turn
+        # Maps tool_name → list of arg-fingerprints already executed this turn.
+        # A call is blocked if (a) its fingerprint already appears (identical repeat), or
+        # (b) the list length has reached _MAX_ANALYSIS_CALLS_PER_TOOL.
+        called_analysis: dict[str, list[str]] = {}
 
         try:
             for iteration in range(MAX_ITERATIONS):
@@ -322,7 +334,7 @@ class AgentService:
                 full_messages.append(assistant_msg)
 
                 # Parse tool calls and check loop guards
-                parsed_calls: list[tuple[dict, str, dict, bool]] = []
+                parsed_calls: list[tuple[dict, str, dict, bool, str]] = []
                 for tc in tool_calls:
                     tool_name = tc.get("function", {}).get("name", "")
                     try:
@@ -332,36 +344,53 @@ class AgentService:
 
                     # Check loop guard
                     should_skip = False
+                    skip_reason = ""
                     if tool_name in _ANALYSIS_TOOLS:
-                        called_analysis[tool_name] = called_analysis.get(tool_name, 0) + 1
-                        if called_analysis[tool_name] > 1:
+                        args_key = json.dumps(tool_args, sort_keys=True)
+                        fingerprints = called_analysis.setdefault(tool_name, [])
+                        if args_key in fingerprints:
+                            # Identical call already executed → true loop
                             should_skip = True
+                            skip_reason = "identical"
+                        elif len(fingerprints) >= _MAX_ANALYSIS_CALLS_PER_TOOL:
+                            # Per-tool call limit reached
+                            should_skip = True
+                            skip_reason = "limit"
+                        else:
+                            fingerprints.append(args_key)
 
-                    parsed_calls.append((tc, tool_name, tool_args, should_skip))
+                    parsed_calls.append((tc, tool_name, tool_args, should_skip, skip_reason))
 
                 # Emit all tool_call events first
-                for tc, tool_name, tool_args, should_skip in parsed_calls:
+                for tc, tool_name, tool_args, should_skip, _reason in parsed_calls:
                     yield {"type": "tool_call", "name": tool_name, "arguments": tool_args}
 
                 # Execute tools in parallel
                 async def _execute_one(
-                    tc: dict, name: str, args: dict, skip: bool
+                    tc: dict, name: str, args: dict, skip: bool, reason: str
                 ) -> tuple[dict, str, str]:
                     """Execute a single tool, return (tc, name, result)."""
                     if skip:
-                        return (tc, name, (
-                            "[Loop guard] This analysis tool has already been called in this "
-                            "session and the results are already in the conversation. "
-                            "Do NOT call any analysis tools again. "
-                            "Write your final response now using the results already obtained."
-                        ))
+                        if reason == "identical":
+                            msg = (
+                                f"[Loop guard] {name} was already called with identical parameters. "
+                                "The result is already in the conversation — use it directly. "
+                                "Do not repeat the same call."
+                            )
+                        else:
+                            msg = (
+                                f"[Loop guard] {name} has been called {_MAX_ANALYSIS_CALLS_PER_TOOL} times "
+                                "this turn (maximum reached). Write your final response using the best "
+                                "result already obtained."
+                            )
+                        return (tc, name, msg)
                     result = await self.executor.execute(name, args)
                     return (tc, name, result)
 
                 # Run all tools concurrently
                 tasks = [
-                    _execute_one(tc, name, args, skip)
-                    for tc, name, args, skip in parsed_calls
+                    _execute_one(tc, name, args, skip, reason)
+                    for tc, name, args, skip, reason in parsed_calls
                 ]
                 results = await asyncio.gather(*tasks, return_exceptions=True)
 

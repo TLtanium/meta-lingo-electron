@@ -73,6 +73,11 @@ export default function CorpusManagement() {
     setTabIndex(0)
   }, [])
 
+  // Called when corpus metadata is updated (from list or detail view)
+  const handleCorpusUpdated = useCallback((updated: Corpus) => {
+    setSelectedCorpus(prev => prev?.id === updated.id ? { ...prev, ...updated } : prev)
+  }, [])
+
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       {/* Tab navigation */}
@@ -108,17 +113,19 @@ export default function CorpusManagement() {
         />
       </TabPanel>
       <TabPanel value={tabIndex} index={1}>
-        <CorpusList 
-          onSelectCorpus={handleSelectCorpus} 
+        <CorpusList
+          onSelectCorpus={handleSelectCorpus}
           onCreateNew={handleCreateNew}
+          onCorpusUpdated={handleCorpusUpdated}
         />
       </TabPanel>
       <TabPanel value={tabIndex} index={2}>
         {selectedCorpus && (
-          <CorpusDetail 
+          <CorpusDetail
             corpus={selectedCorpus}
             onBack={handleBack}
             onUpload={handleGoToUpload}
+            onCorpusUpdated={handleCorpusUpdated}
           />
         )}
       </TabPanel>

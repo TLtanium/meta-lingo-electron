@@ -1,6 +1,6 @@
 ./models
 ├── metaphor_identification
-│   └── deberta-v3-large-clause-metaphor
+│   └── metalingo-deberta-metaphor
 ├── multimodal_analyzer
 │   ├── clip-vit-large-patch14
 │   ├── whisper-large-v3-turbo

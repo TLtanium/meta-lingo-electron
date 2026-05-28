@@ -565,6 +565,8 @@ def register(mcp: FastMCP, client: MetaLingoClient):
         vectorizer_min_df: int = 2,
         vectorizer_max_df: float = 0.95,
         vectorizer_ngram_range: list[int] | None = None,
+        vectorizer_exclusion_words: list[str] | None = None,
+        vectorizer_remove_stopwords: bool = False,
         # ── Topic representation ──────────────────────────────────────
         representation_model: Optional[str] = None,
         # ── Outlier handling ──────────────────────────────────────────
@@ -655,6 +657,10 @@ def register(mcp: FastMCP, client: MetaLingoClient):
             vectorizer_max_df: Max document frequency fraction (default: 0.95).
                                Decrease to 0.7–0.8 to filter ubiquitous words.
             vectorizer_ngram_range: N-gram range e.g. [1,2] for bigrams (default: [1,1])
+            vectorizer_remove_stopwords: Remove NLTK stopwords during vectorization (default: false)
+            vectorizer_exclusion_words: Extra words to exclude from vocabulary e.g. ["the","said"].
+                                        When vectorizer_remove_stopwords=True, combined with NLTK stopwords.
+                                        When False, used alone as stop_words list.
 
             representation_model: Optional model for better topic labels:
                                    None (default, c-TF-IDF only),
@@ -694,7 +700,10 @@ def register(mcp: FastMCP, client: MetaLingoClient):
             "min_df": vectorizer_min_df,
             "max_df": vectorizer_max_df,
             "ngram_range": vectorizer_ngram_range if vectorizer_ngram_range is not None else [1, 1],
+            "stop_words": language if vectorizer_remove_stopwords else None,
         }
+        if vectorizer_exclusion_words:
+            vectorizer_params["exclusion_words"] = vectorizer_exclusion_words
 
         body: dict = {
             "embedding_id": embedding_id,

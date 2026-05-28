@@ -159,14 +159,14 @@ MODEL_MANIFEST: List[Dict[str, Any]] = [
         "protected": "pymusas/PyMUSAS-Neural-Multilingual-Base-BEM" in BUILTIN_MODEL_RELATIVE_PATHS,
         "expectedRelativeFiles": ["config.json"],
     },
-    # MIPVU DeBERTa (clause metaphor model)
+    # MIPVU DeBERTa (metalingo-deberta-metaphor)
     {
-        "id": "deberta-v3-large-clause-metaphor",
+        "id": "metalingo-deberta-metaphor",
         "moduleLabel": "MIPVU (metaphor detection)",
-        "displayName": "MIPVU DeBERTa (clause metaphor)",
-        "modelScopeRepoId": "TommyLeo/deberta-v3-large-clause-metaphor",
-        "storageRelativePath": "metaphor_identification/deberta-v3-large-clause-metaphor",
-        "protected": "metaphor_identification/deberta-v3-large-clause-metaphor" in BUILTIN_MODEL_RELATIVE_PATHS,
+        "displayName": "MIPVU DeBERTa (metalingo-deberta-metaphor)",
+        "modelScopeRepoId": "TommyLeo/metalingo-deberta-metaphor",
+        "storageRelativePath": "metaphor_identification/metalingo-deberta-metaphor",
+        "protected": "metaphor_identification/metalingo-deberta-metaphor" in BUILTIN_MODEL_RELATIVE_PATHS,
         "expectedRelativeFiles": [],
     },
 ]

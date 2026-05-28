@@ -197,8 +197,8 @@ async def get_services_status():
                 },
                 "mipvu": {
                     "available": mipvu.is_available("english")
-                    and bool(resolve_model_path("metaphor_identification/deberta-v3-large-clause-metaphor")),
-                    "model_path": str(resolve_model_path("metaphor_identification/deberta-v3-large-clause-metaphor") or "")
+                    and bool(resolve_model_path("metaphor_identification/metalingo-deberta-metaphor")),
+                    "model_path": str(resolve_model_path("metaphor_identification/metalingo-deberta-metaphor") or "")
                 }
             }
         }
@@ -606,7 +606,7 @@ async def reannotate_spacy(
                     from services.mipvu_service import get_mipvu_service
                     from model_paths import resolve_model_path
                     mipvu_svc = get_mipvu_service()
-                    mipvu_model_ready = bool(resolve_model_path("metaphor_identification/deberta-v3-large-clause-metaphor"))
+                    mipvu_model_ready = bool(resolve_model_path("metaphor_identification/metalingo-deberta-metaphor"))
                     
                     if mipvu_svc.is_available(language) and mipvu_model_ready:
                         mipvu_result = mipvu_svc.annotate_text(content, language, result)
@@ -696,7 +696,7 @@ async def reannotate_spacy(
                     from services.mipvu_service import get_mipvu_service
                     from model_paths import resolve_model_path
                     mipvu_svc = get_mipvu_service()
-                    mipvu_model_ready = bool(resolve_model_path("metaphor_identification/deberta-v3-large-clause-metaphor"))
+                    mipvu_model_ready = bool(resolve_model_path("metaphor_identification/metalingo-deberta-metaphor"))
                     
                     if mipvu_svc.is_available(language) and mipvu_model_ready:
                         def media_mipvu_progress_callback(progress, message):
@@ -1560,7 +1560,7 @@ async def update_transcript_segments(corpus_id: str, text_id: str, data: dict):
             from services.mipvu_service import get_mipvu_service
             from model_paths import resolve_model_path
             mipvu_svc = get_mipvu_service()
-            mipvu_model_ready = bool(resolve_model_path("metaphor_identification/deberta-v3-large-clause-metaphor"))
+            mipvu_model_ready = bool(resolve_model_path("metaphor_identification/metalingo-deberta-metaphor"))
             
             if mipvu_svc.is_available(language) and mipvu_model_ready:
                 logger.info(f"Regenerating MIPVU annotations for {len(existing_segments)} segments...")
@@ -2564,7 +2564,7 @@ async def reannotate_mipvu(
     media_type = text.get('media_type', 'text')
     
     mipvu_svc = get_mipvu_service()
-    mipvu_model_ready = bool(resolve_model_path("metaphor_identification/deberta-v3-large-clause-metaphor"))
+    mipvu_model_ready = bool(resolve_model_path("metaphor_identification/metalingo-deberta-metaphor"))
     if (not mipvu_svc.is_available(language)) or (not mipvu_model_ready):
         return {"success": False, "error": f"MIPVU not available for language: {language} (only English supported)"}
     
@@ -3115,7 +3115,7 @@ def process_text_spacy_sync(
             from model_paths import resolve_model_path
             mipvu_svc = get_mipvu_service()
             mipvu_info = None
-            mipvu_model_ready = bool(resolve_model_path("metaphor_identification/deberta-v3-large-clause-metaphor"))
+            mipvu_model_ready = bool(resolve_model_path("metaphor_identification/metalingo-deberta-metaphor"))
             
             if mipvu_svc.is_available(language) and mipvu_model_ready:
                 # Progress callback for MIPVU annotation
@@ -3304,7 +3304,7 @@ def process_media_file_sync(
             from services.mipvu_service import get_mipvu_service
             from model_paths import resolve_model_path
             mipvu_svc = get_mipvu_service()
-            mipvu_model_ready = bool(resolve_model_path("metaphor_identification/deberta-v3-large-clause-metaphor"))
+            mipvu_model_ready = bool(resolve_model_path("metaphor_identification/metalingo-deberta-metaphor"))
             
             if mipvu_svc.is_available(language) and mipvu_model_ready and transcript_data and segments and spacy_result:
                 def mipvu_progress_callback(progress, message):
@@ -3506,7 +3506,7 @@ def process_media_file_sync(
                             from services.mipvu_service import get_mipvu_service
                             from model_paths import resolve_model_path
                             mipvu_svc = get_mipvu_service()
-                            mipvu_model_ready = bool(resolve_model_path("metaphor_identification/deberta-v3-large-clause-metaphor"))
+                            mipvu_model_ready = bool(resolve_model_path("metaphor_identification/metalingo-deberta-metaphor"))
                             
                             if mipvu_svc.is_available(language) and mipvu_model_ready and transcript_data and segments and spacy_result:
                                 def video_mipvu_callback(progress, message):

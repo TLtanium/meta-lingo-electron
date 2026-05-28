@@ -3177,16 +3177,16 @@ MIPVU (Metaphor Identification Procedure VU) is a metaphor identification method
 **Reference**:
 - Steen, G., Dorst, L., Herrmann, J., Kaal, A., Krennmayr, T., & Pasma, T. (2010). *A method for linguistic metaphor identification: From MIP to MIPVU*. John Benjamins Publishing.
 
-#### Clause-Level Metaphor Detection Model
+#### Metaphor Detection Model
 
-This system uses a clause-level DeBERTa model fine-tuned from Microsoft DeBERTa-v3-large for full-coverage metaphor annotation across all word types.
+This system uses metalingo-deberta-metaphor, a DeBERTa-v3-large based model trained with two-stage knowledge distillation for full-coverage metaphor annotation across all word types.
 
 **Model Information**:
-- **Model Name**: deberta-v3-large-clause-metaphor
+- **Model Name**: metalingo-deberta-metaphor
 - **Base Architecture**: microsoft/deberta-v3-large (0.4B parameters)
 - **Task Type**: Token Classification (binary: non_metaphor / metaphor)
-- **Training Data**: VUA-20 (VUAMC) dataset, trained at the clause level using SpaCy clause segmentation
-- **Source**: [HuggingFace - tommyleo2077/deberta-v3-large-clause-metaphor](https://huggingface.co/tommyleo2077/deberta-v3-large-clause-metaphor)
+- **Training Data**: VUAMC (NAACL FLP 2018 official split); two-stage knowledge distillation training
+- **Source**: [ModelScope - TommyLeo/metalingo-deberta-metaphor](https://modelscope.cn/models/TommyLeo/metalingo-deberta-metaphor/summary)
 
 #### DeBERTa Model
 
@@ -3247,33 +3247,23 @@ All words that pass the previous two steps are processed by the Clause model. Th
 
 ### Detection Reliability
 
-Evaluation results based on the VUA-20 dataset:
+Evaluation results based on the VUAMC (NAACL FLP 2018 split):
 
 #### Overall Performance
 
 | Metric | Value |
 |--------|-------|
-| **F1 Score** | **75.83** |
-| Precision | 78.08% |
-| Recall | 73.69% |
-| Validation F1 | ~79.05% |
-
-#### Performance by POS
-
-| POS | F1 |
-|-----|----|
-| DT (Determiners) | **90.87** |
-| IN (Prepositions) | **87.87** |
-| RP (Particles) | **78.57** |
-| RB (Adverbs) | **68.57** |
-| Other (non-function words) | **67.16** |
+| **F1 Score** | **81.24** |
+| Precision | 83.82% |
+| Recall | 78.81% |
+| Accuracy | 95.78% |
 
 #### Key Characteristics
 
 1. **Full POS coverage**: The model annotates all word types uniformly, including both function words (IN/DT/RB/RP) and content words.
-2. **Clause-level training**: Trained on SpaCy clause segments for better contextual understanding.
+2. **Two-stage knowledge distillation**: Trained with a teacher–student distillation pipeline on VUAMC for robust generalization.
 3. **Binary classification**: Direct non_metaphor / metaphor output with no multi-label post-processing.
-4. **Strong function-word performance**: DT and IN reach F1 of 90.87 and 87.87 respectively.
+4. **High precision**: Precision of 83.82% minimizes false positives across all word types.
 
 ### Interface Layout
 
@@ -4615,7 +4605,7 @@ In the "Library Detail" tab:
 
 - **Export CSV**: Exports by current filters and visible columns; **does not include the Paper column**; header order: Relevance, Title, DOI, Authors, Year, Journal, Abstract, Keywords, Citations, visible AI columns, Tags, Notes (UTF-8 BOM).
 
-- **Re-annotation**: Same backend as Corpus Management; MIPVU uses Clause model full annotation (English-only); NRC supports all 11 languages (requires language lexicon file in `saves/nrc/`).
+- **Re-annotation**: Same backend as Corpus Management; MIPVU uses metalingo-deberta-metaphor full annotation (English-only); NRC supports all 11 languages (requires language lexicon file in `saves/nrc/`).
 
 ### Entry Detail Dialog
 
@@ -4654,7 +4644,7 @@ In library detail you can set, for each entry:
    - Number of skipped entries (if any)
    - Parse errors (if any)
 
-**Abstract annotation pipeline**: Each entry with an abstract is written to the shadow corpus and runs the same pipeline as Corpus Management: SpaCy → USAS → MIPVU → NRC. MIPVU uses the Clause model (deberta-v3-large-clause-metaphor) for full-coverage metaphor annotation (English only); NRC emotion annotation uses NRC-EmoLex and supports all 11 languages, providing data for the Sentiment Analysis module. (Bibliography libraries continue to support English and Chinese only for library creation.)
+**Abstract annotation pipeline**: Each entry with an abstract is written to the shadow corpus and runs the same pipeline as Corpus Management: SpaCy → USAS → MIPVU → NRC. MIPVU uses metalingo-deberta-metaphor for full-coverage metaphor annotation (English only); NRC emotion annotation uses NRC-EmoLex and supports all 11 languages, providing data for the Sentiment Analysis module. (Bibliography libraries continue to support English and Chinese only for library creation.)
 
 ### File Formats
 

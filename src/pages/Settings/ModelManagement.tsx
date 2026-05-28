@@ -46,7 +46,7 @@ export default function ModelManagement() {
     'wav2vec2-base-960h': 'wav2vec2_base_960h',
     'sbert-paraphrase-multilingual-minilm-l12-v2': 'sbert_paraphrase_multilingual_minilm_l12_v2',
     'pymusas-neural-multilingual-base-bem': 'pymusas_neural_multilingual_base_bem',
-    'deberta-v3-large-clause-metaphor': 'deberta_v3_large_clause_metaphor'
+    'metalingo-deberta-metaphor': 'metalingo_deberta_metaphor'
   }
 
   const getModuleTitle = (moduleLabel: string) => {

@@ -1,7 +1,8 @@
 """
 Tool registry for Agent Chat mode.
-Defines all 53 MCP tools in OpenAI function-calling format,
+Defines all 55 MCP tools in OpenAI function-calling format,
 grouped by module for the frontend module selector.
+NOTE: keep in sync with backend/mcp_server/tools/* and backend/routers/mcp.py tool_count.
 """
 
 from typing import Any
@@ -16,6 +17,7 @@ TOOL_MODULES_META: list[dict[str, Any]] = [
         "tools": [
             "list_corpora", "create_corpus", "upload_text", "upload_directory",
             "list_corpus_upload_tasks", "get_processing_task_status", "get_corpus_info",
+            "update_corpus_metadata", "update_text_metadata",
         ],
     },
     {
@@ -215,6 +217,35 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
     _tool("get_corpus_info",
           "Get detailed corpus information including text list with IDs, metadata, and word counts.",
           {"corpus_id": _str("Corpus ID")}, ["corpus_id"]),
+    _tool("update_corpus_metadata",
+          "Update corpus-level metadata: name, description, language, author, source, text_type, or tags.",
+          {
+              "corpus_id": _str("Corpus ID"),
+              "name": _str("New display name"),
+              "description": _str("Content-focused summary"),
+              "language": _str("Corpus language (e.g. 'english', 'chinese')"),
+              "author": _str("Default author for texts in this corpus"),
+              "source": _str("Default source/origin for texts"),
+              "text_type": _str("USAS text type code (e.g. 'GEN')"),
+              "tags": _arr({"type": "string"}, "Replace corpus tag list"),
+          }, ["corpus_id"]),
+    _tool("update_text_metadata",
+          "Update metadata for a specific text: date, author, source, description, filename, tags, or custom fields.",
+          {
+              "corpus_id": _str("Corpus ID"),
+              "text_id": _str("Text ID (from get_corpus_info)"),
+              "date": _str("Publication date: YYYY-MM-DD, YYYY-MM, or YYYY"),
+              "author": _str("Author of the text"),
+              "source": _str("Source/origin of the text"),
+              "description": _str("Short description or abstract"),
+              "filename": _str("New filename (must end in .txt for text files)"),
+              "tags": _arr({"type": "string"}, "Replace text tag list"),
+              "custom_fields": {
+                  "type": "object",
+                  "description": "Key-value pairs merged into existing custom fields",
+                  "additionalProperties": {"type": "string"},
+              },
+          }, ["corpus_id", "text_id"]),
 
     # ─── analysis ───
     _tool("word_frequency",
@@ -240,6 +271,8 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
               "algorithm": _str("'tfidf','textrank','yake','rake'", default="tfidf"),
               "top_n": _int("Number of keywords", default=30),
               "pos_filter": _arr({"type": "string"}, "POS tags to filter"),
+              "search_word": _str("Filter results by keyword pattern (empty = no filter)"),
+              "search_type": _str("'exact','contains','starts','ends','regex','wordlist'", default="contains"),
           }, ["corpus_id"]),
     _tool("keyness_analysis",
           "Compare word frequencies between two user corpora to find statistically key words.",
@@ -253,6 +286,8 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
               "min_freq": _int("Min frequency in study corpus", default=3),
               "p_threshold": _num("Significance threshold", default=0.05),
               "limit": _int("Max results", default=50),
+              "search_word": _str("Filter results by word pattern (empty = no filter)"),
+              "search_type": _str("'exact','contains','starts','ends','regex','wordlist'", default="contains"),
           }, ["corpus_id", "reference_corpus_id"]),
     _tool("keyness_resource_analysis",
           "Compare word frequencies against a built-in reference corpus (BNC/OANC).",
@@ -265,6 +300,8 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
               "min_freq": _int("Min frequency", default=3),
               "p_threshold": _num("Significance threshold", default=0.05),
               "limit": _int("Max results", default=50),
+              "search_word": _str("Filter results by word pattern (empty = no filter)"),
+              "search_type": _str("'exact','contains','starts','ends','regex','wordlist'", default="contains"),
           }, ["corpus_id", "resource_id"]),
     _tool("ngram_analysis",
           "Extract and rank n-grams (bigrams, trigrams, etc.) from a corpus.",
@@ -467,6 +504,11 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
                   "HDBSCAN min_samples (None=auto; set 1 for small corpora). Optional."
               ),
               "vectorizer_min_df": _int("Min doc frequency for vocabulary (default 2; use 1 for small corpora)", default=2),
+              "vectorizer_ngram_range": _arr({"type": "integer"}, "N-gram range e.g. [1,2] for bigrams (default: [1,1])"),
+              "vectorizer_remove_stopwords": {"type": "boolean", "description": "Remove NLTK stopwords during vectorization", "default": False},
+              "vectorizer_exclusion_words": _arr({"type": "string"}, "Extra words to exclude from vocabulary"),
+              "umap_random_state": _int("UMAP random seed (default 42)", default=42),
+              "hdbscan_prediction_data": {"type": "boolean", "description": "Enable HDBSCAN prediction data for soft clustering", "default": True},
               "reduce_outliers": {"type": "boolean", "description": "Reassign topic -1 outliers to nearest topic", "default": False},
           }, ["embedding_id"]),
 

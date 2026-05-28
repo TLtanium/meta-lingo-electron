@@ -1,14 +1,15 @@
 """
 Metaphor Detection Model Loader
 
-Loads and manages the clause-level DeBERTa model for metaphor detection.
+Loads and manages the DeBERTa model for metaphor detection.
 
 Model:
-- Clause model: deberta-v3-large-clause-metaphor
-  - Binary token classifier trained on SpaCy clause segments
+- metalingo-deberta-metaphor
+  - Binary token classifier (two-stage knowledge distillation, VUAMC NAACL FLP 2018 split)
   - id2label: {0: non_metaphor, 1: metaphor}
   - Judgment threshold: P(LABEL_1) >= 0.5
   - Max sequence length: 192
+  - F1: 81.24 / Precision: 83.82 / Recall: 78.81
 """
 
 import os
@@ -24,17 +25,18 @@ logger = logging.getLogger(__name__)
 
 class MetaphorModelLoader:
     """
-    Loads and manages the Clause metaphor detection model used in the MIPVU pipeline.
+    Loads and manages the metaphor detection model used in the MIPVU pipeline.
 
     Model:
-    - Clause model: deberta-v3-large-clause-metaphor
-      - Binary token classifier on clause segments
+    - metalingo-deberta-metaphor
+      - Binary token classifier (two-stage KD, VUAMC NAACL FLP 2018 split)
       - id 0: non_metaphor (O)
       - id 1: metaphor (METAPHOR)
       - Uses threshold: P(id=1) >= 0.5 -> metaphor
       - Trained with max_length=192
+      - F1: 81.24 / Precision: 83.82 / Recall: 78.81
 
-    For backward compatibility, older fine-tuned models with 3 labels
+    For backward compatibility, older models with 3 labels
     (O/B-METAPHOR/I-METAPHOR) are still supported at inference time.
     """
 
@@ -76,7 +78,7 @@ class MetaphorModelLoader:
         # Find clause model path
         self.clause_model_path = self._find_model_path(
             finetuned_model_path,
-            'deberta-v3-large-clause-metaphor'
+            'metalingo-deberta-metaphor'
         )
 
     def _find_model_path(self, provided_path: Optional[str], model_name: str) -> Optional[str]:
@@ -141,7 +143,7 @@ class MetaphorModelLoader:
         aligns with its clause-level training approach.
 
         Two supported label configurations:
-        - **Binary clause model** (deberta-v3-large-clause-metaphor):
+        - **Binary model** (metalingo-deberta-metaphor):
           - id 0: non_metaphor (O)
           - id 1: metaphor (METAPHOR)
           - Uses threshold: P(id=1) >= threshold -> metaphor

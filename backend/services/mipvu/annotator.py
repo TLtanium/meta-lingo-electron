@@ -4,7 +4,7 @@ MIPVU Annotator
 Core annotation logic implementing the MIPVU metaphor detection pipeline:
 1. Word form filtering (metaphor_filter.json)
 2. SpaCy-based rule filtering (POS, dependency, high-confidence rules)
-3. Clause model prediction (deberta-v3-large-clause-metaphor) for ALL remaining tokens
+3. Model prediction (metalingo-deberta-metaphor) for ALL remaining tokens
    - Function words (IN/DT/RB/RP): source tagged as 'finetuned' (orange in UI)
    - Non-function words (OTHER): source tagged as 'clause' (green in UI)
 """
@@ -26,7 +26,7 @@ class MIPVUAnnotator:
     Implements a three-step pipeline:
     1. Word form filtering  - filter out high-frequency non-metaphor words
     2. SpaCy rule filtering - filter based on POS, dependency, and high-confidence rules
-    3. Clause model         - deberta-v3-large-clause-metaphor for ALL remaining tokens
+    3. DeBERTa model        - metalingo-deberta-metaphor for ALL remaining tokens
        * Full sentence words are passed for clause-level context
        * Function words (IN/DT/RB/RP) → source='finetuned'
        * Non-function words → source='clause'

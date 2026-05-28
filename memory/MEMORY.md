@@ -3,7 +3,7 @@
 ## Project Overview
 - **Path**: /Volumes/TL-TANIUM/Meta-Lingo-Electron
 - **Branch**: master
-- **Current Version**: v3.9.70
+- **Current Version**: v4.8.41
 - **Stack**: Electron + React + TypeScript frontend, Python FastAPI backend
 - **Conda env**: meta-lingo-electron
 - **Backend starts**: `cd backend && uvicorn main:app --host 0.0.0.0 --port 8000 --reload`
@@ -14,13 +14,16 @@
 - i18n: `src/i18n/zh.json` and `src/i18n/en.json`
 - Help docs: `help/zh.md` and `help/en.md`
 
-## MIPVU Metaphor Analysis (v3.9.56)
-- **Single model**: `deberta-v3-large-clause-metaphor` handles ALL tokens (no HiTZ)
-- **Pipeline**: filter → rules → Clause model for all remaining
+## MIPVU Metaphor Analysis (v4.8.41)
+- **Single model**: `metalingo-deberta-metaphor` handles ALL tokens (two-stage KD, VUAMC NAACL FLP 2018)
+- **Dev path**: `/Volumes/TL-TANIUM/Meta-Lingo-Electron/models/metaphor_identification/metalingo-deberta-metaphor`
+- **ModelScope**: `TommyLeo/metalingo-deberta-metaphor`
+- **Metrics**: F1=81.24, Precision=83.82%, Recall=78.81%, Accuracy=95.78%
+- **Pipeline**: filter → rules → metalingo-deberta-metaphor for all remaining
 - **Source labels**: 'clause' (green, non-function words), 'finetuned' (orange, IN/DT/RB/RP)
 - **Legacy**: old 'hitz' annotations still display as green in frontend
 - **Max length**: 192 tokens (clause model training config)
-- **Model path**: `models/metaphor_identification/deberta-v3-large-clause-metaphor`
+- **Model path**: `models/metaphor_identification/metalingo-deberta-metaphor`
 - **Key files**: `backend/services/mipvu/models.py`, `annotator.py`
 - **Frontend types**: `src/types/metaphorAnalysis.ts` has 'clause' added to MetaphorSource
 

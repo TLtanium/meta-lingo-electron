@@ -247,9 +247,11 @@
       "undoAll": "撤销全部修改",
       "saveSuccess": "保存成功",
       "saveFailed": "保存失败",
+      "metaSaveSuccess": "语料库信息已更新",
       "reannotating": "编辑后重新标注中...",
       "reannotated": "已重新标注"
     },
+    "editInfo": "编辑语料库信息",
     "batchEdit": {
       "title": "批量编辑",
       "button": "批量编辑",
@@ -1878,8 +1880,8 @@
     "renameNode": "重命名节点",
     "newName": "新名称",
     "deleteNodeTitle": "确认删除节点",
-    "deleteNodeMessage": "确定要删除节点 \"{name}\" 吗？",
-    "deleteNodeWarning": "此节点包含 {count} 个子节点，将一并删除！",
+    "deleteNodeMessage": "确定要删除节点 \"{{name}}\" 吗？",
+    "deleteNodeWarning": "此节点包含 {{count}} 个子节点，将一并删除！",
     "addError": "添加失败",
     "renameError": "重命名失败",
     "deleteError": "删除失败",
@@ -2096,7 +2098,10 @@
       "noStopwords": "不移除停用词",
       "stopwordsHelp": "在向量化阶段移除停用词，有助于提取更有意义的主题词",
       "removeStopwords": "移除停用词",
-      "stopwordsAutoHelp": "停用词语言根据语料元数据自动选择"
+      "stopwordsAutoHelp": "停用词语言根据语料元数据自动选择",
+      "exclusionWords": "排除词",
+      "exclusionWordsPlaceholder": "每行一个词或正则表达式...",
+      "exclusionWordsHelp": "自定义排除词，支持正则表达式。"
     },
     "corpus": {
       "title": "语料选择",
@@ -2146,7 +2151,9 @@
       "estimatedOutliers": "处理后离群值",
       "reducedCount": "可减少数量",
       "probabilitiesNeedsRecalc": "概率策略需要重新运行分析并选择 \"probabilities\" 策略。这将自动启用 calculate_probabilities。",
-      "probabilitiesStrategyNote": "概率策略需要在分析时选中此策略（系统会自动启用 calculate_probabilities）。请先选择此策略并重新运行分析，再进行预估。"
+      "probabilitiesStrategyNote": "需先选中此策略并重新运行分析。",
+      "auto": "自动",
+      "sbertMissing": "Sentence-BERT 模型未安装，请前往「设置 → 模型管理」下载 SBERT 模型。"
     },
     "representation": {
       "type": "表示模型类型",
@@ -3213,8 +3220,8 @@
         "pymusas_neural_multilingual_base_bem": {
           "name": "PyMUSAS Neural（Multilingual Base BEM）"
         },
-        "deberta_v3_large_clause_metaphor": {
-          "name": "MIPVU DeBERTa（小句模型）"
+        "metalingo_deberta_metaphor": {
+          "name": "MIPVU DeBERTa（metalingo-deberta-metaphor）"
         }
       },
       "downloadPathTitle": "下载路径",
