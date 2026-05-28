@@ -18,6 +18,7 @@ from services.usas.domain_config import (
     USAS_DOMAINS,
     parse_usas_domains_file
 )
+from utils.exclusion_utils import compile_exclusion_patterns, matches_exclusion, normalize_exclusion_words
 from services.usas.annotation_meta import infer_disambiguation_enabled
 from services.usas.disambiguator import parse_compound_tag
 from services.corpus_path_utils import resolve_stored_path, find_usas_sidecar_path
@@ -492,21 +493,18 @@ class SemanticAnalysisService:
         search_type = search_config.get("searchType", "all")
         search_value = search_config.get("searchValue", "").strip()
         exclude_words = search_config.get("excludeWords", [])
-        
-        # Convert exclude list to set for faster lookup
-        if isinstance(exclude_words, str):
-            exclude_set = set(w.strip().lower() for w in exclude_words.split('\n') if w.strip())
-        else:
-            exclude_set = set(w.lower() for w in exclude_words)
-        
+
+        # Compile exclusion patterns (supports regex)
+        exclusion_patterns = compile_exclusion_patterns(normalize_exclusion_words(exclude_words))
+
         filtered = []
-        
+
         for token in tokens:
             word = token.get("word", "")
             word_lower = word.lower()
-            
-            # Apply exclusion filter
-            if word_lower in exclude_set:
+
+            # Apply exclusion filter (regex-aware)
+            if exclusion_patterns and matches_exclusion(word_lower, exclusion_patterns):
                 continue
             
             # Apply search filter

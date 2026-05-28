@@ -28,7 +28,8 @@ import {
   Accordion,
   AccordionSummary,
   AccordionDetails,
-  Tooltip
+  Tooltip,
+  TextField
 } from '@mui/material'
 import { NumberInput } from '../../../components/common'
 import PreviewIcon from '@mui/icons-material/Preview'
@@ -353,6 +354,24 @@ export default function LSAPreprocessPanel({
           fullWidth
         />
         
+        {/* Exclusion Words */}
+        <TextField
+          label={t('topicModeling.lsa.preprocess.exclusionWords', 'Exclusion Words')}
+          multiline
+          rows={3}
+          size="small"
+          fullWidth
+          value={(config.exclusion_words || []).join('\n')}
+          onChange={(e) => {
+            const words = e.target.value
+              ? e.target.value.split('\n').map(w => w.trim()).filter(w => w.length > 0)
+              : []
+            handleConfigChange('exclusion_words', words)
+          }}
+          placeholder={t('topicModeling.lsa.preprocess.exclusionWordsPlaceholder', 'One word or regex per line...')}
+          helperText={t('topicModeling.lsa.preprocess.exclusionWordsHelp', 'Custom words/patterns to exclude. Supports regular expressions.')}
+        />
+
         {/* Document Frequency Filter */}
         <Box>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>

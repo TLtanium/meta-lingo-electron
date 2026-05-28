@@ -429,8 +429,8 @@
       "removeStopwords": "Remove Stopwords",
       "removeStopwordsHelp": "Remove common stopwords based on corpus language (NLTK)",
       "excludeWords": "Exclude Words",
-      "excludeWordsPlaceholder": "One word per line to exclude...",
-      "excludeWordsHelp": "Enter words to exclude, one per line"
+      "excludeWordsPlaceholder": "One word or regex per line...",
+      "excludeWordsHelp": "Enter words to exclude, one per line. Supports regular expressions (e.g. \\d+ to exclude numbers)."
     },
     "results": {
       "title": "Results"
@@ -751,8 +751,8 @@
       "removeStopwords": "Remove Stopwords",
       "removeStopwordsHelp": "Remove common stopwords by corpus language (NLTK)",
       "excludeWords": "Exclude Words",
-      "excludeWordsPlaceholder": "One word per line to exclude...",
-      "excludeWordsHelp": "Enter words to exclude, one per line"
+      "excludeWordsPlaceholder": "One word or regex per line...",
+      "excludeWordsHelp": "Enter words to exclude, one per line. Supports regular expressions (e.g. \\d+ to exclude numbers)."
     },
     "threshold": {
       "title": "Statistical Threshold",
@@ -834,8 +834,8 @@
       "regexPlaceholder": "Enter regular expression...",
       "wordlistPlaceholder": "One word per line...",
       "excludeWords": "Exclude Words",
-      "excludeWordsDesc": "N-grams containing these words will be excluded",
-      "excludeWordsPlaceholder": "One word per line to exclude...",
+      "excludeWordsDesc": "N-grams containing these words/patterns will be excluded. Supports regular expressions (e.g. \\d+ to exclude numbers).",
+      "excludeWordsPlaceholder": "One word or regex per line...",
       "lowercase": "Convert to lowercase"
     },
     "results": {
@@ -1243,8 +1243,8 @@
       "frequencyRange": "Frequency Range",
       "excludeWords": "Exclude Words",
       "excludeWordsPlaceholder": "Enter words separated by commas...",
-      "excludeWordsPlaceholderMultiline": "One word per line\ne.g.:\nthe\nis\nof",
-      "excludeWordsHelp": "One word per line"
+      "excludeWordsPlaceholderMultiline": "One word or regex per line\ne.g.:\nthe\nis\n\\d+",
+      "excludeWordsHelp": "One word or regex per line. Supports regular expressions (e.g. \\d+ to exclude numbers)."
     },
     "posFilter": {
       "title": "POS Filter"
@@ -2329,7 +2329,10 @@
         "maxDfHelp": "Max ratio of docs",
         "detail": "Preprocessing Detail",
         "original": "Original",
-        "processed": "Processed"
+        "processed": "Processed",
+        "exclusionWords": "Exclusion Words",
+        "exclusionWordsPlaceholder": "One word or regex per line...",
+        "exclusionWordsHelp": "Custom words/patterns to exclude. Supports regular expressions (e.g. \\d+ to exclude numbers)."
       },
       "params": {
         "title": "LDA Parameters",
@@ -2499,7 +2502,10 @@
         "maxDfHelp": "Max ratio of docs",
         "detail": "Preprocessing Detail",
         "original": "Original",
-        "processed": "Processed"
+        "processed": "Processed",
+        "exclusionWords": "Exclusion Words",
+        "exclusionWordsPlaceholder": "One word or regex per line...",
+        "exclusionWordsHelp": "Custom words/patterns to exclude. Supports regular expressions (e.g. \\d+ to exclude numbers)."
       },
       "params": {
         "title": "LSA Parameters",
@@ -2610,7 +2616,10 @@
         "maxDfHelp": "Max ratio of docs",
         "detail": "Preprocessing Detail",
         "original": "Original",
-        "processed": "Processed"
+        "processed": "Processed",
+        "exclusionWords": "Exclusion Words",
+        "exclusionWordsPlaceholder": "One word or regex per line...",
+        "exclusionWordsHelp": "Custom words/patterns to exclude. Supports regular expressions (e.g. \\d+ to exclude numbers)."
       },
       "params": {
         "title": "NMF Parameters",

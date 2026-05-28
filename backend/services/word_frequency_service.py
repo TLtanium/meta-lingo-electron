@@ -17,6 +17,7 @@ from models.database import TextDB, CorpusDB
 # Add parent directory to path for config
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from config import MODELS_DIR
+from utils.exclusion_utils import compile_exclusion_patterns, matches_exclusion, normalize_exclusion_words
 
 logger = logging.getLogger(__name__)
 
@@ -433,30 +434,27 @@ class WordFrequencyService:
         search_value = search_config.get("searchValue", "").strip()
         exclude_words = search_config.get("excludeWords", [])
         remove_stopwords = search_config.get("removeStopwords", False)
-        
-        # Convert exclude list to set for faster lookup
-        if isinstance(exclude_words, str):
-            exclude_set = set(w.strip().lower() for w in exclude_words.split('\n') if w.strip())
-        else:
-            exclude_set = set(w.lower() for w in exclude_words)
-        
+
+        # Compile exclusion patterns (supports regex)
+        exclusion_patterns = compile_exclusion_patterns(normalize_exclusion_words(exclude_words))
+
         # Load stopwords if removal is enabled
         stopwords_set = set()
         if remove_stopwords:
             stopwords_set = self.load_stopwords(language)
             logger.info(f"Using {len(stopwords_set)} stopwords for language: {language}")
-        
+
         filtered = {}
-        
+
         for word, count in word_counts.items():
             word_lower = word.lower()
-            
+
             # Apply stopwords filter
             if remove_stopwords and word_lower in stopwords_set:
                 continue
-            
-            # Apply exclusion filter
-            if word_lower in exclude_set:
+
+            # Apply exclusion filter (regex-aware)
+            if exclusion_patterns and matches_exclusion(word_lower, exclusion_patterns):
                 continue
             
             # Apply search filter

@@ -20,6 +20,7 @@ import sys
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from config import DATA_DIR, CORPORA_DIR, MODELS_DIR
 from services.usas.domain_config import get_domain_description, get_aggregated_domain_description
+from utils.exclusion_utils import compile_exclusion_patterns, matches_exclusion, normalize_exclusion_words
 
 logger = logging.getLogger(__name__)
 
@@ -132,23 +133,28 @@ class KeywordService:
         
         remove_stopwords = stopwords_config.get('removeStopwords', False)
         exclude_words = stopwords_config.get('excludeWords', [])
-        
-        # Build exclusion set
-        exclude_set = set()
-        
-        # Add stopwords if enabled
+
+        # Build stopword set
+        stopword_set = set()
         if remove_stopwords:
-            exclude_set.update(self.load_stopwords(language))
-        
-        # Add custom exclude words
-        if exclude_words:
-            exclude_set.update(w.lower().strip() for w in exclude_words if w.strip())
-        
-        if not exclude_set:
+            stopword_set.update(self.load_stopwords(language))
+
+        # Compile regex exclusion patterns for custom exclude words
+        exclusion_patterns = compile_exclusion_patterns(normalize_exclusion_words(exclude_words))
+
+        if not stopword_set and not exclusion_patterns:
             return words
-        
-        # Filter words
-        return [(w, p) for w, p in words if w.lower() not in exclude_set]
+
+        # Filter words — stopwords use set lookup; custom words use regex fullmatch
+        filtered = []
+        for w, p in words:
+            w_lower = w.lower()
+            if w_lower in stopword_set:
+                continue
+            if exclusion_patterns and matches_exclusion(w_lower, exclusion_patterns):
+                continue
+            filtered.append((w, p))
+        return filtered
     
     def _get_corpus_dir(self, corpus_id: str) -> Path:
         """Get corpus directory path by corpus ID"""
@@ -1401,12 +1407,20 @@ class KeywordService:
                     'error': f'Corpus resource not found: {resource_id}'
                 }
             
-            # Apply stopwords filter to reference corpus
-            if stopwords_config and stopwords_config.get('removeStopwords'):
-                stopwords = self.load_stopwords(language)
-                exclude_words = set(w.lower().strip() for w in stopwords_config.get('excludeWords', []) if w.strip())
-                exclude_set = stopwords | exclude_words
-                ref_freq_table = {k: v for k, v in ref_freq_table.items() if k.lower() not in exclude_set}
+            # Apply stopwords + exclusion filter to reference corpus
+            if stopwords_config:
+                stopwords_set = set()
+                if stopwords_config.get('removeStopwords'):
+                    stopwords_set = self.load_stopwords(language)
+                exclusion_patterns_ref = compile_exclusion_patterns(
+                    normalize_exclusion_words(stopwords_config.get('excludeWords', []))
+                )
+                if stopwords_set or exclusion_patterns_ref:
+                    ref_freq_table = {
+                        k: v for k, v in ref_freq_table.items()
+                        if k.lower() not in stopwords_set
+                        and not (exclusion_patterns_ref and matches_exclusion(k.lower(), exclusion_patterns_ref))
+                    }
             
             ref_freq = Counter(ref_freq_table)
             ref_total = sum(ref_freq_table.values())

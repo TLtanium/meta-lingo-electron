@@ -16,6 +16,7 @@ from pathlib import Path
 import sys
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from config import DATA_DIR, CORPORA_DIR, MODELS_DIR
+from utils.exclusion_utils import compile_exclusion_patterns, matches_exclusion, normalize_exclusion_words
 
 logger = logging.getLogger(__name__)
 
@@ -367,7 +368,11 @@ class LDAPreprocessService:
         ngram_n_values = [n for n in config.get('ngram_n_values', [2]) if 2 <= n <= 6]
         if not ngram_n_values:
             ngram_n_values = [2]
-        
+
+        # Compile custom exclusion patterns (supports regex)
+        raw_exclusion = config.get('exclusion_words', [])
+        exclusion_patterns = compile_exclusion_patterns(normalize_exclusion_words(raw_exclusion))
+
         # Load stopwords
         stopwords = set()
         if remove_stopwords:
@@ -449,6 +454,9 @@ class LDAPreprocessService:
                                 continue
                     if any(len(w[0]) < min_word_length for w in window):
                         continue
+                    # Apply custom exclusion patterns to each token in n-gram
+                    if exclusion_patterns and any(matches_exclusion(w[0], exclusion_patterns) for w in window):
+                        continue
                     ngram_str = '_'.join(w[0] for w in window)
                     processed_tokens.append(ngram_str)
             stats['after_pos_filter'] = len(processed_tokens)
@@ -468,6 +476,9 @@ class LDAPreprocessService:
                     continue
                 stats['after_stopwords'] = stats.get('after_stopwords', 0) + 1
                 if len(form) < min_word_length:
+                    continue
+                # Apply custom exclusion patterns (regex-aware)
+                if exclusion_patterns and matches_exclusion(form, exclusion_patterns):
                     continue
                 stats['after_length_filter'] = stats.get('after_length_filter', 0) + 1
                 processed_tokens.append(form)

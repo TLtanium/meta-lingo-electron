@@ -433,8 +433,8 @@
       "removeStopwords": "移除停用词",
       "removeStopwordsHelp": "根据语料语言移除常见停用词 (NLTK)",
       "excludeWords": "排除词",
-      "excludeWordsPlaceholder": "每行一个要排除的词...",
-      "excludeWordsHelp": "输入要排除的词，每行一个"
+      "excludeWordsPlaceholder": "每行一个词或正则表达式...",
+      "excludeWordsHelp": "输入要排除的词，每行一个。支持正则表达式（例如 \\d+ 排除数字）。"
     },
     "results": {
       "title": "分析结果"
@@ -755,8 +755,8 @@
       "removeStopwords": "移除停用词",
       "removeStopwordsHelp": "根据语料语言移除常见停用词 (NLTK)",
       "excludeWords": "排除词",
-      "excludeWordsPlaceholder": "每行一个要排除的词...",
-      "excludeWordsHelp": "输入要排除的词，每行一个"
+      "excludeWordsPlaceholder": "每行一个词或正则表达式...",
+      "excludeWordsHelp": "输入要排除的词，每行一个。支持正则表达式（例如 \\d+ 排除数字）。"
     },
     "threshold": {
       "title": "统计阈值",
@@ -838,8 +838,8 @@
       "regexPlaceholder": "输入正则表达式...",
       "wordlistPlaceholder": "每行一个词...",
       "excludeWords": "排除词",
-      "excludeWordsDesc": "包含这些词的N-gram将被排除",
-      "excludeWordsPlaceholder": "每行一个要排除的词...",
+      "excludeWordsDesc": "包含这些词/模式的N-gram将被排除。支持正则表达式（例如 \\d+ 排除数字）。",
+      "excludeWordsPlaceholder": "每行一个词或正则表达式...",
       "lowercase": "转小写"
     },
     "results": {
@@ -1250,8 +1250,8 @@
       "frequencyRange": "频率范围",
       "excludeWords": "排除词",
       "excludeWordsPlaceholder": "输入用逗号分隔的排除词...",
-      "excludeWordsPlaceholderMultiline": "每行一个词\n例如：\nthe\nis\nof",
-      "excludeWordsHelp": "每行一个词"
+      "excludeWordsPlaceholderMultiline": "每行一个词或正则表达式\n例如：\nthe\nis\n\\d+",
+      "excludeWordsHelp": "每行一个词或正则表达式。支持正则表达式（例如 \\d+ 排除数字）。"
     },
     "posFilter": {
       "title": "词性筛选"
@@ -2354,7 +2354,10 @@
         "maxDfHelp": "词出现的最大文档比例",
         "detail": "预处理详情",
         "original": "原始文本",
-        "processed": "处理后"
+        "processed": "处理后",
+        "exclusionWords": "排除词",
+        "exclusionWordsPlaceholder": "每行一个词或正则表达式...",
+        "exclusionWordsHelp": "自定义排除词，支持正则表达式（例如 \\d+ 排除数字）。"
       },
       "params": {
         "title": "LDA参数",
@@ -2524,7 +2527,10 @@
         "maxDfHelp": "词出现的最大文档比例",
         "detail": "预处理详情",
         "original": "原始文本",
-        "processed": "处理后"
+        "processed": "处理后",
+        "exclusionWords": "排除词",
+        "exclusionWordsPlaceholder": "每行一个词或正则表达式...",
+        "exclusionWordsHelp": "自定义排除词，支持正则表达式（例如 \\d+ 排除数字）。"
       },
       "params": {
         "title": "LSA参数",
@@ -2635,7 +2641,10 @@
         "maxDfHelp": "词出现的最大文档比例",
         "detail": "预处理详情",
         "original": "原始文本",
-        "processed": "处理后"
+        "processed": "处理后",
+        "exclusionWords": "排除词",
+        "exclusionWordsPlaceholder": "每行一个词或正则表达式...",
+        "exclusionWordsHelp": "自定义排除词，支持正则表达式（例如 \\d+ 排除数字）。"
       },
       "params": {
         "title": "NMF参数",

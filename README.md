@@ -17,7 +17,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-v4.8.41-blue.svg" alt="Version">
+  <img src="https://img.shields.io/badge/version-v4.8.44-blue.svg" alt="Version">
   <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Windows-lightgrey.svg" alt="Platform">
   <img src="https://img.shields.io/badge/license-Non--Commercial-green.svg" alt="License">
   <a href="https://doi.org/10.5281/zenodo.20091931"><img src="https://zenodo.org/badge/1143968310.svg" alt="DOI"></a>
@@ -190,6 +190,9 @@ This project is currently maintained for academic research purposes. For bug rep
 ## Changelog
 
 Recent releases below mirror `PROJECT.md` (abbreviated). For the full version history, see **`PROJECT.md`** at the repository root or the Git commit log.
+
+### v4.8.44 (2026-05-28)
+- **Regex support for exclusion words across all modules**: All analysis modules (word frequency, keyword extraction, N-gram, semantic domain, metaphor, collocation, word sketch, sketch difference) now support regular expressions in their exclusion word fields. Invalid regex patterns automatically fall back to exact-match literals. LDA/LSA/NMF topic modeling gains a new "Exclusion Words" preprocessing option with full regex support. Uses a new shared `backend/utils/exclusion_utils.py` utility. Frontend helper text updated in both EN and ZH to explain regex usage.
 
 ### v4.8.41 (2026-05-28)
 - **MIPVU — metalingo-deberta-metaphor**: Replaced `deberta-v3-large-clause-metaphor` with `metalingo-deberta-metaphor` (two-stage knowledge distillation, VUAMC NAACL FLP 2018 split). New metrics: F1 81.24, Precision 83.82%, Recall 78.81%, Accuracy 95.78%. ModelScope download via `TommyLeo/metalingo-deberta-metaphor`. All references updated across backend, frontend, i18n, and help docs.

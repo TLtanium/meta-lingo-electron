@@ -14,6 +14,7 @@ from typing import Dict, List, Optional, Any
 from collections import Counter, defaultdict
 
 from models.database import CorpusDB, TextDB
+from utils.exclusion_utils import compile_exclusion_patterns, matches_exclusion, normalize_exclusion_words
 
 logger = logging.getLogger(__name__)
 
@@ -177,9 +178,11 @@ class MetaphorAnalysisService:
         search_value = search_config.get('searchValue', '').strip()
         exclude_words = search_config.get('excludeWords', [])
         
-        # Check exclusion first
-        if word.lower() in [w.lower() for w in exclude_words]:
-            return False
+        # Check exclusion first (regex-aware)
+        if exclude_words:
+            exclusion_patterns = compile_exclusion_patterns(normalize_exclusion_words(exclude_words))
+            if matches_exclusion(word.lower(), exclusion_patterns):
+                return False
         
         if search_type == 'all' or not search_value:
             return True

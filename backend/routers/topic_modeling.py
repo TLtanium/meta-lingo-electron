@@ -1001,6 +1001,7 @@ class LDAPreprocessConfig(BaseModel):
     pos_keep_mode: bool = False  # True for keep mode, False for filter mode (default: filter mode)
     ngram_enabled: bool = False
     ngram_n_values: List[int] = [2]  # 2..6, e.g. [2, 3] for bigram + trigram
+    exclusion_words: List[str] = []  # Custom words/regex patterns to exclude
 
 
 class LDAConfig(BaseModel):
@@ -1668,6 +1669,7 @@ class LSAPreprocessConfig(BaseModel):
     pos_filter: List[str] = ['PUNCT', 'SYM', 'X', 'NUM', 'INTJ']
     pos_keep_mode: bool = False  # True for keep mode, False for filter mode
     ngram_enabled: bool = False
+    exclusion_words: List[str] = []  # Custom words/regex patterns to exclude
     ngram_n_values: List[int] = [2]
 
 
@@ -2149,6 +2151,7 @@ class NMFPreprocessConfig(BaseModel):
     pos_filter: List[str] = ['PUNCT', 'SYM', 'X', 'NUM', 'INTJ']
     pos_keep_mode: bool = False  # True for keep mode, False for filter mode
     ngram_enabled: bool = False
+    exclusion_words: List[str] = []  # Custom words/regex patterns to exclude
     ngram_n_values: List[int] = [2]
 
 

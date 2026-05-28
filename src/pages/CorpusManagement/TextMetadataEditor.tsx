@@ -161,11 +161,12 @@ export default function TextMetadataEditor({
       console.log('  dateString:', dateString)
       console.log('  author:', author)
       
-      // Only include fields that have values
+      // Date: only include when non-empty (avoid storing empty date strings)
       if (dateString) updatedMetadata.date = dateString
-      if (author) updatedMetadata.author = author
-      if (source) updatedMetadata.source = source
-      if (description) updatedMetadata.description = description
+      // Text fields: always include so clearing (empty string) is persisted
+      updatedMetadata.author = author
+      updatedMetadata.source = source
+      updatedMetadata.description = description
       const effectiveTextType = isCustomTextType ? customTextType : textType
       if (effectiveTextType) {
         updatedMetadata.customFields = { textType: effectiveTextType }

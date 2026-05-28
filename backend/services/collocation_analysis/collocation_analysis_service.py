@@ -18,6 +18,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from config import MODELS_DIR
 
 from .statistics import compute_statistics
+from utils.exclusion_utils import compile_exclusion_patterns, matches_exclusion, normalize_exclusion_words
 
 logger = logging.getLogger(__name__)
 
@@ -126,9 +127,8 @@ class CollocationAnalysisService:
         if statistics_methods is None:
             statistics_methods = ["logdice", "mi", "deltap1", "deltap2"]
 
-        exclude_set = set()
-        if exclude_words:
-            exclude_set = set(w.strip().lower() for w in exclude_words if w.strip())
+        # Compile exclusion patterns (supports regex)
+        exclusion_patterns = compile_exclusion_patterns(normalize_exclusion_words(exclude_words))
 
         stopwords_set = set()
         if remove_stopwords:
@@ -235,8 +235,8 @@ class CollocationAnalysisService:
                         if remove_stopwords and (coll_word in stopwords_set or coll_lemma in stopwords_set):
                             continue
 
-                        # Skip excluded words (check both word and lemma)
-                        if coll_key in exclude_set:
+                        # Skip excluded words (regex-aware, check both word and lemma)
+                        if exclusion_patterns and matches_exclusion(coll_key, exclusion_patterns):
                             continue
 
                         # Skip the node word as its own collocate

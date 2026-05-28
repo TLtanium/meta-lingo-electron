@@ -100,6 +100,32 @@ class MetaphorModelLoader:
         logger.warning(f"Model {model_name} not found. Tried relative path: {rel}")
         return None
 
+    @staticmethod
+    def _patch_tokenizer_config(model_path: str) -> None:
+        """
+        Patch tokenizer_config.json for transformers 4.x compatibility.
+
+        Models saved with transformers ≥5.x may write ``extra_special_tokens``
+        as a list (e.g. ``["[PAD]", "[CLS]", "[SEP]"]``), but transformers 4.x
+        expects it to be a dict.  Since [PAD]/[CLS]/[SEP] are already declared
+        via dedicated special-token keys, the list is redundant; we replace it
+        with an empty dict so both major versions can load the tokenizer.
+        """
+        import json
+        config_path = os.path.join(model_path, "tokenizer_config.json")
+        if not os.path.exists(config_path):
+            return
+        try:
+            with open(config_path, "r", encoding="utf-8") as f:
+                cfg = json.load(f)
+            if isinstance(cfg.get("extra_special_tokens"), list):
+                logger.info("Patching tokenizer_config.json: converting extra_special_tokens list → {}")
+                cfg["extra_special_tokens"] = {}
+                with open(config_path, "w", encoding="utf-8") as f:
+                    json.dump(cfg, f, ensure_ascii=False, indent=2)
+        except Exception as patch_err:
+            logger.warning(f"Could not patch tokenizer_config.json: {patch_err}")
+
     def load_models(self) -> bool:
         """
         Load the clause model into memory.
@@ -110,6 +136,8 @@ class MetaphorModelLoader:
         try:
             if self.clause_model_path:
                 logger.info(f"Loading clause-level metaphor model from {self.clause_model_path}")
+                # Ensure tokenizer config is compatible with the installed transformers version.
+                self._patch_tokenizer_config(self.clause_model_path)
                 self.clause_tokenizer = AutoTokenizer.from_pretrained(self.clause_model_path)
                 self.clause_model = AutoModelForTokenClassification.from_pretrained(self.clause_model_path)
                 self.clause_model.to(self.device)

@@ -356,7 +356,7 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
               "statistic": _str("'logdice','mi','mi3','t_score','z_score','log_likelihood','dice'", default="logdice"),
               "match_mode": _str("'lemma' or 'word'", default="lemma"),
               "remove_stopwords": _bool("Exclude stopwords", default=False),
-              "exclude_words": _arr({"type": "string"}, "Words to exclude"),
+              "exclude_words": _arr({"type": "string"}, "Words to exclude (plain words or regex patterns, e.g. '\\d+' to exclude all-digit tokens)"),
               "limit": _int("Max collocates", default=30),
           }, ["corpus_id", "node_word"]),
     _tool("get_lemma_forms",

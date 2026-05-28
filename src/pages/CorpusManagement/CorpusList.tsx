@@ -251,10 +251,10 @@ export default function CorpusList({ onSelectCorpus, onCreateNew, onCorpusUpdate
       const response = await corpusApi.updateCorpus(selectedCorpus.id, {
         name: editFormData.name,
         language: editFormData.language || undefined,
-        author: editFormData.author || undefined,
-        source: editFormData.source || undefined,
+        author: editFormData.author,
+        source: editFormData.source,
         textType: editFormData.textType || undefined,
-        description: editFormData.description || undefined
+        description: editFormData.description
       })
       if (response.success) {
         // Use server-returned data as source of truth; fall back to merged form data

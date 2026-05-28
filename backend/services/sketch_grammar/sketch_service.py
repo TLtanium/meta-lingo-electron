@@ -24,6 +24,11 @@ from .grammar_patterns import (
     ALL_RELATIONS
 )
 
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+from utils.exclusion_utils import compile_exclusion_patterns, matches_exclusion, normalize_exclusion_words
+
 logger = logging.getLogger(__name__)
 
 
@@ -396,32 +401,33 @@ class SketchService:
             def matches(word: str) -> bool:
                 return True
         
+        # Compile exclusion patterns once before the loop (supports regex)
+        excl_patterns = compile_exclusion_patterns(normalize_exclusion_words(exclude_words)) if exclude_words else []
+
         # Extract and filter relations
         matching_results = []
-        
+
         for spacy_data in corpus_spacy_data:
             tokens = spacy_data.get('tokens', [])
-            
+
             for idx, token in enumerate(tokens):
                 lemma = token.get('lemma', '').lower() if lowercase else token.get('lemma', '')
                 text = token.get('text', '').lower() if lowercase else token.get('text', '')
-                
+
                 if not matches(lemma) and not matches(text):
                     continue
-                
+
                 # Apply POS filter
                 if pos_filter and pos_filter != 'auto':
                     token_pos = token.get('pos', '')
-                    pos_map = {'verb': 'VERB', 'noun': 'NOUN', 'adjective': 'ADJ', 
+                    pos_map = {'verb': 'VERB', 'noun': 'NOUN', 'adjective': 'ADJ',
                               'adverb': 'ADV', 'pronoun': 'PRON'}
                     if token_pos != pos_map.get(pos_filter.lower(), pos_filter.upper()):
                         continue
-                
-                # Apply exclusion
-                if exclude_words:
-                    excluded = set(w.lower() for w in exclude_words)
-                    if lemma in excluded or text in excluded:
-                        continue
+
+                # Apply exclusion (regex-aware, compiled once before loop)
+                if excl_patterns and (matches_exclusion(lemma, excl_patterns) or matches_exclusion(text.lower(), excl_patterns)):
+                    continue
                 
                 matching_results.append({
                     'word': token.get('text', ''),

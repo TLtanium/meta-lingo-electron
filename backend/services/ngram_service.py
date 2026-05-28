@@ -13,6 +13,7 @@ from collections import Counter, defaultdict
 from pathlib import Path
 
 from models.database import TextDB, CorpusDB
+from utils.exclusion_utils import compile_exclusion_patterns, matches_exclusion, normalize_exclusion_words
 
 logger = logging.getLogger(__name__)
 
@@ -365,21 +366,18 @@ class NGramService:
         search_type = search_config.get("searchType", "all")
         search_value = search_config.get("searchValue", "").strip()
         exclude_words = search_config.get("excludeWords", [])
-        
-        # Convert exclude list to set for faster lookup
-        if isinstance(exclude_words, str):
-            exclude_set = set(w.strip().lower() for w in exclude_words.split('\n') if w.strip())
-        else:
-            exclude_set = set(w.lower() for w in exclude_words)
-        
+
+        # Compile exclusion patterns (supports regex)
+        exclusion_patterns = compile_exclusion_patterns(normalize_exclusion_words(exclude_words))
+
         filtered = {}
-        
+
         for ngram, count in ngram_counts.items():
             ngram_lower = ngram.lower()
-            
-            # Check if any word in N-gram is in exclude list
+
+            # Check if any word in N-gram matches any exclusion pattern
             ngram_words = ngram_lower.split()
-            if any(word in exclude_set for word in ngram_words):
+            if exclusion_patterns and any(matches_exclusion(w, exclusion_patterns) for w in ngram_words):
                 continue
             
             # Apply search filter

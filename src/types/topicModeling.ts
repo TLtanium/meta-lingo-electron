@@ -443,6 +443,8 @@ export interface LDAPreprocessConfig {
   // Extreme frequency filtering
   min_df: number  // Minimum document frequency (absolute count)
   max_df: number  // Maximum document frequency (ratio 0-1)
+  // Custom exclusion words / regex patterns
+  exclusion_words: string[]
 }
 
 export interface LDAConfig {
@@ -546,7 +548,9 @@ export const DEFAULT_LDA_PREPROCESS_CONFIG: LDAPreprocessConfig = {
   ngram_n_values: [2],
   // Extreme frequency filtering
   min_df: 2,     // Minimum document frequency
-  max_df: 0.95   // Maximum document frequency ratio
+  max_df: 0.95,  // Maximum document frequency ratio
+  // Custom exclusion words
+  exclusion_words: []
 }
 
 export const DEFAULT_LDA_CONFIG: LDAConfig = {
@@ -584,6 +588,8 @@ export interface LSAPreprocessConfig {
   // Extreme frequency filtering
   min_df: number
   max_df: number
+  // Custom exclusion words / regex patterns
+  exclusion_words: string[]
 }
 
 /**
@@ -677,7 +683,8 @@ export const DEFAULT_LSA_PREPROCESS_CONFIG: LSAPreprocessConfig = {
   ngram_enabled: false,
   ngram_n_values: [2],
   min_df: 2,
-  max_df: 0.95
+  max_df: 0.95,
+  exclusion_words: []
 }
 
 export const DEFAULT_LSA_CONFIG: LSAConfig = {
@@ -713,6 +720,8 @@ export interface NMFPreprocessConfig {
   // Extreme frequency filtering
   min_df: number
   max_df: number
+  // Custom exclusion words / regex patterns
+  exclusion_words: string[]
 }
 
 /**
@@ -808,7 +817,8 @@ export const DEFAULT_NMF_PREPROCESS_CONFIG: NMFPreprocessConfig = {
   ngram_enabled: false,
   ngram_n_values: [2],
   min_df: 2,
-  max_df: 0.95
+  max_df: 0.95,
+  exclusion_words: []
 }
 
 export const DEFAULT_NMF_CONFIG: NMFConfig = {
