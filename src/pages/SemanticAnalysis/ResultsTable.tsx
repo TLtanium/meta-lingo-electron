@@ -356,13 +356,10 @@ export default function ResultsTable({
         csvContent += `${r.rank},"${r.domain}","${r.domain_name}","${r.category}",${r.frequency},${r.percentage.toFixed(4)}\n`
       })
     } else {
-      csvContent = 'Rank,Word,Domain,Domain Name,POS,Frequency,Percentage\n'
+      csvContent = 'Rank,Word,Domain,Domain Name,POS,Frequency,Percentage,Metaphor Type\n'
       sortedResults.forEach((r: any) => {
-        // If metaphor highlight is enabled and word is metaphor, wrap with **
-        const wordDisplay = showMetaphorHighlight && r.is_metaphor 
-          ? `**${r.word}**` 
-          : r.word
-        csvContent += `${r.rank},"${wordDisplay}","${r.domain}","${r.domain_name}","${r.pos}",${r.frequency},${r.percentage.toFixed(4)}\n`
+        const metaphorType = r.is_mflag ? 'mflag' : r.is_direct_metaphor ? 'direct' : r.is_implicit_metaphor ? 'implicit' : r.is_metaphor ? 'indirect' : 'none'
+        csvContent += `${r.rank},"${r.word}","${r.domain}","${r.domain_name}","${r.pos}",${r.frequency},${r.percentage.toFixed(4)},"${metaphorType}"\n`
       })
     }
     
@@ -586,30 +583,63 @@ export default function ResultsTable({
                   
                   {!isDomainMode && (
                     <TableCell>
-                      <Typography 
-                        variant="body2" 
-                        fontWeight={showMetaphorHighlight && wordResult.is_metaphor ? 'bold' : 'medium'}
-                        sx={{
-                          color: showMetaphorHighlight && wordResult.is_metaphor ? 'success.main' : 'inherit'
-                        }}
-                      >
-                        {wordResult.word}
-                      </Typography>
-                      {wordResult.pos && (
-                        <Chip 
-                          label={wordResult.pos} 
-                          size="small" 
-                          sx={{ ml: 1, height: 18, fontSize: '0.7rem' }}
-                        />
-                      )}
-                      {showMetaphorHighlight && wordResult.is_metaphor && (
-                        <Chip 
-                          label={t('semantic.results.metaphorWord')} 
-                          size="small" 
-                          color="success"
-                          sx={{ ml: 0.5, height: 18, fontSize: '0.65rem' }}
-                        />
-                      )}
+                      <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 0.5 }}>
+                        <Typography
+                          variant="body2"
+                          component="span"
+                          fontWeight={showMetaphorHighlight && (wordResult.is_metaphor || wordResult.is_direct_metaphor || wordResult.is_mflag || wordResult.is_implicit_metaphor) ? 'bold' : 'medium'}
+                          sx={{
+                            color: showMetaphorHighlight
+                              ? wordResult.is_mflag
+                                ? '#9C27B0'
+                                : wordResult.is_direct_metaphor
+                                  ? '#E91E63'
+                                  : wordResult.is_implicit_metaphor
+                                    ? '#FF9800'
+                                    : wordResult.is_metaphor
+                                      ? '#4CAF50'
+                                      : 'inherit'
+                              : 'inherit'
+                          }}
+                        >
+                          {wordResult.word}
+                        </Typography>
+                        {wordResult.pos && (
+                          <Chip
+                            label={wordResult.pos}
+                            size="small"
+                            sx={{ height: 18, fontSize: '0.7rem' }}
+                          />
+                        )}
+                        {showMetaphorHighlight && wordResult.is_metaphor && !wordResult.is_direct_metaphor && !wordResult.is_mflag && !wordResult.is_implicit_metaphor && (
+                          <Chip
+                            label={t('semantic.results.metaphorIndirect')}
+                            size="small"
+                            sx={{ height: 18, fontSize: '0.65rem', bgcolor: '#4CAF50', color: '#fff' }}
+                          />
+                        )}
+                        {showMetaphorHighlight && wordResult.is_direct_metaphor && (
+                          <Chip
+                            label={t('semantic.results.metaphorDirect')}
+                            size="small"
+                            sx={{ height: 18, fontSize: '0.65rem', bgcolor: '#E91E63', color: '#fff' }}
+                          />
+                        )}
+                        {showMetaphorHighlight && wordResult.is_mflag && (
+                          <Chip
+                            label={t('semantic.results.metaphorMFlag')}
+                            size="small"
+                            sx={{ height: 18, fontSize: '0.65rem', bgcolor: '#9C27B0', color: '#fff' }}
+                          />
+                        )}
+                        {showMetaphorHighlight && wordResult.is_implicit_metaphor && (
+                          <Chip
+                            label={t('semantic.results.metaphorImplicit')}
+                            size="small"
+                            sx={{ height: 18, fontSize: '0.65rem', bgcolor: '#FF9800', color: '#fff' }}
+                          />
+                        )}
+                      </Box>
                     </TableCell>
                   )}
                   
@@ -803,25 +833,56 @@ export default function ResultsTable({
                   }>
                     <ListItemText
                       primary={
-                        <Stack direction="row" spacing={0.5} alignItems="center">
+                        <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 0.5 }}>
                           <Typography
                             variant="body2"
-                            fontWeight={showMetaphorHighlight && item.is_metaphor ? 'bold' : 'medium'}
+                            component="span"
+                            fontWeight={showMetaphorHighlight && (item.is_metaphor || item.is_direct_metaphor || item.is_mflag || item.is_implicit_metaphor) ? 'bold' : 'medium'}
                             sx={{
-                              color: showMetaphorHighlight && item.is_metaphor ? 'success.main' : 'inherit'
+                              color: showMetaphorHighlight
+                                ? item.is_mflag
+                                  ? '#9C27B0'
+                                  : item.is_direct_metaphor
+                                    ? '#E91E63'
+                                    : item.is_implicit_metaphor
+                                      ? '#FF9800'
+                                      : item.is_metaphor
+                                        ? '#4CAF50'
+                                        : 'inherit'
+                                : 'inherit'
                             }}
                           >
                             {item.word}
                           </Typography>
-                          {showMetaphorHighlight && item.is_metaphor && (
-                            <Chip 
-                              label={t('semantic.results.metaphorWord')} 
-                              size="small" 
-                              color="success"
-                              sx={{ height: 16, fontSize: '0.6rem' }}
+                          {showMetaphorHighlight && item.is_metaphor && !item.is_direct_metaphor && !item.is_mflag && !item.is_implicit_metaphor && (
+                            <Chip
+                              label={t('semantic.results.metaphorIndirect')}
+                              size="small"
+                              sx={{ height: 16, fontSize: '0.6rem', bgcolor: '#4CAF50', color: '#fff' }}
                             />
                           )}
-                        </Stack>
+                          {showMetaphorHighlight && item.is_direct_metaphor && (
+                            <Chip
+                              label={t('semantic.results.metaphorDirect')}
+                              size="small"
+                              sx={{ height: 16, fontSize: '0.6rem', bgcolor: '#E91E63', color: '#fff' }}
+                            />
+                          )}
+                          {showMetaphorHighlight && item.is_mflag && (
+                            <Chip
+                              label={t('semantic.results.metaphorMFlag')}
+                              size="small"
+                              sx={{ height: 16, fontSize: '0.6rem', bgcolor: '#9C27B0', color: '#fff' }}
+                            />
+                          )}
+                          {showMetaphorHighlight && item.is_implicit_metaphor && (
+                            <Chip
+                              label={t('semantic.results.metaphorImplicit')}
+                              size="small"
+                              sx={{ height: 16, fontSize: '0.6rem', bgcolor: '#FF9800', color: '#fff' }}
+                            />
+                          )}
+                        </Box>
                       }
                       secondary={`${t('semantic.results.frequency')}: ${item.frequency}`}
                     />

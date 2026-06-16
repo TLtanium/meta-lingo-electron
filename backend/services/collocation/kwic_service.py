@@ -145,9 +145,11 @@ class KWICService:
                 # Merge NRC emotion tags for CQL nrc attribute
                 self._merge_nrc_into_tokens(tokens, text)
 
-                # Load MIPVU data for metaphor info
+                # Load MIPVU data for metaphor info and CQL mipvu attribute
                 mipvu_map = self._load_mipvu_map(text)
-                
+                # Merge mipvu_tag into tokens for CQL [mipvu=="indirect"] etc.
+                self._merge_mipvu_into_tokens(tokens, mipvu_map)
+
                 # Apply lowercase if requested
                 if lowercase:
                     for token in tokens:
@@ -165,8 +167,10 @@ class KWICService:
                     match['text_id'] = text['id']
                     match['filename'] = text.get('filename', 'unknown')
                     match['corpus_id'] = corpus_id
-                    # Check if keyword is metaphor using position
+                    # Check keyword MIPVU labels using position
                     match['is_metaphor'] = self._check_is_metaphor(match, mipvu_map)
+                    match['is_direct_metaphor'] = self._check_mipvu_flag(match, mipvu_map, 'is_direct')
+                    match['is_mflag'] = self._check_mipvu_flag(match, mipvu_map, 'is_mflag')
                 
                 all_results.extend(matches)
             
@@ -237,17 +241,14 @@ class KWICService:
         
         return None
     
-    def _load_mipvu_map(self, text: Dict[str, Any]) -> Dict[Tuple[int, int], bool]:
+    def _load_mipvu_map(self, text: Dict[str, Any]) -> Dict[Tuple[int, int], Dict[str, bool]]:
         """
-        Load MIPVU annotation data and build a position -> is_metaphor map
-        
-        Args:
-            text: Text database entry
-            
+        Load MIPVU annotation data and build a position → mipvu-labels map.
+
         Returns:
-            Dictionary mapping (start, end) positions to is_metaphor bool
+            Dict mapping (start, end) → {'is_metaphor': bool, 'is_direct': bool, 'is_mflag': bool}
         """
-        mipvu_map = {}
+        mipvu_map: Dict[Tuple[int, int], Dict[str, bool]] = {}
         
         media_type = text.get('media_type', 'text')
         
@@ -282,47 +283,95 @@ class KWICService:
         
         return mipvu_map
     
-    def _build_mipvu_map_from_data(self, mipvu_data: Dict[str, Any]) -> Dict[Tuple[int, int], bool]:
-        """Build position map from MIPVU data"""
-        mipvu_map = {}
-        
+    def _build_mipvu_map_from_data(self, mipvu_data: Dict[str, Any]) -> Dict[Tuple[int, int], Dict[str, bool]]:
+        """
+        Build position map from MIPVU data.
+
+        Returns:
+            Dict mapping (start, end) → {'is_metaphor': bool, 'is_direct': bool, 'is_mflag': bool}
+        """
+        mipvu_map: Dict[Tuple[int, int], Dict[str, bool]] = {}
+
         if not mipvu_data or not mipvu_data.get('success', False):
             return mipvu_map
-        
+
         sentences = mipvu_data.get('sentences', [])
         for sentence in sentences:
             tokens = sentence.get('tokens', [])
             for token in tokens:
                 start = token.get('start', -1)
                 end = token.get('end', -1)
-                is_metaphor = token.get('is_metaphor', False)
                 if start >= 0 and end >= 0:
-                    mipvu_map[(start, end)] = is_metaphor
-        
+                    mipvu_map[(start, end)] = {
+                        'is_metaphor': bool(token.get('is_metaphor', False)),
+                        'is_direct': bool(token.get('is_direct_metaphor', False)),
+                        'is_mflag': bool(token.get('is_mflag', False)),
+                    }
+
         return mipvu_map
     
-    def _check_is_metaphor(self, match: Dict[str, Any], mipvu_map: Dict[Tuple[int, int], bool]) -> bool:
-        """
-        Check if the matched keyword is a metaphor
-        
-        Args:
-            match: Match result with matched_tokens
-            mipvu_map: Position to is_metaphor map
-            
-        Returns:
-            True if keyword is metaphor
-        """
+    def _check_is_metaphor(self, match: Dict[str, Any], mipvu_map: Dict[Tuple[int, int], Dict[str, bool]]) -> bool:
+        """Return True if any matched token is an indirect metaphor (is_metaphor=True)."""
         if not mipvu_map:
             return False
-        
         matched_tokens = match.get('matched_tokens', [])
         for token in matched_tokens:
             start = token.get('start', -1)
             end = token.get('end', -1)
-            if (start, end) in mipvu_map and mipvu_map[(start, end)]:
+            entry = mipvu_map.get((start, end))
+            if entry and entry.get('is_metaphor', False):
                 return True
-        
         return False
+
+    def _check_mipvu_flag(
+        self,
+        match: Dict[str, Any],
+        mipvu_map: Dict[Tuple[int, int], Dict[str, bool]],
+        flag: str,
+    ) -> bool:
+        """Return True if any matched token has the given MIPVU flag set."""
+        if not mipvu_map:
+            return False
+        for token in match.get('matched_tokens', []):
+            entry = mipvu_map.get((token.get('start', -1), token.get('end', -1)))
+            if entry and entry.get(flag, False):
+                return True
+        return False
+
+    def _merge_mipvu_into_tokens(
+        self,
+        tokens: List[Dict[str, Any]],
+        mipvu_map: Dict[Tuple[int, int], Dict[str, bool]],
+    ) -> None:
+        """
+        Merge MIPVU labels into token list as a ``mipvu_tag`` field.
+
+        The field contains space-separated applicable labels drawn from
+        {'indirect', 'direct', 'mflag'}.  A token with no MIPVU annotation
+        gets ``mipvu_tag = 'none'``.
+
+        This mirrors the NRC pattern so CQL can use ``mipvu=="indirect"`` etc.
+        """
+        if not mipvu_map:
+            for t in tokens:
+                t.setdefault('mipvu_tag', 'none')
+            return
+
+        for t in tokens:
+            start = t.get('start', -1)
+            end = t.get('end', -1)
+            entry = mipvu_map.get((start, end))
+            if entry is None:
+                t['mipvu_tag'] = 'none'
+            else:
+                labels = []
+                if entry.get('is_metaphor'):
+                    labels.append('indirect')
+                if entry.get('is_direct'):
+                    labels.append('direct')
+                if entry.get('is_mflag'):
+                    labels.append('mflag')
+                t['mipvu_tag'] = ' '.join(labels) if labels else 'none'
 
     def _load_usas_annotation(self, text: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         """Load USAS annotation for a text (for CQL usas attribute)."""

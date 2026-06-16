@@ -14,6 +14,8 @@ from mcp_server.tools import (
     reference,
     annotation,
     biblio,
+    dmip,
+    task,
 )
 
 TOOL_MODULES = [
@@ -27,6 +29,8 @@ TOOL_MODULES = [
     reference,
     annotation,
     biblio,
+    dmip,
+    task,
 ]
 
 
@@ -36,11 +40,11 @@ def create_server(backend_url: str = "http://127.0.0.1:8000") -> FastMCP:
         "meta-lingo",
         instructions=(
             "Meta-Lingo is a corpus linguistics research application. "
-            "You have 53 tools for corpus management, lexical analysis, "
+            "You have 60 tools for corpus management, lexical analysis, "
             "concordance/KWIC, collocations, word sketches, semantic domains "
-            "(USAS), metaphor detection (MIPVU), sentiment (NRC), synonyms, "
-            "topic modeling, annotation, bibliographic visualization, "
-            "and export.\n\n"
+            "(USAS), metaphor detection (MIPVU), deliberate metaphor analysis "
+            "(DMIP), sentiment (NRC), synonyms, topic modeling, annotation, "
+            "bibliographic visualization, export, and multi-text task management.\n\n"
 
             "=== LOCAL FILESYSTEM ACCESS ===\n"
             "IMPORTANT: This MCP server runs LOCALLY on the user's machine, "
@@ -139,7 +143,77 @@ def create_server(backend_url: str = "http://127.0.0.1:8000") -> FastMCP:
             "5. Server auto-assigns colors based on label paths\n"
             "6. Use get_annotation_framework(id) to verify the created tree\n\n"
 
-            "All results are also visible in the Meta-Lingo desktop application."
+            "All results are also visible in the Meta-Lingo desktop application.\n\n"
+
+            "=== DELIBERATE METAPHOR ANALYSIS (DMIP) ===\n"
+            "When asked to identify DELIBERATE metaphors or apply DMIP/DMT analysis:\n"
+            "1. ALWAYS start with dmip_analysis(corpus_id, text_id) — do NOT just\n"
+            "   call metaphor_analysis() which only gives frequency counts.\n"
+            "2. dmip_analysis ALWAYS checks annotation history for saved MIPVU archives\n"
+            "   for the text (with coder names). TWO data sources are available:\n"
+            "     A) Annotation archive (human or auto) — use annotation_archive_id=<real_id>.\n"
+            "        Only MIPVU labels (indirect/direct/mflag/implicit) are read.\n"
+            "     B) Corpus MIPVU metadata (existing sidecar) — use annotation_archive_id='auto'.\n"
+            "        (The literal string 'auto' tells the tool the user confirmed option B.)\n"
+            "   If archives exist, the tool returns the archive list and STOPS. You MUST\n"
+            "   show the list to the user and wait for their reply. Do NOT set\n"
+            "   use_automatic_mipvu=True on the first call — it does NOT bypass this check.\n"
+            "   ONLY annotation_archive_id='auto' or a real archive ID bypasses the STOP.\n"
+            "3. The tool returns annotated text with inline markers:\n"
+            "   [MET:word/phrase] / [DIR:word/phrase] / [MFLAG:word] / [IMPL:word]\n"
+            "4. CODE every MRW on four binary dimensions [L±/C±/R±/D±] and assign one\n"
+            "   of the FIVE valid configurations (full table in the tool result):\n"
+            "     ① L+C+R+D+  ② L+C−R+D+  ③ L−C−R+D+  ④ L−C+R+D+  ⑤ L−C−R−D− (only NDM).\n"
+            "5. Apply the DECISION SHORTCUT from the four corollaries (R⟺D biconditional):\n"
+            "   (a) L+ genuine metaphor signal?      → R+ → D+  (config ① or ②). Done.\n"
+            "   (b) C+ dictionary-confirmed novel?    → R+ → D+  (config ④, or ① if L+). Done.\n"
+            "   (c) else (L− and C−): structurally ambiguous → run the REFERENTIAL TEST;\n"
+            "       reawakened by a discourse cue → R+/D+ (config ③); else R−/D− (config ⑤).\n"
+            "   Do NOT require 'DR plus an extra signal' — the signal/novelty/cue IS the\n"
+            "   evidence that establishes R+; once R+ holds, D+ follows automatically.\n"
+            "6. [MET:] indirect metaphors CAN be deliberately used (config ③). Do NOT\n"
+            "   batch-dismiss; for EACH MRW check main-predicate position and cluster\n"
+            "   membership before applying the conventional/unsignaled default (⑤).\n"
+            "7. [DIR:] direct metaphor: once confirmed genuinely direct → R+ → D+ (there is\n"
+            "   no Direct+Non-deliberate config). [IMPL:] inherits its antecedent's coding.\n"
+            "   ⚠ [MFLAG:] is NOT an MRW — only [MET:]/[DIR:]/[IMPL:] words get a four-\n"
+            "   dimension row. An MFLAG (like/as/'metaphor') merely sets the ADJACENT MRW to\n"
+            "   L+; never code it or count the flag word itself as a deliberate metaphor.\n"
+            "8. Extended metaphors require ALL FIVE criteria (a–e in the procedure) and may\n"
+            "   span adjacent paragraphs. Genre-default domains (JOURNEY/CONSTRUCTION/\n"
+            "   SPATIAL/ORGANISM/WAR) do NOT qualify unless all five hold.\n"
+            "9. CONFIG VALIDATION: the final [L C R D] codes MUST match one of ①–⑤. An\n"
+            "   impossible combo (L+ with R−, C+ with R−, R+ with D−, R− with D+) means a\n"
+            "   missed signal/novelty or mislabeled R — re-judge.\n"
+            "10. Process texts one at a time; use get_corpus_info() to list text IDs.\n"
+            "11. Conceptual dimension is FULLY STANDARDIZED via dictionary — call\n"
+            "    dictionary_lookup(word) for EVERY MRW you code on C: 麦克米伦 first, then\n"
+            "    朗文搭配 as fallback. FOUND (contextual sense listed) → C− conventional;\n"
+            "    NOT FOUND in either → C+ novel. NEVER assert a sense from memory; if you\n"
+            "    have not called dictionary_lookup(), you may not assign C+/C−.\n\n"
+
+            "DMIP KEY RULE — R ⟺ D (BICONDITIONAL, Corollary 1):\n"
+            "  R+ (Direct Reference) = source-domain entity IS in the reader's situation\n"
+            "    model → necessarily D+ POTENTIALLY DELIBERATE.\n"
+            "  R− (Indirect Reference) = source domain dissolves into lexical meaning →\n"
+            "    necessarily D− NON-DELIBERATE.\n"
+            "  Counterfactual test (decisive only for the ambiguous L−C− case):\n"
+            "  'Can a non-specialist fully understand this word WITHOUT invoking the\n"
+            "  source domain?' YES → R−/D−; NO → R+/D+; UNCERTAIN → WIDLII (provisional D+).\n\n"
+
+            "=== MULTI-TEXT TASK MANAGEMENT ===\n"
+            "When analyzing a corpus with MORE THAN 3 TEXTS in a per-text workflow\n"
+            "(DMIP, per-text metaphor, per-text concordance, etc.):\n"
+            "1. start_analysis_task(corpus_id, task_type, total_texts) → task_id\n"
+            "2. get_corpus_info(corpus_id) → retrieve text list\n"
+            "3. For EACH text: [run analysis tool] → "
+            "save_text_result(task_id, text_id, text_label, content)\n"
+            "   After saving, only acknowledge '✓ [k/N] label — saved'. "
+            "Do NOT include the full analysis in your reply.\n"
+            "4. After ALL texts: get_task_status(task_id) → verify, "
+            "then read_task_results(task_id) → write cross-text summary.\n"
+            "WHY: Results are stored to disk, keeping them out of context. "
+            "This allows complete analysis of 20-50+ text corpora without overflow."
         ),
     )
 

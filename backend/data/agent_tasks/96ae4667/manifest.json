@@ -1,0 +1,55 @@
+{
+  "task_id": "96ae4667",
+  "task_type": "dmip",
+  "corpus_id": "beae90a9-ec5d-49c1-bed3-6fca0bde13b6",
+  "total_texts": 6,
+  "session_hint": "Amazon 2020-2025 DMIP",
+  "created_at": "2026-06-06T22:26:44.617255",
+  "texts": {
+    "7778cdfb-e2c9-4662-8480-519b0281f94c": {
+      "label": "2020-Shareholder-Letter.txt",
+      "file": "7778cdfb-e2c9-4662-8480-519b0281f94c.md",
+      "saved_at": "2026-06-06T22:27:25.291511",
+      "status": "success",
+      "error_message": null
+    },
+    "aed7a81c-6717-4510-9efc-26d1b505b6eb": {
+      "label": "2021-Shareholder-Letter.txt",
+      "file": "aed7a81c-6717-4510-9efc-26d1b505b6eb.md",
+      "saved_at": "2026-06-06T22:28:00.218636",
+      "status": "success",
+      "error_message": null
+    },
+    "1beada96-5f64-415b-84b5-70337217f075": {
+      "label": "2022-Shareholder-Letter.txt",
+      "file": "1beada96-5f64-415b-84b5-70337217f075.md",
+      "saved_at": "2026-06-06T22:28:28.053473",
+      "status": "success",
+      "error_message": null
+    },
+    "23a9790d-3ff6-4000-891d-8cb9e3bf4807": {
+      "label": "2023-Shareholder-Letter.txt",
+      "file": "23a9790d-3ff6-4000-891d-8cb9e3bf4807.md",
+      "saved_at": "2026-06-06T22:29:00.651667",
+      "status": "success",
+      "error_message": null
+    },
+    "82dbff0b-8b5e-473b-b768-786456ee2644": {
+      "label": "2024-Shareholder-Letter.txt",
+      "file": "82dbff0b-8b5e-473b-b768-786456ee2644.md",
+      "saved_at": "2026-06-06T22:29:27.560099",
+      "status": "success",
+      "error_message": null
+    },
+    "7605c0f5-20bc-4209-b581-b53fdaa865a9": {
+      "label": "2025-Shareholder-Letter.txt",
+      "file": "7605c0f5-20bc-4209-b581-b53fdaa865a9.md",
+      "saved_at": "2026-06-06T22:29:50.424063",
+      "status": "success",
+      "error_message": null
+    }
+  },
+  "failed_count": 0,
+  "skipped_count": 0,
+  "has_plan": true
+}

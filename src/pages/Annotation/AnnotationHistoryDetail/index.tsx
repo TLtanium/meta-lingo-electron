@@ -322,6 +322,7 @@ export default function AnnotationHistoryDetail({ archive, onBack }: AnnotationH
         <TabPanel value={tabValue} index={0}>
           <AnnotationDataTable
             annotations={annotations.filter(a => a.type !== 'video' && a.type !== 'audio')}
+            relations={archiveData.relations}
             archiveName={archive.textName || archive.resourceName || archive.id}
             excludeVideoAnnotations={isVideo || isAudio}
             originalText={archiveData.text}

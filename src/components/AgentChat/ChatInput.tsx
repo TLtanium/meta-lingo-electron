@@ -11,6 +11,8 @@ import StopIcon from '@mui/icons-material/Stop'
 import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline'
 import { useTranslation } from 'react-i18next'
 import ModuleSelector from './ModuleSelector'
+import ContextRing from './ContextRing'
+import type { TaskProgress, ContextUsage } from './ContextRing'
 
 interface ChatInputProps {
   onSend: (text: string) => void
@@ -20,6 +22,11 @@ interface ChatInputProps {
   disabledReason?: string
   enabledModules: string[] | null
   onModulesChange: (modules: string[] | null) => void
+  // Context ring
+  contextUsage?: ContextUsage | null
+  taskProgress?: TaskProgress | null
+  isCompacting?: boolean
+  onContextRingClick?: (anchorEl: HTMLElement) => void
 }
 
 export default function ChatInput({
@@ -30,11 +37,16 @@ export default function ChatInput({
   disabledReason,
   enabledModules,
   onModulesChange,
+  contextUsage,
+  taskProgress,
+  isCompacting,
+  onContextRingClick,
 }: ChatInputProps) {
   const { t } = useTranslation()
   const [value, setValue] = useState('')
   const [moduleSelectorOpen, setModuleSelectorOpen] = useState(false)
   const addBtnRef = useRef<HTMLButtonElement>(null)
+  const ringBoxRef = useRef<HTMLDivElement>(null)
 
   const handleSend = () => {
     const text = value.trim()
@@ -49,6 +61,8 @@ export default function ChatInput({
       handleSend()
     }
   }
+
+  const hasRing = !!(contextUsage || taskProgress || isCompacting)
 
   return (
     <Box sx={{ px: 2, pb: 2, pt: 1 }}>
@@ -77,6 +91,23 @@ export default function ChatInput({
           boxShadow: '0 1px 6px rgba(0,0,0,0.08)',
         }}
       >
+        {/* Context ring — shown when there is context/task data */}
+        {hasRing && (
+          <Box
+            ref={ringBoxRef}
+            sx={{ display: 'flex', alignItems: 'center', mr: 0.25, flexShrink: 0 }}
+          >
+            <ContextRing
+              contextUsage={contextUsage ?? null}
+              taskProgress={taskProgress ?? null}
+              isCompacting={isCompacting ?? false}
+              onClick={() => {
+                if (ringBoxRef.current) onContextRingClick?.(ringBoxRef.current)
+              }}
+            />
+          </Box>
+        )}
+
         {/* Module selector + button */}
         <Tooltip title={t('agentChat.moduleSelector')}>
           <IconButton

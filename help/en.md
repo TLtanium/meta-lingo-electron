@@ -334,7 +334,7 @@ Click the edit icon to modify text metadata:
 
 ### SpaCy Automatic Annotation
 
-The corpus **language** you choose when creating a corpus selects the SpaCy pipeline (see backend `SPACY_MODEL_MAP`). **All models below are `sm`-sized (compact) and do not ship static word vectors.** English and Chinese use `core_web_sm`; the other nine European languages use `core_news_sm` (small “news” pipelines).
+The corpus **language** you choose when creating a corpus selects the SpaCy pipeline (see backend `SPACY_MODEL_MAP`). All languages use the compact `sm` model size — `core_web_sm` for English and Chinese, `core_news_sm` for the nine European languages.
 
 #### Supported languages and SpaCy models
 
@@ -3179,23 +3179,39 @@ MIPVU (Metaphor Identification Procedure VU) is a metaphor identification method
 
 #### Metaphor Detection Model
 
-This system uses metalingo-deberta-metaphor, a DeBERTa-v3-large based model trained with two-stage knowledge distillation for full-coverage metaphor annotation across all word types.
+This system uses metalingo-indirect-metaphor, a DeBERTa-v3-large based model trained with two-stage knowledge distillation (Stage 1: distillation on BE06 → Stage 2: fine-tuning on VUAMC) for full-coverage metaphor annotation across all word types.
 
 **Model Information**:
-- **Model Name**: metalingo-deberta-metaphor
+- **Model Name**: metalingo-indirect-metaphor
 - **Base Architecture**: microsoft/deberta-v3-large (0.4B parameters)
 - **Task Type**: Token Classification (binary: non_metaphor / metaphor)
-- **Training Data**: VUAMC (NAACL FLP 2018 official split); two-stage knowledge distillation training
-- **Source**: [ModelScope - TommyLeo/metalingo-deberta-metaphor](https://modelscope.cn/models/TommyLeo/metalingo-deberta-metaphor/summary)
+- **Training Data**: BE06 (~954K tokens, Stage 1 distillation) + VUAMC (NAACL FLP 2018 official split, Stage 2 fine-tuning)
+- **Source**: [ModelScope - TommyLeo/metalingo-indirect-metaphor](https://www.modelscope.cn/models/TommyLeo/metalingo-indirect-metaphor)
+- **Download & Usage**: Required for MIPVU annotation. Download via **Settings → Model Management → "MIPVU DeBERTa (metalingo-indirect-metaphor)"** (uses ModelScope `snapshot_download`, stored under `metaphor_identification/metalingo-indirect-metaphor`); loaded automatically by the MIPVU pipeline (Step 3 below) once downloaded.
 
 #### DeBERTa Model
 
 **Reference**:
 - He, P., Liu, X., Gao, J., & Chen, W. (2021). DeBERTa: Decoding-enhanced BERT with Disentangled Attention. *International Conference on Learning Representations*.
 
+### Metaphor Types
+
+Meta-Lingo detects four types of metaphor-related words (MRW) defined by MIPVU, each shown with a distinct color chip:
+
+| Type | Color | Field | Description |
+|------|-------|-------|-------------|
+| **Indirect Metaphor** (MRW) | 🟢 Green | `is_metaphor` | A word used metaphorically via cross-domain comparison. The most common type. Example: "*The plan collapsed*." |
+| **Direct Metaphor** (MRW, direct) | 🩷 Pink | `is_direct_metaphor` | A word explicitly presented as a comparison, always accompanied by an MFlag word in the same sentence. Example: "*Life is a journey.*" |
+| **MFlag** | 🟣 Purple | `is_mflag` | A metaphor signal word that explicitly marks a comparison (like, as, resemble, seem…). MFlag is required to validate direct metaphors. Example: "*Like a ship*, the company *navigated* the storm." |
+| **Implicit Metaphor** (MRW, impl) | 🟠 Amber | `is_implicit_metaphor` | A cohesive form — pronoun or auxiliary — that inherits metaphoricity from a prior indirect metaphor via substitution or VP ellipsis. Example: "The proposal *collapsed*… so **did** the negotiations." |
+
+> **Type priority for display**: MFlag > Direct > Implicit > Indirect. A word may carry multiple flags simultaneously (e.g., a word can be both `is_metaphor=True` and `is_implicit_metaphor=True`).
+
+---
+
 ### Detection Method
 
-Meta-Lingo employs a three-step detection approach combining rule filtering and full-coverage Clause model annotation:
+Meta-Lingo employs a **five-step** detection pipeline combining rule filtering, deep learning models, and rule-based post-processing:
 
 #### Step 1: Word Form Filtering
 
@@ -3233,17 +3249,44 @@ Rules based on dependency relations and word forms (literal rate > 99%):
 
 **Note**: Demonstrative pronouns (this, that, these, those) have metaphor rates of 73-87% and will **not** be filtered by rules.
 
-#### Step 3: Clause Model Full Annotation
+#### Step 3: Indirect Metaphor Model (Clause Model)
 
 All words that pass the previous two steps are processed by the Clause model. The complete sentence is passed as input to provide clause-level context:
 
+- **Model**: `metalingo-indirect-metaphor` (DeBERTa-v3-large, two-stage knowledge distillation: BE06 → VUAMC)
 - **Input**: Complete sentence (for clause-level context)
-- **Output**: Binary prediction per word (non_metaphor / metaphor)
+- **Output**: Binary prediction per word (non_metaphor / metaphor) → sets `is_metaphor=True`
 - **Judgment Threshold**: P(LABEL_1) >= 0.5
 - **Max Sequence Length**: 192 tokens (matches model training configuration)
 - **Source Labels** (for UI color distinction):
-  - Function words IN/DT/RB/RP → **orange** label (indirect metaphor)
-  - Non-function words (other POS) → **green** label (indirect metaphor)
+  - Function words IN/DT/RB/RP → **orange** source label
+  - Non-function words (other POS) → **green** source label
+
+#### Step 4: Direct Metaphor Model (MFlag Pre-filter)
+
+After indirect metaphor annotation, sentences containing at least one MFlag candidate word are passed to the direct metaphor model:
+
+- **MFlag Pre-filter**: `mflag_filter.py` checks word form **and** lemma against the MFlag lexicon (Steen et al. 2010 §2.6). Sentences with no MFlag candidates are skipped entirely.
+- **Model**: `metalingo-direct-metaphor` (optional; DeBERTa-v3-large, 3-class token classifier trained on BE06 + OANC with MIPVU-style direct-metaphor annotations from DeepSeek-V4-Flash). Source: [ModelScope - TommyLeo/metalingo-direct-metaphor](https://www.modelscope.cn/models/TommyLeo/metalingo-direct-metaphor). Download via **Settings → Model Management → "MIPVU DeBERTa (metalingo-direct-metaphor)"** (stored under `metaphor_identification/metalingo-direct-metaphor`).
+- **Output**: Per-word labels — model's native labels `O` / `mFlag` / `mrw_lit` are mapped to `mflag` (sets `is_mflag=True`) and `direct` (sets `is_direct_metaphor=True`)
+- **Validation**: A `direct` label is only accepted if the same sentence also contains at least one `mflag` label — a requirement of MIPVU §2.4. Direct annotations in sentences without any MFlag word are discarded as model errors.
+
+> If the direct metaphor model is not downloaded, Step 4 is skipped and `is_direct_metaphor` / `is_mflag` remain `False`.
+
+#### Step 5: Implicit Metaphor Detection (Rule-based Post-processing)
+
+After all sentences have been annotated in Steps 1–4, a rule-based post-processing pass detects implicit metaphors (MRW, impl) — cohesive forms that inherit metaphoricity from a prior indirect metaphor. Only disambiguation-free categories are implemented:
+
+| Rule | Category | Pattern | How antecedent is determined |
+|------|----------|---------|------------------------------|
+| **VPE-1** | VP Ellipsis | `so / neither / nor` (adverb/conjunction) + AUX/modal, no main verb follows | Structurally determined: most recent clause with an `is_metaphor=True` verb in the preceding 2 sentences |
+| **VPE-2** | VP Ellipsis | Short clause (≤7 content words), ROOT is AUX/modal, has subject, no lexical verb | Same as VPE-1 |
+| **SUB-1** | Pronoun Substitution | Non-expletive 3rd-person pronoun appearing after the antecedent in the same sentence | Unique: sentence contains exactly ONE `is_metaphor=True` noun — no coreference needed |
+
+**Examples**:
+- VPE-1: *"The project \*collapsed\*… and so **did** the funding."* → "so" and "did" marked as implicit.
+- VPE-2: *"…as **did** the charity."* → "did" marked as implicit.
+- SUB-1: *"They took the first \*step\*. **It** proved decisive."* → "it" marked as implicit (if in same sentence).
 
 ### Detection Reliability
 
@@ -3253,17 +3296,17 @@ Evaluation results based on the VUAMC (NAACL FLP 2018 split):
 
 | Metric | Value |
 |--------|-------|
-| **F1 Score** | **81.24** |
-| Precision | 83.82% |
-| Recall | 78.81% |
-| Accuracy | 95.78% |
+| **F1 Score** | **82.29** |
+| Precision | 85.26% |
+| Recall | 79.53% |
+| Accuracy | 96.04% |
 
 #### Key Characteristics
 
 1. **Full POS coverage**: The model annotates all word types uniformly, including both function words (IN/DT/RB/RP) and content words.
-2. **Two-stage knowledge distillation**: Trained with a teacher–student distillation pipeline on VUAMC for robust generalization.
+2. **Two-stage knowledge distillation**: Stage 1 distills from an auxiliary teacher on BE06 (~954K tokens, no overlap with VUAMC); Stage 2 fine-tunes on VUAMC for robust generalization.
 3. **Binary classification**: Direct non_metaphor / metaphor output with no multi-label post-processing.
-4. **High precision**: Precision of 83.82% minimizes false positives across all word types.
+4. **High precision**: Precision of 85.26% minimizes false positives across all word types.
 
 ### Interface Layout
 
@@ -3327,15 +3370,18 @@ After configuration, click the "Start Analysis" button:
 
 #### Table View
 
-The table displays each annotated metaphor word:
+The table displays each annotated metaphor word with its type chip:
 
 | Column | Description |
 |--------|-------------|
-| Word | Original form of metaphor word |
+| Word | Original form of word + color-coded type chip (Indirect / Direct / MFlag / Implicit / Literal) |
 | Lemma | Dictionary form of word |
 | POS | SpaCy Universal POS tag |
-| Source | Text file where word occurs |
-| Position | Position in text |
+| Frequency | Number of occurrences in the corpus |
+| % | Percentage of total tokens |
+| Type | Metaphor type chip (priority: MFlag > Direct > Implicit > Indirect > Literal) |
+
+The **Type** column uses color coding matching the chip colors described in the Metaphor Types section above.
 
 #### Text View
 
@@ -3345,12 +3391,20 @@ Highlights metaphor words in original text:
 
 ### Statistics
 
-The right panel displays summary statistics:
+The toolbar above the results table displays count chips for each metaphor category:
 
-- **Total Words**: Total words analyzed
-- **Metaphor Count**: Detected metaphor count
-- **Metaphor Rate**: Percentage of metaphor words
-- **Distribution by POS**: Metaphor count by POS
+| Chip | Color | Meaning |
+|------|-------|---------|
+| Total | Gray | Total alphabetic tokens analyzed |
+| Metaphors | Green | Total indirect metaphor tokens |
+| Indirect | Green outline | Tokens with `is_metaphor=True` |
+| Direct | Pink outline | Tokens with `is_direct_metaphor=True` |
+| MFlag | Purple outline | Tokens with `is_mflag=True` |
+| Implicit | Amber outline | Tokens with `is_implicit_metaphor=True` |
+| Literals | Gray | Non-metaphor tokens |
+| Rate | Blue | Indirect metaphor rate (metaphor_tokens / total_tokens) |
+
+POS-group chips (IN / DT / RB / RP / OTHER) show the metaphor rate per part-of-speech group.
 
 ### Visualization
 
@@ -3435,6 +3489,94 @@ After saving text edits, the system automatically triggers metaphor re-annotatio
 - Some metaphorical expressions (e.g., dead metaphors) may not be detected
 - Large corpus analysis may take time
 - Recommend combining with manual verification
+
+---
+
+## Deliberate Metaphor Analysis (DMIP)
+
+### Overview
+
+Deliberate Metaphor Analysis goes beyond identifying *which* words are used metaphorically (MIPVU) and asks *whether* a speaker deliberately invited the reader to view the target domain through a source-domain lens. This is based on **Deliberate Metaphor Theory (DMT)** by Gerard Steen (2023) and the **Deliberate Metaphor Identification Procedure (DMIP)** by Reijnierse et al. (2018).
+
+> DMIP is available in **Agent Mode** via the `dmip_analysis` tool. Use it when you want AI-assisted expert analysis of deliberate metaphor use in a corpus text.
+
+### The Core Distinction
+
+**MIPVU** identifies metaphor-*related* words (MRWs) based on contextual vs. basic meaning. Most MRWs in natural language are processed automatically — the brain selects the appropriate meaning and moves on without constructing any source-domain scene. Revenue "*streams* dried up" activates no water imagery.
+
+**Deliberate metaphor** is different: the speaker intentionally invites the reader to adopt the source domain as an **alien perspective** through which to understand the target domain. "We are all in a *plane* in turbulence" makes the reader genuinely imagine the plane. This requires **online cross-domain mapping**, not mere lexical disambiguation.
+
+### Four-Dimension Analysis Model
+
+DMIP analyzes each MRW across four dimensions:
+
+| Dimension | Key Question | Deliberateness Signal |
+|-----------|-------------|----------------------|
+| **Linguistic** | Direct metaphor (with MFlag) or indirect? | MFlag (like/as/as if) = strongest surface signal |
+| **Conceptual** | Novel mapping or conventional? | Novel = strong; conventional can be deliberate if reactivated |
+| **Referential** *(core)* | Does the source domain enter the reader's **situation model**? | DR (Direct Reference) = required for deliberateness |
+| **Communicative** | Is there evidence of deliberate speaker intent? | Genre, purpose, extended metaphor context |
+
+### The Referential Dimension (Core Criterion)
+
+The central test of DMIP is **referential**:
+
+- **Direct Reference (DR)**: A *qualified original reader* — someone who shares the discourse community's knowledge but is not performing linguistic analysis — would construct a mental scene in which the source domain entity actually exists as a referent. Only DR metaphors can be potentially deliberate.
+
+- **Indirect Reference (IR)**: The source domain dissolves into lexical meaning. No scene is constructed. No alien perspective is activated. IR = **non-deliberate** (lexical disambiguation only).
+
+> ⚠ **Researcher Activation Warning**: Do not activate source domain referents through your own analytical gaze. The question is always whether a *qualified original reader* would construct the scene.
+
+### Discourse-Level Features
+
+| Feature | Description | Deliberateness Signal |
+|---------|-------------|----------------------|
+| **Extended metaphor** | Same source domain across multiple utterances | **Strongest** — cannot be accidental |
+| **High-level limited** | MRW in main predicate position | Strong |
+| **Low-level limited** | MRW in modifier/adjunct position | Weak |
+| **Embedded** | MRW nested inside another metaphor | Weaker |
+| **Wordplay** | Two domains activated simultaneously via phonetics/polysemy | Always deliberate |
+
+### Using DMIP in Agent Mode
+
+1. Switch to **Agent Mode** (toggle in the top bar).
+2. Ensure your corpus has completed **MIPVU annotation** (check Metaphor Analysis page).
+3. Ask the AI: *"Perform DMIP analysis on [text name] in [corpus name]"* or *"Identify deliberately used metaphors in this CEO letter."*
+4. The AI will call `dmip_analysis(corpus_id, text_id)` which retrieves:
+   - The full text with inline MIPVU markers: `[MET:word]` `[DIR:word]` `[MFLAG:word]` `[IMPL:word]`
+   - A structured list of all MRWs with lemma and POS
+   - The complete DMIP four-dimension analysis procedure
+5. The AI analyzes each MRW and outputs structured judgments:
+
+```
+MRW: navigate
+Position: Sentence 5
+Linguistic: indirect | MFLAG: no
+Conceptual: conventional
+Referential: DR — "navigate" occurs within an extended aviation metaphor
+             established by "plane in turbulence"; source domain is in the
+             situation model.
+Discourse: extended | Wordplay: no
+Judgment: POTENTIALLY DELIBERATE
+Confidence: high
+Evidence: Part of aviation cluster (plane → turbulence → navigate → crew).
+          Speaker's purpose (retaining employees) reinforces deliberate intent.
+```
+
+### DMIP Annotation Notation
+
+| Marker | MIPVU Type | Description |
+|--------|-----------|-------------|
+| `[MET:word]` | Indirect MRW | Contextual ≠ basic meaning; cross-domain similarity |
+| `[DIR:word]` | Direct MRW | Literally used but introduces incongruous source domain |
+| `[MFLAG:word]` | Metaphor flag | Explicit comparison signal (like/as/as if/imagine/resemble) |
+| `[IMPL:word]` | Implicit MRW | References prior MRW via cohesion (substitution/ellipsis) |
+
+### References
+
+- Steen, G. (2023). *Deliberate Metaphor Theory*. Cambridge University Press.
+- Reijnierse, W. G., Burgers, C., Krennmayr, T., & Steen, G. J. (2018). DMIP: A method for identifying potentially deliberate metaphors in language use. *Corpus Pragmatics, 2*(2), 129–147.
+- Steen, G., Dorst, L., Herrmann, J., Kaal, A., Krennmayr, T., & Pasma, T. (2010). *A method for linguistic metaphor identification: From MIP to MIPVU*. John Benjamins Publishing.
 
 ---
 
@@ -4605,7 +4747,7 @@ In the "Library Detail" tab:
 
 - **Export CSV**: Exports by current filters and visible columns; **does not include the Paper column**; header order: Relevance, Title, DOI, Authors, Year, Journal, Abstract, Keywords, Citations, visible AI columns, Tags, Notes (UTF-8 BOM).
 
-- **Re-annotation**: Same backend as Corpus Management; MIPVU uses metalingo-deberta-metaphor full annotation (English-only); NRC supports all 11 languages (requires language lexicon file in `saves/nrc/`).
+- **Re-annotation**: Same backend as Corpus Management; MIPVU uses metalingo-indirect-metaphor full annotation (English-only); NRC supports all 11 languages (requires language lexicon file in `saves/nrc/`).
 
 ### Entry Detail Dialog
 
@@ -4644,7 +4786,7 @@ In library detail you can set, for each entry:
    - Number of skipped entries (if any)
    - Parse errors (if any)
 
-**Abstract annotation pipeline**: Each entry with an abstract is written to the shadow corpus and runs the same pipeline as Corpus Management: SpaCy → USAS → MIPVU → NRC. MIPVU uses metalingo-deberta-metaphor for full-coverage metaphor annotation (English only); NRC emotion annotation uses NRC-EmoLex and supports all 11 languages, providing data for the Sentiment Analysis module. (Bibliography libraries continue to support English and Chinese only for library creation.)
+**Abstract annotation pipeline**: Each entry with an abstract is written to the shadow corpus and runs the same pipeline as Corpus Management: SpaCy → USAS → MIPVU → NRC. MIPVU uses metalingo-indirect-metaphor for full-coverage metaphor annotation (English only); NRC emotion annotation uses NRC-EmoLex and supports all 11 languages, providing data for the Sentiment Analysis module. (Bibliography libraries continue to support English and Chinese only for library creation.)
 
 ### File Formats
 
@@ -5107,19 +5249,47 @@ Annotation table displays detailed information of all annotations:
   - **Position**: Start and end positions of annotation in text
   - **POS**: Part-of-speech of annotated text (if available)
   - **NER**: Named entity of annotated text (if available)
+  - **Relations**: Outgoing relation arrows from this annotation (visible when relations exist; tags show → target word)
   - **Remark**: Annotation remark (editable)
   - **Actions**: Delete button
 
 - **Features**:
   - **Highlight Display**: When hovering over table row, corresponding annotation is highlighted in text
   - **Edit Remark**: Click remark column to edit remark information
-  - **Delete Annotation**: Click delete button to delete annotation
+  - **Delete Annotation**: Delete annotation via the action menu
   - **Row-Click Positioning**: Clicking a table row scrolls the corresponding sentence in the text to the **center** of the view for quick navigation
   - **Action Column (Cross-Links)**: Each row has a ⋮ menu with four cross-module links:
     - **View Co-occurrence**: Open the Co-occurrence (KWIC/CQL) page with the annotation word as search term
     - **View Collocation Analysis**: Open the "Collocation Analysis" sub-tab of the Collocation module on the home page
     - **View Word Sketch**: Open the "Word Sketch" sub-tab of the Collocation module on the home page
     - **N-gram Analysis**: Open the N-gram analysis page with N values 2/3/4, search type "contains", and minimum frequency 1
+
+### Annotation Relations (Relation Arrows)
+
+Annotations can be linked with **directed relations**, displayed as U-shaped arrows between annotation blocks, and reflected in the table and history view.
+
+#### Creating Relations
+
+1. Click the **Link (🔗) button** in the annotation toolbar to enter link mode (button turns orange)
+2. Click the first annotation block to select it as the **source** (highlighted)
+3. Click the second annotation block to create a **directed relation** from source to target (U-shaped arrow)
+4. Click the toolbar link button again or press Esc to exit link mode
+
+#### Deleting Relations
+
+In link mode, clicking the same source and target of an **existing relation** again will **toggle-delete** it.
+
+#### Viewing Relations
+
+- **Annotation Text Area**: Relations appear as U-shaped SVG arrows overlaid on annotation blocks
+- **Annotation Table**: Rows with outgoing relations show → target-word tags in the "Relations" column (hover for full text)
+- **Annotation History Detail**: Same as above; the "Relations" column appears in the table and is included in CSV export
+
+#### MIPVU Auto-Relations
+
+When auto-annotating with the MIPVU framework loaded, the system **automatically creates relation arrows from implicit metaphors to their antecedents**:
+- Implicit metaphors (pronoun substitution / VP ellipsis) are auto-linked to the indirect metaphor they refer back to in the same or preceding sentence
+- Auto-relations are saved with the archive and visible in both the text area and table when the archive is loaded
 
 ### Syntax Visualization
 
@@ -5147,7 +5317,7 @@ Auto-annotation is only available when the following frameworks are loaded:
 
 | Framework | Auto-Annotation Type | Description |
 |-----------|---------------------|-------------|
-| **MIPVU** | Metaphor Annotation | Auto-annotate with `indirect` (indirect metaphor) label |
+| **MIPVU** | Metaphor Annotation | Auto-annotate `indirect`, `direct`, and `mflag` labels; automatically creates relation arrows from `implicit` metaphors to their antecedents |
 | **Halliday-Theme** | Theme/Rheme Annotation | Auto-annotate `theme` and `rheme` |
 | **Berry-Theme** | Theme/Rheme Annotation | Auto-annotate `theme` and `rheme` |
 
@@ -5194,6 +5364,60 @@ When Halliday-Theme or Berry-Theme framework is loaded, clicking the auto-annota
 4. **View Results**: System will display the number of annotations successfully added
 5. **Manual Adjustment**: You can continue to manually add, modify, or delete annotations
 6. **Save**: Click "Save" button to save the annotation archive
+
+### Search & Batch Annotation
+
+The annotation toolbar provides a **Search Annotation Box** for quickly locating words in the text and batch-creating annotations.
+
+#### Plain Text Search
+
+Type a word in the search box — the system highlights all matches in the text in real time and shows the match count. Press **Enter** to apply the currently selected label to all matched positions in one click.
+
+#### CQL Search Mode
+
+Click the **wrench icon** (🔧) on the **right side** of the search box to open the **CQL Builder**, where you can visually compose Corpus Query Language (CQL) conditions:
+
+- **Normal token conditions**: Filter by word form, POS, lemma, semantic tags, etc.
+- **Annotation label conditions (`annotation` attribute)**: Filter by existing annotation labels, for example:
+  - `[annotation=="indirect"]` — match all spans annotated as `indirect`
+  - `[annotation=="indirect" & annotation=="mflag"]` — match spans annotated with **both** labels simultaneously (AND logic, grouped by position)
+  - `[annotation=="indirect" | annotation=="direct"]` — match spans with either label (OR logic)
+
+**Bidirectional Sync**: The CQL Builder and search box are bidirectionally linked — clicking "Apply" in the builder writes the CQL into the search box; typing valid CQL directly into the search box and then reopening the builder displays the corresponding visual structure.
+
+> **About the `annotation` attribute**: This is a client-side attribute designed specifically for Annotation Mode. It filters the current text's annotation data directly, with no corpus pre-processing required. AND logic groups all annotations at the same position and returns only spans that satisfy all conditions simultaneously.
+
+---
+
+### Keyboard Shortcuts (Label Shortcuts)
+
+Bind keyboard shortcuts to frequently used labels so you can switch the active label without leaving the keyboard, greatly improving annotation efficiency.
+
+#### Setting Up Shortcuts
+
+Click the **keyboard icon** (⌨) button in the toolbar to open the keyboard shortcut settings dialog:
+
+- Shortcut slots are numbered **1 through 0** (10 slots total)
+- Each slot can be bound to any label in the current framework
+- Configurations are **saved per framework** — switching frameworks automatically loads the corresponding configuration
+- Configuration is stored in browser local storage (localStorage) and persists across app restarts
+
+> The keyboard icon button is grayed out and unavailable when no annotation framework is selected.
+
+#### Using Shortcuts
+
+After setup, in the annotation view press:
+
+- **macOS**: `⌘ + number key` (e.g., `⌘1`, `⌘2` … `⌘0`)
+- **Windows / Linux**: `Ctrl + number key` (e.g., `Ctrl+1`, `Ctrl+2` … `Ctrl+0`)
+
+When a shortcut is activated, the system automatically:
+1. Switches the active label to the one bound to that slot
+2. **Scrolls and highlights** the corresponding label node in the Framework Tree visualization
+
+> Multimodal annotation (audio/video transcript text annotation) supports keyboard shortcuts as well — the same keyboard icon button is available in its toolbar.
+
+---
 
 ### Saving Annotations
 
@@ -5358,6 +5582,8 @@ Since Wav2Vec2 forced alignment only supports English, all non-English audio (in
 
 The "Text Annotation List" and "Video Annotation List" tabs in the bottom panel display all annotations in a table, consistent with the text annotation table, and support the following operations:
 
+- **Relations Column**: If the current archive contains relation arrows, the table shows a "Relations" column with → target-word tags; relation arrows in the transcript annotation area sync with this column
+
 #### Action Menu (Cross-Links)
 
 Each annotation row's action column provides a dropdown menu (click the ⋮ button to expand), with four cross-module links (same as the text annotation table):
@@ -5425,8 +5651,15 @@ Annotation History page displays all saved annotation archives:
   - Framework used
 
 - **Actions**:
-  - **View Details**: View detailed annotation information
+  - **View Details**: View detailed annotation information, including annotation table (with relations column) and data visualization
   - **Delete**: Delete archive
+
+### History Detail Table
+
+After clicking "View Details", the detail page shows all text annotations in a table:
+
+- If the archive contains relation arrows, the table shows a "Relations" column with → target-word tags
+- The "Export CSV" button exports a file that includes the relations target column for offline analysis
 
 ## Framework Manager
 
@@ -5809,6 +6042,43 @@ Each calculated coefficient is displayed as an independent card:
 - Different coefficients may have different interpretation standards
 - Results should be interpreted in context of research background and annotation task complexity
 - Low agreement may indicate need to revise annotation guidelines or provide coder training
+
+### Annotation Details Export (Vertical Token CSV)
+
+In the header of the "Annotation Details" KWIC table, click the **download icon** (↓) to export the full annotation details as a CSV file, suitable for research documentation and coder discussion.
+
+#### Format Design
+
+The export uses a **vertical token table** format: words read continuously from top to bottom, multiple annotation layers expand vertically, and each coder occupies a dedicated column for intuitive agreement comparison:
+
+| Word | Layer | Coder 1 | Coder 2 | Agreement | Discussion |
+|------|-------|---------|---------|-----------|------------|
+| To | MRW | MRW | MRW | 一致 | |
+| To | Linguistic | Not signaled | Not signaled | 一致 | |
+| To | Conceptual | Conventional | Conventional | 一致 | |
+| our | MRW | | | 均未标注 | |
+| our | Linguistic | | | 均未标注 | |
+
+- **Word**: Original token from the text, in reading order
+- **Layer**: The immediate parent category of the label in the framework hierarchy (the label's direct ancestor node)
+- **Coder N**: Each coder's label for this token at this layer (blank = not annotated)
+- **Agreement**:
+  - `一致` — all coders annotated the same label
+  - `不一致` — all coders annotated but with different labels
+  - `部分(一致)` / `部分(不一致)` — only some coders annotated
+  - `均未标注` — no coder annotated this layer
+- **Discussion**: Empty column for researchers to fill in manually
+
+#### Key Features
+
+| Feature | Description |
+|---------|-------------|
+| No crash | Parses local archive files directly without any backend API calls — supports one-shot export of texts with 900+ annotations |
+| Coder identification | Column headers use the **coder name** entered when saving the archive, not the filename or UUID |
+| Multi-label support | A single word can be annotated across multiple layers of the framework — each layer occupies its own row |
+| Excel compatible | File includes a UTF-8 BOM header for correct display of non-ASCII characters in Excel |
+
+> **Typical Use Case**: Particularly suited for multi-dimensional frameworks like DMIP, where each potential metaphor-related word (MRW) must be annotated across multiple dimensions (MRW, Linguistic, Conceptual, Referential, Communicative), facilitating cross-coder comparison and discussion.
 
 ## Usage Tips
 

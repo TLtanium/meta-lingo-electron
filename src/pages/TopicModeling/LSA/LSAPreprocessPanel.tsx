@@ -4,7 +4,7 @@
  * Reuses LDA preprocessing service
  */
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import {
   Box,
   Typography,
@@ -82,6 +82,18 @@ export default function LSAPreprocessPanel({
   const [posExpanded, setPosExpanded] = useState(false)
   
   // Preview
+  // Exclusion words raw text (preserves trailing newlines so Enter key works correctly)
+  const [exclusionRawText, setExclusionRawText] = useState(
+    (config.exclusion_words || []).join('\n')
+  )
+  const exclusionWordsRef = useRef(config.exclusion_words)
+  useEffect(() => {
+    if (JSON.stringify(config.exclusion_words) !== JSON.stringify(exclusionWordsRef.current)) {
+      exclusionWordsRef.current = config.exclusion_words
+      setExclusionRawText((config.exclusion_words || []).join('\n'))
+    }
+  }, [config.exclusion_words])
+
   const [previewing, setPreviewing] = useState(false)
   const [previewResult, setPreviewResult] = useState<PreviewItem[] | null>(null)
   const [previewError, setPreviewError] = useState<string | null>(null)
@@ -361,11 +373,11 @@ export default function LSAPreprocessPanel({
           rows={3}
           size="small"
           fullWidth
-          value={(config.exclusion_words || []).join('\n')}
+          value={exclusionRawText}
           onChange={(e) => {
-            const words = e.target.value
-              ? e.target.value.split('\n').map(w => w.trim()).filter(w => w.length > 0)
-              : []
+            setExclusionRawText(e.target.value)
+            const words = e.target.value.split('\n').map(w => w.trim()).filter(w => w.length > 0)
+            exclusionWordsRef.current = words
             handleConfigChange('exclusion_words', words)
           }}
           placeholder={t('topicModeling.lsa.preprocess.exclusionWordsPlaceholder', 'One word or regex per line...')}

@@ -172,6 +172,7 @@ class CollocationAnalysisService:
             node_freq = 0
             collocate_freq = Counter()  # f_xy: co-occurrence count
             word_freq = Counter()        # f_y: total frequency of each word
+            collocate_pos_counter: Dict[str, Counter] = defaultdict(Counter)  # track POS for each collocate
 
             # POS filter config
             selected_pos = pos_filter.get("selectedPOS", []) if pos_filter else []
@@ -180,16 +181,13 @@ class CollocationAnalysisService:
             for token_list in all_token_lists:
                 n = len(token_list)
 
-                # Count total tokens and word frequencies (after POS filter)
+                # Count total tokens and word frequencies (all non-punct, non-space tokens)
+                # pos_filter applies only to the node word, not to the universe of collocates
                 for i, tok in enumerate(token_list):
                     word, lemma, pos, is_punct, is_space = tok
                     match_key = lemma if use_lemma else word
 
                     if is_punct or is_space:
-                        continue
-
-                    # Apply POS filter
-                    if not self._pass_pos_filter(pos, selected_pos, keep_mode):
                         continue
 
                     total_tokens += 1
@@ -207,13 +205,15 @@ class CollocationAnalysisService:
                     if match_key != node_lower:
                         continue
 
-                    # Apply POS filter to node word
+                    # Apply POS filter to node word only
+                    # (e.g. keep only occurrences of "build" that are tagged as VERB)
                     if not self._pass_pos_filter(pos, selected_pos, keep_mode):
                         continue
 
                     node_freq += 1
 
-                    # Collect collocates within window
+                    # Collect collocates within window — collocates are not POS-filtered here;
+                    # collocate POS filtering is handled on the frontend via collocate_pos field
                     start = max(0, i - span)
                     end = min(n, i + span + 1)
 
@@ -225,10 +225,6 @@ class CollocationAnalysisService:
                         coll_key = coll_lemma if use_lemma else coll_word
 
                         if coll_punct or coll_space:
-                            continue
-
-                        # Apply POS filter to collocate
-                        if not self._pass_pos_filter(coll_pos, selected_pos, keep_mode):
                             continue
 
                         # Skip stopwords (check both word and lemma)
@@ -244,6 +240,7 @@ class CollocationAnalysisService:
                             continue
 
                         collocate_freq[coll_key] += 1
+                        collocate_pos_counter[coll_key][coll_pos] += 1
 
             if node_freq == 0:
                 return {
@@ -267,6 +264,10 @@ class CollocationAnalysisService:
 
                 f_y = word_freq.get(coll_key, 0)
 
+                # Determine dominant POS for this collocate
+                pos_counts = collocate_pos_counter.get(coll_key)
+                dominant_pos = pos_counts.most_common(1)[0][0] if pos_counts else ""
+
                 # Compute requested statistics
                 scores = compute_statistics(
                     f_xy=f_xy,
@@ -280,6 +281,7 @@ class CollocationAnalysisService:
                     "collocate": coll_key,
                     "collocation_freq": f_xy,
                     "total_freq": f_y,
+                    "collocate_pos": dominant_pos,
                 }
                 result_item.update(scores)
                 results.append(result_item)

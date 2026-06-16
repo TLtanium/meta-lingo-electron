@@ -828,11 +828,15 @@ export default function CollocationResultsTable({
                     sx={{
                       cursor: 'pointer',
                       '&:hover': { bgcolor: 'action.hover' },
-                      bgcolor: isExpanded 
-                        ? 'action.selected' 
-                        : showMetaphorHighlight && result.is_metaphor 
-                          ? (theme) => theme.palette.mode === 'dark' ? 'rgba(255, 193, 7, 0.15)' : '#fff8e1'
-                          : 'inherit'
+                      bgcolor: isExpanded
+                        ? 'action.selected'
+                        : showMetaphorHighlight && result.is_mflag
+                          ? (theme) => theme.palette.mode === 'dark' ? 'rgba(156, 39, 176, 0.13)' : '#f5eafa'
+                          : showMetaphorHighlight && result.is_direct_metaphor
+                            ? (theme) => theme.palette.mode === 'dark' ? 'rgba(233, 30, 99, 0.13)' : '#fdeef4'
+                            : showMetaphorHighlight && result.is_metaphor
+                              ? (theme) => theme.palette.mode === 'dark' ? 'rgba(255, 193, 7, 0.15)' : '#fff8e1'
+                              : 'inherit'
                     }}
                   >
                     <TableCell align="center">

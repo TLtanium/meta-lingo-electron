@@ -97,37 +97,64 @@ def find_protected_spans(text: str) -> Set[Tuple[int, int]]:
 
 def find_native_newlines(text: str) -> Set[int]:
     """
-    Find character positions where native newlines occur (excluding empty lines).
-    A native newline is a single newline that starts a new line with actual content.
-    Empty lines (consecutive newlines or lines with only whitespace) are excluded.
-    
-    Returns a set of character positions that should start new segments.
+    Find character positions where native newlines represent real segment breaks.
+
+    A single newline is treated as a soft line-wrap (NOT a boundary) only when
+    BOTH conditions hold:
+      1. The preceding non-whitespace character is NOT sentence-ending punctuation
+         (. ! ? ;)  — i.e. the previous line ended mid-word/mid-sentence
+      2. The first character of the next line is lowercase — i.e. the sentence
+         clearly continues (e.g. PDF hard-wrap: "We\nunderstand")
+
+    In all other cases the newline is a genuine segment boundary and is respected:
+      - Previous line ends with punctuation  → always split
+      - Next line starts with uppercase      → always split (new sentence, proper
+        noun, poem line, formatted list, etc.)
+      - Empty line (double newline)          → handled elsewhere, skipped here
+
+    Returns a set of character positions (content start after the newline).
     """
+    SENTENCE_END_CHARS = frozenset('.!?;')
     boundaries = set()
-    
-    # Find all single newline positions
+
     i = 0
     while i < len(text):
         if text[i] == '\n':
-            # Check if this is part of an empty line (consecutive newlines or newline followed by whitespace then newline)
-            # Look ahead to see if there's content before the next newline
+            # ── Look ahead: find first non-space content after newline ────────
             j = i + 1
-            
-            # Skip spaces/tabs (not newlines)
             while j < len(text) and text[j] in ' \t':
                 j += 1
-            
-            # If we hit another newline or end of text, this is an empty line - skip
+
+            # Empty line (another \n or end of text) → skip, not a native newline
             if j >= len(text) or text[j] == '\n':
                 i += 1
                 continue
-            
-            # This is a native newline with content following
-            # The boundary is at the start of actual content (after whitespace)
-            boundaries.add(j)
-        
+
+            next_char = text[j]
+
+            # ── Look behind: find last non-whitespace character ───────────────
+            k = i - 1
+            while k >= 0 and text[k] in ' \t':
+                k -= 1
+
+            if k < 0:
+                boundaries.add(j)
+                i += 1
+                continue
+
+            prev_char = text[k]
+
+            # Soft line-wrap: skip ONLY when prev has no punct AND next is lowercase
+            is_soft_wrap = (
+                prev_char not in SENTENCE_END_CHARS
+                and next_char.islower()
+            )
+
+            if not is_soft_wrap:
+                boundaries.add(j)
+
         i += 1
-    
+
     return boundaries
 
 
@@ -533,19 +560,18 @@ except ImportError:
     pass  # SpaCy not available
 
 
-# Language name → (primary model, fallback model)
-SPACY_MODEL_MAP = {
-    'english':    ('en_core_web_sm', None),
-    'chinese':    ('zh_core_web_sm', None),
-    'danish':     ('da_core_news_sm', None),
-    'dutch':      ('nl_core_news_sm', None),
-    'finnish':    ('fi_core_news_sm', None),
-    'french':     ('fr_core_news_sm', None),
-    'italian':    ('it_core_news_sm', None),
-    'portuguese': ('pt_core_news_sm', None),
-    'russian':    ('ru_core_news_sm', None),
-    'spanish':    ('es_core_news_sm', None),
-    'swedish':    ('sv_core_news_sm', None),
+SPACY_MODEL_MAP: dict[str, list[str]] = {
+    'english':    ['en_core_web_sm'],
+    'chinese':    ['zh_core_web_sm'],
+    'danish':     ['da_core_news_sm'],
+    'dutch':      ['nl_core_news_sm'],
+    'finnish':    ['fi_core_news_sm'],
+    'french':     ['fr_core_news_sm'],
+    'italian':    ['it_core_news_sm'],
+    'portuguese': ['pt_core_news_sm'],
+    'russian':    ['ru_core_news_sm'],
+    'spanish':    ['es_core_news_sm'],
+    'swedish':    ['sv_core_news_sm'],
 }
 
 # ISO code / variant aliases → canonical language name
@@ -643,9 +669,8 @@ class SpacyService:
                 return self._models[lang]
             models = SPACY_MODEL_MAP['english']
 
-        primary, fallback = models
         nlp = None
-        for model_name in [m for m in (primary, fallback) if m]:
+        for model_name in models:
             try:
                 nlp = spacy.load(model_name)
                 logger.info(f"Loaded SpaCy model: {model_name}")
@@ -656,7 +681,7 @@ class SpacyService:
 
         if nlp is None:
             logger.error(f"No SpaCy model found for language '{language}'. "
-                         f"Tried: {[m for m in (primary, fallback) if m]}")
+                         f"Tried: {models}")
             return None
 
         self._models[lang] = nlp

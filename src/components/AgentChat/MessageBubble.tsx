@@ -155,7 +155,7 @@ export default function MessageBubble({ message, isStreaming }: MessageBubblePro
             {message.content}
           </Typography>
         ) : (
-          <Box sx={{ position: 'relative' }}>
+          <Box>
             <Box
               sx={{
                 '& a': { color: 'primary.main' },
@@ -242,23 +242,24 @@ export default function MessageBubble({ message, isStreaming }: MessageBubblePro
               </ReactMarkdown>
             </Box>
 
-            {/* Copy button */}
-            {message.content && !isStreaming && (
-              <Tooltip title={copied ? t('aiAssistant.copied') : t('aiAssistant.copy')}>
-                <IconButton
-                  size="small"
-                  onClick={handleCopy}
-                  sx={{
-                    position: 'absolute',
-                    top: -4,
-                    right: -4,
-                    opacity: 0.5,
-                    '&:hover': { opacity: 1 },
-                  }}
-                >
-                  <ContentCopyIcon sx={{ fontSize: 14 }} />
-                </IconButton>
-              </Tooltip>
+            {/* Copy button — below message content */}
+            {message.content && (
+              <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 0.5 }}>
+                <Tooltip title={copied ? t('aiAssistant.copied') : t('aiAssistant.copy')}>
+                  <IconButton
+                    size="small"
+                    onClick={handleCopy}
+                    sx={{
+                      opacity: copied ? 1 : 0.45,
+                      color: copied ? 'success.main' : 'text.secondary',
+                      '&:hover': { opacity: 1, color: 'primary.main' },
+                      transition: 'opacity 0.2s, color 0.2s',
+                    }}
+                  >
+                    <ContentCopyIcon sx={{ fontSize: 15 }} />
+                  </IconButton>
+                </Tooltip>
+              </Box>
             )}
           </Box>
         )}

@@ -56,19 +56,19 @@
                                     "name": "counter",
                                     "type": "label",
                                     "definition": "反驳 (counter): 直接反驳对立观点。",
-                                    "color": "#7d86ce"
+                                    "color": "#8ecbcc"
                                   },
                                   {
                                     "id": "a13456ca-c7c2-489c-ab63-efacb59680a6",
                                     "name": "deny",
                                     "type": "label",
                                     "definition": "否定 (deny): 否定某种可能性或观点。",
-                                    "color": "#a6d0d5"
+                                    "color": "#cc8eb8"
                                   }
                                 ]
                               }
                             ],
-                            "color": "#ad8886"
+                            "color": "#8ea0cc"
                           },
                           {
                             "id": "52d602fe-1963-4435-89cc-6a88b2479bff",
@@ -99,50 +99,50 @@
                                             "name": "affirm",
                                             "type": "label",
                                             "definition": "确认 (affirm): 肯定、确认某种观点。",
-                                            "color": "#cfd0c0"
+                                            "color": "#cc8eb3"
                                           },
                                           {
                                             "id": "fbd23acd-79a9-4f48-aaab-8b4ceb32ce8e",
                                             "name": "concede",
                                             "type": "label",
                                             "definition": "让步 (concede): 承认或让步于某种观点。",
-                                            "color": "#9b7896"
+                                            "color": "#a1cc8e"
                                           }
                                         ]
                                       }
                                     ],
-                                    "color": "#7a8a8d"
+                                    "color": "#8ecc96"
                                   },
                                   {
                                     "id": "c3693f08-2f36-432f-be4d-5307c7077daa",
                                     "name": "endorse",
                                     "type": "label",
                                     "definition": "认可 (endorse): 支持或认可外部观点。",
-                                    "color": "#a1ae85"
+                                    "color": "#a88ecc"
                                   },
                                   {
                                     "id": "866010c3-a0eb-416d-8d75-3ad3ab323250",
                                     "name": "justify",
                                     "type": "label",
                                     "definition": "证明 (justify): 为观点提供理由或证据。",
-                                    "color": "#aa7dce"
+                                    "color": "#ccba8e"
                                   },
                                   {
                                     "id": "2fd23697-fa23-48d0-b1b4-1a3bfc56ddcc",
                                     "name": "pronounce",
                                     "type": "label",
                                     "definition": "宣称 (pronounce): 明确宣布或声明立场。",
-                                    "color": "#9cc2ac"
+                                    "color": "#8ecccc"
                                   }
                                 ]
                               }
                             ],
-                            "color": "#aca780"
+                            "color": "#cc8e8e"
                           }
                         ]
                       }
                     ],
-                    "color": "#cdc494"
+                    "color": "#8eccac"
                   },
                   {
                     "id": "c22ad5bd-eeeb-4937-b58f-d9eac21c9cb0",
@@ -173,43 +173,43 @@
                                     "name": "acknowledge",
                                     "type": "label",
                                     "definition": "承认 (acknowledge): 承认外部观点的存在。",
-                                    "color": "#aac5a4"
+                                    "color": "#918ecc"
                                   },
                                   {
                                     "id": "7a58af77-7958-456f-b485-7d67d7554dee",
                                     "name": "distance",
                                     "type": "label",
                                     "definition": "距离 (distance): 与外部观点保持距离。",
-                                    "color": "#817878"
+                                    "color": "#cca38e"
                                   }
                                 ]
                               }
                             ],
-                            "color": "#b7d47d"
+                            "color": "#afcc8e"
                           },
                           {
                             "id": "1cf81506-53d2-4e61-93d9-e8c02a31fac0",
                             "name": "entertain",
                             "type": "label",
                             "definition": "娱乐 (entertain): 将观点作为可能性之一提出。",
-                            "color": "#c2888c"
+                            "color": "#8e9dcc"
                           }
                         ]
                       }
                     ],
-                    "color": "#c8ba92"
+                    "color": "#be8ecc"
                   }
                 ]
               }
             ],
-            "color": "#9c96c6"
+            "color": "#8eccbe"
           },
           {
             "id": "97276e41-862c-4bb8-b664-1833b5fc60c8",
             "name": "mono-glossic",
             "type": "label",
             "definition": "单声性 (mono-glossic)：不引入其他声音，呈现为唯一或客观事实的语言资源。",
-            "color": "#819384"
+            "color": "#cc8ec8"
           }
         ]
       }

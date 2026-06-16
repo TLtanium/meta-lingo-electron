@@ -135,9 +135,8 @@ class USASTagger:
             logger.warning(f"No SpaCy model configured for '{language}'")
             return None
 
-        primary, fallback = spacy_models
         base_nlp = None
-        for model_name in [m for m in (primary, fallback) if m]:
+        for model_name in spacy_models:
             try:
                 base_nlp = spacy.load(model_name)
                 logger.info(f"Loaded SpaCy base model: {model_name}")

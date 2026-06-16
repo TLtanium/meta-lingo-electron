@@ -47,6 +47,7 @@ interface ElementCardProps {
   onDelete: (id: string) => void
   onUpdate: (element: BuilderElement) => void
   onEditComplete: () => void
+  annotationLabels?: string[]
 }
 
 // Generate CQL string from element
@@ -143,7 +144,8 @@ export default function ElementCard({
   onEdit,
   onDelete,
   onUpdate,
-  onEditComplete
+  onEditComplete,
+  annotationLabels
 }: ElementCardProps) {
   const { i18n } = useTranslation()
   const isZh = i18n.language === 'zh'
@@ -162,6 +164,7 @@ export default function ElementCard({
           element={element}
           onUpdate={onUpdate}
           onComplete={onEditComplete}
+          annotationLabels={annotationLabels}
         />
       )
     }

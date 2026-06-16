@@ -13,7 +13,7 @@
  * - POS/NER 显示
  */
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import {
   Box,
   Typography,
@@ -51,11 +51,12 @@ import InsertDriveFileIcon from '@mui/icons-material/InsertDriveFile'
 import EditIcon from '@mui/icons-material/Edit'
 import DeleteIcon from '@mui/icons-material/Delete'
 import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh'
+import KeyboardIcon from '@mui/icons-material/Keyboard'
 import html2canvas from 'html2canvas'
 import { useTranslation } from 'react-i18next'
 import { useCorpusStore } from '../../stores/corpusStore'
 import { frameworkApi, annotationApi, createTextAnnotationRequest, corpusApi } from '../../api'
-import { FrameworkTree, TextAnnotator, AnnotationTable, SyntaxVisualization, SearchAnnotateBox, BatchAnnotateDialog } from '../../components/Annotation'
+import { FrameworkTree, TextAnnotator, AnnotationTable, SyntaxVisualization, SearchAnnotateBox, BatchAnnotateDialog, KeyboardShortcutsDialog } from '../../components/Annotation'
 import AccountTreeIcon from '@mui/icons-material/AccountTree'
 import {
   isAutoAnnotationSupported,
@@ -66,15 +67,22 @@ import {
   AUTO_ANNOTATION_FRAMEWORKS
 } from '../../utils/autoAnnotation'
 import type { TextAnnotatorRef, SentenceInfo, SearchMatch } from '../../components/Annotation'
-import type { 
-  Framework, 
-  FrameworkCategory, 
-  Annotation, 
+import type {
+  Framework,
+  FrameworkCategory,
+  Annotation,
+  AnnotationRelation,
   SelectedLabel,
   AnnotationArchiveListItem,
   CorpusText,
-  Corpus
+  Corpus,
+  FrameworkNode
 } from '../../types'
+import {
+  getFrameworkShortcuts,
+  SHORTCUT_KEYS,
+  isMacOS
+} from '../../utils/annotationShortcuts'
 
 // SpaCy 标注接口
 interface SpacyToken {
@@ -151,6 +159,7 @@ export default function TextAnnotation() {
 
   // 标注状态
   const [annotations, setAnnotations] = useState<Annotation[]>([])
+  const [relations, setRelations] = useState<AnnotationRelation[]>([])
   const [highlightedAnnotationId, setHighlightedAnnotationId] = useState<string | null>(null)
   // 表格行点击选中的标注（用于在文本区域高亮定位）
   const [selectedAnnotationId, setSelectedAnnotationId] = useState<string | null>(null)
@@ -177,12 +186,72 @@ export default function TextAnnotation() {
   // 自动标注状态
   const [autoAnnotating, setAutoAnnotating] = useState(false)
 
+  // 键盘快捷键对话框
+  const [shortcutsDialogOpen, setShortcutsDialogOpen] = useState(false)
+
   // 表格行选中时滚动到对应标注
   useEffect(() => {
     if (selectedAnnotationId) {
       textAnnotatorRef.current?.scrollToAnnotation(selectedAnnotationId)
     }
   }, [selectedAnnotationId])
+
+  // 收集当前框架中所有已使用的标签名（用于 CQL annotation 属性）
+  const frameworkLabels = useMemo(() => {
+    const labels = new Set<string>()
+    annotations.forEach(ann => {
+      if (!ann.id.startsWith('spacy-') && ann.label) labels.add(ann.label)
+    })
+    return Array.from(labels)
+  }, [annotations])
+
+  // 从框架树收集所有可选标签名（用于快捷键下拉）
+  function flattenFrameworkLabels(node: FrameworkNode): string[] {
+    const result: string[] = []
+    if (node.type === 'label') result.push(node.name)
+    for (const child of node.children || []) result.push(...flattenFrameworkLabels(child))
+    return result
+  }
+
+  // 键盘快捷键监听 Ctrl/Cmd + 1-0
+  useEffect(() => {
+    if (!currentFramework) return
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const isMeta = isMacOS() ? e.metaKey : e.ctrlKey
+      if (!isMeta) return
+
+      const key = e.key as typeof SHORTCUT_KEYS[number]
+      if (!SHORTCUT_KEYS.includes(key)) return
+
+      e.preventDefault()
+      const shortcuts = getFrameworkShortcuts(currentFramework.id)
+      const slot = shortcuts[key]
+      if (!slot) return
+
+      // Find matching label in framework tree
+      const allLabels = flattenFrameworkLabels(currentFramework.root)
+      if (!allLabels.includes(slot.label)) return
+
+      // Select the label (find in framework tree by walking)
+      function findLabelNode(node: FrameworkNode, path: string[]): { node: FrameworkNode; path: string[] } | null {
+        const currentPath = [...path, node.name]
+        if (node.type === 'label' && node.name === slot!.label) return { node, path: currentPath }
+        for (const child of node.children || []) {
+          const found = findLabelNode(child, currentPath)
+          if (found) return found
+        }
+        return null
+      }
+      const found = findLabelNode(currentFramework.root, [])
+      if (found) {
+        setSelectedLabel({ node: found.node, path: found.path.join('/'), color: found.node.color || slot.color })
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [currentFramework])
 
   // 加载框架、语料库和所有存档
   // Load frameworks and corpora on mount
@@ -293,6 +362,7 @@ export default function TextAnnotation() {
     setSelectedText(null)
     setTextContent('')
     setAnnotations([])
+    setRelations([])
     setCurrentArchiveId(null)
     setSpacyAnnotation(null)
   }
@@ -317,6 +387,7 @@ export default function TextAnnotation() {
     
     setSelectedText(text)
     setAnnotations([])
+    setRelations([])
     setCurrentArchiveId(null)
     setCoderName('')
     setSpacyAnnotation(null)
@@ -386,6 +457,7 @@ export default function TextAnnotation() {
         const data = response.data.data
         setTextContent(data.text)
         setAnnotations(data.annotations)
+        setRelations(data.relations || [])
         setCurrentArchiveId(data.id)
         
         // 优先从存档恢复 SpaCy 数据
@@ -420,9 +492,12 @@ export default function TextAnnotation() {
           setSelectedText(null)
         }
         
+        // Match by name, with id fallback so legacy archives saved under the old
+        // framework name "MIPVU" still resolve to the renamed "Metaphor" framework
+        // (id is still "MIPVU").
         if (data.framework) {
           for (const category of frameworks) {
-            const fw = category.frameworks.find(f => f.name === data.framework)
+            const fw = category.frameworks.find(f => f.name === data.framework || f.id === data.framework)
             if (fw) {
               setSelectedFrameworkId(fw.id)
               loadFramework(fw.id)
@@ -517,7 +592,8 @@ export default function TextAnnotation() {
         currentArchiveId || undefined,
         coderName || undefined,
         spacyAnnotation || undefined,  // 保存 SpaCy 标注数据
-        selectedText?.id || undefined   // 传递 textId 用于精确关联
+        selectedText?.id || undefined,  // 传递 textId 用于精确关联
+        relations.length > 0 ? relations : undefined  // 保存标注关联
       )
 
       const response = await annotationApi.save(request)
@@ -829,10 +905,13 @@ export default function TextAnnotation() {
         // MIPVU 自动标注：获取 MIPVU 标注数据并创建 indirect 标签
         const response = await corpusApi.getMipvuAnnotation(currentCorpus.id, selectedText.id)
         if (response.success && response.data) {
-          const newAnnotations = createMipvuAnnotations(response.data, textContent)
+          const { annotations: newAnnotations, relations: newRelations } = createMipvuAnnotations(response.data, textContent)
           if (newAnnotations.length > 0) {
             const merged = mergeAnnotations(annotations, newAnnotations)
             setAnnotations(merged)
+            if (newRelations.length > 0) {
+              setRelations(prev => [...prev, ...newRelations])
+            }
             setSaveMessage({
               type: 'success',
               text: t('annotation.autoAnnotateSuccess', '已自动添加 {{count}} 条标注', { count: newAnnotations.length })
@@ -1197,10 +1276,14 @@ export default function TextAnnotation() {
                   onSearchChange={handleSearchChange}
                   onConfirmAnnotate={handleSearchConfirm}
                   disabled={!selectedLabel}
-                  placeholder={selectedLabel 
+                  placeholder={selectedLabel
                     ? t('annotation.searchToAnnotate', '搜索并标注为 "{{label}}"...', { label: selectedLabel.node.name })
                     : t('annotation.selectLabelFirstToSearch', '请先选择标签再搜索')
                   }
+                  corpusId={currentCorpus?.id}
+                  textId={selectedText?.id}
+                  currentAnnotations={annotations}
+                  frameworkLabels={frameworkLabels}
                 />
                 
                 <Stack direction="row" spacing={1} alignItems="center">
@@ -1224,8 +1307,8 @@ export default function TextAnnotation() {
                       size="small"
                       onClick={handleExportSvg}
                       disabled={exporting !== null}
-                      sx={{ 
-                        bgcolor: '#9C27B0', 
+                      sx={{
+                        bgcolor: '#9C27B0',
                         color: 'white',
                         '&:hover': { bgcolor: '#7B1FA2' }
                       }}
@@ -1233,7 +1316,26 @@ export default function TextAnnotation() {
                       {exporting === 'svg' ? <CircularProgress size={18} color="inherit" /> : <InsertDriveFileIcon fontSize="small" />}
                     </IconButton>
                   </Tooltip>
-                  
+
+                  {/* 键盘快捷键按钮 */}
+                  <Tooltip title={t('annotation.keyboardShortcuts', '键盘快捷键设置')}>
+                    <span>
+                      <IconButton
+                        size="small"
+                        onClick={() => setShortcutsDialogOpen(true)}
+                        disabled={!currentFramework}
+                        sx={{
+                          bgcolor: '#455A64',
+                          color: 'white',
+                          '&:hover': { bgcolor: '#37474F' },
+                          '&.Mui-disabled': { bgcolor: '#9E9E9E', color: 'rgba(255,255,255,0.5)' }
+                        }}
+                      >
+                        <KeyboardIcon fontSize="small" />
+                      </IconButton>
+                    </span>
+                  </Tooltip>
+
                   {/* 句法可视化按钮 */}
                   <Tooltip title={t('syntax.viewSyntax', '查看句法结构')}>
                     <IconButton
@@ -1302,6 +1404,10 @@ export default function TextAnnotation() {
                 sentences={spacyAnnotation?.sentences}
                 searchHighlights={searchMatches.map(m => ({ start: m.start, end: m.end }))}
                 selectedAnnotationId={selectedAnnotationId}
+                onAnnotationClick={(id) => setSelectedAnnotationId(prev => prev === id ? null : id)}
+                relations={relations}
+                onRelationAdd={(rel) => setRelations(prev => [...prev, rel])}
+                onRelationRemove={(id) => setRelations(prev => prev.filter(r => r.id !== id))}
               />
 
               {/* 标注表格 */}
@@ -1322,6 +1428,7 @@ export default function TextAnnotation() {
                   selectionMode={selectedText?.id ? 'selected' : 'all'}
                   onSelect={(id) => setSelectedAnnotationId(prev => prev === id ? null : id)}
                   selectedId={selectedAnnotationId}
+                  relations={relations}
                 />
               </Box>
             </Box>
@@ -1460,6 +1567,13 @@ export default function TextAnnotation() {
           labelColor={selectedLabel.color}
         />
       )}
+
+      {/* 键盘快捷键设置对话框 */}
+      <KeyboardShortcutsDialog
+        open={shortcutsDialogOpen}
+        onClose={() => setShortcutsDialogOpen(false)}
+        framework={currentFramework}
+      />
     </Box>
   )
 }

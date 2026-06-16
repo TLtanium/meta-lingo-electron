@@ -41,6 +41,7 @@ interface CQLBuilderContentProps {
   externalElementsVersion?: number
   onCQLChange: (cql: string, elements: BuilderElement[], isValid: boolean) => void
   onCopy: () => void
+  annotationLabels?: string[]
 }
 
 // Get icon for element type (with optional size)
@@ -206,7 +207,8 @@ export default function CQLBuilderContent({
   externalElements,
   externalElementsVersion = 0,
   onCQLChange,
-  onCopy
+  onCopy,
+  annotationLabels
 }: CQLBuilderContentProps) {
   const { i18n } = useTranslation()
   const isZh = i18n.language === 'zh'
@@ -413,6 +415,7 @@ export default function CQLBuilderContent({
                   onDelete={handleDelete}
                   onUpdate={handleUpdate}
                   onEditComplete={handleEditComplete}
+                  annotationLabels={annotationLabels}
                 />
                 {/* Add button after each element */}
                 {renderAddButton(index + 1)}

@@ -10,10 +10,9 @@ export interface POSFilterConfig {
 }
 
 export interface SearchConfig {
-  searchType: 'all' | 'starts' | 'ends' | 'contains' | 'regex' | 'wordlist'
+  searchType: 'all' | 'wordform' | 'lemma' | 'starts' | 'ends' | 'contains' | 'regex' | 'wordlist'
   searchValue: string
   excludeWords: string[]
-  searchTarget?: 'word' | 'lemma'
 }
 
 export interface SemanticAnalysisRequest {
@@ -58,6 +57,9 @@ export interface SemanticWordResult {
   frequency: number
   percentage: number
   is_metaphor?: boolean
+  is_direct_metaphor?: boolean
+  is_mflag?: boolean
+  is_implicit_metaphor?: boolean
 }
 
 export interface SemanticAnalysisResponse {
@@ -74,6 +76,9 @@ export interface DomainWordItem {
   word: string
   frequency: number
   is_metaphor?: boolean
+  is_direct_metaphor?: boolean
+  is_mflag?: boolean
+  is_implicit_metaphor?: boolean
 }
 
 export interface DomainWordsResponse {

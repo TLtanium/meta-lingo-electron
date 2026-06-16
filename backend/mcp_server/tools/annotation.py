@@ -149,6 +149,7 @@ def register(mcp: FastMCP, client: MetaLingoClient):
         }
         if archive_id:
             body["archiveId"] = archive_id
+            body["appendMode"] = True  # MCP incremental: append to existing archive
 
         result = await client.post("/api/annotation/save", json_data=body)
         data = result.get("data", result)

@@ -35,22 +35,24 @@ class NGramService:
         max_freq: Optional[int] = None,
         min_word_length: int = 1,
         lowercase: bool = True,
-        nest_ngram: bool = False
+        nest_ngram: bool = False,
+        search_target: str = "word"
     ) -> Dict[str, Any]:
         """
         Perform N-gram analysis
-        
+
         Args:
             corpus_id: Corpus ID
             text_ids: List of text IDs or "all" for all texts
             n_values: List of N values (2-6), can select multiple
             pos_filter: POS filter config {selectedPOS: [], keepMode: bool}
-            search_config: Search config {searchType, searchValue, excludeWords}
+            search_config: Search config {searchType, searchValue, excludeWords, searchTarget}
             min_freq: Minimum frequency threshold
             max_freq: Maximum frequency threshold (optional)
             min_word_length: Minimum word length in characters
             lowercase: Convert all to lowercase
             nest_ngram: Enable Nest N-gram grouping
+            search_target: "word" for word forms, "lemma" for lemma forms
             
         Returns:
             Analysis results with N-gram frequencies
@@ -89,12 +91,15 @@ class NGramService:
                     "n_values": n_values
                 }
             
+            # Resolve search_target from search_config or parameter
+            effective_target = search_config.get("searchTarget", search_target) if search_config else search_target
+
             # Generate N-grams for each N value
             all_ngram_counts: Dict[int, Counter] = {}
-            
+
             for n in n_values:
                 ngram_counts = self._generate_ngrams(
-                    all_token_data, n, pos_filter, min_word_length
+                    all_token_data, n, pos_filter, min_word_length, effective_target
                 )
                 all_ngram_counts[n] = ngram_counts
             
@@ -271,53 +276,56 @@ class NGramService:
         token_data: List[Tuple[str, str, str]],
         n: int,
         pos_filter: Optional[Dict[str, Any]],
-        min_word_length: int
+        min_word_length: int,
+        search_target: str = "word"
     ) -> Counter:
         """
         Generate N-grams from token data
-        
+
         Args:
             token_data: List of (text, pos, lemma) tuples
             n: N-gram size
             pos_filter: POS filter config
             min_word_length: Minimum word length
-            
+            search_target: "word" to use word forms, "lemma" to use lemma forms
+
         Returns:
             Counter of N-gram frequencies
         """
         ngram_counts = Counter()
-        
+
         selected_pos = pos_filter.get("selectedPOS", []) if pos_filter else []
         keep_mode = pos_filter.get("keepMode", True) if pos_filter else True
-        
+        use_lemma = search_target == "lemma"
+
         for i in range(len(token_data) - n + 1):
             ngram_tokens = token_data[i:i+n]
-            
-            # Check minimum word length for all tokens in N-gram
+
+            # Check minimum word length (always based on surface form)
             if min_word_length > 1:
                 if not all(len(t[0]) >= min_word_length for t in ngram_tokens):
                     continue
-            
+
             # Apply POS filter - all tokens must satisfy the condition
             if selected_pos:
                 pos_list = [t[1] for t in ngram_tokens]
-                
+
                 if keep_mode:
-                    # Keep mode: all tokens must have selected POS
                     if not all(pos in selected_pos for pos in pos_list):
                         continue
                 else:
-                    # Filter mode: all tokens must NOT have selected POS
                     if any(pos in selected_pos for pos in pos_list):
                         continue
             elif keep_mode and pos_filter and len(selected_pos) == 0:
-                # Keep mode with no selection - skip all (user warning should be shown)
                 continue
-            
-            # Build N-gram string
-            ngram_str = ' '.join(t[0] for t in ngram_tokens)
+
+            # Build N-gram string using lemma or surface form
+            if use_lemma:
+                ngram_str = ' '.join(t[2] for t in ngram_tokens)
+            else:
+                ngram_str = ' '.join(t[0] for t in ngram_tokens)
             ngram_counts[ngram_str] += 1
-        
+
         return ngram_counts
     
     def _apply_frequency_filters(

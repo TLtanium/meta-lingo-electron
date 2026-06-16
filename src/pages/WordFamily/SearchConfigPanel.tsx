@@ -4,7 +4,6 @@
  */
 
 import {
-  Box,
   Typography,
   TextField,
   InputAdornment,
@@ -14,7 +13,11 @@ import {
   Accordion,
   AccordionSummary,
   AccordionDetails,
-  Divider
+  Divider,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem
 } from '@mui/material'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import TuneIcon from '@mui/icons-material/Tune'
@@ -27,10 +30,12 @@ interface SearchConfigPanelProps {
   minFreq: number
   maxResults: number
   lowercase: boolean
+  searchTarget: 'word' | 'lemma'
   onSearchQueryChange: (value: string) => void
   onMinFreqChange: (value: number) => void
   onMaxResultsChange: (value: number) => void
   onLowercaseChange: (value: boolean) => void
+  onSearchTargetChange: (value: 'word' | 'lemma') => void
   disabled?: boolean
 }
 
@@ -39,10 +44,12 @@ export default function SearchConfigPanel({
   minFreq,
   maxResults,
   lowercase,
+  searchTarget,
   onSearchQueryChange,
   onMinFreqChange,
   onMaxResultsChange,
   onLowercaseChange,
+  onSearchTargetChange,
   disabled = false
 }: SearchConfigPanelProps) {
   const { t } = useTranslation()
@@ -71,6 +78,23 @@ export default function SearchConfigPanel({
       
       <AccordionDetails>
         <Stack spacing={2}>
+          {/* Search Target: Word Form / Lemma */}
+          <FormControl fullWidth size="small">
+            <InputLabel>{t('synonym.search.searchTarget')}</InputLabel>
+            <Select
+              value={searchTarget}
+              label={t('synonym.search.searchTarget')}
+              onChange={(e) => onSearchTargetChange(e.target.value as 'word' | 'lemma')}
+              disabled={disabled}
+            >
+              <MenuItem value="word">{t('synonym.search.targetWord')}</MenuItem>
+              <MenuItem value="lemma">{t('synonym.search.targetLemma')}</MenuItem>
+            </Select>
+          </FormControl>
+          <Typography variant="caption" color="text.secondary" sx={{ mt: -1 }}>
+            {searchTarget === 'lemma' ? t('synonym.search.lemmaDesc') : t('synonym.search.wordDesc')}
+          </Typography>
+
           {/* Search query */}
           <TextField
             size="small"
@@ -89,7 +113,7 @@ export default function SearchConfigPanel({
             }}
           />
 
-          <Typography variant="caption" color="text.secondary">
+          <Typography variant="caption" color="text.secondary" sx={{ mt: -1 }}>
             {t('synonym.search.searchQueryHelp')}
           </Typography>
 

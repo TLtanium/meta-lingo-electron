@@ -28,6 +28,9 @@ import { useTranslation } from 'react-i18next'
 import { api } from '../../api/client'
 import { frameworkApi } from '../../api/framework'
 import { useSettingsStore } from '../../stores/settingsStore'
+import { useChatStore } from '../../stores/chatStore'
+import { cleanupTasks } from '../../api/agentChat'
+import { clearAllAnnotationShortcuts } from '../../utils/annotationShortcuts'
 
 export default function FactoryReset() {
   const { t } = useTranslation()
@@ -105,11 +108,7 @@ export default function FactoryReset() {
           } else {
             results.push(t('settings.dataResetCompleted'))
           }
-          const { setOpenaiApiEnabled, setOpenaiApiBaseUrl, setOpenaiApiKey, setOpenaiApiModel } = useSettingsStore.getState()
-          setOpenaiApiEnabled(false)
-          setOpenaiApiBaseUrl('https://api.openai.com/v1')
-          setOpenaiApiKey('')
-          setOpenaiApiModel('')
+          useSettingsStore.getState().resetApiConfig()
         } else {
           hasError = true
           results.push(t('settings.dataResetFailed'))
@@ -121,9 +120,20 @@ export default function FactoryReset() {
         message: results.join('; ') || t('settings.factoryResetCompleted')
       })
 
+      // Clear annotation keyboard shortcuts from localStorage
+      clearAllAnnotationShortcuts()
+
       // Notify Settings sub-panels to refresh their local UI state.
       // This avoids requiring a full page reload after factory reset.
       if (resetSuccess) {
+        // Clear agent chat conversations and disk task files
+        const { conversations, clearAllConversations } = useChatStore.getState()
+        const allTaskIds = conversations.flatMap((c) => c.taskIds ?? [])
+        clearAllConversations()
+        if (allTaskIds.length > 0) {
+          cleanupTasks(allTaskIds).catch(() => {/* best-effort */})
+        }
+
         window.dispatchEvent(new CustomEvent('meta-lingo:settings-reset-completed'))
       }
     } catch (error) {

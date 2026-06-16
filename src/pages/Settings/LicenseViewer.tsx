@@ -14,9 +14,10 @@ import { Article as ArticleIcon, ContentCopy as ContentCopyIcon } from '@mui/ico
 import { useTranslation } from 'react-i18next'
 import LicenseDialog from '../../components/Settings/LicenseDialog'
 
-const DOI_URL = 'https://doi.org/10.5281/zenodo.20091932'
+const DOI_URL = 'https://doi.org/10.5281/zenodo.20434134'
 
-const CITATION_TEXT = `Leo, T. (2026). Meta-Lingo: A Corpus-Based Platform for Linguistic and Discourse Analysis. Software. ${DOI_URL}`
+const CITATION_VERSION = 'v4.8.45'
+const CITATION_TEXT = `Tommy Leo. (2026). TLtanium/meta-lingo-electron: Meta-Lingo ${CITATION_VERSION} (${CITATION_VERSION}). Zenodo. ${DOI_URL}`
 
 export default function LicenseViewer() {
   const { t, i18n } = useTranslation()
@@ -92,7 +93,7 @@ export default function LicenseViewer() {
         }}
       >
         <Typography variant="body2" sx={{ fontFamily: 'monospace', lineHeight: 1.8 }}>
-          Leo, T. (2026). <em>Meta-Lingo: A Corpus-Based Platform for Linguistic and Discourse Analysis.</em> Software.{' '}
+          Tommy Leo. (2026). <em>TLtanium/meta-lingo-electron: Meta-Lingo {CITATION_VERSION} ({CITATION_VERSION}).</em> Zenodo.{' '}
           <Link
             href={DOI_URL}
             target="_blank"

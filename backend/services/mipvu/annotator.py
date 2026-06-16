@@ -4,7 +4,7 @@ MIPVU Annotator
 Core annotation logic implementing the MIPVU metaphor detection pipeline:
 1. Word form filtering (metaphor_filter.json)
 2. SpaCy-based rule filtering (POS, dependency, high-confidence rules)
-3. Model prediction (metalingo-deberta-metaphor) for ALL remaining tokens
+3. Model prediction (metalingo-indirect-metaphor) for ALL remaining tokens
    - Function words (IN/DT/RB/RP): source tagged as 'finetuned' (orange in UI)
    - Non-function words (OTHER): source tagged as 'clause' (green in UI)
 """
@@ -15,6 +15,8 @@ from typing import Dict, List, Optional, Any, Callable
 from .filter import MetaphorFilter
 from .rules import SpaCyRuleFilter
 from .models import MetaphorModelLoader
+from .mflag_filter import sentence_has_mflag
+from .implicit_detector import detect_implicit_metaphors
 
 logger = logging.getLogger(__name__)
 
@@ -26,16 +28,17 @@ class MIPVUAnnotator:
     Implements a three-step pipeline:
     1. Word form filtering  - filter out high-frequency non-metaphor words
     2. SpaCy rule filtering - filter based on POS, dependency, and high-confidence rules
-    3. DeBERTa model        - metalingo-deberta-metaphor for ALL remaining tokens
-       * Full sentence words are passed for clause-level context
-       * Function words (IN/DT/RB/RP) → source='finetuned'
-       * Non-function words → source='clause'
+    3. DeBERTa model        - metalingo-indirect-metaphor for ALL remaining tokens
+       * Function words (IN/DT/RB/RP) → source='finetuned' (orange in UI)
+       * Non-function words → source='clause' (green in UI)
+       (IDs 'finetuned'/'clause' are stored in data; display names = "Indirect Metaphor Model")
     """
 
     def __init__(
         self,
         filter_path: Optional[str] = None,
         finetuned_model_path: Optional[str] = None,
+        direct_model_path: Optional[str] = None,
         device: Optional[str] = None
     ):
         """
@@ -43,13 +46,15 @@ class MIPVUAnnotator:
 
         Args:
             filter_path: Path to metaphor_filter.json
-            finetuned_model_path: Path to clause-level metaphor model
+            finetuned_model_path: Path to indirect (clause-level) metaphor model
+            direct_model_path: Path to direct metaphor model
             device: Device for model inference
         """
         self.filter = MetaphorFilter(filter_path)
         self.rules = SpaCyRuleFilter()
         self.models = MetaphorModelLoader(
             finetuned_model_path=finetuned_model_path,
+            direct_model_path=direct_model_path,
             device=device
         )
         self._models_loaded = False
@@ -101,7 +106,12 @@ class MIPVUAnnotator:
                 **t,
                 'is_metaphor': False,
                 'metaphor_confidence': 0.0,
-                'metaphor_source': 'pending'
+                'metaphor_source': 'pending',
+                'is_direct_metaphor': False,
+                'is_mflag': False,
+                'direct_confidence': 0.0,
+                'is_implicit_metaphor': False,
+                'implicit_rule': '',
             })
 
         # Track which tokens still need processing by the model
@@ -156,6 +166,28 @@ class MIPVUAnnotator:
                 result['metaphor_confidence'] = 0.0
                 result['metaphor_source'] = 'unknown'
 
+        # Step 4: Direct metaphor annotation (only on mflag-candidate sentences)
+        # Per MIPVU methodology, a direct MRW must co-occur with an MFlag signal
+        # word in the same sentence.  If the model returns direct labels but NO
+        # mflag label for the sentence, the direct annotations are model errors
+        # and must be discarded.
+        if self._models_loaded and self.models.is_direct_model_loaded() and sentence_has_mflag(tokens):
+            direct_preds = self.models.predict_direct(words)  # List[Tuple[str, float]]
+
+            # Validate: require at least one mflag in the sentence before
+            # accepting any direct labels.
+            has_sentence_mflag = any(lbl == 'mflag' for lbl, _ in direct_preds)
+
+            for i, (label, confidence) in enumerate(direct_preds):
+                if label == 'mflag':
+                    results[i]['is_mflag'] = True
+                    results[i]['direct_confidence'] = confidence
+                elif label == 'direct' and has_sentence_mflag:
+                    # Only mark as direct metaphor when the sentence also has
+                    # an MFlag token — otherwise treat as no direct annotation.
+                    results[i]['is_direct_metaphor'] = True
+                    results[i]['direct_confidence'] = confidence
+
         return results
 
     def annotate_text(
@@ -200,6 +232,9 @@ class MIPVUAnnotator:
         annotated_sentences: List[Dict[str, Any]] = []
         total_tokens = 0
         metaphor_tokens = 0
+        direct_metaphor_tokens = 0
+        mflag_tokens = 0
+        implicit_metaphor_tokens = 0
         source_counts = {
             'filter': 0,
             'rule': 0,
@@ -280,6 +315,12 @@ class MIPVUAnnotator:
                         metaphor_tokens += 1
                         pos_groups['ALL']['metaphor_tokens'] += 1
 
+                    if bool(token.get('is_direct_metaphor', False)):
+                        direct_metaphor_tokens += 1
+                    if bool(token.get('is_mflag', False)):
+                        mflag_tokens += 1
+                    # is_implicit_metaphor is counted after Step 5 (post-processing pass)
+
                     # Update POS-specific group
                     if group_key in pos_groups:
                         pos_groups[group_key]['total_tokens'] += 1
@@ -305,6 +346,20 @@ class MIPVUAnnotator:
                 progress = int((sent_idx + 1) / total_sentences * 100)
                 progress_callback(progress, f"Annotating sentence {sent_idx + 1}/{total_sentences}")
 
+        # Step 5: Implicit metaphor detection (rule-based post-processing)
+        # This pass depends on is_metaphor flags set in Steps 1-4 above, so it
+        # must run AFTER all sentences have been annotated.
+        token_lists = [s['tokens'] for s in annotated_sentences]
+        token_lists_impl = detect_implicit_metaphors(token_lists)
+        for sent_idx_impl, (sent_obj, new_tokens) in enumerate(
+            zip(annotated_sentences, token_lists_impl)
+        ):
+            annotated_sentences[sent_idx_impl]['tokens'] = new_tokens
+            for token in new_tokens:
+                word = token.get('word', '')
+                if word and word.isalpha() and bool(token.get('is_implicit_metaphor', False)):
+                    implicit_metaphor_tokens += 1
+
         literal_tokens = total_tokens - metaphor_tokens
         metaphor_rate = metaphor_tokens / total_tokens if total_tokens > 0 else 0.0
 
@@ -323,6 +378,10 @@ class MIPVUAnnotator:
                 'metaphor_tokens': metaphor_tokens,
                 'literal_tokens': literal_tokens,
                 'metaphor_rate': metaphor_rate,
+                'direct_metaphor_tokens': direct_metaphor_tokens,
+                'mflag_tokens': mflag_tokens,
+                'implicit_metaphor_tokens': implicit_metaphor_tokens,
+                'indirect_metaphor_tokens': metaphor_tokens,
                 'source_counts': source_counts,
                 'pos_group_stats': pos_groups,
             }

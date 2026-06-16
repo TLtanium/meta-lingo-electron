@@ -1,0 +1,605 @@
+{
+  "metadata": {
+    "title": "MIPVU MFlag（隐喻信号词）完整词表",
+    "source": "Steen et al. (2010). A Method for Linguistic Metaphor Identification: From MIP to MIPVU. John Benjamins.",
+    "definition": "MFlag 是提示语言使用者某种对比或比较正在发生的词汇信号（§2.6）。MFlag 本身不是隐喻相关词（MRW），而是标记直接隐喻（MRW, direct）的存在。编码：MFlag。",
+    "theoretical_basis": "Goatly (1997) 的隐喻信号分类；Cameron (2003) 的不相容域标准",
+    "corpus": "BNC-Baby（约18.7万词元，英语；含新闻、口语、小说、学术四类语料）",
+    "total_attested_tokens_raw": 167,
+    "total_attested_tokens_corrected": 151,
+    "notes": [
+      "Ch.9排查后将话题域信号（human/emotional等）从MFlag中移除，总数从167降至151",
+      "MFlag仅占语料库总词元的0.1%（141/186688），极为稀少",
+      "of（所有格/同位结构）和's（所有格）的MFlag用法在书中承认存在但未系统检验",
+      "Group B词项在书中被检验后确认在该语料库中未作为MFlag出现，但理论上可作为候选"
+    ]
+  },
+  "inclusion_criteria": {
+    "description": "§2.6 规定的纳入标准",
+    "included": [
+      "比较明喻标记（simile/analogy markers）：如 like, as, more/less...than 等",
+      "实质性词汇比较标记（substantial lexical markers）：compare, same, similar, analogy 等",
+      "复合心理构建标记（complex mental conception markers）：regard as, conceive of, see as, as if 等"
+    ],
+    "excluded": [
+      "一般间接性信号（general indirectness signals）：sort of, kind of 等——不能明确区分隐喻性与其他话语现象",
+      "话题域信号（topic domain signals，Goatly 1997）：如 human in human resources，intellectual in intellectual stagnation——其性质和边界不明确"
+    ]
+  },
+  "categories": {
+    "A_comparative_particles": {
+      "label": "比较连词/介词型",
+      "description": "直接引发明喻比较的功能词，是最核心、最高频的MFlag类型",
+      "source_section": "§2.6 §1.5 Ch.5 §5.3.1",
+      "items": [
+        {
+          "form": "like",
+          "pos": "preposition / conjunction",
+          "corpus_status": "attested",
+          "corpus_tokens": 57,
+          "percent_of_all_mflags": "34.1%",
+          "note": "最高频MFlag，单独占所有MFlag的34.1%；引介源域前置修饰语（如dragonfly前的angry/restless也划入源域范围）",
+          "attested_examples": [
+            "like a buzzard in its eyrie (A1H-fragment05)",
+            "like some angry restless dragonfly (J54-fragment08)",
+            "He's like a favourite old coat (J54-fragment08)",
+            "falling like a parachutist (BPA-fragment14)",
+            "he looked like John the Baptist (CDB-fragment04)",
+            "like a defeated proud man (FET-fragment01)",
+            "Sometimes it's like someone took a knife (Springsteen, Ch.1)"
+          ],
+          "usage_rule": "like后的整个源域词组（含前置修饰语）均标注为MRW, direct；like本身标注为MFlag"
+        },
+        {
+          "form": "as",
+          "pos": "preposition / conjunction",
+          "corpus_status": "attested",
+          "corpus_tokens": 29,
+          "percent_of_all_mflags": "17.4%",
+          "note": "第二高频MFlag；与like合计占所有MFlag的51.5%",
+          "attested_examples": [
+            "as the doctor provides to the patient (A8R-fragment02)",
+            "Shall I compare thee to a summer's day? (Shakespeare, Ch.1)"
+          ],
+          "usage_rule": "在直接比较结构中作为源域引介标记"
+        },
+        {
+          "form": "more",
+          "pos": "adverb (comparative)",
+          "corpus_status": "prescribed",
+          "corpus_tokens": null,
+          "note": "§2.6明确列出；在语料库排查中未作为独立MFlag大量出现，可能多以more...than复合形式出现",
+          "usage_rule": "仅在构成跨域比较时标注；单纯程度比较不标注"
+        },
+        {
+          "form": "less",
+          "pos": "adverb (comparative)",
+          "corpus_status": "prescribed",
+          "corpus_tokens": null,
+          "note": "§2.6明确列出",
+          "usage_rule": "与more同"
+        },
+        {
+          "form": "more...than",
+          "pos": "multi-word comparative construction",
+          "corpus_status": "prescribed",
+          "corpus_tokens": null,
+          "note": "§2.6明确列出的完整比较结构",
+          "usage_rule": "整个结构构成比较框架时标注"
+        },
+        {
+          "form": "less...than",
+          "pos": "multi-word comparative construction",
+          "corpus_status": "prescribed",
+          "corpus_tokens": null,
+          "note": "§2.6明确列出",
+          "usage_rule": "与more...than同"
+        },
+        {
+          "form": "more/less...than",
+          "pos": "multi-word comparative construction",
+          "corpus_status": "prescribed",
+          "corpus_tokens": null,
+          "note": "§2.6原文：'more/less … than'",
+          "usage_rule": "比较级结构引发跨域比较时标注"
+        },
+        {
+          "form": "[comparative_inflection] + than",
+          "pos": "grammatical pattern (ADJ-er / ADV-er + than)",
+          "corpus_status": "prescribed",
+          "corpus_tokens": null,
+          "note": "§2.6原文：'comparative inflection plus than'；即形容词/副词比较级加than构成的明喻型比较",
+          "usage_rule": "比较级+than触发跨域比较时，than（有时含比较级词本身）标注为MFlag"
+        }
+      ]
+    },
+    "B_substantive_comparison_markers": {
+      "label": "实质性比较词汇型",
+      "description": "具有实质词汇意义、明确表达相似/比较关系的词语",
+      "source_section": "§2.6 Ch.9 Group A Group B",
+      "items": [
+        {
+          "form": "compare",
+          "pos": "verb",
+          "corpus_status": "tested_not_attested_as_mflag",
+          "corpus_tokens": 0,
+          "note": "§2.6规定为MFlag候选；Ch.9 Group B检验72例均为非MFlag用法（字面比较），在该语料库中未作为MFlag标注。书中举例：'Shall I compare thee to a summer's day?'（Ch.1引理论案例，非语料库标注）",
+          "usage_rule": "仅当compare明确引发非字面跨域比较时标注为MFlag；字面比较（如学术对比）不标注"
+        },
+        {
+          "form": "comparison",
+          "pos": "noun",
+          "corpus_status": "tested_not_attested_as_mflag",
+          "corpus_tokens": 0,
+          "note": "§2.6规定候选；Ch.9 Group B检验后在语料库中未作为MFlag出现",
+          "usage_rule": "同compare"
+        },
+        {
+          "form": "comparative",
+          "pos": "adjective / noun",
+          "corpus_status": "tested_not_attested_as_mflag",
+          "corpus_tokens": 0,
+          "note": "§2.6规定候选；Ch.9 Group B检验后在语料库中未作为MFlag出现",
+          "usage_rule": "同compare"
+        },
+        {
+          "form": "same",
+          "pos": "adjective / determiner",
+          "corpus_status": "prescribed",
+          "corpus_tokens": null,
+          "note": "§2.6明确列出；书中未报告语料库频次",
+          "usage_rule": "在引发跨域类比时标注；单纯同一性指称不标注"
+        },
+        {
+          "form": "similar",
+          "pos": "adjective",
+          "corpus_status": "tested_not_attested_as_mflag",
+          "corpus_tokens": 0,
+          "note": "§2.6规定候选；Ch.9 Group B检验后在语料库中未作为MFlag出现",
+          "usage_rule": "仅在跨域比较时标注；字面相似性（如人与兄弟的外貌相似）不标注"
+        },
+        {
+          "form": "analogy",
+          "pos": "noun",
+          "corpus_status": "tested_not_attested_as_mflag",
+          "corpus_tokens": 0,
+          "note": "§2.6规定候选；Ch.9 Group B检验后在语料库中未作为MFlag出现",
+          "usage_rule": "若明确引发类比框架则标注；元话语性用法不标注"
+        },
+        {
+          "form": "analogue",
+          "pos": "noun",
+          "corpus_status": "tested_not_attested_as_mflag",
+          "corpus_tokens": 0,
+          "note": "§2.6规定候选；Ch.9 Group B检验后在语料库中未作为MFlag出现",
+          "usage_rule": "同analogy"
+        },
+        {
+          "form": "resemble",
+          "pos": "verb",
+          "corpus_status": "attested_verified",
+          "corpus_tokens": null,
+          "note": "Ch.9 Group A检验项目；在学术语料中有实际MFlag标注案例（resembling作为MFlag）",
+          "attested_examples": [
+            "resembling that of an Arab minaret (AMM-fragment01, 古生物学教材) → resembling标注为MFlag，that of an Arab minaret标注为MRW, direct"
+          ],
+          "usage_rule": "当resemble/resembling引发非字面跨域比较时标注为MFlag"
+        },
+        {
+          "form": "resemblance",
+          "pos": "noun",
+          "corpus_status": "tested_not_attested_as_mflag",
+          "corpus_tokens": 0,
+          "note": "Ch.9 Group B检验项；在语料库中仅出现字面外貌相似用法，未标注为MFlag",
+          "counterexample": "He would have recognized her from her strong resemblance to her brother although she looked the elder by some years. (C8T-fragment01) → 字面相似，非MFlag",
+          "usage_rule": "字面外貌相似不标注；须引发真正跨域比较才标注"
+        },
+        {
+          "form": "remind",
+          "pos": "verb",
+          "corpus_status": "attested_verified",
+          "corpus_tokens": null,
+          "note": "Ch.9 Group A检验项目；在语料库中有MFlag标注",
+          "usage_rule": "当remind引发源-目标域联想映射时标注；字面提醒不标注"
+        },
+        {
+          "form": "reminiscent",
+          "pos": "adjective",
+          "corpus_status": "attested_verified",
+          "corpus_tokens": null,
+          "note": "Ch.9 Group A检验项目；在语料库中有MFlag标注",
+          "usage_rule": "引发跨域类比时标注"
+        }
+      ]
+    },
+    "C_mental_conception_markers": {
+      "label": "心理构建标记型",
+      "description": "提示概念在心理上被重新范畴化（imagined re-categorization）的词语",
+      "source_section": "§2.6 §1.5",
+      "items": [
+        {
+          "form": "as if",
+          "pos": "conjunction / multi-word",
+          "corpus_status": "attested",
+          "corpus_tokens": 7,
+          "note": "§2.6明确列出；语料库中有7个MFlag标注",
+          "usage_rule": "引发反事实的跨域投射时标注；单纯假设条件不标注"
+        },
+        {
+          "form": "as though",
+          "pos": "conjunction / multi-word",
+          "corpus_status": "attested_verified",
+          "corpus_tokens": null,
+          "note": "Ch.9 Group A检验项目；在语料库中有MFlag标注",
+          "usage_rule": "与as if同；引发反事实跨域投射"
+        },
+        {
+          "form": "regard as",
+          "pos": "multi-word verb",
+          "corpus_status": "prescribed",
+          "corpus_tokens": null,
+          "note": "§2.6明确列出",
+          "usage_rule": "将某对象概念化为另一类型时标注"
+        },
+        {
+          "form": "conceive of",
+          "pos": "multi-word verb",
+          "corpus_status": "prescribed",
+          "corpus_tokens": null,
+          "note": "§2.6明确列出",
+          "usage_rule": "以某种跨域方式构想时标注"
+        },
+        {
+          "form": "see as",
+          "pos": "multi-word verb",
+          "corpus_status": "prescribed",
+          "corpus_tokens": null,
+          "note": "§2.6明确列出；'see X as Y'结构",
+          "usage_rule": "将某对象以另一概念框架理解时标注"
+        },
+        {
+          "form": "imagine",
+          "pos": "verb",
+          "corpus_status": "tested_not_attested_as_mflag",
+          "corpus_tokens": 0,
+          "note": "§2.6规定候选；Ch.9 Group B检验后在语料库中未作为MFlag出现",
+          "usage_rule": "引发明确跨域想象时标注；一般性使用不标注"
+        },
+        {
+          "form": "think",
+          "pos": "verb",
+          "corpus_status": "prescribed",
+          "corpus_tokens": null,
+          "note": "§2.6列出（'think as if'语境）",
+          "usage_rule": "在'think of X as Y'或'think as if'等跨域框架中标注；一般认知用法不标注"
+        },
+        {
+          "form": "talk",
+          "pos": "verb",
+          "corpus_status": "prescribed",
+          "corpus_tokens": null,
+          "note": "§2.6列出（'talk as if'语境）",
+          "usage_rule": "在'talk as if'等引发跨域框架的结构中标注"
+        },
+        {
+          "form": "behave as if",
+          "pos": "multi-word construction",
+          "corpus_status": "prescribed",
+          "corpus_tokens": null,
+          "note": "§2.6明确列出",
+          "usage_rule": "行为框架引发跨域映射时标注"
+        }
+      ]
+    },
+    "D_evidential_epistemic_markers": {
+      "label": "证据性/认知性标记型（准明喻/quasi-simile）",
+      "description": "表示可能性/表象而非确定性的词语，用于 quasi-simile（准明喻），将拟人化或直接隐喻软化为'似乎是这样'",
+      "source_section": "Ch.5 §5.3.1 §5.3.3",
+      "items": [
+        {
+          "form": "seem",
+          "pos": "verb",
+          "corpus_status": "prescribed_from_text",
+          "corpus_tokens": null,
+          "note": "§5.3.1明确提及：'words such as like, as, seem, appear, etc.'；用于quasi-simile信号",
+          "quasi_simile_role": "将直接或拟人化表达标记为'可能是隐喻'的认知限定",
+          "usage_rule": "当seem引发源域的认知重新范畴化时标注为MFlag；纯描述性seem不标注"
+        },
+        {
+          "form": "appear",
+          "pos": "verb",
+          "corpus_status": "prescribed_from_text",
+          "corpus_tokens": null,
+          "note": "§5.3.1明确提及；§5.3.3引用Leech & Short：'words such as seemed, appeared, apparent, and imagined'用于Hardy的quasi-simile",
+          "usage_rule": "同seem"
+        },
+        {
+          "form": "apparently",
+          "pos": "adverb",
+          "corpus_status": "attested_verified",
+          "corpus_tokens": null,
+          "note": "Ch.9 Group A检验项目；在语料库中有MFlag标注",
+          "usage_rule": "限定性表达跨域投射时标注"
+        },
+        {
+          "form": "appearance",
+          "pos": "noun",
+          "corpus_status": "attested_verified",
+          "corpus_tokens": null,
+          "note": "Ch.9 Group A检验项目；在语料库中有MFlag标注",
+          "usage_rule": "在引发表象-现实域对比时标注"
+        },
+        {
+          "form": "seemingly",
+          "pos": "adverb",
+          "corpus_status": "attested_from_corpus_example",
+          "corpus_tokens": null,
+          "note": "§5.3.3明确作为quasi-simile信号出现：'seemingly determined to fight their way inside (FPB-fragment01)'",
+          "attested_examples": [
+            "seemingly determined to fight their way inside (FPB-fragment01) → 准明喻，seemingly为MFlag"
+          ],
+          "usage_rule": "引发准明喻中的认知限定时标注为MFlag"
+        },
+        {
+          "form": "seemed",
+          "pos": "verb (past tense of seem)",
+          "corpus_status": "prescribed_from_text",
+          "corpus_tokens": null,
+          "note": "§5.3.3 Leech & Short引文列出：'seemed, appeared, apparent, and imagined'用于准明喻",
+          "usage_rule": "同seem"
+        },
+        {
+          "form": "appeared",
+          "pos": "verb (past tense of appear)",
+          "corpus_status": "prescribed_from_text",
+          "corpus_tokens": null,
+          "note": "§5.3.3列出",
+          "usage_rule": "同appear"
+        },
+        {
+          "form": "apparent",
+          "pos": "adjective",
+          "corpus_status": "prescribed_from_text",
+          "corpus_tokens": null,
+          "note": "§5.3.3列出",
+          "usage_rule": "在引发表象-现实域对比时标注"
+        },
+        {
+          "form": "imagined",
+          "pos": "adjective / past participle",
+          "corpus_status": "prescribed_from_text",
+          "corpus_tokens": null,
+          "note": "§5.3.3列出；Ch.1亦提及'imagined re-categorizations'",
+          "usage_rule": "在反事实跨域投射中标注"
+        }
+      ]
+    },
+    "E_metalinguistic_markers": {
+      "label": "元语言标记型",
+      "description": "明确指涉隐喻性使用或类比性命名的词语",
+      "source_section": "Ch.9 Group A",
+      "items": [
+        {
+          "form": "metaphorical",
+          "pos": "adjective",
+          "corpus_status": "attested_verified",
+          "corpus_tokens": null,
+          "note": "Ch.9 Group A检验；书中特别指出曾漏标一次——'He had metaphorically shaken a large fist impotently at some looming energy-field. (FET-fragment01)'是书中'最具讽刺意味'的漏标案例",
+          "attested_examples": [
+            "(adjective用法) 在描述某词汇被隐喻性使用时标注",
+            "NOTE: 此条目可能指的是metaphorical作为adjective形式"
+          ],
+          "usage_rule": "当明确描述某表达被隐喻性使用时标注"
+        },
+        {
+          "form": "metaphorically",
+          "pos": "adverb",
+          "corpus_status": "attested_verified_missed_once",
+          "corpus_tokens": null,
+          "note": "Ch.9 Group A检验；书中明确案例：'He had metaphorically shaken a large fist impotently at some looming energy-field.'中metaphorically应标注为MFlag但曾被漏标，后经排查纠正",
+          "attested_examples": [
+            "He had metaphorically shaken a large fist impotently at some looming energy-field. (FET-fragment01) → metaphorically = MFlag"
+          ],
+          "usage_rule": "明确标记后续词汇被隐喻性使用时标注为MFlag"
+        },
+        {
+          "form": "figurative",
+          "pos": "adjective",
+          "corpus_status": "tested_not_attested_as_mflag",
+          "corpus_tokens": 0,
+          "note": "Ch.9 Group B检验后在语料库中未作为MFlag出现",
+          "usage_rule": "理论上可作为MFlag，但须引发明确的跨域框架"
+        },
+        {
+          "form": "so-called",
+          "pos": "adjective (multi-word)",
+          "corpus_status": "attested",
+          "corpus_tokens": 3,
+          "note": "语料库中有3个MFlag标注；表示对某命名方式持保留态度，引发间接范畴化",
+          "usage_rule": "当so-called质疑常规命名并引发范畴重构时标注"
+        },
+        {
+          "form": "constitute",
+          "pos": "verb",
+          "corpus_status": "attested_verified",
+          "corpus_tokens": null,
+          "note": "Ch.9 Group A检验项目；在语料库中有MFlag标注",
+          "usage_rule": "在以X构成/充当Y的跨域框架中标注"
+        },
+        {
+          "form": "term",
+          "pos": "noun / verb",
+          "corpus_status": "attested_verified",
+          "corpus_tokens": null,
+          "note": "Ch.9 Group A检验项目；在语料库中有MFlag标注",
+          "usage_rule": "在'termed as X'等命名框架引发跨域类比时标注"
+        },
+        {
+          "form": "mistake",
+          "pos": "noun / verb",
+          "corpus_status": "attested_verified",
+          "corpus_tokens": null,
+          "note": "Ch.9 Group A检验项目；在语料库中有MFlag标注",
+          "usage_rule": "在'mistake X for Y'结构中引发跨域错误范畴化时标注"
+        },
+        {
+          "form": "shape",
+          "pos": "noun / verb",
+          "corpus_status": "attested_verified",
+          "corpus_tokens": null,
+          "note": "Ch.9 Group A检验项目；在语料库中有MFlag标注",
+          "usage_rule": "在引发形状类比或框架塑造时标注；具体形状描述不标注"
+        },
+        {
+          "form": "taste",
+          "pos": "noun / verb",
+          "corpus_status": "tested_not_attested_as_mflag",
+          "corpus_tokens": 0,
+          "note": "Ch.9 Group B检验后在语料库中未作为MFlag出现",
+          "usage_rule": "理论上可作为感觉类比MFlag，但实际极少出现"
+        }
+      ]
+    },
+    "F_other_attested": {
+      "label": "其他语料库已标注型",
+      "description": "不属于上述典型类别但在语料库中实际获得MFlag标注的词项",
+      "source_section": "Ch.9 §9.3",
+      "items": [
+        {
+          "form": "of",
+          "pos": "preposition",
+          "corpus_status": "attested",
+          "corpus_tokens": 6,
+          "note": "语料库中有6个MFlag标注；书中说明'of'的同位/所有格用法（如'the shape of X'）可能具有隐喻信号功能，但未系统检验（Ch.9末尾提及）",
+          "usage_rule": "在引发源域类比的同位结构（如'that of an Arab minaret'）中作为MFlag；一般所有格不标注"
+        },
+        {
+          "form": "with",
+          "pos": "preposition",
+          "corpus_status": "attested",
+          "corpus_tokens": 3,
+          "note": "语料库中有3个MFlag标注；具体语境不在书中详细说明",
+          "usage_rule": "在引发伴随性跨域比较时标注；一般伴随义不标注"
+        }
+      ]
+    },
+    "G_new_formation_suffix": {
+      "label": "新词构成型MFlag（词缀/后缀）",
+      "description": "以-like或-shaped等构词后缀形成的新词，整个新词被视为MFlag（§2.7明确规定新词构成中的MFlag标注）",
+      "source_section": "Ch.9 §9.3 §2.7",
+      "items": [
+        {
+          "form": "-like",
+          "pos": "suffix",
+          "corpus_status": "attested",
+          "corpus_tokens": null,
+          "note": "语料库中出现多个以-like结尾的新词构成MFlag",
+          "attested_instances": [
+            "canyon-like",
+            "micawber-like",
+            "pillar-like",
+            "tent-like",
+            "toy-like",
+            "wave-like"
+          ],
+          "usage_rule": "整个-like新词标注为MFlag；-like引发源域类比，整个词被视为引发跨域比较的信号"
+        },
+        {
+          "form": "-shaped",
+          "pos": "suffix",
+          "corpus_status": "attested",
+          "corpus_tokens": null,
+          "note": "语料库中出现以-shaped结尾的新词构成MFlag",
+          "attested_instances": [
+            "handle-shaped",
+            "L-shaped"
+          ],
+          "usage_rule": "整个-shaped新词标注为MFlag；引发形状类比"
+        }
+      ]
+    }
+  },
+  "exclusion_list": {
+    "label": "明确排除项",
+    "description": "书中§2.6明确说明不标注为MFlag的词项，以及Ch.9纠正的错误标注",
+    "items": [
+      {
+        "form": "sort of",
+        "reason": "一般间接性信号（general indirectness signal），不能明确区分隐喻性与其他话语现象",
+        "source": "§2.6"
+      },
+      {
+        "form": "kind of",
+        "reason": "同sort of",
+        "source": "§2.6"
+      },
+      {
+        "form": "human (in 'human resources')",
+        "reason": "话题域信号（topic domain signal，Goatly 1997），不是比较型信号；Ch.9明确纠正，从MFlag中移除",
+        "source": "Ch.9 §9.3",
+        "corpus_note": "语料库中曾被错误标注5次，后全部改回non-MFlag"
+      },
+      {
+        "form": "emotional (in 'emotional somersaults')",
+        "reason": "话题域信号（Goatly 1997）；Ch.9纠正",
+        "source": "Ch.9 §9.3",
+        "corpus_note": "语料库中曾被错误标注1次，后改回non-MFlag"
+      },
+      {
+        "form": "intellectual (in 'intellectual stagnation')",
+        "reason": "§2.6明确举例说明的话题域信号",
+        "source": "§2.6"
+      }
+    ]
+  },
+  "corpus_frequency_summary": {
+    "total_mflags_raw": 167,
+    "total_mflags_corrected": 151,
+    "total_mflags_final_analysis": 141,
+    "percent_of_corpus": "0.1%",
+    "top_items_by_token_count": [
+      {
+        "form": "like",
+        "tokens": 57,
+        "percent": "34.1%"
+      },
+      {
+        "form": "as",
+        "tokens": 29,
+        "percent": "17.4%"
+      },
+      {
+        "form": "as if",
+        "tokens": 7,
+        "percent": "4.2%"
+      },
+      {
+        "form": "of",
+        "tokens": 6,
+        "percent": "3.6%"
+      },
+      {
+        "form": "so-called",
+        "tokens": 3,
+        "percent": "1.8%"
+      },
+      {
+        "form": "with",
+        "tokens": 3,
+        "percent": "1.8%"
+      }
+    ],
+    "note": "书中原文：'All other MFlags had only two or one citations'（除上述6项外均为1-2次）；排查可靠性误差率<5%"
+  },
+  "annotation_rules": {
+    "general": [
+      "MFlag本身不是MRW，不标注为隐喻相关词，仅获得'MFlag'编码",
+      "MFlag与其引发的源域词元（MRW, direct）共同出现",
+      "MFlag出现在源域之前（引介位置），如'like'引介'dragonfly'",
+      "MFlag后的整个源域范围（含修饰语）均标注为MRW, direct",
+      "某个词元同时具有间接隐喻性和MFlag功能时，优先标注为MRW（间接隐喻），特殊情况下可讨论"
+    ],
+    "scope_determination": "通过句法结构和标点确定MFlag的辖域范围（参见Ch.5 §5.3.1对angry和restless的分析）",
+    "literal_vs_metaphorical_comparison": "MFlag仅在比较被判定为跨域（两个不相容域之间）时标注；字面相似性比较（如人与兄弟的外貌相似）不标注MFlag也不触发MRW, direct"
+  }
+}

@@ -2,8 +2,11 @@
 Reference and lookup tools for Meta-Lingo MCP server.
 Tools: get_pos_tags, get_usas_categories, get_metaphor_sources,
        list_reference_corpora, validate_cql, list_annotation_frameworks,
-       get_annotation_framework
+       get_annotation_framework, dictionary_lookup
 """
+import html as html_lib
+import re
+
 from mcp.server.fastmcp import FastMCP
 from mcp_server.api_client import MetaLingoClient
 
@@ -70,8 +73,9 @@ def register(mcp: FastMCP, client: MetaLingoClient):
         """Get available metaphor detection source types for MIPVU analysis.
 
         When to use: Before filtering metaphor_analysis by source type.
-        Returns detection pipeline names (filter, rule, clause, finetuned)
+        Returns detection pipeline IDs (filter, rule, clause, finetuned, direct, mflag)
         that can be used in metaphor_analysis(result_mode="source").
+        Note: 'clause' = indirect model (content words); 'finetuned' = indirect model (function words).
         """
         result = await client.get("/api/analysis/metaphor-analysis/sources")
         # API returns bare list: [{id, name_en, name_zh}]
@@ -90,6 +94,72 @@ def register(mcp: FastMCP, client: MetaLingoClient):
                     lines.append(f"  - {src}")
             return "\n".join(lines)
         return str(data)
+
+    @mcp.tool()
+    async def dictionary_lookup(
+        word: str, dictionaries: list[str] | None = None, max_chars: int = 5000
+    ) -> str:
+        """Look up a word in Meta-Lingo's built-in dictionaries.
+
+        When to use: For DMIP Dimension 2 (CONVENTIONAL vs NOVEL) judgments — this
+        is the STANDARDIZED, mandatory way to decide [C±]; never decide it from
+        memory. Check whether a sense matching the word's contextual/figurative
+        meaning is listed:
+          - FOUND (contextual sense listed as a numbered sense or established
+            collocation) → CONVENTIONAL [C−], even if the word feels well-chosen
+            or evocative. A skillful writer's CHOICE of a conventional word is not
+            the same as the word's mapping being NOVEL.
+          - NOT FOUND in EITHER dictionary (no entry / no matching contextual
+            sense) → NOVEL [C+]: the reader must construct the mapping fresh.
+
+        STANDARDIZED LOOKUP FLOW for conventionality:
+          1. dictionary_lookup(word)  → query 麦克米伦 (Macmillan, primary).
+          2. If 麦克米伦 has no entry / no matching contextual sense →
+             dictionary_lookup(word, ["朗文搭配"]) as fallback coverage.
+          3. Not found in either → NOVEL [C+]; otherwise → CONVENTIONAL [C−].
+
+        Available dictionaries:
+          麦克米伦 (Macmillan English Dictionary) — full numbered sense entries,
+            including figurative/extended senses, plus phrase/collocation lists
+            (~66,700 headwords). This is the default and primary resource.
+          朗文搭配 (Longman Collocations Dictionary) — collocational patterns
+            (typical adjectives/verbs/prepositions for a headword), ~4,200
+            headwords, 99% of which are also in 麦克米伦. Used as the existence/
+            coverage FALLBACK when 麦克米伦 reports "(not found)" for a word.
+
+        Output is filtered to the parts relevant for these judgments — sense
+        definitions, part-of-speech/grammar codes, and collocation patterns
+        (with their parenthetical glosses). Example sentences, audio links,
+        pronunciation, and thesaurus/synonym cross-references are stripped out.
+
+        Args:
+            word: Word or lemma to look up (case-insensitive).
+            dictionaries: Dictionary names to query. Default: ["麦克米伦"].
+            max_chars: Max characters per dictionary entry before truncation
+                (default 5000). A handful of extremely polysemous words (e.g.
+                "make", "set", "run") and Macmillan topic/study pages can still
+                exceed this — if truncated, call again with a higher max_chars
+                to see the remaining senses.
+        """
+        dict_names = dictionaries or ["麦克米伦"]
+        result = await client.get(
+            "/api/dictionary/lookup",
+            params={"word": word, "dictionaries": ",".join(dict_names)},
+        )
+        results = result.get("results", {})
+
+        lines = [f'Dictionary lookup: "{word}"']
+        for dict_name in dict_names:
+            entry = results.get(dict_name, {})
+            lines.append(f"\n━━━ {dict_name} ━━━")
+            if not entry.get("found"):
+                lines.append("(not found)")
+                continue
+            if entry.get("fuzzy"):
+                lines.append(f'(no exact match — closest entry: "{entry.get("word", word)}")')
+            lines.append(_html_to_text(entry.get("content", ""), max_chars=max_chars))
+
+        return "\n".join(lines)
 
     @mcp.tool()
     async def list_reference_corpora(search: str = "", offset: int = 0, page_size: int = 20) -> str:
@@ -419,6 +489,125 @@ def register(mcp: FastMCP, client: MetaLingoClient):
         lines.append("Use get_annotation_framework(framework_id) to view the full label tree.")
         lines.append("Use list_annotation_frameworks() to confirm it appears in the list.")
         return "\n".join(lines)
+
+
+# Macmillan wraps illustrative example sentences in this dark-blue italic font.
+_MAC_EXAMPLE_RE = re.compile(r'<font color="#052a57">')
+# Longman wraps each collocate's example sentence in <span class="collexa">.
+_LON_COLLEXA_RE = re.compile(r'<span\b[^>]*\bclass="collexa"[^>]*>')
+# Longman "THESAURUS: <word>" near-synonym discrimination boxes.
+_LON_THESBOX_RE = re.compile(r'<span\b[^>]*\bclass="thesbox"[^>]*>')
+# Longman "ANTONYMS -> ..." cross-reference boxes.
+_LON_ANTONYM_RE = re.compile(r'<span\b[^>]*\bclass="antonymbox"[^>]*>')
+
+
+def _strip_balanced(text: str, open_re: re.Pattern, tag_name: str) -> str:
+    """Remove every <tag_name ...>...</tag_name> block matched by open_re,
+    including any nested tags of the same name (tracked via depth counting).
+    Used for elements whose content may contain further nested spans/fonts
+    that simple non-greedy regexes can't span correctly.
+    """
+    out = []
+    i = 0
+    tag_re = re.compile(r'<' + tag_name + r'\b[^>]*>|</' + tag_name + r'>')
+    while True:
+        m = open_re.search(text, i)
+        if not m:
+            out.append(text[i:])
+            break
+        out.append(text[i:m.start()])
+        depth = 1
+        pos = m.end()
+        while depth > 0:
+            tm = tag_re.search(text, pos)
+            if not tm:
+                pos = len(text)
+                break
+            if tm.group(0).startswith('</'):
+                depth -= 1
+            else:
+                depth += 1
+            pos = tm.end()
+        i = pos
+    return ''.join(out)
+
+
+def _html_to_text(content: str, max_chars: int = 5000) -> str:
+    """Convert a dictionary entry's HTML content into compact, readable plain text.
+
+    Filters out content that doesn't help judge sense-conventionality or
+    collocation status: illustrative example sentences, audio links,
+    pronunciation, and thesaurus/synonym cross-references. What remains is
+    the headword/POS/grammar info, numbered sense definitions, and (for
+    Longman) collocation patterns with their parenthetical glosses.
+    """
+    if not content:
+        return "(empty entry)"
+
+    text = content
+
+    # Drop audio-player links entirely (icons/sound files add no value for analysis)
+    text = re.sub(r'<a\b[^>]*\bclass="jp-play"[^>]*>.*?</a>', '', text, flags=re.DOTALL)
+    text = re.sub(r'<a\b[^>]*\bhref="sound://[^"]*"[^>]*>.*?</a>', '', text, flags=re.DOTALL)
+
+    # Drop Macmillan example sentences (handles nesting, e.g. bolded phrases
+    # within an example also wrapped in their own #052a57 font span)
+    text = _strip_balanced(text, _MAC_EXAMPLE_RE, 'font')
+
+    # Drop Longman synonym-discrimination and antonym boxes — useful for
+    # vocabulary teaching but not for "is this a listed sense/collocation"
+    text = _strip_balanced(text, _LON_THESBOX_RE, 'span')
+    text = _strip_balanced(text, _LON_ANTONYM_RE, 'span')
+
+    # Drop Longman collocation example sentences, including nested
+    # highlighted (colloinexa) spans within them — keep the colloc pattern itself
+    text = _strip_balanced(text, _LON_COLLEXA_RE, 'span')
+    text = re.sub(r'<span\b[^>]*\bclass="colloinexa[^"]*"[^>]*>.*?</span>', '', text, flags=re.DOTALL)
+
+    # Insert line/section breaks at structural boundaries before stripping tags
+    text = re.sub(r'<br\s*/?>', '\n', text)
+    text = re.sub(r'<span\b[^>]*\bclass="sensenum"[^>]*>', '\n\n', text)
+    text = re.sub(r'<span\b[^>]*\bclass="def"[^>]*>', '\n  ', text)
+    text = re.sub(r'<span\b[^>]*\bclass="secheading"[^>]*>', '\n  ', text)
+    text = re.sub(r'<span\b[^>]*\bclass="collocate"[^>]*>', '\n    - ', text)
+
+    # Strip remaining tags (keeps inner text)
+    text = re.sub(r'<[^>]+>', '', text)
+
+    # Decode HTML entities (&nbsp; etc.)
+    text = html_lib.unescape(text)
+
+    # Collapse whitespace (including non-breaking spaces left by &nbsp;)
+    text = re.sub(r'[ \t\xa0]+', ' ', text)
+    text = re.sub(r'\n[ \t\xa0]+', '\n', text)
+    text = re.sub(r'\n{3,}', '\n\n', text)
+
+    # Drop Macmillan "Thesaurus: ..." cross-reference lines, lines left over from
+    # "Get it right" usage boxes that consisted only of "✗"/"✓" markers next to
+    # now-stripped examples, and trim now-dangling trailing colons/diamonds left
+    # where an inline example used to follow (e.g. "make something from
+    # something:" -> "make something from something")
+    lines = []
+    for line in text.split('\n'):
+        stripped = line.strip()
+        if stripped.startswith('Thesaurus:'):
+            continue
+        if stripped and re.fullmatch(r'[✗✓\s]+', stripped):
+            continue
+        lines.append(re.sub(r'[\s:♦]+$', '', line))
+    text = '\n'.join(lines)
+    text = re.sub(r'\n{3,}', '\n\n', text)
+    text = text.strip()
+
+    if len(text) > max_chars:
+        text = (
+            text[:max_chars].rstrip()
+            + f"\n... [entry truncated at {max_chars} chars — this word has more "
+            "senses/collocations; call dictionary_lookup again with a higher "
+            "max_chars to see them]"
+        )
+
+    return text
 
 
 def _count_labels(node: dict) -> int:

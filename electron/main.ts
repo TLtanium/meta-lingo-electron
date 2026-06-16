@@ -514,8 +514,8 @@ async function startBackend(extendedTimeout = false): Promise<boolean> {
         backendProcess = null
       })
       
-      // 每500ms检查一次；首次 20 秒，重试 30 秒
-      const maxAttempts = extendedTimeout ? 60 : 40
+      // 每500ms检查一次；固定 30 秒（PyInstaller 冷启动可能超过 20 秒）
+      const maxAttempts = 60
       const checkInterval = 500
       let attempts = 0
 

@@ -32,19 +32,19 @@
                     "name": "disinclination-non-desire",
                     "type": "label",
                     "definition": "disinclination-non-desire（反倾向-非渴望）：明确表示不想要或不愿意的情感。",
-                    "color": "#ac9994"
+                    "color": "#ccbc8e"
                   },
                   {
                     "id": "3eb6f678-6c21-40b9-857b-0b2a2e4462c6",
                     "name": "inclination-desire",
                     "type": "label",
                     "definition": "inclination-desire（倾向-渴望）：表示想要或渴望的情感。",
-                    "color": "#9592b6"
+                    "color": "#8ecacc"
                   }
                 ]
               }
             ],
-            "color": "#897cb8"
+            "color": "#ccc88e"
           },
           {
             "id": "3cb708d1-7db2-4805-afb7-4e35b91a586f",
@@ -75,19 +75,19 @@
                             "name": "displeasure",
                             "type": "label",
                             "definition": "displeasure（不悦）：表示不高兴、不愉快的具体情感。",
-                            "color": "#c08fcb"
+                            "color": "#cca18e"
                           },
                           {
                             "id": "5df5b61d-b531-470e-8eaf-eb61b59119bc",
                             "name": "ennui",
                             "type": "label",
                             "definition": "ennui（厌倦）：表示无聊、厌倦、缺乏兴趣的情感状态。",
-                            "color": "#a19fd1"
+                            "color": "#8eccb3"
                           }
                         ]
                       }
                     ],
-                    "color": "#c6b4b5"
+                    "color": "#ccba8e"
                   },
                   {
                     "id": "4e34eb8e-3e61-4c02-b15a-159ceb3d6fd3",
@@ -106,24 +106,24 @@
                             "name": "interest",
                             "type": "label",
                             "definition": "interest（兴趣）：表示感兴趣、好奇或关注的情感。",
-                            "color": "#a588db"
+                            "color": "#8ecbcc"
                           },
                           {
                             "id": "99e8b38f-9796-483e-9ded-9935d6af9d89",
                             "name": "pleasure",
                             "type": "label",
                             "definition": "pleasure（愉悦）：表示高兴、愉快、享受的情感。",
-                            "color": "#7ea1db"
+                            "color": "#cc8eb8"
                           }
                         ]
                       }
                     ],
-                    "color": "#8e97c2"
+                    "color": "#8ecbcc"
                   }
                 ]
               }
             ],
-            "color": "#8f9f95"
+            "color": "#8ebecc"
           },
           {
             "id": "e314aa9e-5b69-4e7d-9a08-e77aaefee547",
@@ -154,19 +154,19 @@
                             "name": "disquiet",
                             "type": "label",
                             "definition": "disquiet（不安）：表示焦虑、担心、不安宁的情感状态。",
-                            "color": "#d5a8d4"
+                            "color": "#8ecc96"
                           },
                           {
                             "id": "f696cf47-5f38-4aa8-98e8-c6b4cbcbc937",
                             "name": "distrust",
                             "type": "label",
                             "definition": "distrust（不信任）：表示怀疑、不信任他人的情感。",
-                            "color": "#87aa95"
+                            "color": "#a88ecc"
                           }
                         ]
                       }
                     ],
-                    "color": "#c3a5ae"
+                    "color": "#a3cc8e"
                   },
                   {
                     "id": "aba5d489-6083-45c8-8b80-3283cd89450b",
@@ -185,31 +185,31 @@
                             "name": "quiet",
                             "type": "label",
                             "definition": "quiet（安静）：表示平静、安宁、无忧虑的情感状态。",
-                            "color": "#b9a9be"
+                            "color": "#ccbc8e"
                           },
                           {
                             "id": "907dd1fd-f34c-4cd4-9f8a-fa43e81ef6b1",
                             "name": "trust",
                             "type": "label",
                             "definition": "trust（信任）：表示信任、信赖他人的情感。",
-                            "color": "#c4d3ae"
+                            "color": "#8ec9cc"
                           }
                         ]
                       }
                     ],
-                    "color": "#c8caa7"
+                    "color": "#8e91cc"
                   }
                 ]
               }
             ],
-            "color": "#d2dbc5"
+            "color": "#cc8eac"
           },
           {
             "id": "74d51d26-a30d-47dc-8384-2a6cbfba2f54",
             "name": "surprise",
             "type": "label",
             "definition": "surprise（惊讶）：表示意外、惊讶或震惊的情感反应，通常是对unexpected事件的即时情感反应。",
-            "color": "#abc482"
+            "color": "#9acc8e"
           },
           {
             "id": "c61d95b5-7732-4bb3-9494-e49635779f05",
@@ -240,19 +240,19 @@
                             "name": "affection",
                             "type": "label",
                             "definition": "affection（喜爱）：表示喜欢、爱护、亲密的情感。",
-                            "color": "#8ca494"
+                            "color": "#8eb5cc"
                           },
                           {
                             "id": "cbc5790d-6b05-447c-83a4-9ff2326d4f4c",
                             "name": "cheer",
                             "type": "label",
                             "definition": "cheer（愉快）：表示高兴、欢快、兴高采烈的情感。",
-                            "color": "#d1ae8f"
+                            "color": "#cc8ea3"
                           }
                         ]
                       }
                     ],
-                    "color": "#b684ce"
+                    "color": "#8e8ecc"
                   },
                   {
                     "id": "b098bdd8-5288-4b03-a044-baf281648d52",
@@ -271,24 +271,24 @@
                             "name": "antipathy",
                             "type": "label",
                             "definition": "antipathy（反感）：表示厌恶、反感、敌意的情感。",
-                            "color": "#8b9878"
+                            "color": "#ccb98e"
                           },
                           {
                             "id": "6319ae1e-e37e-4c7a-9a33-8284cf716245",
                             "name": "misery",
                             "type": "label",
                             "definition": "misery（痛苦）：表示悲伤、痛苦、不幸的情感。",
-                            "color": "#b4c4a5"
+                            "color": "#8ecccb"
                           }
                         ]
                       }
                     ],
-                    "color": "#c6a4d6"
+                    "color": "#cca08e"
                   }
                 ]
               }
             ],
-            "color": "#7fcd8b"
+            "color": "#948ecc"
           }
         ]
       }

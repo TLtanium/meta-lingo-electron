@@ -158,7 +158,8 @@ export function createTextAnnotationRequest(
   archiveId?: string,
   coderName?: string,
   spacyAnnotation?: SpacyAnnotationData,
-  textId?: string  // 文本ID，用于精确关联
+  textId?: string,              // 文本ID，用于精确关联
+  relations?: import('../types').AnnotationRelation[]  // 标注关联
 ): SaveAnnotationRequest {
   return {
     corpusName,
@@ -169,6 +170,7 @@ export function createTextAnnotationRequest(
     type: 'text',
     text,
     annotations,
+    relations,
     archiveId,
     coderName,
     spacyAnnotation

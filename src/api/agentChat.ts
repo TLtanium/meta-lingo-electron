@@ -11,9 +11,32 @@ export interface AgentChatRequest {
   provider: 'ollama' | 'openai'
   ollama?: { url: string; model: string }
   openai?: { base_url: string; api_key: string; model: string }
-  messages: { role: 'user' | 'assistant'; content: string }[]
+  messages: { role: 'user' | 'assistant'; content: string; hidden?: boolean }[]
   enabled_modules?: string[] | null
   language?: string
+}
+
+export interface TaskProgressEvent {
+  task_id: string
+  completed: number
+  total: number
+  current_label: string
+  pct: number
+}
+
+export interface ContextUsageEvent {
+  chars: number
+  threshold: number
+  pct: number
+}
+
+export interface CompactDoneEvent {
+  removed_turns: number
+  new_messages: Array<{ role: string; content: string; hidden?: boolean; compact_indicator?: boolean }>
+}
+
+export interface TaskStartedEvent {
+  task_id: string
 }
 
 export interface SSECallbacks {
@@ -22,6 +45,11 @@ export interface SSECallbacks {
   onTextDelta: (content: string) => void
   onDone: () => void
   onError: (errorKey: string, detail?: string) => void
+  onTaskProgress?: (event: TaskProgressEvent) => void
+  onContextUsage?: (event: ContextUsageEvent) => void
+  onCompactStart?: () => void
+  onCompactDone?: (event: CompactDoneEvent) => void
+  onTaskStarted?: (event: TaskStartedEvent) => void
 }
 
 /**
@@ -87,6 +115,21 @@ export function chatStream(
               case 'text_delta':
                 callbacks.onTextDelta(event.content || '')
                 break
+              case 'task_progress':
+                callbacks.onTaskProgress?.(event as TaskProgressEvent)
+                break
+              case 'context_usage':
+                callbacks.onContextUsage?.(event as ContextUsageEvent)
+                break
+              case 'compact_start':
+                callbacks.onCompactStart?.()
+                break
+              case 'compact_done':
+                callbacks.onCompactDone?.(event as CompactDoneEvent)
+                break
+              case 'task_started':
+                callbacks.onTaskStarted?.(event as TaskStartedEvent)
+                break
               case 'error':
                 callbacks.onError(event.error_key || event.message || 'lemy_unexpected', event.detail)
                 break
@@ -123,4 +166,21 @@ export async function getToolModules() {
   return api.get<{ success: boolean; data: ToolModuleInfo[] }>('/api/agent/tools')
 }
 
-export const agentChatApi = { chatStream, getToolModules }
+/**
+ * Clean up temporary task directories for the given task IDs.
+ * Called when a conversation is deleted.
+ */
+export async function cleanupTasks(taskIds: string[]): Promise<void> {
+  if (!taskIds.length) return
+  try {
+    await fetch('http://127.0.0.1:8000/api/agent/tasks/cleanup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ task_ids: taskIds }),
+    })
+  } catch {
+    // Best-effort cleanup — do not block conversation deletion
+  }
+}
+
+export const agentChatApi = { chatStream, getToolModules, cleanupTasks }

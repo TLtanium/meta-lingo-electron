@@ -92,6 +92,17 @@ export interface Annotation {
 }
 
 /**
+ * 两条标注之间的关联（有向关系）
+ */
+export interface AnnotationRelation {
+  id: string
+  sourceId: string   // 起源标注 ID
+  targetId: string   // 目标标注 ID
+  label?: string     // 关系类型（可选，如 "refers-to"）
+  color?: string     // 箭头颜色（默认继承来源标注颜色）
+}
+
+/**
  * 标注存档(保存到文件)
  */
 export interface AnnotationArchive {
@@ -106,9 +117,10 @@ export interface AnnotationArchive {
   mediaPath?: string
   text: string              // 原文/转录文本
   annotations: Annotation[]
+  relations?: AnnotationRelation[]  // 标注间关联（有向箭头）
   timestamp: string
   annotator?: string
-  
+
   // SpaCy 标注数据 (用于恢复词性/命名实体/句法信息)
   spacyAnnotation?: SpacyAnnotationData
   
@@ -418,6 +430,7 @@ export interface SaveAnnotationRequest {
   type: 'text' | 'multimodal'
   text: string
   annotations: Annotation[]
+  relations?: AnnotationRelation[]  // 标注间关联
   mediaType?: 'video' | 'audio'
   mediaPath?: string
   yoloAnnotations?: YoloTrack[]

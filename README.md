@@ -185,7 +185,8 @@ Meta-Lingo integrates several pre-trained models:
 | YOLOv8                     | Object detection                        | Ultralytics                                                                                                  |
 | CLIP ViT-Large-Patch14     | Image classification                    | OpenAI                                                                                                       |
 | SpaCy en/zh\_core\_web\_sm | NLP processing (no static word vectors) | Explosion                                                                                                    |
-| metalingo-deberta-metaphor | MIPVU metaphor detection (F1 81.24)     | [TommyLeo](https://modelscope.cn/models/TommyLeo/metalingo-deberta-metaphor/summary)                         |
+| metalingo-indirect-metaphor | MIPVU indirect metaphor detection (F1 82.29) | [TommyLeo](https://www.modelscope.cn/models/TommyLeo/metalingo-indirect-metaphor)                       |
+| metalingo-direct-metaphor  | MIPVU direct metaphor / mflag detection (F1 76.52) | [TommyLeo](https://www.modelscope.cn/models/TommyLeo/metalingo-direct-metaphor)                  |
 | Sentence-BERT              | Text embeddings                         | sentence-transformers                                                                                        |
 
 ## Contributing
@@ -193,6 +194,10 @@ Meta-Lingo integrates several pre-trained models:
 This project is currently maintained for academic research purposes. For bug reports or feature requests, please open an issue.
 
 ## Changelog
+
+### v4.8.59 (2026-06-10)
+
+- **MIPVU — model rename & upgrade**: `deberta-v3-large-metaphor` → `metalingo-indirect-metaphor` (ModelScope `TommyLeo/metalingo-indirect-metaphor`; new metrics F1 82.29, Precision 85.26%, Recall 79.53%, Accuracy 96.04%) and `deberta-v3-large-direct-metaphor` → `metalingo-direct-metaphor` (ModelScope `TommyLeo/metalingo-direct-metaphor`; 3-class O/mFlag/mrw_lit, sentence-level F1 88.03%, token-level combined F1 76.52%). Storage paths, manifest entries, docstrings, i18n, and help docs updated across backend and frontend.
 
 ### v4.8.45 (2026-05-29)
 
@@ -204,7 +209,7 @@ This project is currently maintained for academic research purposes. For bug rep
 
 ### v4.8.41 (2026-05-28)
 
-- **MIPVU — metalingo-deberta-metaphor**: Replaced `deberta-v3-large-clause-metaphor` with `metalingo-deberta-metaphor` (two-stage knowledge distillation, VUAMC NAACL FLP 2018 split). New metrics: F1 81.24, Precision 83.82%, Recall 78.81%, Accuracy 95.78%. ModelScope download via `TommyLeo/metalingo-deberta-metaphor`. All references updated across backend, frontend, i18n, and help docs.
+- **MIPVU — deberta-v3-large-metaphor**: Replaced `deberta-v3-large-clause-metaphor` with `deberta-v3-large-metaphor` (two-stage knowledge distillation, VUAMC NAACL FLP 2018 split). New metrics: F1 81.24, Precision 83.82%, Recall 78.81%, Accuracy 95.78%. ModelScope download via `TommyLeo/deberta-v3-large-metaphor`. All references updated across backend, frontend, i18n, and help docs.
 - **MCP — corpus/text metadata update tools**: Added `update_corpus_metadata` and `update_text_metadata` tools to the MCP server and Agent Chat tool registry.
 - **MCP — keyword/keyness search types**: Added `search_word` + `search_type` parameters to `keyword_extraction`, `keyness_analysis`, and `keyness_resource_analysis` tools (contains/exact/starts/ends/regex/wordlist).
 - **Agent Chat — loop guard**: Loop guard now uses argument fingerprints instead of call counts; allows up to 3 calls per tool per turn with different parameters; resets on every new user message.

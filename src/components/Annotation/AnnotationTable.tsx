@@ -13,7 +13,7 @@
  * - Auto-width columns based on content
  */
 
-import { useState, useMemo, useRef } from 'react'
+import { useState, useMemo, useRef, useEffect } from 'react'
 import {
   Box,
   Table,
@@ -53,8 +53,9 @@ import DeleteIcon from '@mui/icons-material/Delete'
 import CloseIcon from '@mui/icons-material/Close'
 import { useTranslation } from 'react-i18next'
 import { useTabStore } from '../../stores/tabStore'
-import type { Annotation } from '../../types'
+import type { Annotation, AnnotationRelation } from '../../types'
 import type { CrossLinkParams, TabType } from '../../types'
+import Stack from '@mui/material/Stack'
 
 // SpaCy data interfaces
 interface SpacyToken {
@@ -92,6 +93,7 @@ interface AnnotationTableProps {
   selectedId?: string | null
   /** When true, show a direct X delete button instead of MoreVert dropdown menu */
   directDeleteOnly?: boolean
+  relations?: AnnotationRelation[]
 }
 
 /**
@@ -213,7 +215,8 @@ export default function AnnotationTable({
   selectedTags,
   onSelect,
   selectedId,
-  directDeleteOnly = false
+  directDeleteOnly = false,
+  relations = []
 }: AnnotationTableProps) {
   const { t } = useTranslation()
   const theme = useTheme()
@@ -230,6 +233,10 @@ export default function AnnotationTable({
   // Pending action executed after menu exit transition (same pattern as WordActionMenu)
   const pendingActionRef = useRef<(() => void) | null>(null)
   const { openTab } = useTabStore()
+  const tableContainerRef = useRef<HTMLDivElement>(null)
+
+  // Virtual scrolling state
+  const [scrollTop, setScrollTop] = useState(0)
 
   // 过滤 SpaCy 标注
   const displayAnnotations = useMemo(() =>
@@ -255,6 +262,11 @@ export default function AnnotationTable({
     setOrder(isAsc ? 'desc' : 'asc')
     setOrderBy(property)
   }
+  // Row height for size="small" with py:0.75 padding
+  const ROW_HEIGHT = 33
+  const CONTAINER_HEIGHT = 300 // matches maxHeight: 300 on TableContainer
+  const BUFFER_ROWS = 8
+
   const sortedAnnotations = useMemo(() => {
     return [...annotationsWithSpacy].sort((a, b) => {
       let aVal: string | number | undefined
@@ -296,6 +308,30 @@ export default function AnnotationTable({
       return order === 'asc' ? cmp : -cmp
     })
   }, [annotationsWithSpacy, orderBy, order])
+
+  // Scroll to selected row — index-based so virtual scrolling works even when row isn't in DOM
+  useEffect(() => {
+    if (!selectedId) return
+    const container = tableContainerRef.current
+    if (!container) return
+    const annIdx = sortedAnnotations.findIndex(a => a.id === selectedId)
+    if (annIdx < 0) return
+    const rowTop = annIdx * ROW_HEIGHT
+    const rowBottom = rowTop + ROW_HEIGHT
+    const viewTop = container.scrollTop
+    const viewBottom = viewTop + container.clientHeight
+    if (rowTop < viewTop || rowBottom > viewBottom) {
+      container.scrollTop = Math.max(0, rowTop - container.clientHeight / 2 + ROW_HEIGHT / 2)
+    }
+  }, [selectedId, sortedAnnotations, ROW_HEIGHT])
+
+  // Virtual window: only render rows visible in the 300px container ± buffer
+  const totalRows = sortedAnnotations.length
+  const visibleStart = Math.max(0, Math.floor(scrollTop / ROW_HEIGHT) - BUFFER_ROWS)
+  const visibleEnd = Math.min(totalRows - 1, Math.ceil((scrollTop + CONTAINER_HEIGHT) / ROW_HEIGHT) + BUFFER_ROWS)
+  const visibleAnnotations = sortedAnnotations.slice(visibleStart, visibleEnd + 1)
+  const topSpacerHeight = visibleStart * ROW_HEIGHT
+  const bottomSpacerHeight = Math.max(0, totalRows - visibleEnd - 1) * ROW_HEIGHT
 
   const handleOpenRemark = (annotation: Annotation) => {
     setEditingAnnotation(annotation)
@@ -500,13 +536,16 @@ export default function AnnotationTable({
                   </TableSortLabel>
                 </TableCell>
               )}
+              {relations.length > 0 && (
+                <TableCell sx={{ ...headerCellSx, textAlign: 'center' }}>关联</TableCell>
+              )}
               <TableCell sx={headerCellSx}>{t('annotation.remark', '备注')}</TableCell>
               <TableCell sx={headerCellSx}>{t('annotation.action', '操作')}</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             <TableRow>
-              <TableCell colSpan={directDeleteOnly ? (showVideoColumns ? 6 : 4) : (showVideoColumns ? 10 : 8)} sx={{ textAlign: 'center', color: 'text.secondary', py: 3 }}>
+              <TableCell colSpan={(directDeleteOnly ? (showVideoColumns ? 6 : 4) : (showVideoColumns ? 10 : 8)) + (relations.length > 0 ? 1 : 0)} sx={{ textAlign: 'center', color: 'text.secondary', py: 3 }}>
                 {t('annotation.noAnnotations', '暂无标注，选中文本进行标注')}
               </TableCell>
             </TableRow>
@@ -519,7 +558,9 @@ export default function AnnotationTable({
   return (
     <>
       <TableContainer
+        ref={tableContainerRef}
         component={Paper}
+        onScroll={(e) => setScrollTop(e.currentTarget.scrollTop)}
         sx={{
           maxHeight: 300,
           bgcolor: isDarkMode ? 'rgba(255,255,255,0.02)' : '#FAFAFA',
@@ -579,14 +620,24 @@ export default function AnnotationTable({
                   </TableSortLabel>
                 </TableCell>
               )}
+              {relations.length > 0 && (
+                <TableCell sx={{ ...headerCellSx, textAlign: 'center' }}>关联</TableCell>
+              )}
               <TableCell sx={headerCellSx}>{t('annotation.remark', '备注')}</TableCell>
               <TableCell sx={headerCellSx}>{t('annotation.action', '操作')}</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
-            {sortedAnnotations.map((ann, idx) => (
+            {/* Top spacer — maintains scroll height for rows above the visible window */}
+            {topSpacerHeight > 0 && (
+              <TableRow><TableCell colSpan={20} sx={{ p: 0, border: 0, height: topSpacerHeight }} /></TableRow>
+            )}
+            {visibleAnnotations.map((ann, i) => {
+              const idx = visibleStart + i
+              return (
               <TableRow
                 key={ann.id}
+                data-annotation-row={ann.id}
                 hover
                 onClick={() => handleRowClick(ann.id)}
                 onMouseEnter={() => handleMouseEnter(ann.id)}
@@ -698,6 +749,32 @@ export default function AnnotationTable({
                     {ann.startPosition}
                   </TableCell>
                 )}
+                {relations.length > 0 && (() => {
+                  const outgoing = relations.filter(r => r.sourceId === ann.id)
+                  const idToLabel = new Map(annotations.map(a => [a.id, { text: a.text, color: a.color }]))
+                  return (
+                    <TableCell sx={bodyCellSx} align="center">
+                      {outgoing.length > 0 ? (
+                        <Stack direction="row" spacing={0.5} flexWrap="wrap" justifyContent="center">
+                          {outgoing.map(rel => {
+                            const tgt = idToLabel.get(rel.targetId)
+                            return (
+                              <Tooltip key={rel.id} title={`→ ${tgt?.text || rel.targetId}`}>
+                                <Chip
+                                  label={`→ ${tgt?.text ? (tgt.text.length > 8 ? tgt.text.slice(0, 8) + '…' : tgt.text) : rel.targetId.slice(0, 6)}`}
+                                  size="small"
+                                  sx={{ height: 18, fontSize: 10, bgcolor: `${tgt?.color || '#8a96af'}30`, color: tgt?.color || '#8a96af' }}
+                                />
+                              </Tooltip>
+                            )
+                          })}
+                        </Stack>
+                      ) : (
+                        <Typography variant="caption" color="text.disabled">-</Typography>
+                      )}
+                    </TableCell>
+                  )
+                })()}
                 <TableCell sx={bodyCellSx}>
                   <Tooltip title={ann.remark || '添加备注'}>
                     <Button
@@ -748,7 +825,12 @@ export default function AnnotationTable({
                   )}
                 </TableCell>
               </TableRow>
-            ))}
+              )
+            })}
+            {/* Bottom spacer — maintains scroll height for rows below the visible window */}
+            {bottomSpacerHeight > 0 && (
+              <TableRow><TableCell colSpan={20} sx={{ p: 0, border: 0, height: bottomSpacerHeight }} /></TableRow>
+            )}
           </TableBody>
         </Table>
       </TableContainer>

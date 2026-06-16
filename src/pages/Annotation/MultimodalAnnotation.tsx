@@ -14,7 +14,7 @@
  * - SpaCy annotation display from corpus transcription
  */
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import {
   Box,
   Typography,
@@ -52,12 +52,13 @@ import DeleteIcon from '@mui/icons-material/Delete'
 import { useTranslation } from 'react-i18next'
 import { useCorpusStore } from '../../stores/corpusStore'
 import { frameworkApi, annotationApi, createMultimodalAnnotationRequest, corpusApi } from '../../api'
-import { FrameworkTree, MultimodalWorkspace, SearchAnnotateBox, BatchAnnotateDialog } from '../../components/Annotation'
+import { FrameworkTree, MultimodalWorkspace, SearchAnnotateBox, BatchAnnotateDialog, KeyboardShortcutsDialog } from '../../components/Annotation'
 import type { SearchMatch } from '../../components/Annotation/SearchAnnotateBox'
 import type {
   Framework,
   FrameworkCategory,
   Annotation,
+  AnnotationRelation,
   SelectedLabel,
   AnnotationArchiveListItem,
   Corpus,
@@ -65,7 +66,8 @@ import type {
   YoloTrack,
   TranscriptSegment,
   AudioBox,
-  AcousticData
+  AcousticData,
+  FrameworkNode
 } from '../../types'
 import {
   isAutoAnnotationSupported,
@@ -76,6 +78,11 @@ import {
   convertMipvuDataOffsetsForTranscript,
   convertThemeRhemeResultsForTranscript
 } from '../../utils/autoAnnotation'
+import {
+  getFrameworkShortcuts,
+  SHORTCUT_KEYS,
+  isMacOS
+} from '../../utils/annotationShortcuts'
 
 // SpaCy annotation types
 interface SpacyToken {
@@ -184,6 +191,7 @@ export default function MultimodalAnnotation() {
 
   // Annotation state
   const [annotations, setAnnotations] = useState<Annotation[]>([])
+  const [relations, setRelations] = useState<AnnotationRelation[]>([])
   const [savedAudioBoxes, setSavedAudioBoxes] = useState<AudioBox[]>([])  // 音频画框标注
   const [waveformExportFn, setWaveformExportFn] = useState<(() => string | null) | null>(null)  // 波形导出函数
   const [currentArchiveId, setCurrentArchiveId] = useState<string | null>(null)
@@ -214,6 +222,64 @@ export default function MultimodalAnnotation() {
   const [pendingMatches, setPendingMatches] = useState<SearchMatch[]>([])
   // 自动标注状态（多模态转录）
   const [autoAnnotating, setAutoAnnotating] = useState(false)
+
+  // 键盘快捷键对话框
+  const [shortcutsDialogOpen, setShortcutsDialogOpen] = useState(false)
+
+  // 当前框架中所有已标注标签（用于 CQL 标注属性搜索）
+  const frameworkLabels = useMemo(() => {
+    const labels = new Set<string>()
+    annotations.forEach(ann => {
+      if (!ann.id.startsWith('spacy-') && ann.label) labels.add(ann.label)
+    })
+    return Array.from(labels)
+  }, [annotations])
+
+  // 从框架树收集所有可选标签名
+  function flattenFrameworkLabels(node: FrameworkNode): string[] {
+    const result: string[] = []
+    if (node.type === 'label') result.push(node.name)
+    for (const child of node.children || []) result.push(...flattenFrameworkLabels(child))
+    return result
+  }
+
+  // 键盘快捷键监听 Ctrl/Cmd + 1-0
+  useEffect(() => {
+    if (!currentFramework) return
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const isMeta = isMacOS() ? e.metaKey : e.ctrlKey
+      if (!isMeta) return
+
+      const key = e.key as typeof SHORTCUT_KEYS[number]
+      if (!SHORTCUT_KEYS.includes(key)) return
+
+      e.preventDefault()
+      const shortcuts = getFrameworkShortcuts(currentFramework.id)
+      const slot = shortcuts[key]
+      if (!slot) return
+
+      const allLabels = flattenFrameworkLabels(currentFramework.root)
+      if (!allLabels.includes(slot.label)) return
+
+      function findLabelNode(node: FrameworkNode, path: string[]): { node: FrameworkNode; path: string[] } | null {
+        const currentPath = [...path, node.name]
+        if (node.type === 'label' && node.name === slot!.label) return { node, path: currentPath }
+        for (const child of node.children || []) {
+          const found = findLabelNode(child, currentPath)
+          if (found) return found
+        }
+        return null
+      }
+      const found = findLabelNode(currentFramework.root, [])
+      if (found) {
+        setSelectedLabel({ node: found.node, path: found.path.join('/'), color: found.node.color || slot.color })
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [currentFramework])
 
   // Left panel width state
   const [leftPanelWidth, setLeftPanelWidth] = useState(400)
@@ -504,6 +570,7 @@ export default function MultimodalAnnotation() {
     setMediaPath('')
     setTranscriptText('')
     setAnnotations([])
+    setRelations([])
     setCurrentArchiveId(null)
     setSpacyTokens([])
     setSpacyEntities([])
@@ -526,6 +593,7 @@ export default function MultimodalAnnotation() {
     
     setSelectedMedia(media)
     setAnnotations([])
+    setRelations([])
     setCurrentArchiveId(null)
     setCoderName('')
     setSpacyTokens([])
@@ -643,6 +711,7 @@ export default function MultimodalAnnotation() {
         
         setTranscriptText(data.text)
         setAnnotations(data.annotations)
+        setRelations(data.relations || [])
         setCurrentArchiveId(data.id)
         
         if (data.transcriptSegments) {
@@ -730,10 +799,12 @@ export default function MultimodalAnnotation() {
           }
         }
         
-        // Try to load the framework used
+        // Try to load the framework used. Match by name, with id fallback so that
+        // legacy archives saved under the old framework name "MIPVU" still resolve
+        // to the renamed "Metaphor" framework (id is still "MIPVU").
         if (data.framework) {
           for (const category of frameworks) {
-            const fw = category.frameworks.find(f => f.name === data.framework)
+            const fw = category.frameworks.find(f => f.name === data.framework || f.id === data.framework)
             if (fw) {
               setSelectedFrameworkId(fw.id)
               loadFramework(fw.id)
@@ -1048,10 +1119,13 @@ export default function MultimodalAnnotation() {
         if (response.success && response.data && response.data.success) {
           const segmentLengths = transcriptSegments.map(s => s.text.length)
           const mipvuData = convertMipvuDataOffsetsForTranscript(response.data, segmentLengths)
-          const newAnnotations = createMipvuAnnotations(mipvuData, fullTranscriptText)
+          const { annotations: newAnnotations, relations: newRelations } = createMipvuAnnotations(mipvuData, fullTranscriptText)
           if (newAnnotations.length > 0) {
             const merged = mergeAnnotations(annotations, newAnnotations)
             setAnnotations(merged)
+            if (newRelations.length > 0) {
+              setRelations((prev: import('../../types').AnnotationRelation[]) => [...prev, ...newRelations])
+            }
             setSaveMessage({
               type: 'success',
               text: t('annotation.autoAnnotateSuccess', '已自动添加 {{count}} 条标注', { count: newAnnotations.length })
@@ -1481,10 +1555,14 @@ export default function MultimodalAnnotation() {
                         onSearchChange={handleSearchChange}
                         onConfirmAnnotate={handleSearchConfirm}
                         disabled={!selectedLabel}
-                        placeholder={selectedLabel 
+                        placeholder={selectedLabel
                           ? t('annotation.searchToAnnotate', '搜索并标注为 "{{label}}"...', { label: selectedLabel.node.name })
                           : t('annotation.selectLabelFirstToSearch', '请先选择标签再搜索')
                         }
+                        corpusId={currentCorpus?.id}
+                        textId={selectedMedia?.id}
+                        currentAnnotations={annotations}
+                        frameworkLabels={frameworkLabels}
                       />
                       <Divider orientation="vertical" flexItem />
                     </>
@@ -1569,6 +1647,11 @@ export default function MultimodalAnnotation() {
                 autoAnnotateEnabledForTranscript={isAutoAnnotateEnabledForTranscript()}
                 autoAnnotatingTranscript={autoAnnotating}
                 autoAnnotateTranscriptTooltip={getAutoAnnotateTranscriptTooltip()}
+                relations={relations}
+                onRelationAdd={(rel) => setRelations(prev => [...prev, rel])}
+                onRelationRemove={(id) => setRelations(prev => prev.filter(r => r.id !== id))}
+                onKeyboardShortcuts={() => setShortcutsDialogOpen(true)}
+                hasFramework={!!currentFramework}
               />
             </Box>
           </>
@@ -1690,6 +1773,12 @@ export default function MultimodalAnnotation() {
         matches={pendingMatches}
         labelName={selectedLabel?.node.name || ''}
         labelColor={selectedLabel?.color}
+      />
+
+      <KeyboardShortcutsDialog
+        open={shortcutsDialogOpen}
+        onClose={() => setShortcutsDialogOpen(false)}
+        framework={currentFramework}
       />
     </Box>
   )

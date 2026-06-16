@@ -3,8 +3,8 @@
  * TypeScript type definitions for CQL visual builder
  */
 
-// Token attributes - basic, head-based, semantic domain (usas), and emotion/sentiment (nrc)
-export type TokenAttribute = 'word' | 'lemma' | 'pos' | 'tag' | 'dep' | 'headword' | 'headlemma' | 'headpos' | 'headdep' | 'usas' | 'nrc'
+// Token attributes - basic, head-based, semantic domain (usas), emotion/sentiment (nrc), metaphor (mipvu), annotation label
+export type TokenAttribute = 'word' | 'lemma' | 'pos' | 'tag' | 'dep' | 'headword' | 'headlemma' | 'headpos' | 'headdep' | 'usas' | 'nrc' | 'mipvu' | 'annotation'
 
 // Comparison operators
 export type ComparisonOperator = '=' | '!=' | '==' | '!=='
@@ -137,6 +137,8 @@ export interface CQLBuilderDialogProps {
   onClose: () => void
   onApply: (cql: string) => void
   initialCQL?: string
+  /** Labels from the current annotation framework (annotation-mode only) */
+  annotationLabels?: string[]
 }
 
 /**
@@ -160,6 +162,8 @@ export interface TokenEditorProps {
   element: BuilderElement
   onUpdate: (element: BuilderElement) => void
   onComplete: () => void
+  /** Labels from the current annotation framework (annotation-mode only) */
+  annotationLabels?: string[]
 }
 
 /**

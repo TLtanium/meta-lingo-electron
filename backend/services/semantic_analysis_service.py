@@ -315,40 +315,51 @@ class SemanticAnalysisService:
         
         return None
     
-    def _build_mipvu_tokens_map(self, mipvu_data: Dict[str, Any]) -> Dict[Tuple[int, int], bool]:
+    def _build_mipvu_tokens_map(self, mipvu_data: Dict[str, Any]) -> Dict:
         """
-        Build a map from (start, end) positions to is_metaphor values
-        
-        Args:
-            mipvu_data: MIPVU annotation data
-            
+        Build a map from (start, end) positions to metaphor info dicts.
+
         Returns:
-            Dictionary mapping (start, end) -> is_metaphor
+            Dictionary mapping:
+              (start, end) -> {'is_metaphor': bool, 'is_direct_metaphor': bool, 'is_mflag': bool, 'is_implicit_metaphor': bool}
+              ('word', word_lower) -> same dict (fallback, merged across all occurrences)
         """
-        tokens_map = {}
-        
+        tokens_map: Dict = {}
+
         if not mipvu_data or not mipvu_data.get('success', False):
             return tokens_map
-        
+
         sentences = mipvu_data.get('sentences', [])
         for sentence in sentences:
             tokens = sentence.get('tokens', [])
             for token in tokens:
                 start = token.get('start', -1)
                 end = token.get('end', -1)
-                is_metaphor = token.get('is_metaphor', False)
+                is_metaphor      = bool(token.get('is_metaphor', False))
+                is_direct        = bool(token.get('is_direct_metaphor', False))
+                is_mflag         = bool(token.get('is_mflag', False))
+                is_implicit      = bool(token.get('is_implicit_metaphor', False))
+                info = {
+                    'is_metaphor': is_metaphor,
+                    'is_direct_metaphor': is_direct,
+                    'is_mflag': is_mflag,
+                    'is_implicit_metaphor': is_implicit,
+                }
                 if start >= 0 and end >= 0:
-                    tokens_map[(start, end)] = is_metaphor
-                # Also store by word+lemma for fallback matching
+                    tokens_map[(start, end)] = info
+                # Fallback by lowercase word form — OR-merge flags across occurrences
                 word = token.get('word', '').lower()
-                lemma = token.get('lemma', '').lower()
                 if word:
-                    # Store word-level metaphor info (will be used as fallback)
-                    if word not in tokens_map:
-                        tokens_map[('word', word)] = is_metaphor
-                    elif is_metaphor:  # If any occurrence is metaphor, mark as metaphor
-                        tokens_map[('word', word)] = True
-        
+                    key = ('word', word)
+                    if key not in tokens_map:
+                        tokens_map[key] = dict(info)
+                    else:
+                        existing = tokens_map[key]
+                        existing['is_metaphor']          = existing['is_metaphor']          or is_metaphor
+                        existing['is_direct_metaphor']   = existing['is_direct_metaphor']   or is_direct
+                        existing['is_mflag']             = existing['is_mflag']             or is_mflag
+                        existing['is_implicit_metaphor'] = existing['is_implicit_metaphor'] or is_implicit
+
         return tokens_map
     
     def _extract_from_tokens(
@@ -421,17 +432,35 @@ class SemanticAnalysisService:
 
             # Apply lowercase if requested
             word = text.lower() if lowercase else text
+            lemma_raw = token.get("lemma", text)
+            lemma = lemma_raw.lower() if lowercase else lemma_raw
 
             # MWE / metaphor: use primary tag if present, else first non-empty candidate
             primary_for_mwe = usas_tag or next((t for t in all_tags if t), "")
             is_mwe = "_MWE" in primary_for_mwe or any("_MWE" in t for t in all_tags if t)
 
-            # Look up is_metaphor from MIPVU data
+            # Look up metaphor info from MIPVU data
             start = token.get("start", -1)
             end = token.get("end", -1)
-            is_metaphor = mipvu_map.get((start, end), None)
-            if is_metaphor is None:
-                is_metaphor = mipvu_map.get(("word", text.lower()), False)
+            _mipvu_info = mipvu_map.get((start, end), None)
+            if _mipvu_info is None:
+                _mipvu_info = mipvu_map.get(("word", text.lower()), None)
+            if isinstance(_mipvu_info, dict):
+                is_metaphor          = _mipvu_info.get('is_metaphor', False)
+                is_direct_metaphor   = _mipvu_info.get('is_direct_metaphor', False)
+                is_mflag             = _mipvu_info.get('is_mflag', False)
+                is_implicit_metaphor = _mipvu_info.get('is_implicit_metaphor', False)
+            elif isinstance(_mipvu_info, bool):
+                # Legacy format: plain bool
+                is_metaphor          = _mipvu_info
+                is_direct_metaphor   = False
+                is_mflag             = False
+                is_implicit_metaphor = False
+            else:
+                is_metaphor          = False
+                is_direct_metaphor   = False
+                is_mflag             = False
+                is_implicit_metaphor = False
 
             # Deduplicate domains for this token
             seen_domains = set()
@@ -463,6 +492,7 @@ class SemanticAnalysisService:
 
                     result.append({
                         "word": word,
+                        "lemma": lemma,
                         "domain": domain,
                         "domain_display": domain_for_lookup,
                         "domain_name": domain_name,
@@ -470,7 +500,10 @@ class SemanticAnalysisService:
                         "category_name": category_name,
                         "pos": pos,
                         "is_mwe": is_mwe or "_MWE" in domain,
-                        "is_metaphor": is_metaphor
+                        "is_metaphor": is_metaphor,
+                        "is_direct_metaphor": is_direct_metaphor,
+                        "is_mflag": is_mflag,
+                        "is_implicit_metaphor": is_implicit_metaphor,
                     })
 
         return result
@@ -494,6 +527,20 @@ class SemanticAnalysisService:
         search_value = search_config.get("searchValue", "").strip()
         exclude_words = search_config.get("excludeWords", [])
 
+        # wordform / lemma types embed the target; use exact match against the
+        # selected field so that e.g. lemma="build" only matches tokens with
+        # exactly that lemma ("build", "builds", "built" share lemma "build" → pass)
+        # and NOT words like "rebuild" (lemma "rebuild").
+        if search_type == "wordform":
+            search_target = "word"
+            effective_type = "exact"
+        elif search_type == "lemma":
+            search_target = "lemma"
+            effective_type = "exact"
+        else:
+            search_target = search_config.get("searchTarget", "word")
+            effective_type = search_type
+
         # Compile exclusion patterns (supports regex)
         exclusion_patterns = compile_exclusion_patterns(normalize_exclusion_words(exclude_words))
 
@@ -501,35 +548,43 @@ class SemanticAnalysisService:
 
         for token in tokens:
             word = token.get("word", "")
+            lemma = token.get("lemma", word)
+            # Select search target value (word form or lemma)
+            target = lemma if search_target == "lemma" else word
+            target_lower = target.lower()
             word_lower = word.lower()
 
-            # Apply exclusion filter (regex-aware)
+            # Exclusion always checks against word form
             if exclusion_patterns and matches_exclusion(word_lower, exclusion_patterns):
                 continue
-            
-            # Apply search filter
-            if search_type == "all" or not search_value:
+
+            # Apply search filter against selected target
+            sv_lower = search_value.lower()
+            if effective_type == "all" or not search_value:
                 filtered.append(token)
-            elif search_type == "starts":
-                if word_lower.startswith(search_value.lower()):
+            elif effective_type == "exact":
+                if target_lower == sv_lower:
                     filtered.append(token)
-            elif search_type == "ends":
-                if word_lower.endswith(search_value.lower()):
+            elif effective_type == "starts":
+                if target_lower.startswith(sv_lower):
                     filtered.append(token)
-            elif search_type == "contains":
-                if search_value.lower() in word_lower:
+            elif effective_type == "ends":
+                if target_lower.endswith(sv_lower):
                     filtered.append(token)
-            elif search_type == "regex":
+            elif effective_type == "contains":
+                if sv_lower in target_lower:
+                    filtered.append(token)
+            elif effective_type == "regex":
                 try:
-                    if re.search(search_value, word, re.IGNORECASE):
+                    if re.search(search_value, target, re.IGNORECASE):
                         filtered.append(token)
                 except re.error:
                     pass
-            elif search_type == "wordlist":
+            elif effective_type == "wordlist":
                 wordlist = set(w.strip().lower() for w in search_value.split('\n') if w.strip())
-                if word_lower in wordlist:
+                if target_lower in wordlist:
                     filtered.append(token)
-        
+
         return filtered
     
     def _calculate_domain_results(
@@ -630,28 +685,34 @@ class SemanticAnalysisService:
         # Count words with their domains
         word_domain_counts = Counter()
         word_info = {}
-        
+
         for token in tokens:
             word = token.get("word", "")
             domain = token.get("domain", "")
-            
+
             if not word or not domain:
                 continue
-            
+
             key = (word, domain)
             word_domain_counts[key] += 1
-            
+
             if key not in word_info:
                 word_info[key] = {
                     "domain_name": token.get("domain_name", ""),
                     "category": token.get("category", ""),
                     "category_name": token.get("category_name", ""),
                     "pos": token.get("pos", ""),
-                    "is_metaphor": token.get("is_metaphor", False)
+                    "is_metaphor":          bool(token.get("is_metaphor", False)),
+                    "is_direct_metaphor":   bool(token.get("is_direct_metaphor", False)),
+                    "is_mflag":             bool(token.get("is_mflag", False)),
+                    "is_implicit_metaphor": bool(token.get("is_implicit_metaphor", False)),
                 }
-            elif token.get("is_metaphor", False):
-                # If any occurrence is metaphor, mark as metaphor
-                word_info[key]["is_metaphor"] = True
+            else:
+                # OR-merge: if any occurrence has a flag, the entry gets it
+                if token.get("is_metaphor",          False): word_info[key]["is_metaphor"]          = True
+                if token.get("is_direct_metaphor",   False): word_info[key]["is_direct_metaphor"]   = True
+                if token.get("is_mflag",             False): word_info[key]["is_mflag"]             = True
+                if token.get("is_implicit_metaphor", False): word_info[key]["is_implicit_metaphor"] = True
         
         # Apply frequency filters
         filtered = {}
@@ -684,11 +745,14 @@ class SemanticAnalysisService:
                 "pos": info.get("pos", ""),
                 "frequency": count,
                 "percentage": round(percentage, 4),
-                "is_metaphor": info.get("is_metaphor", False)
+                "is_metaphor":          info.get("is_metaphor",          False),
+                "is_direct_metaphor":   info.get("is_direct_metaphor",   False),
+                "is_mflag":             info.get("is_mflag",             False),
+                "is_implicit_metaphor": info.get("is_implicit_metaphor", False),
             })
-        
+
         return results
-    
+
     def get_domain_words(
         self,
         corpus_id: str,
@@ -716,8 +780,8 @@ class SemanticAnalysisService:
                 texts = [TextDB.get_by_id(tid) for tid in text_ids if TextDB.get_by_id(tid)]
             
             word_counts = Counter()
-            word_metaphor_info = {}  # Track metaphor status for each word
-            
+            word_metaphor_info: Dict[str, Dict[str, bool]] = {}  # Track metaphor flags per word
+
             # Normalized domain matches both domain and domain_MWE
             domain_mwe = domain + "_MWE" if "_MWE" not in domain else None
             for text in texts:
@@ -727,21 +791,33 @@ class SemanticAnalysisService:
                     if t_domain == domain or (domain_mwe and t_domain == domain_mwe):
                         word = token.get("word", "")
                         word_counts[word] += 1
-                        # Track metaphor status - if any occurrence is metaphor, mark as metaphor
+                        # OR-merge metaphor flags across all occurrences
                         if word not in word_metaphor_info:
-                            word_metaphor_info[word] = token.get("is_metaphor", False)
-                        elif token.get("is_metaphor", False):
-                            word_metaphor_info[word] = True
-            
+                            word_metaphor_info[word] = {
+                                "is_metaphor":          bool(token.get("is_metaphor",          False)),
+                                "is_direct_metaphor":   bool(token.get("is_direct_metaphor",   False)),
+                                "is_mflag":             bool(token.get("is_mflag",             False)),
+                                "is_implicit_metaphor": bool(token.get("is_implicit_metaphor", False)),
+                            }
+                        else:
+                            info = word_metaphor_info[word]
+                            if token.get("is_metaphor",          False): info["is_metaphor"]          = True
+                            if token.get("is_direct_metaphor",   False): info["is_direct_metaphor"]   = True
+                            if token.get("is_mflag",             False): info["is_mflag"]             = True
+                            if token.get("is_implicit_metaphor", False): info["is_implicit_metaphor"] = True
+
             # Sort by frequency
-            results = [
-                {
-                    "word": word, 
+            results = []
+            for word, count in sorted(word_counts.items(), key=lambda x: x[1], reverse=True):
+                info = word_metaphor_info.get(word, {})
+                results.append({
+                    "word": word,
                     "frequency": count,
-                    "is_metaphor": word_metaphor_info.get(word, False)
-                }
-                for word, count in sorted(word_counts.items(), key=lambda x: x[1], reverse=True)
-            ]
+                    "is_metaphor":          info.get("is_metaphor",          False),
+                    "is_direct_metaphor":   info.get("is_direct_metaphor",   False),
+                    "is_mflag":             info.get("is_mflag",             False),
+                    "is_implicit_metaphor": info.get("is_implicit_metaphor", False),
+                })
             
             return {
                 "success": True,

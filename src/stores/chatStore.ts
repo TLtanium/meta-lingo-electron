@@ -10,6 +10,17 @@ export interface ChatMessage {
   isError?: boolean
   errorDetail?: string
   timestamp: number
+  /** Compact summary — sent to model for context but never rendered in chat UI */
+  hidden?: boolean
+  /** Visual compact indicator chip shown in chat after context compaction */
+  isCompactIndicator?: boolean
+  /**
+   * Archived messages were part of the conversation before the last compaction.
+   * They are still displayed in the chat (with reduced opacity) so users can
+   * scroll back, but they are NOT sent to the model — the compact summary takes
+   * their place.
+   */
+  archived?: boolean
 }
 
 export interface Conversation {
@@ -19,6 +30,8 @@ export interface Conversation {
   enabledModules: string[] | null // null = all modules
   createdAt: number
   updatedAt: number
+  /** Task IDs associated with this conversation (for cleanup on delete) */
+  taskIds?: string[]
 }
 
 interface ChatStore {
@@ -37,6 +50,19 @@ interface ChatStore {
   setEnabledModules: (id: string, modules: string[] | null) => void
   toggleSidebar: () => void
   clearAllConversations: () => void
+  /**
+   * Archive all current messages, then prepend the compact representation.
+   * Old messages stay visible (opacity-dimmed) but are excluded from future
+   * model requests; the compact summary + recent messages take their place.
+   */
+  archiveAndAddMessages: (
+    conversationId: string,
+    newMessages: Array<{ role: string; content: string; hidden?: boolean; compact_indicator?: boolean }>
+  ) => void
+  /** Record a task ID for this conversation (used for cleanup on delete) */
+  addTaskId: (conversationId: string, taskId: string) => void
+  /** Return taskIds for a given conversation */
+  getTaskIds: (conversationId: string) => string[]
 }
 
 const MAX_CONVERSATIONS = 50
@@ -48,7 +74,7 @@ function generateId(): string {
 
 export const useChatStore = create<ChatStore>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       conversations: [],
       activeConversationId: null,
       sidebarOpen: true,
@@ -63,6 +89,7 @@ export const useChatStore = create<ChatStore>()(
           enabledModules: null,
           createdAt: now,
           updatedAt: now,
+          taskIds: [],
         }
         set((state) => {
           let conversations = [conv, ...state.conversations]
@@ -169,6 +196,49 @@ export const useChatStore = create<ChatStore>()(
 
       clearAllConversations: () => {
         set({ conversations: [], activeConversationId: null })
+      },
+
+      archiveAndAddMessages: (conversationId, newMessages) => {
+        set((state) => ({
+          conversations: state.conversations.map((c) => {
+            if (c.id !== conversationId) return c
+            const now = Date.now()
+            // Replace conversation messages with post-compact set.
+            // Skip compact_indicator messages (UI chip only, not needed for model or display).
+            // Keep hidden=true messages (compact summary sent to model for context continuity).
+            const fresh: ChatMessage[] = newMessages
+              .filter((m) => !m.compact_indicator)
+              .map((m) => ({
+                id: generateId(),
+                role: m.role as ChatMessage['role'],
+                content: m.content,
+                hidden: m.hidden ?? false,
+                isCompactIndicator: false,
+                timestamp: now,
+              }))
+            let messages = fresh
+            if (messages.length > MAX_MESSAGES_PER_CONVERSATION) {
+              messages = messages.slice(-MAX_MESSAGES_PER_CONVERSATION)
+            }
+            return { ...c, messages, updatedAt: now }
+          }),
+        }))
+      },
+
+      addTaskId: (conversationId, taskId) => {
+        set((state) => ({
+          conversations: state.conversations.map((c) => {
+            if (c.id !== conversationId) return c
+            const existing = c.taskIds ?? []
+            if (existing.includes(taskId)) return c
+            return { ...c, taskIds: [...existing, taskId] }
+          }),
+        }))
+      },
+
+      getTaskIds: (conversationId) => {
+        const conv = get().conversations.find((c) => c.id === conversationId)
+        return conv?.taskIds ?? []
       },
     }),
     {

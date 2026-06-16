@@ -19,10 +19,13 @@ export interface POSTagInfo {
 
 export type SearchType = 'all' | 'starts' | 'ends' | 'contains' | 'contains_word' | 'regex' | 'wordlist'
 
+export type SearchTarget = 'word' | 'lemma'
+
 export interface SearchConfig {
   searchType: SearchType
   searchValue: string
   excludeWords: string[]
+  searchTarget: SearchTarget
 }
 
 // ==================== N-gram Config ====================
@@ -115,7 +118,8 @@ export const DEFAULT_POS_FILTER: POSFilterConfig = {
 export const DEFAULT_SEARCH_CONFIG: SearchConfig = {
   searchType: 'all',
   searchValue: '',
-  excludeWords: []
+  excludeWords: [],
+  searchTarget: 'word'
 }
 
 export const DEFAULT_NGRAM_CONFIG: NGramConfig = {

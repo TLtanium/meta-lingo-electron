@@ -36,7 +36,8 @@ export default function ModelManagement() {
     'Semantic embeddings': 'semanticEmbeddings',
     'Alignment': 'alignment',
     'USAS (semantic tagging)': 'usasSemanticTagging',
-    'MIPVU (metaphor detection)': 'mipvuMetaphorDetection'
+    'MIPVU (metaphor detection)': 'mipvuMetaphorDetection',
+    'MIPVU (direct metaphor detection)': 'mipvuDirectMetaphorDetection'
   }
 
   const modelKeyByModelId: Record<string, string> = {
@@ -46,7 +47,8 @@ export default function ModelManagement() {
     'wav2vec2-base-960h': 'wav2vec2_base_960h',
     'sbert-paraphrase-multilingual-minilm-l12-v2': 'sbert_paraphrase_multilingual_minilm_l12_v2',
     'pymusas-neural-multilingual-base-bem': 'pymusas_neural_multilingual_base_bem',
-    'metalingo-deberta-metaphor': 'metalingo_deberta_metaphor'
+    'metalingo-indirect-metaphor': 'metalingo_indirect_metaphor',
+    'metalingo-direct-metaphor': 'metalingo_direct_metaphor'
   }
 
   const getModuleTitle = (moduleLabel: string) => {

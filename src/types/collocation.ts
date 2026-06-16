@@ -58,6 +58,8 @@ export interface KWICResult {
   pos?: string
   matched_tokens?: TokenInfo[]
   is_metaphor?: boolean
+  is_direct_metaphor?: boolean
+  is_mflag?: boolean
 }
 
 // Token Info

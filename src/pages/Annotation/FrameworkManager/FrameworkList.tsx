@@ -55,6 +55,7 @@ import {
 import { useTranslation } from 'react-i18next'
 import { frameworkApi } from '../../../api/framework'
 import type { Framework, FrameworkCategory, FrameworkNode } from './types'
+import { deleteFrameworkShortcuts } from '../../../utils/annotationShortcuts'
 
 interface FrameworkListProps {
   categories: FrameworkCategory[]
@@ -181,9 +182,11 @@ export const FrameworkList: React.FC<FrameworkListProps> = ({
   
   const handleDeleteConfirm = async () => {
     if (!selectedFramework) return
-    
+
     try {
       await frameworkApi.delete(selectedFramework.id)
+      // Clear keyboard shortcuts for deleted framework
+      deleteFrameworkShortcuts(selectedFramework.id)
       setDeleteDialogOpen(false)
       setSelectedFramework(null)
       onRefresh()

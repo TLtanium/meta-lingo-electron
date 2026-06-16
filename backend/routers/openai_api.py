@@ -35,7 +35,7 @@ async def check_openai_api(request: OpenAICheckRequest):
     api_key = (request.api_key or "").strip()
 
     try:
-        async with httpx.AsyncClient(timeout=15.0) as client:
+        async with httpx.AsyncClient(timeout=15.0, trust_env=False) as client:
             url = f"{base_url}/models"
             headers = {}
             if api_key:

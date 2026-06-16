@@ -81,6 +81,18 @@ export const TOKEN_ATTRIBUTES: {
     label: { zh: '情感标签 (NRC)', en: 'Emotion Tag (NRC)' },
     description: { zh: '匹配 NRC 情感/极性标签；== 精确含标签，= 正则匹配', en: 'Match NRC emotion/polarity label; == exact label, = regex match' },
     category: 'basic'
+  },
+  {
+    value: 'mipvu',
+    label: { zh: '隐喻 (MIPVU)', en: 'Metaphor (MIPVU)' },
+    description: { zh: '匹配 MIPVU 隐喻标签：indirect（间接隐喻）/ direct（直接隐喻）/ mflag（隐喻信号词）/ none（非隐喻）', en: 'Match MIPVU metaphor label: indirect / direct / mflag / none' },
+    category: 'basic'
+  },
+  {
+    value: 'annotation',
+    label: { zh: '标注标签', en: 'Annotation Label' },
+    description: { zh: '按已有标注标签匹配（仅标注模式）', en: 'Match existing annotation labels (annotation mode only)' },
+    category: 'basic'
   }
 ]
 
@@ -512,6 +524,26 @@ export const CQL_EXAMPLES = [
     name: { zh: '带元数据的文档', en: 'Doc with Metadata' },
     cql: '<doc tag="spoken"> [pos="NOUN"]',
     description: { zh: '在标注为spoken的文档开头位置查找名词', en: 'Find nouns at the start of documents tagged as spoken' }
+  },
+  {
+    name: { zh: '间接隐喻词 (MIPVU)', en: 'Indirect Metaphors (MIPVU)' },
+    cql: '[mipvu=="indirect"]',
+    description: { zh: '查找所有被 MIPVU 标注为间接隐喻的词', en: 'Find all tokens annotated as indirect metaphors by MIPVU' }
+  },
+  {
+    name: { zh: '直接隐喻词 (MIPVU)', en: 'Direct Metaphors (MIPVU)' },
+    cql: '[mipvu=="direct"]',
+    description: { zh: '查找所有被 MIPVU 标注为直接隐喻的词', en: 'Find all tokens annotated as direct metaphors by MIPVU' }
+  },
+  {
+    name: { zh: '隐喻信号词 MFlag (MIPVU)', en: 'MFlag Markers (MIPVU)' },
+    cql: '[mipvu=="mflag"]',
+    description: { zh: '查找所有 MIPVU MFlag 信号词（如 like、as）', en: 'Find all MIPVU MFlag signal words (e.g. like, as)' }
+  },
+  {
+    name: { zh: '间接隐喻名词', en: 'Indirect-Metaphor Nouns' },
+    cql: '[mipvu=="indirect" & pos="NOUN"]',
+    description: { zh: '查找兼具间接隐喻标注和名词词性的词', en: 'Find nouns that are also annotated as indirect metaphors' }
   }
 ]
 

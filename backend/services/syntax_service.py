@@ -40,6 +40,11 @@ class SyntaxService:
         self._spacy_available = None
         self._benepar_available = None
 
+        # Model paths - support both development and packaged modes
+        base_path = get_base_path()
+        self.models_dir = base_path / "models"
+        self.benepar_model_path = self.models_dir / "nltk" / "models" / "benepar_en3"
+
     # Legacy attribute compatibility
     @property
     def nlp_en(self):
@@ -48,15 +53,6 @@ class SyntaxService:
     @property
     def nlp_zh(self):
         return self._models.get('chinese')
-        
-        # Model paths - support both development and packaged modes
-        base_path = get_base_path()
-        self.models_dir = base_path / "models"
-        self.benepar_model_path = self.models_dir / "nltk" / "models" / "benepar_en3"
-        
-        logger.info(f"Syntax service initialized. Base path: {base_path}")
-        logger.info(f"Benepar model path: {self.benepar_model_path}")
-        logger.info(f"Model path exists: {self.benepar_model_path.exists()}")
     
     def _check_spacy(self) -> bool:
         """Check if spacy is available"""
@@ -92,9 +88,8 @@ class SyntaxService:
                 return self._models[lang]
             models = SPACY_MODEL_MAP['english']
 
-        primary, fallback = models
         nlp = None
-        for model_name in [m for m in (primary, fallback) if m]:
+        for model_name in models:
             try:
                 nlp = spacy.load(model_name)
                 logger.info(f"Loaded SpaCy model: {model_name}")

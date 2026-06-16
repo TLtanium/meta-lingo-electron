@@ -57,7 +57,7 @@ async def llm_chat(request: LLMChatRequest):
         url = request.ollama.url.rstrip("/")
         model = request.ollama.model
         try:
-            async with httpx.AsyncClient(timeout=180.0) as client:
+            async with httpx.AsyncClient(timeout=180.0, trust_env=False) as client:
                 r = await client.post(
                     f"{url}/api/chat",
                     json={"model": model, "messages": full_messages, "stream": False},
@@ -96,7 +96,7 @@ async def llm_chat(request: LLMChatRequest):
         if api_key:
             headers["Authorization"] = f"Bearer {api_key}"
         try:
-            async with httpx.AsyncClient(timeout=180.0) as client:
+            async with httpx.AsyncClient(timeout=180.0, trust_env=False) as client:
                 r = await client.post(
                     f"{base}/chat/completions",
                     headers=headers,

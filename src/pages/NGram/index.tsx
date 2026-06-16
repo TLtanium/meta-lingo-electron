@@ -130,11 +130,12 @@ export default function NGram({ crossLinkParams }: NGramProps = {}) {
   useEffect(() => {
     if (crossLinkParams && crossLinkParams.searchWord) {
       const resolvedSearchType = (crossLinkParams.ngramSearchType as SearchType | undefined) || 'contains'
-      setSearchConfig({
+      setSearchConfig(prev => ({
+        ...prev,
         searchType: resolvedSearchType,
         searchValue: crossLinkParams.searchWord || '',
         excludeWords: []
-      })
+      }))
       const resolvedNValues = crossLinkParams.ngramValues?.length ? crossLinkParams.ngramValues : [2, 3, 4]
       setNgramConfig(prev => ({ ...prev, nValues: resolvedNValues }))
       setMinFreq(1)
@@ -237,8 +238,8 @@ export default function NGram({ crossLinkParams }: NGramProps = {}) {
         text_ids: corpusSelection.textIds,
         n_values: ngramConfig.nValues,
         pos_filter: posFilter.selectedPOS.length > 0 ? posFilter : undefined,
-        search_config: searchConfig.searchType !== 'all' || searchConfig.excludeWords.length > 0 
-          ? searchConfig 
+        search_config: searchConfig.searchType !== 'all' || searchConfig.excludeWords.length > 0 || searchConfig.searchTarget !== 'word'
+          ? searchConfig
           : undefined,
         min_freq: minFreq,
         max_freq: maxFreq ?? undefined,

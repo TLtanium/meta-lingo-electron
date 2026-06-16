@@ -40,14 +40,16 @@ interface SearchConfigPanelProps {
   disabled?: boolean
 }
 
-type SearchType = 'all' | 'starts' | 'ends' | 'contains' | 'regex' | 'wordlist'
+type SearchType = 'all' | 'wordform' | 'lemma' | 'starts' | 'ends' | 'contains' | 'regex' | 'wordlist'
 
 const SEARCH_TYPES: { value: SearchType; labelKey: string }[] = [
-  { value: 'all', labelKey: 'wordFrequency.search.typeAll' },
-  { value: 'starts', labelKey: 'wordFrequency.search.typeStarts' },
-  { value: 'ends', labelKey: 'wordFrequency.search.typeEnds' },
+  { value: 'all',      labelKey: 'wordFrequency.search.typeAll' },
+  { value: 'wordform', labelKey: 'wordFrequency.search.typeWordform' },
+  { value: 'lemma',    labelKey: 'wordFrequency.search.typeLemma' },
+  { value: 'starts',   labelKey: 'wordFrequency.search.typeStarts' },
+  { value: 'ends',     labelKey: 'wordFrequency.search.typeEnds' },
   { value: 'contains', labelKey: 'wordFrequency.search.typeContains' },
-  { value: 'regex', labelKey: 'wordFrequency.search.typeRegex' },
+  { value: 'regex',    labelKey: 'wordFrequency.search.typeRegex' },
   { value: 'wordlist', labelKey: 'wordFrequency.search.typeWordlist' }
 ]
 
@@ -98,18 +100,14 @@ export default function SearchConfigPanel({
   // Get placeholder text based on search type
   const getPlaceholder = () => {
     switch (config.searchType) {
-      case 'starts':
-        return t('wordFrequency.search.placeholderStarts')
-      case 'ends':
-        return t('wordFrequency.search.placeholderEnds')
-      case 'contains':
-        return t('wordFrequency.search.placeholderContains')
-      case 'regex':
-        return t('wordFrequency.search.placeholderRegex')
-      case 'wordlist':
-        return t('wordFrequency.search.placeholderWordlist')
-      default:
-        return ''
+      case 'wordform': return t('wordFrequency.search.placeholderWordform', '输入词形...')
+      case 'lemma':    return t('wordFrequency.search.placeholderLemma',    '输入词元...')
+      case 'starts':   return t('wordFrequency.search.placeholderStarts')
+      case 'ends':     return t('wordFrequency.search.placeholderEnds')
+      case 'contains': return t('wordFrequency.search.placeholderContains')
+      case 'regex':    return t('wordFrequency.search.placeholderRegex')
+      case 'wordlist': return t('wordFrequency.search.placeholderWordlist')
+      default:         return ''
     }
   }
 

@@ -32,26 +32,26 @@
                     "name": "action",
                     "type": "label",
                     "definition": "行动 (action)：有意图的、由施事者主动发起的事件，如\"他跑步\"、\"她写字\"。",
-                    "color": "#829da2"
+                    "color": "#cc8eb4"
                   },
                   {
                     "id": "b29141cc-4d89-4a11-8a73-b089c66d529b",
                     "name": "happening",
                     "type": "label",
                     "definition": "发生 (happening)：自然发生的、无明确施事者控制的事件，如\"下雨了\"、\"花开了\"。",
-                    "color": "#be96bf"
+                    "color": "#a2cc8e"
                   }
                 ]
               }
             ],
-            "color": "#84b697"
+            "color": "#cc978e"
           },
           {
             "id": "0887b298-3af1-44e2-91df-d6d3c761126d",
             "name": "state",
             "type": "label",
             "definition": "状态 (state)：表示相对稳定的、无明显时间界限的情况，如\"他很高\"、\"水是透明的\"。",
-            "color": "#a3847c"
+            "color": "#8ecca9"
           }
         ]
       },
@@ -78,54 +78,54 @@
                     "name": "desired-process",
                     "type": "label",
                     "definition": "期望过程 (desired-process)：表示期望或希望发生的过程，如\"希望他来\"。",
-                    "color": "#9ec2a1"
+                    "color": "#be8ecc"
                   },
                   {
                     "id": "c4025252-0b9c-4a93-b26f-f14202359db2",
                     "name": "generic-process",
                     "type": "label",
                     "definition": "一般过程 (generic-process)：表示一般性的、非特定的过程，如\"鸟会飞\"。",
-                    "color": "#8fcb7f"
+                    "color": "#c8cc8e"
                   },
                   {
                     "id": "0505e84f-e8a8-4194-9825-902aac4d21fe",
                     "name": "negated-process",
                     "type": "label",
                     "definition": "否定过程 (negated-process)：被否定的过程，如\"他没有来\"。",
-                    "color": "#8dc79e"
+                    "color": "#8eb6cc"
                   },
                   {
                     "id": "b26d2ff0-63a3-4af8-89cf-592974db5ce6",
                     "name": "potential-process",
                     "type": "label",
                     "definition": "潜在过程 (potential-process)：可能发生但尚未实现的过程，如\"他可能来\"。",
-                    "color": "#cdd898"
+                    "color": "#cc8ea3"
                   },
                   {
                     "id": "8166fdd6-29fd-482a-a004-2151efcaf5a2",
                     "name": "predicted-process",
                     "type": "label",
                     "definition": "预测过程 (predicted-process)：预测将要发生的过程，如\"明天会下雨\"。",
-                    "color": "#9291d2"
+                    "color": "#91cc8e"
                   },
                   {
                     "id": "d8afdb79-4367-4783-8fba-01689664af82",
                     "name": "queried-process",
                     "type": "label",
                     "definition": "疑问过程 (queried-process)：以疑问形式出现的过程，如\"他来了吗？\"。",
-                    "color": "#dbc484"
+                    "color": "#9d8ecc"
                   },
                   {
                     "id": "d29ece7f-352e-4ed4-8f77-5a724e7653d9",
                     "name": "unknown-realis-type",
                     "type": "label",
                     "definition": "未知现实类型 (unknown-realis-type)：无法确定现实性类型的过程。",
-                    "color": "#c4a687"
+                    "color": "#ccaf8e"
                   }
                 ]
               }
             ],
-            "color": "#bed6bf"
+            "color": "#938ecc"
           },
           {
             "id": "40830c73-a134-4889-993e-c1fa4132e67b",
@@ -144,14 +144,14 @@
                     "name": "completed-process",
                     "type": "label",
                     "definition": "完成过程 (completed-process)：已经完成的过程，如\"他已经到了\"。",
-                    "color": "#be9b7d"
+                    "color": "#8eccb8"
                   },
                   {
                     "id": "caaf493f-056e-4ab2-8666-f0fba6997efc",
                     "name": "ongoing-process",
                     "type": "label",
                     "definition": "进行过程 (ongoing-process)：正在进行的过程，如\"他正在走\"。",
-                    "color": "#aed0bf"
+                    "color": "#ca8ecc"
                   }
                 ]
               },
@@ -166,26 +166,26 @@
                     "name": "actual-process",
                     "type": "label",
                     "definition": "实际过程 (actual-process)：实际发生的具体过程，如\"昨天他来了\"。",
-                    "color": "#a784ae"
+                    "color": "#bbcc8e"
                   },
                   {
                     "id": "ea702dd8-09eb-4bb9-bc9a-3bf66b5d39a8",
                     "name": "generalization",
                     "type": "label",
                     "definition": "概括 (generalization)：概括性的陈述，如\"学生都很努力\"。",
-                    "color": "#db86a7"
+                    "color": "#8ea9cc"
                   },
                   {
                     "id": "88f62fe4-9fd1-490c-9491-e5ea31a24006",
                     "name": "habitual-action",
                     "type": "label",
                     "definition": "习惯行为 (habitual-action)：习惯性的或反复发生的行为，如\"他每天跑步\"。",
-                    "color": "#9a9f93"
+                    "color": "#cc8e97"
                   }
                 ]
               }
             ],
-            "color": "#98c184"
+            "color": "#cca58e"
           }
         ]
       },
@@ -200,63 +200,63 @@
             "name": "modal",
             "type": "label",
             "definition": "情态 (modal)：表示可能性、必要性等情态意义的时态形式。",
-            "color": "#dc7bd7"
+            "color": "#cc9e8e"
           },
           {
             "id": "383149ff-5ca8-4bbf-92d1-9d8907660546",
             "name": "past-perfect",
             "type": "label",
             "definition": "过去完成时 (past-perfect)：表示过去某时间前已完成的动作，如\"had done\"。",
-            "color": "#c288cc"
+            "color": "#8eccb0"
           },
           {
             "id": "791528d4-8427-4929-9097-d44d20058dea",
             "name": "past-perfect-progressive",
             "type": "label",
             "definition": "过去完成进行时 (past-perfect-progressive)：表示过去某时间前一直在进行的动作，如\"had been doing\"。",
-            "color": "#d58c81"
+            "color": "#c28ecc"
           },
           {
             "id": "ecebb29f-aed6-4539-91c8-6138de83a92f",
             "name": "past-progressive",
             "type": "label",
             "definition": "过去进行时 (past-progressive)：表示过去某时正在进行的动作，如\"was doing\"。",
-            "color": "#ba8bc0"
+            "color": "#c4cc8e"
           },
           {
             "id": "cde109ae-9f44-417e-ab06-2c6e7875cb43",
             "name": "present-perfect",
             "type": "label",
             "definition": "现在完成时 (present-perfect)：表示到现在为止已完成的动作，如\"have done\"。",
-            "color": "#c7cbc9"
+            "color": "#8eb2cc"
           },
           {
             "id": "5ba523c5-565e-4e48-b15e-c281ed77f0b1",
             "name": "present-perfect-progressive",
             "type": "label",
             "definition": "现在完成进行时 (present-perfect-progressive)：表示从过去开始一直持续到现在的动作，如\"have been doing\"。",
-            "color": "#7d79cd"
+            "color": "#cc8ea0"
           },
           {
             "id": "94a59a75-c3d4-4673-af53-f456920d7822",
             "name": "present-progressive",
             "type": "label",
             "definition": "现在进行时 (present-progressive)：表示现在正在进行的动作，如\"is doing\"。",
-            "color": "#ad9a80"
+            "color": "#8ecc8e"
           },
           {
             "id": "b11ddae0-9e04-4873-806a-72b81601c98f",
             "name": "simple-past",
             "type": "label",
             "definition": "一般过去时 (simple-past)：表示过去发生的动作，如\"did\"。",
-            "color": "#b2c095"
+            "color": "#a08ecc"
           },
           {
             "id": "e13c60bb-ee81-4fc6-974b-8670e3c922cf",
             "name": "simple-present",
             "type": "label",
             "definition": "一般现在时 (simple-present)：表示现在的状态或经常性动作，如\"do/does\"。",
-            "color": "#be7a91"
+            "color": "#ccb28e"
           }
         ]
       }

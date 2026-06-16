@@ -3,15 +3,9 @@ HTTP client wrapper for calling the Meta-Lingo FastAPI backend.
 """
 import json
 import io
-import os
 from typing import Any, Optional
 
 import httpx
-
-# Prevent httpx from routing localhost through system proxy
-for _k in ("http_proxy", "https_proxy", "HTTP_PROXY", "HTTPS_PROXY",
-           "ALL_PROXY", "all_proxy"):
-    os.environ.pop(_k, None)
 
 
 class MetaLingoClient:
@@ -26,6 +20,7 @@ class MetaLingoClient:
             self._client = httpx.AsyncClient(
                 base_url=self.base_url,
                 timeout=httpx.Timeout(600.0, connect=10.0),
+                trust_env=False,  # never route localhost through system proxy (e.g. Privoxy)
             )
         return self._client
 

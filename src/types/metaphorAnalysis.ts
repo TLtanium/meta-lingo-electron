@@ -15,6 +15,8 @@ export interface MetaphorAnalysisRequest {
   max_freq?: number;
   lowercase?: boolean;
   result_mode?: 'word' | 'source';
+  /** When true, antecedent words of implicit metaphors get their frequency incremented */
+  include_implicit?: boolean;
 }
 
 export interface POSFilterConfig {
@@ -23,10 +25,9 @@ export interface POSFilterConfig {
 }
 
 export interface SearchConfig {
-  searchType: 'all' | 'starts' | 'ends' | 'contains' | 'regex' | 'wordlist';
+  searchType: 'all' | 'wordform' | 'lemma' | 'starts' | 'ends' | 'contains' | 'regex' | 'wordlist';
   searchValue: string;
   excludeWords: string[];
-  searchTarget: 'word' | 'lemma';
   removeStopwords: boolean;
 }
 
@@ -35,9 +36,14 @@ export interface MetaphorResult {
   lemma: string;
   pos: string;
   is_metaphor: boolean;
+  is_direct_metaphor?: boolean;
+  is_mflag?: boolean;
+  is_implicit_metaphor?: boolean;
   frequency: number;
   percentage: number;
   source: MetaphorSource;
+  /** Number of times this word was back-referenced by implicit metaphors (only set when include_implicit=true) */
+  implicit_ref_count?: number;
 }
 
 export interface MetaphorSourceResult {
@@ -59,6 +65,10 @@ export interface MetaphorStatistics {
   metaphor_tokens: number;
   literal_tokens: number;
   metaphor_rate: number;
+  indirect_metaphor_tokens?: number;
+  direct_metaphor_tokens?: number;
+  mflag_tokens?: number;
+  implicit_metaphor_tokens?: number;
   source_distribution: Record<MetaphorSource, number>;
   // Optional statistics grouped by POS (e.g. ALL / IN / DT / RB / RP / OTHER)
   pos_group_stats?: Record<string, MetaphorPOSGroupStats>;
@@ -104,6 +114,8 @@ export type MetaphorSource =
   | 'clause'      // Clause model – non-function words (green in UI)
   | 'finetuned'   // Clause model – function words IN/DT/RB/RP (orange in UI)
   | 'hitz'        // Legacy: old annotations before Clause model (backward compat)
+  | 'direct'      // Direct metaphor model – direct MRW
+  | 'mflag'       // Direct metaphor model – mflag marker
   | 'unknown';    // Unknown source
 
 export interface MetaphorSourceInfo {
@@ -202,6 +214,9 @@ export interface MIPVUToken {
   tag: string;
   dep: string;
   is_metaphor: boolean;
+  is_direct_metaphor?: boolean;
+  is_mflag?: boolean;
+  is_implicit_metaphor?: boolean;
   metaphor_confidence: number;
   metaphor_source: string;
 }
@@ -256,6 +271,8 @@ export const METAPHOR_SOURCE_COLORS: Record<MetaphorSource, string> = {
   clause: '#4CAF50',      // Green – Clause model, non-function words
   finetuned: '#FF9800',   // Orange – Clause model, function words (IN/DT/RB/RP)
   hitz: '#4CAF50',        // Green – legacy annotations (same as clause)
+  direct: '#E91E63',      // Pink – direct metaphor MRW
+  mflag: '#9C27B0',       // Purple – mflag marker
   unknown: '#607D8B',     // Blue Gray
 };
 
@@ -267,5 +284,7 @@ export const METAPHOR_SOURCE_LABELS: Record<MetaphorSource, { en: string; zh: st
   clause: { en: 'indirect', zh: '间接隐喻' },
   finetuned: { en: 'indirect', zh: '间接隐喻' },
   hitz: { en: 'indirect', zh: '间接隐喻' },  // legacy
+  direct: { en: 'direct', zh: '直接隐喻' },
+  mflag: { en: 'MFlag', zh: 'MFlag' },
   unknown: { en: 'Unknown', zh: '未知' },
 };

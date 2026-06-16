@@ -32,14 +32,14 @@
                     "name": "no-connector",
                     "type": "label",
                     "definition": "无连接词 (no-connector)：小句间没有连接成分。",
-                    "color": "#baa585"
+                    "color": "#cc8ea6"
                   },
                   {
                     "id": "e678d4fa-1909-4631-8f69-41a45e4c548a",
                     "name": "with-connector",
                     "type": "label",
                     "definition": "有连接词 (with-connector)：小句间有连接成分连接。",
-                    "color": "#c987a7"
+                    "color": "#94cc8e"
                   }
                 ]
               },
@@ -54,14 +54,14 @@
                     "name": "evidential-projection",
                     "type": "label",
                     "definition": "据实投射 (evidential-projection)：表达说话者对信息来源的态度。",
-                    "color": "#8d7889"
+                    "color": "#cc8ebe"
                   },
                   {
                     "id": "7ad7f1ae-d25b-478d-8c00-9727677ca326",
                     "name": "no-evidential-projection",
                     "type": "label",
                     "definition": "无据实投射 (no-evidential-projection)：不涉及信息来源的表达。",
-                    "color": "#afa7ae"
+                    "color": "#accc8e"
                   }
                 ]
               },
@@ -88,7 +88,7 @@
                             "name": "relative-clause",
                             "type": "label",
                             "definition": "关系小句 (relative-clause)：起修饰作用的从属小句。",
-                            "color": "#beaf92"
+                            "color": "#8ecc94"
                           },
                           {
                             "id": "5bba287f-ee7e-4d8e-b6fe-1a761dcdacbb",
@@ -107,33 +107,33 @@
                                     "name": "declarative-clause",
                                     "type": "label",
                                     "definition": "陈述小句 (declarative-clause)：陈述事实的小句。",
-                                    "color": "#bb8094"
+                                    "color": "#ccbb8e"
                                   },
                                   {
                                     "id": "8477f91f-ab08-46ef-a473-cebef093e754",
                                     "name": "imperative-clause",
                                     "type": "label",
                                     "definition": "祈使小句 (imperative-clause)：表达命令或请求的小句。",
-                                    "color": "#a7ccbc"
+                                    "color": "#8ecbcc"
                                   },
                                   {
                                     "id": "391ae651-c405-46ba-b90b-1b69ad6a8c1f",
                                     "name": "interrogative-clause",
                                     "type": "label",
                                     "definition": "疑问小句 (interrogative-clause)：提出疑问的小句。",
-                                    "color": "#d8b0c0"
+                                    "color": "#cc8eb9"
                                   }
                                 ]
                               }
                             ],
-                            "color": "#c2b1c8"
+                            "color": "#a68ecc"
                           },
                           {
                             "id": "f9c7358d-a0c5-46f0-b002-b65ad88e4c6a",
                             "name": "that-clause",
                             "type": "label",
                             "definition": "that小句 (that-clause)：由that引导的从属小句。",
-                            "color": "#83dbae"
+                            "color": "#ccb88e"
                           }
                         ]
                       },
@@ -160,19 +160,19 @@
                                     "name": "future-clause",
                                     "type": "label",
                                     "definition": "将来小句 (future-clause)：表达将来时间的小句。",
-                                    "color": "#b5a8bd"
+                                    "color": "#8e92cc"
                                   },
                                   {
                                     "id": "8ade8cc1-934c-4acd-9778-fde84d9c0790",
                                     "name": "true-modal-clause",
                                     "type": "label",
                                     "definition": "真情态小句 (true-modal-clause)：含有真正情态意义的小句。",
-                                    "color": "#baa28f"
+                                    "color": "#cc9c8e"
                                   }
                                 ]
                               }
                             ],
-                            "color": "#bbc4ae"
+                            "color": "#cc8eaa"
                           },
                           {
                             "id": "915ce0dd-4dcd-4b42-a572-3fcf213fd129",
@@ -191,14 +191,14 @@
                                     "name": "do-insert",
                                     "type": "label",
                                     "definition": "do插入 (do-insert)：使用助动词do的结构。",
-                                    "color": "#babd7b"
+                                    "color": "#becc8e"
                                   },
                                   {
                                     "id": "910a8fa5-de4b-496f-9ff7-039af6fdb8d9",
                                     "name": "no-do-insert",
                                     "type": "label",
                                     "definition": "无do插入 (no-do-insert)：不使用助动词do的结构。",
-                                    "color": "#7d7bb7"
+                                    "color": "#8eaccc"
                                   }
                                 ]
                               },
@@ -213,19 +213,19 @@
                                     "name": "past-clause",
                                     "type": "label",
                                     "definition": "过去小句 (past-clause)：表达过去时间的小句。",
-                                    "color": "#d1787f"
+                                    "color": "#cc928e"
                                   },
                                   {
                                     "id": "32738458-88ea-4927-ba2c-d2572c0e7f96",
                                     "name": "present-clause",
                                     "type": "label",
                                     "definition": "现在小句 (present-clause)：表达现在时间的小句。",
-                                    "color": "#8582bb"
+                                    "color": "#8ecca4"
                                   }
                                 ]
                               }
                             ],
-                            "color": "#bd82d1"
+                            "color": "#98cc8e"
                           }
                         ]
                       },
@@ -240,49 +240,49 @@
                             "name": "existential-clause",
                             "type": "label",
                             "definition": "存在小句 (existential-clause)：表达存在关系的小句（如there be结构）。",
-                            "color": "#cad692"
+                            "color": "#ccad8e"
                           },
                           {
                             "id": "f6fee707-dc35-4a3e-9391-79de291a37be",
                             "name": "extraposition",
                             "type": "label",
                             "definition": "外置 (extraposition)：主语后置的结构。",
-                            "color": "#bfa5a3"
+                            "color": "#8eccbf"
                           },
                           {
                             "id": "386869b7-4f20-47f5-9215-0603c108e6fa",
                             "name": "interrogative-cleft",
                             "type": "label",
                             "definition": "疑问分裂句 (interrogative-cleft)：疑问式的分裂句结构。",
-                            "color": "#84ca8b"
+                            "color": "#cc8ec7"
                           },
                           {
                             "id": "3291ba28-587c-4fe0-bdac-07285dc748de",
                             "name": "it-cleft",
                             "type": "label",
                             "definition": "it分裂句 (it-cleft)：以it开头的分裂句。",
-                            "color": "#a2b8bb"
+                            "color": "#b5cc8e"
                           },
                           {
                             "id": "8bb4684c-cd2c-4303-900e-fde1081b0f99",
                             "name": "postponement",
                             "type": "label",
                             "definition": "延后 (postponement)：成分延后的结构。",
-                            "color": "#80b598"
+                            "color": "#8ea3cc"
                           },
                           {
                             "id": "645e23d1-dd98-4336-9f73-5d57a89f4e32",
                             "name": "reserved-interrogative-cleft",
                             "type": "label",
                             "definition": "保留疑问分裂句 (reserved-interrogative-cleft)：特殊的疑问分裂句。",
-                            "color": "#d57ed8"
+                            "color": "#cc8e90"
                           },
                           {
                             "id": "2d08d5b8-3840-43b8-8584-08bfabf4ab4a",
                             "name": "unmarked-structure",
                             "type": "label",
                             "definition": "无标记结构 (unmarked-structure)：常规的、无特殊标记的结构。",
-                            "color": "#c3cf9e"
+                            "color": "#8ecc9d"
                           }
                         ]
                       },
@@ -297,117 +297,117 @@
                             "name": "future-perfect",
                             "type": "label",
                             "definition": "将来完成 (future-perfect)：将来完成时。",
-                            "color": "#c079d4"
+                            "color": "#8eb1cc"
                           },
                           {
                             "id": "af5a7d63-774e-43b9-8ac1-44b4e8fe58a7",
                             "name": "future-progressive",
                             "type": "label",
                             "definition": "将来进行 (future-progressive)：将来进行时。",
-                            "color": "#a3c28c"
+                            "color": "#cc8e9f"
                           },
                           {
                             "id": "61591775-60f5-4e7c-85de-430904eaeea0",
                             "name": "future-progressive-perfect",
                             "type": "label",
                             "definition": "将来进行完成 (future-progressive-perfect)：将来进行完成时。",
-                            "color": "#8edacf"
+                            "color": "#8ecc8f"
                           },
                           {
                             "id": "7cef7c92-0d46-492f-a8f1-bf8768a9ad5b",
                             "name": "modal-perfect",
                             "type": "label",
                             "definition": "情态完成 (modal-perfect)：情态动词+完成体。",
-                            "color": "#bbaaa1"
+                            "color": "#a18ecc"
                           },
                           {
                             "id": "a37b1ffd-7a7b-4dfd-a2bc-4f488216617f",
                             "name": "modal-progressive",
                             "type": "label",
                             "definition": "情态进行 (modal-progressive)：情态动词+进行体。",
-                            "color": "#b993d5"
+                            "color": "#ccb38e"
                           },
                           {
                             "id": "426b684c-23a9-4042-8ca5-f0671164fef9",
                             "name": "modal-progressive-perfect",
                             "type": "label",
                             "definition": "情态进行完成 (modal-progressive-perfect)：情态动词+进行完成体。",
-                            "color": "#8299b2"
+                            "color": "#8eccc5"
                           },
                           {
                             "id": "55d513e3-05e6-40a9-8b0c-10c4c9e073dd",
                             "name": "past-perfect",
                             "type": "label",
                             "definition": "过去完成 (past-perfect)：过去完成时。",
-                            "color": "#b2c5ae"
+                            "color": "#cc8ec1"
                           },
                           {
                             "id": "5ef04ad9-761f-496e-a681-18a052f9c842",
                             "name": "past-progressive",
                             "type": "label",
                             "definition": "过去进行 (past-progressive)：过去进行时。",
-                            "color": "#a08878"
+                            "color": "#afcc8e"
                           },
                           {
                             "id": "ae17f544-c2f5-471c-8bb6-eab22c19fd80",
                             "name": "past-progressive-perfect",
                             "type": "label",
                             "definition": "过去进行完成 (past-progressive-perfect)：过去进行完成时。",
-                            "color": "#cd7da5"
+                            "color": "#8e9dcc"
                           },
                           {
                             "id": "ae917b29-9703-4ddc-a4fe-d10052a319c6",
                             "name": "present-perfect",
                             "type": "label",
                             "definition": "现在完成 (present-perfect)：现在完成时。",
-                            "color": "#7d78d5"
+                            "color": "#cc918e"
                           },
                           {
                             "id": "5bef1f96-1fb0-4201-bf22-172cb2b8a280",
                             "name": "present-progressive",
                             "type": "label",
                             "definition": "现在进行 (present-progressive)：现在进行时。",
-                            "color": "#bc9dbc"
+                            "color": "#8ecca3"
                           },
                           {
                             "id": "572c1ca6-6440-4a39-963a-a042acba3a05",
                             "name": "present-progressive-perfect",
                             "type": "label",
                             "definition": "现在进行完成 (present-progressive-perfect)：现在进行完成时。",
-                            "color": "#989696"
+                            "color": "#b58ecc"
                           },
                           {
                             "id": "36c87be0-d552-4651-b984-104d5bc1de92",
                             "name": "simple-future",
                             "type": "label",
                             "definition": "简单将来 (simple-future)：简单将来时。",
-                            "color": "#8ed19e"
+                            "color": "#ccc88e"
                           },
                           {
                             "id": "73b64247-425b-47df-8ba6-2beed4c75af3",
                             "name": "simple-modal",
                             "type": "label",
                             "definition": "简单情态 (simple-modal)：简单情态形式。",
-                            "color": "#8c86da"
+                            "color": "#8ebecc"
                           },
                           {
                             "id": "98adbe14-dbd9-4618-9293-afc3a8d6ea91",
                             "name": "simple-past",
                             "type": "label",
                             "definition": "简单过去 (simple-past)：简单过去时。",
-                            "color": "#a5accd"
+                            "color": "#cc8eac"
                           },
                           {
                             "id": "a7b6e4d7-1d87-4f2c-9035-fadb1f9b9106",
                             "name": "simple-present",
                             "type": "label",
                             "definition": "简单现在 (simple-present)：简单现在时。",
-                            "color": "#acb5c2"
+                            "color": "#9acc8e"
                           }
                         ]
                       }
                     ],
-                    "color": "#a1d996"
+                    "color": "#ccba8e"
                   },
                   {
                     "id": "85bba9e4-7b68-4059-af30-09f93df43a84",
@@ -426,26 +426,26 @@
                             "name": "infinitive-clause",
                             "type": "label",
                             "definition": "不定式小句 (infinitive-clause)：由不定式构成的小句。",
-                            "color": "#c4ac94"
+                            "color": "#ccad8e"
                           },
                           {
                             "id": "5fbbdf92-40f0-4548-81fd-c5838a967d2b",
                             "name": "past-participle-clause",
                             "type": "label",
                             "definition": "过去分词小句 (past-participle-clause)：由过去分词构成的小句。",
-                            "color": "#dbb2d8"
+                            "color": "#8eccbf"
                           },
                           {
                             "id": "4b07fe14-94e4-40be-80fe-210de8956005",
                             "name": "present-participle-clause",
                             "type": "label",
                             "definition": "现在分词小句 (present-participle-clause)：由现在分词构成的小句。",
-                            "color": "#879ea8"
+                            "color": "#cc8ec6"
                           }
                         ]
                       }
                     ],
-                    "color": "#da917c"
+                    "color": "#8ecbcc"
                   }
                 ]
               },
@@ -460,14 +460,14 @@
                     "name": "not-perfect-aspect",
                     "type": "label",
                     "definition": "非完成体 (not-perfect-aspect)：不表达完成意义的动词形式。",
-                    "color": "#a0c8ce"
+                    "color": "#ae8ecc"
                   },
                   {
                     "id": "e0757904-c712-4b94-813c-a623ea23a319",
                     "name": "perfect-aspect",
                     "type": "label",
                     "definition": "完成体 (perfect-aspect)：表达完成意义的动词形式。",
-                    "color": "#a897b8"
+                    "color": "#ccc08e"
                   }
                 ]
               },
@@ -482,14 +482,14 @@
                     "name": "not-phased-clause",
                     "type": "label",
                     "definition": "非阶段小句 (not-phased-clause)：不含阶段性动词的小句。",
-                    "color": "#8886d4"
+                    "color": "#8eb4cc"
                   },
                   {
                     "id": "642788e3-4403-4a0a-b6b1-e206ee9caef8",
                     "name": "phased-clause",
                     "type": "label",
                     "definition": "阶段小句 (phased-clause)：含有阶段性动词的小句。",
-                    "color": "#c99c9e"
+                    "color": "#cc8ea2"
                   }
                 ]
               },
@@ -504,14 +504,14 @@
                     "name": "negative-clause",
                     "type": "label",
                     "definition": "否定小句 (negative-clause)：表达否定意义的小句。",
-                    "color": "#d77eb8"
+                    "color": "#ccaa8e"
                   },
                   {
                     "id": "a76a327e-33b5-4aba-aec2-ab4d6938c5a2",
                     "name": "positive-clause",
                     "type": "label",
                     "definition": "肯定小句 (positive-clause)：表达肯定意义的小句。",
-                    "color": "#7b93c5"
+                    "color": "#8eccbd"
                   }
                 ]
               },
@@ -526,14 +526,14 @@
                     "name": "not-progressive-aspect",
                     "type": "label",
                     "definition": "非进行体 (not-progressive-aspect)：不表达进行意义的动词形式。",
-                    "color": "#b992c4"
+                    "color": "#cca08e"
                   },
                   {
                     "id": "3ca50c6a-6347-4c15-aeed-91f875df8cfe",
                     "name": "progressive-aspect",
                     "type": "label",
                     "definition": "进行体 (progressive-aspect)：表达进行意义的动词形式。",
-                    "color": "#bdc491"
+                    "color": "#8eccb2"
                   }
                 ]
               },
@@ -548,19 +548,19 @@
                     "name": "active-clause",
                     "type": "label",
                     "definition": "主动小句 (active-clause)：主动语态的小句。",
-                    "color": "#d690c9"
+                    "color": "#ccbc8e"
                   },
                   {
                     "id": "990ea020-1b4b-4377-bf01-f4a45b9eb24c",
                     "name": "passive-clause",
                     "type": "label",
                     "definition": "被动小句 (passive-clause)：被动语态的小句。",
-                    "color": "#d9917e"
+                    "color": "#8ecacc"
                   }
                 ]
               }
             ],
-            "color": "#928d7a"
+            "color": "#ccbd8e"
           },
           {
             "id": "7c32788e-343a-4c45-96cd-0e401480b4b9",
@@ -579,33 +579,33 @@
                     "name": "adjp-complex",
                     "type": "label",
                     "definition": "形容词短语复合体 (adjp-complex)：多个形容词短语的组合。",
-                    "color": "#cb7f9e"
+                    "color": "#cc8ec1"
                   },
                   {
                     "id": "1e02baef-f1b5-48d7-9efd-29b89c74748e",
                     "name": "clause-complex",
                     "type": "label",
                     "definition": "小句复合体 (clause-complex)：多个小句的组合。",
-                    "color": "#8fb2a5"
+                    "color": "#aecc8e"
                   },
                   {
                     "id": "54ac5c87-3412-45dd-aecf-411e6b94d672",
                     "name": "np-complex",
                     "type": "label",
                     "definition": "名词短语复合体 (np-complex)：多个名词短语的组合。",
-                    "color": "#c99894"
+                    "color": "#8e9ccc"
                   },
                   {
                     "id": "63f7e41d-b794-4321-9671-c6fef8181ea7",
                     "name": "vp-complex",
                     "type": "label",
                     "definition": "动词短语复合体 (vp-complex)：多个动词短语的组合。",
-                    "color": "#d3a9a5"
+                    "color": "#cc928e"
                   }
                 ]
               }
             ],
-            "color": "#d28396"
+            "color": "#8ec8cc"
           },
           {
             "id": "3f6ecb94-568a-4292-9831-319911fb9b2d",
@@ -636,19 +636,19 @@
                             "name": "interrogative-adjectival-group",
                             "type": "label",
                             "definition": "疑问形容词组 (interrogative-adjectival-group)：疑问性质的形容词组。",
-                            "color": "#83a393"
+                            "color": "#cc8e9a"
                           },
                           {
                             "id": "bb505d49-66e3-435e-91ff-7bf730b311f4",
                             "name": "noninterrogative-adjectival-group",
                             "type": "label",
                             "definition": "非疑问形容词组 (noninterrogative-adjectival-group)：非疑问性质的形容词组。",
-                            "color": "#adb9da"
+                            "color": "#8ecc94"
                           }
                         ]
                       }
                     ],
-                    "color": "#877fa5"
+                    "color": "#cc8eb6"
                   },
                   {
                     "id": "b0f2aebc-44f7-43ea-81c9-9185a0f9aea5",
@@ -667,19 +667,19 @@
                             "name": "interrogative-adverbial-group",
                             "type": "label",
                             "definition": "疑问副词组 (interrogative-adverbial-group)：疑问性质的副词组。",
-                            "color": "#aab7ac"
+                            "color": "#8ea0cc"
                           },
                           {
                             "id": "5b0c0b8a-d898-42f5-836d-6b63226fdcb1",
                             "name": "noninterrogative-adverbial-group",
                             "type": "label",
                             "definition": "非疑问副词组 (noninterrogative-adverbial-group)：非疑问性质的副词组。",
-                            "color": "#a1d0b4"
+                            "color": "#cc8e8e"
                           }
                         ]
                       }
                     ],
-                    "color": "#aed0a0"
+                    "color": "#a4cc8e"
                   },
                   {
                     "id": "681ec236-599f-4428-b355-1344870ca9db",
@@ -698,14 +698,14 @@
                             "name": "interrogative-noun-group",
                             "type": "label",
                             "definition": "疑问名词组 (interrogative-noun-group)：疑问性质的名词组。",
-                            "color": "#8fd29c"
+                            "color": "#cc918e"
                           },
                           {
                             "id": "e48f2355-d822-44ef-ad6a-540921a7089c",
                             "name": "noninterrogative-noun-group",
                             "type": "label",
                             "definition": "非疑问名词组 (noninterrogative-noun-group)：非疑问性质的名词组。",
-                            "color": "#b1bab5"
+                            "color": "#8ecca3"
                           }
                         ]
                       },
@@ -732,14 +732,14 @@
                                     "name": "determined-group",
                                     "type": "label",
                                     "definition": "有限定组 (determined-group)：有限定词的名词组。",
-                                    "color": "#b3d2cd"
+                                    "color": "#8ebbcc"
                                   },
                                   {
                                     "id": "2914cec6-a96f-49e9-ad3e-153b3480b47c",
                                     "name": "not-determined-group",
                                     "type": "label",
                                     "definition": "无限定组 (not-determined-group)：无限定词的名词组。",
-                                    "color": "#84918a"
+                                    "color": "#cc8ea9"
                                   }
                                 ]
                               },
@@ -754,14 +754,14 @@
                                     "name": "not-predetermined-group",
                                     "type": "label",
                                     "definition": "非前限定组 (not-predetermined-group)：无前限定词的名词组。",
-                                    "color": "#a79ea3"
+                                    "color": "#9ecc8e"
                                   },
                                   {
                                     "id": "26d22995-70fc-460a-9ab7-8db1a03de0fb",
                                     "name": "predetermined-group",
                                     "type": "label",
                                     "definition": "前限定组 (predetermined-group)：有前限定词的名词组。",
-                                    "color": "#aac79a"
+                                    "color": "#908ecc"
                                   }
                                 ]
                               },
@@ -776,14 +776,14 @@
                                     "name": "not-premodified-group",
                                     "type": "label",
                                     "definition": "非前修饰组 (not-premodified-group)：无前置修饰的名词组。",
-                                    "color": "#add17b"
+                                    "color": "#ccb08e"
                                   },
                                   {
                                     "id": "299fc570-22ac-453d-849f-aae676bc4c2c",
                                     "name": "premodified-group",
                                     "type": "label",
                                     "definition": "前修饰组 (premodified-group)：有前置修饰的名词组。",
-                                    "color": "#afa79e"
+                                    "color": "#8eccc2"
                                   }
                                 ]
                               },
@@ -798,33 +798,33 @@
                                     "name": "not-qualified-group",
                                     "type": "label",
                                     "definition": "非后置限定组 (not-qualified-group)：无后置限定的名词组。",
-                                    "color": "#bbc4db"
+                                    "color": "#bdcc8e"
                                   },
                                   {
                                     "id": "aae294a3-21de-471a-a107-468b86c4958b",
                                     "name": "qualified-group",
                                     "type": "label",
                                     "definition": "后置限定组 (qualified-group)：有后置限定的名词组。",
-                                    "color": "#7bd07d"
+                                    "color": "#8eaacc"
                                   }
                                 ]
                               }
                             ],
-                            "color": "#8ec4cb"
+                            "color": "#cc8eb3"
                           },
                           {
                             "id": "c686ea58-4bb0-4437-9d69-1c165f2c05aa",
                             "name": "pronominal-group",
                             "type": "label",
                             "definition": "代词组 (pronominal-group)：代词构成的词组。",
-                            "color": "#79ab9a"
+                            "color": "#a1cc8e"
                           },
                           {
                             "id": "00d6e834-33ef-4236-a851-69a99d5f3d6e",
                             "name": "proper-group",
                             "type": "label",
                             "definition": "专有组 (proper-group)：专有名词构成的词组。",
-                            "color": "#bf80ad"
+                            "color": "#8e8fcc"
                           }
                         ]
                       },
@@ -839,19 +839,19 @@
                             "name": "plural-group",
                             "type": "label",
                             "definition": "复数组 (plural-group)：复数形式的名词组。",
-                            "color": "#c9bb98"
+                            "color": "#8eccb2"
                           },
                           {
                             "id": "eb70fb91-c5c4-44f2-8889-d1a9ec8e73fb",
                             "name": "singular-group",
                             "type": "label",
                             "definition": "单数组 (singular-group)：单数形式的名词组。",
-                            "color": "#b87bb7"
+                            "color": "#c48ecc"
                           }
                         ]
                       }
                     ],
-                    "color": "#d7d6c4"
+                    "color": "#8e92cc"
                   },
                   {
                     "id": "1e5c0bc3-353e-4077-96be-87b7e4a7cdb3",
@@ -870,24 +870,24 @@
                             "name": "interrogative-prep-group",
                             "type": "label",
                             "definition": "疑问介词组 (interrogative-prep-group)：疑问性质的介词组。",
-                            "color": "#9482a0"
+                            "color": "#9b8ecc"
                           },
                           {
                             "id": "aaa47ade-0c4d-49f9-a045-9289ec385e47",
                             "name": "noninterrogative-prep-group",
                             "type": "label",
                             "definition": "非疑问介词组 (noninterrogative-prep-group)：非疑问性质的介词组。",
-                            "color": "#9ad5ba"
+                            "color": "#ccad8e"
                           }
                         ]
                       }
                     ],
-                    "color": "#a9999e"
+                    "color": "#cc9c8e"
                   }
                 ]
               }
             ],
-            "color": "#a79aa2"
+            "color": "#cc8eb6"
           },
           {
             "id": "7cfc897b-624b-4191-981d-ff8cf0a7f0c3",
@@ -918,103 +918,103 @@
                             "name": "closequote",
                             "type": "label",
                             "definition": "右引号 (closequote)：结束引用的引号。",
-                            "color": "#b9d4b8"
+                            "color": "#cc8ec5"
                           },
                           {
                             "id": "a2e2c019-1726-49ba-815c-e1375af88cab",
                             "name": "colon",
                             "type": "label",
                             "definition": "冒号 (colon)：冒号标点。",
-                            "color": "#818aaa"
+                            "color": "#b3cc8e"
                           },
                           {
                             "id": "2ad9c3de-c521-411d-90a5-5c5b172831ee",
                             "name": "comma",
                             "type": "label",
                             "definition": "逗号 (comma)：逗号标点。",
-                            "color": "#85c77a"
+                            "color": "#8ea0cc"
                           },
                           {
                             "id": "4c35fe18-9048-4e70-8d78-dd4740782fe8",
                             "name": "dollarsign",
                             "type": "label",
                             "definition": "美元符号 (dollarsign)：货币符号。",
-                            "color": "#a0a0b9"
+                            "color": "#cc8e8e"
                           },
                           {
                             "id": "6adec099-5ff4-435c-88ca-230556edfc76",
                             "name": "double-quote",
                             "type": "label",
                             "definition": "双引号 (double-quote)：双引号标点。",
-                            "color": "#a99ac8"
+                            "color": "#8ecca0"
                           },
                           {
                             "id": "a69aa86e-71d8-42d8-92d6-cb301c4901f8",
                             "name": "exclamation-mark",
                             "type": "label",
                             "definition": "感叹号 (exclamation-mark)：感叹号标点。",
-                            "color": "#9a93d8"
+                            "color": "#b28ecc"
                           },
                           {
                             "id": "85f9aab4-c47a-4410-83f4-bc66589a5acc",
                             "name": "hatch",
                             "type": "label",
                             "definition": "井号 (hatch)：井号符号。",
-                            "color": "#b1898b"
+                            "color": "#ccc48e"
                           },
                           {
                             "id": "6d7a52bb-0d6d-4a34-ba84-9aacc6d580b7",
                             "name": "hyphen",
                             "type": "label",
                             "definition": "连字符 (hyphen)：连字符标点。",
-                            "color": "#9ac7b0"
+                            "color": "#8ec2cc"
                           },
                           {
                             "id": "1b4bafe4-b78b-42ec-8375-f018db54f069",
                             "name": "left-parenthesis",
                             "type": "label",
                             "definition": "左括号 (left-parenthesis)：左圆括号。",
-                            "color": "#a99598"
+                            "color": "#cc8eb0"
                           },
                           {
                             "id": "a4abc049-26b7-46e5-b71c-f52a0bc6f2e6",
                             "name": "openquote",
                             "type": "label",
                             "definition": "左引号 (openquote)：开始引用的引号。",
-                            "color": "#ab92bb"
+                            "color": "#9ecc8e"
                           },
                           {
                             "id": "20940717-3e3d-40ff-9c7e-8f271c955438",
                             "name": "period",
                             "type": "label",
                             "definition": "句号 (period)：句号标点。",
-                            "color": "#b9cec2"
+                            "color": "#908ecc"
                           },
                           {
                             "id": "2fad6dbe-ea99-4104-a7eb-a94a93d08d25",
                             "name": "question-mark",
                             "type": "label",
                             "definition": "问号 (question-mark)：问号标点。",
-                            "color": "#888fb7"
+                            "color": "#cca28e"
                           },
                           {
                             "id": "d3c7fd0a-edca-43ae-b677-f00454154146",
                             "name": "right-parenthesis",
                             "type": "label",
                             "definition": "右括号 (right-parenthesis)：右圆括号。",
-                            "color": "#84c6b6"
+                            "color": "#8eccb4"
                           },
                           {
                             "id": "9db7891f-693f-4250-81f1-8fb7f1d48e35",
                             "name": "semicolon",
                             "type": "label",
                             "definition": "分号 (semicolon)：分号标点。",
-                            "color": "#8279b7"
+                            "color": "#c68ecc"
                           }
                         ]
                       }
                     ],
-                    "color": "#d28889"
+                    "color": "#cc8e9b"
                   },
                   {
                     "id": "215979ce-a0cc-4639-9ef4-653062ee4427",
@@ -1045,40 +1045,40 @@
                                     "name": "cardinal",
                                     "type": "label",
                                     "definition": "基数 (cardinal)：基数词。",
-                                    "color": "#bec8ca"
+                                    "color": "#8eccb7"
                                   },
                                   {
                                     "id": "ccaa724f-4c4c-42c5-b5ac-20c941d1a1b6",
                                     "name": "comparative-adjective",
                                     "type": "label",
                                     "definition": "比较级形容词 (comparative-adjective)：比较级形式的形容词。",
-                                    "color": "#7ad6b7"
+                                    "color": "#c98ecc"
                                   },
                                   {
                                     "id": "85aa5d50-9bf3-4ef7-bfd6-3d0fba06e1d4",
                                     "name": "ordinal",
                                     "type": "label",
                                     "definition": "序数 (ordinal)：序数词。",
-                                    "color": "#c1c5d8"
+                                    "color": "#bdcc8e"
                                   },
                                   {
                                     "id": "89c0604d-4ad2-4734-a480-4518f0dadeb4",
                                     "name": "simple-adjective",
                                     "type": "label",
                                     "definition": "简单形容词 (simple-adjective)：基本形式的形容词。",
-                                    "color": "#bd9acd"
+                                    "color": "#8eabcc"
                                   },
                                   {
                                     "id": "04cbb6b1-5d86-466a-9ecc-b26f15942500",
                                     "name": "superlative-adjective",
                                     "type": "label",
                                     "definition": "最高级形容词 (superlative-adjective)：最高级形式的形容词。",
-                                    "color": "#b9ce89"
+                                    "color": "#cc8e98"
                                   }
                                 ]
                               }
                             ],
-                            "color": "#add18a"
+                            "color": "#c7cc8e"
                           },
                           {
                             "id": "577d6c41-12ac-4624-81c6-9c6b0d81bd78",
@@ -1097,89 +1097,89 @@
                                     "name": "degree-adverb",
                                     "type": "label",
                                     "definition": "程度副词 (degree-adverb)：表示程度的副词。",
-                                    "color": "#9dccb7"
+                                    "color": "#8eccca"
                                   },
                                   {
                                     "id": "def8e80d-e7bb-4bb1-9184-029b2e3607cb",
                                     "name": "descriptive-adverb",
                                     "type": "label",
                                     "definition": "描述副词 (descriptive-adverb)：描述性副词。",
-                                    "color": "#78a678"
+                                    "color": "#cc8ebc"
                                   },
                                   {
                                     "id": "ca944804-c246-4013-95c2-a053fd8569f3",
                                     "name": "direction-adverb",
                                     "type": "label",
                                     "definition": "方向副词 (direction-adverb)：表示方向的副词。",
-                                    "color": "#b58aaf"
+                                    "color": "#aacc8e"
                                   },
                                   {
                                     "id": "dfc674b4-7ee3-47f5-984e-b0e89275e48a",
                                     "name": "frequency-adverb",
                                     "type": "label",
                                     "definition": "频率副词 (frequency-adverb)：表示频率的副词。",
-                                    "color": "#94a881"
+                                    "color": "#8e98cc"
                                   },
                                   {
                                     "id": "c9f8289b-8bed-4123-b409-2558d032ec84",
                                     "name": "interrogative-adverb",
                                     "type": "label",
                                     "definition": "疑问副词 (interrogative-adverb)：疑问性副词。",
-                                    "color": "#7cc67f"
+                                    "color": "#cc968e"
                                   },
                                   {
                                     "id": "dcccecfb-e2dc-4855-a7bc-e2e28f2d308f",
                                     "name": "more-adverb",
                                     "type": "label",
                                     "definition": "more副词 (more-adverb)：more构成的比较级副词。",
-                                    "color": "#c988a1"
+                                    "color": "#8ecca8"
                                   },
                                   {
                                     "id": "143f156d-997f-4af6-9d06-271455df8fac",
                                     "name": "most-adverb",
                                     "type": "label",
                                     "definition": "most副词 (most-adverb)：most构成的最高级副词。",
-                                    "color": "#90ad85"
+                                    "color": "#ba8ecc"
                                   },
                                   {
                                     "id": "555fbc6f-f014-433e-a68d-5d8aea239a26",
                                     "name": "not-adverb",
                                     "type": "label",
                                     "definition": "否定副词 (not-adverb)：否定副词not。",
-                                    "color": "#b8bb79"
+                                    "color": "#cbcc8e"
                                   },
                                   {
                                     "id": "1f02d2a2-61c0-4c25-a136-b717f44fd2a2",
                                     "name": "place-adverb",
                                     "type": "label",
                                     "definition": "地点副词 (place-adverb)：表示地点的副词。",
-                                    "color": "#d2dbd2"
+                                    "color": "#8eb9cc"
                                   },
                                   {
                                     "id": "7803f20a-4d48-4596-9bd3-648bf8cfbc97",
                                     "name": "sufficiency-adverb",
                                     "type": "label",
                                     "definition": "充分性副词 (sufficiency-adverb)：表示充分程度的副词。",
-                                    "color": "#c0c6c8"
+                                    "color": "#cc8ea7"
                                   },
                                   {
                                     "id": "a3ca6747-36eb-4b88-8deb-db34cf0b35b2",
                                     "name": "time-adverb",
                                     "type": "label",
                                     "definition": "时间副词 (time-adverb)：表示时间的副词。",
-                                    "color": "#938a82"
+                                    "color": "#95cc8e"
                                   }
                                 ]
                               }
                             ],
-                            "color": "#cdd7b9"
+                            "color": "#8eb5cc"
                           },
                           {
                             "id": "2ab3b79b-ded9-4e54-aeb7-09c1a1358ef4",
                             "name": "cd",
                             "type": "label",
                             "definition": "基数词 (cd)：表示数量的词。",
-                            "color": "#99a5a4"
+                            "color": "#cc8ea3"
                           },
                           {
                             "id": "d4dc003c-3e98-401d-aa6c-75eb577d8e42",
@@ -1198,19 +1198,19 @@
                                     "name": "coordinating-conjunction",
                                     "type": "label",
                                     "definition": "并列连词 (coordinating-conjunction)：连接并列成分的连词。",
-                                    "color": "#85a9c3"
+                                    "color": "#ccb88e"
                                   },
                                   {
                                     "id": "488839a9-b841-46e9-9602-91bf5ff3e3d7",
                                     "name": "subordinating-conjunction",
                                     "type": "label",
                                     "definition": "从属连词 (subordinating-conjunction)：引导从句的连词。",
-                                    "color": "#cdcb7a"
+                                    "color": "#8eccca"
                                   }
                                 ]
                               }
                             ],
-                            "color": "#d4d5c1"
+                            "color": "#91cc8e"
                           },
                           {
                             "id": "52eaa762-06c9-4407-ab71-65052d1ce135",
@@ -1229,19 +1229,19 @@
                                     "name": "interrogative-determiner",
                                     "type": "label",
                                     "definition": "疑问限定词 (interrogative-determiner)：疑问性限定词。",
-                                    "color": "#c9b7b5"
+                                    "color": "#a58ecc"
                                   },
                                   {
                                     "id": "b29f5ef4-40cd-4a1b-842b-680ba815dd03",
                                     "name": "noninterrogative-determiner",
                                     "type": "label",
                                     "definition": "非疑问限定词 (noninterrogative-determiner)：非疑问性限定词。",
-                                    "color": "#b9a1d0"
+                                    "color": "#ccb78e"
                                   }
                                 ]
                               }
                             ],
-                            "color": "#bdae81"
+                            "color": "#9d8ecc"
                           },
                           {
                             "id": "a5634b49-d233-4d87-942e-ef4fe31f7e77",
@@ -1260,14 +1260,14 @@
                                     "name": "common-noun",
                                     "type": "label",
                                     "definition": "普通名词 (common-noun)：一般的名词。",
-                                    "color": "#96ce99"
+                                    "color": "#ccc08e"
                                   },
                                   {
                                     "id": "4f49d30a-a4ed-4724-b5a0-2ea1f1271e9b",
                                     "name": "proper-noun",
                                     "type": "label",
                                     "definition": "专有名词 (proper-noun)：专有名词。",
-                                    "color": "#c9a3cb"
+                                    "color": "#8ec5cc"
                                   }
                                 ]
                               },
@@ -1282,26 +1282,26 @@
                                     "name": "plural-noun",
                                     "type": "label",
                                     "definition": "复数名词 (plural-noun)：复数形式的名词。",
-                                    "color": "#9984b1"
+                                    "color": "#cc8ebb"
                                   },
                                   {
                                     "id": "f7c40e0b-9825-4101-8364-f9226f37d9be",
                                     "name": "singular-noun",
                                     "type": "label",
                                     "definition": "单数名词 (singular-noun)：单数形式的名词。",
-                                    "color": "#9c93b1"
+                                    "color": "#a9cc8e"
                                   }
                                 ]
                               }
                             ],
-                            "color": "#80cfdb"
+                            "color": "#ccaf8e"
                           },
                           {
                             "id": "7c4f9c84-7c8d-4dfd-b8f8-84a9a6ffbd43",
                             "name": "preposition",
                             "type": "label",
                             "definition": "介词 (preposition)：表示关系的词。",
-                            "color": "#c89f96"
+                            "color": "#8eccc1"
                           },
                           {
                             "id": "42d2ff9b-6884-44a1-9381-b141ef9cdc28",
@@ -1320,14 +1320,14 @@
                                     "name": "demonstrative-pronoun",
                                     "type": "label",
                                     "definition": "指示代词 (demonstrative-pronoun)：指示性代词。",
-                                    "color": "#a1797d"
+                                    "color": "#8eccaf"
                                   },
                                   {
                                     "id": "290a1ef1-86a3-49b4-be02-0c0c3019dcc0",
                                     "name": "interrogative-pronoun",
                                     "type": "label",
                                     "definition": "疑问代词 (interrogative-pronoun)：疑问性代词。",
-                                    "color": "#c1afa5"
+                                    "color": "#c18ecc"
                                   },
                                   {
                                     "id": "baa610b2-6d01-4d13-843c-841a3641422e",
@@ -1346,21 +1346,21 @@
                                             "name": "1p-pronoun",
                                             "type": "label",
                                             "definition": "第一人称代词 (1p-pronoun)：第一人称代词。",
-                                            "color": "#acce7b"
+                                            "color": "#cc8ea9"
                                           },
                                           {
                                             "id": "7b79fd8c-4501-4f8e-8182-7c6144e05475",
                                             "name": "2p-pronoun",
                                             "type": "label",
                                             "definition": "第二人称代词 (2p-pronoun)：第二人称代词。",
-                                            "color": "#978196"
+                                            "color": "#97cc8e"
                                           },
                                           {
                                             "id": "3270afed-8685-4e6c-ae4a-bc468d295823",
                                             "name": "3p-pronoun",
                                             "type": "label",
                                             "definition": "第三人称代词 (3p-pronoun)：第三人称代词。",
-                                            "color": "#888178"
+                                            "color": "#978ecc"
                                           }
                                         ]
                                       },
@@ -1375,31 +1375,31 @@
                                             "name": "plural-pronoun",
                                             "type": "label",
                                             "definition": "复数代词 (plural-pronoun)：复数形式的代词。",
-                                            "color": "#96977e"
+                                            "color": "#ae8ecc"
                                           },
                                           {
                                             "id": "a15779f5-66c1-4600-9770-8cb31fc88090",
                                             "name": "singular-pronoun",
                                             "type": "label",
                                             "definition": "单数代词 (singular-pronoun)：单数形式的代词。",
-                                            "color": "#abb687"
+                                            "color": "#ccc08e"
                                           }
                                         ]
                                       }
                                     ],
-                                    "color": "#86ac79"
+                                    "color": "#c4cc8e"
                                   },
                                   {
                                     "id": "ddb921a7-abb9-47b4-b712-31d84660a8cc",
                                     "name": "there-pronoun",
                                     "type": "label",
                                     "definition": "there代词 (there-pronoun)：存在句中的there。",
-                                    "color": "#a08478"
+                                    "color": "#8eb2cc"
                                   }
                                 ]
                               }
                             ],
-                            "color": "#bbbc9d"
+                            "color": "#cc8ec4"
                           },
                           {
                             "id": "99c1bd28-6cb6-49df-8521-6ff56b38d92d",
@@ -1430,83 +1430,83 @@
                                             "name": "3ps-verb",
                                             "type": "label",
                                             "definition": "第三人称单数动词 (3ps-verb)：第三人称单数形式的动词。",
-                                            "color": "#b0abaa"
+                                            "color": "#cc8ecc"
                                           },
                                           {
                                             "id": "6a25b219-56ac-43b8-b9ff-0ad968eb8d9a",
                                             "name": "infinitive-verb",
                                             "type": "label",
                                             "definition": "不定式动词 (infinitive-verb)：不定式形式的动词。",
-                                            "color": "#a9977c"
+                                            "color": "#bacc8e"
                                           },
                                           {
                                             "id": "ef2a3d87-b6ff-40e4-995b-e7f1014dcbca",
                                             "name": "past-participle-verb",
                                             "type": "label",
                                             "definition": "过去分词动词 (past-participle-verb)：过去分词形式的动词。",
-                                            "color": "#7fb5c6"
+                                            "color": "#8ea8cc"
                                           },
                                           {
                                             "id": "ff559f8a-7729-40b4-84cf-1d8d28b5d7d0",
                                             "name": "past-verb",
                                             "type": "label",
                                             "definition": "过去式动词 (past-verb)：过去式形式的动词。",
-                                            "color": "#9986ce"
+                                            "color": "#cc8e96"
                                           },
                                           {
                                             "id": "80401e3b-927d-4d90-bb35-bd8477a93598",
                                             "name": "present-participle-verb",
                                             "type": "label",
                                             "definition": "现在分词动词 (present-participle-verb)：现在分词形式的动词。",
-                                            "color": "#9bbbb7"
+                                            "color": "#8ecc98"
                                           },
                                           {
                                             "id": "2acdbabd-899a-4d0e-818b-3de1bc7f401b",
                                             "name": "present-verb",
                                             "type": "label",
                                             "definition": "现在式动词 (present-verb)：现在式形式的动词。",
-                                            "color": "#85bbd1"
+                                            "color": "#aa8ecc"
                                           }
                                         ]
                                       }
                                     ],
-                                    "color": "#c37d8e"
+                                    "color": "#cca58e"
                                   },
                                   {
                                     "id": "75319827-19d9-4118-877e-a4fc41165a75",
                                     "name": "modal-verb",
                                     "type": "label",
                                     "definition": "情态动词 (modal-verb)：表示情态的助动词。",
-                                    "color": "#cf7dc7"
+                                    "color": "#8eccb7"
                                   }
                                 ]
                               }
                             ],
-                            "color": "#b1a3ae"
+                            "color": "#b2cc8e"
                           },
                           {
                             "id": "dac6b8eb-c5db-42cf-9f71-661c82f8fafb",
                             "name": "yes-no",
                             "type": "label",
                             "definition": "是否词 (yes-no)：表示肯定或否定的词。",
-                            "color": "#a2bda5"
+                            "color": "#8ea0cc"
                           }
                         ]
                       }
                     ],
-                    "color": "#b19699"
+                    "color": "#8ecc93"
                   }
                 ]
               }
             ],
-            "color": "#8ebe90"
+            "color": "#a4cc8e"
           },
           {
             "id": "133d3fd0-8f75-4e6d-a8f5-25376f7f98e4",
             "name": "unkn",
             "type": "label",
             "definition": "未知 (unkn)：无法确定类型的语法单位。",
-            "color": "#dc90d1"
+            "color": "#8e92cc"
           }
         ]
       }

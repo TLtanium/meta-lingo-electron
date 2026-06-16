@@ -38,6 +38,7 @@ export interface SynonymRequest {
   min_freq: number;
   max_results: number;
   lowercase: boolean;
+  search_target?: 'word' | 'lemma';  // "lemma" (default) or "word"
 }
 
 // Synonym analysis response

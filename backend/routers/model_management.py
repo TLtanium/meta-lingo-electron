@@ -159,14 +159,24 @@ MODEL_MANIFEST: List[Dict[str, Any]] = [
         "protected": "pymusas/PyMUSAS-Neural-Multilingual-Base-BEM" in BUILTIN_MODEL_RELATIVE_PATHS,
         "expectedRelativeFiles": ["config.json"],
     },
-    # MIPVU DeBERTa (metalingo-deberta-metaphor)
+    # MIPVU DeBERTa (metalingo-indirect-metaphor) — indirect metaphor
     {
-        "id": "metalingo-deberta-metaphor",
+        "id": "metalingo-indirect-metaphor",
         "moduleLabel": "MIPVU (metaphor detection)",
-        "displayName": "MIPVU DeBERTa (metalingo-deberta-metaphor)",
-        "modelScopeRepoId": "TommyLeo/metalingo-deberta-metaphor",
-        "storageRelativePath": "metaphor_identification/metalingo-deberta-metaphor",
-        "protected": "metaphor_identification/metalingo-deberta-metaphor" in BUILTIN_MODEL_RELATIVE_PATHS,
+        "displayName": "MIPVU DeBERTa (metalingo-indirect-metaphor)",
+        "modelScopeRepoId": "TommyLeo/metalingo-indirect-metaphor",
+        "storageRelativePath": "metaphor_identification/metalingo-indirect-metaphor",
+        "protected": "metaphor_identification/metalingo-indirect-metaphor" in BUILTIN_MODEL_RELATIVE_PATHS,
+        "expectedRelativeFiles": [],
+    },
+    # DeBERTa direct metaphor (metalingo-direct-metaphor)
+    {
+        "id": "metalingo-direct-metaphor",
+        "moduleLabel": "MIPVU (direct metaphor detection)",
+        "displayName": "MIPVU DeBERTa (metalingo-direct-metaphor)",
+        "modelScopeRepoId": "TommyLeo/metalingo-direct-metaphor",
+        "storageRelativePath": "metaphor_identification/metalingo-direct-metaphor",
+        "protected": "metaphor_identification/metalingo-direct-metaphor" in BUILTIN_MODEL_RELATIVE_PATHS,
         "expectedRelativeFiles": [],
     },
 ]

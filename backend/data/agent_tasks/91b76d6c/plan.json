@@ -1,0 +1,32 @@
+{
+  "corpus_id": "beae90a9-ec5d-49c1-bed3-6fca0bde13b6",
+  "task_type": "dmip",
+  "analysis_dimensions": [
+    "deliberate_metaphor"
+  ],
+  "texts": [
+    {
+      "text_id": "aed7a81c-6717-4510-9efc-26d1b505b6eb",
+      "label": "2021-Shareholder-Letter"
+    },
+    {
+      "text_id": "1beada96-5f64-415b-84b5-70337217f075",
+      "label": "2022-Shareholder-Letter"
+    },
+    {
+      "text_id": "23a9790d-3ff6-4000-891d-8cb9e3bf4807",
+      "label": "2023-Shareholder-Letter"
+    },
+    {
+      "text_id": "82dbff0b-8b5e-473b-b768-786456ee2644",
+      "label": "2024-Shareholder-Letter"
+    },
+    {
+      "text_id": "7605c0f5-20bc-4209-b581-b53fdaa865a9",
+      "label": "2025-Shareholder-Letter"
+    }
+  ],
+  "execution_order": "sequential",
+  "total_texts": 5,
+  "output_schema_version": "2.0"
+}

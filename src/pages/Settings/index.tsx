@@ -7,7 +7,7 @@ import { useTranslation } from 'react-i18next'
 import LanguageSettings from './LanguageSettings'
 import WallpaperSettings from './WallpaperSettings'
 import OllamaConnection from './OllamaConnection'
-import OpenAIApiSettings from './OpenAIApiSettings'
+import ApiLineManager from './ApiLineManager'
 // import USASModeSettings from './USASModeSettings' // Hidden: defaults enforced in backend (DEFAULT_USAS_SETTINGS: neural + disambiguation off → top_n=5)
 // import USASSettings from './USASSettings' // Disabled: kept for potential future reuse
 import MCPServerSettings from './MCPServerSettings'
@@ -49,9 +49,9 @@ export default function Settings() {
           <OllamaConnection />
         </Grid>
 
-        {/* OpenAI-compatible API (optional) */}
+        {/* API Line Manager */}
         <Grid item xs={12}>
-          <OpenAIApiSettings />
+          <ApiLineManager />
         </Grid>
 
         {/* USAS Tagging Mode Settings — hidden; backend DEFAULT_USAS_SETTINGS = neural + top_n=5 (disambiguation off) */}

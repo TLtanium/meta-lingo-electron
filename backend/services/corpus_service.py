@@ -745,7 +745,7 @@ class CorpusService:
             from services.mipvu_service import get_mipvu_service
             
             mipvu_svc = get_mipvu_service()
-            has_mipvu_model = bool(resolve_model_path("metaphor_identification/metalingo-deberta-metaphor"))
+            has_mipvu_model = bool(resolve_model_path("metaphor_identification/metalingo-indirect-metaphor"))
             if (not mipvu_svc.is_available(language)) or (not has_mipvu_model):
                 logger.info(f"MIPVU not available for {language} (only English supported)")
                 return None
@@ -803,7 +803,7 @@ class CorpusService:
             from services.mipvu_service import get_mipvu_service
             
             mipvu_svc = get_mipvu_service()
-            has_mipvu_model = bool(resolve_model_path("metaphor_identification/metalingo-deberta-metaphor"))
+            has_mipvu_model = bool(resolve_model_path("metaphor_identification/metalingo-indirect-metaphor"))
             if (not mipvu_svc.is_available(language)) or (not has_mipvu_model):
                 logger.info(f"MIPVU not available for {language} (only English supported)")
                 return None

@@ -39,16 +39,19 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import CancelIcon from '@mui/icons-material/Cancel'
 import WarningIcon from '@mui/icons-material/Warning'
 import FullscreenIcon from '@mui/icons-material/Fullscreen'
+import DownloadIcon from '@mui/icons-material/Download'
 import { useTranslation } from 'react-i18next'
-import type { 
-  ArchiveFile, 
+import type {
+  ArchiveFile,
   KWICItem,
-  PositionDetails
+  PositionDetails,
+  ValidationSummary
 } from '../../../api/reliability'
 import { reliabilityApi } from '../../../api/reliability'
 
 interface KWICTableProps {
   files: ArchiveFile[]
+  dataSummary?: ValidationSummary | null
 }
 
 // 提取上下文中心词的辅助函数
@@ -480,13 +483,23 @@ function FullContextDialog({
   )
 }
 
-export default function KWICTable({ files }: KWICTableProps) {
+// CSV escape helper
+function csvEsc(s: string): string {
+  const str = String(s ?? '')
+  if (str.includes(',') || str.includes('"') || str.includes('\n') || str.includes('\r')) {
+    return '"' + str.replace(/"/g, '""') + '"'
+  }
+  return str
+}
+
+export default function KWICTable({ files, dataSummary }: KWICTableProps) {
   const { t } = useTranslation()
-  
+
   const [kwicItems, setKwicItems] = useState<KWICItem[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [openRowId, setOpenRowId] = useState<number | null>(null)
+  const [exportingDetails, setExportingDetails] = useState(false)
   
   // 全文上下文对话框状态
   const [contextDialogOpen, setContextDialogOpen] = useState(false)
@@ -497,6 +510,177 @@ export default function KWICTable({ files }: KWICTableProps) {
   const [page, setPage] = useState(0)
   const [rowsPerPage, setRowsPerPage] = useState(10)
   
+  // 导出标注详情 CSV（词汇×层级纵向格式，直接解析存档文件，无 API 调用）
+  const handleExportDetails = async () => {
+    if (files.length === 0) return
+    setExportingDetails(true)
+    try {
+      // ── 1. 解析所有存档文件 ──────────────────────────────────────
+      interface ParsedAnn {
+        text: string
+        startPosition: number
+        endPosition: number
+        label: string
+        labelPath: string
+        layer: string  // 最近父类别（标注层级）
+      }
+      interface CoderData {
+        coderId: string
+        annotations: ParsedAnn[]
+      }
+
+      const coderDataList: CoderData[] = []
+      let fullText = ''
+
+      for (const file of files) {
+        let content: any = {}
+        try { content = JSON.parse(file.content) } catch { continue }
+        if (!fullText && content.text) fullText = content.text as string
+
+        const rawAnns: any[] = content.annotations || []
+        const annotations: ParsedAnn[] = rawAnns
+          .filter(ann =>
+            ann.startPosition != null &&
+            ann.endPosition != null &&
+            !String(ann.id || '').startsWith('spacy-')
+          )
+          .map(ann => {
+            const rawPath: string = (ann.labelPath || ann.label || '') as string
+            const parts = rawPath.split('/').filter(Boolean)
+            const layer = parts.length >= 2
+              ? parts[parts.length - 2]
+              : (parts[0] || (ann.label as string) || '')
+            return {
+              text: (ann.text || '') as string,
+              startPosition: ann.startPosition as number,
+              endPosition: ann.endPosition as number,
+              label: (ann.label || '') as string,
+              labelPath: rawPath,
+              layer
+            }
+          })
+
+        // 优先使用 coderName 字段（与后端一致），其次文件名
+        const fileBaseName = file.name.replace(/\.[^/.]+$/, '').split(/[/\\]/).pop() || file.name
+        const coderId = (content.coderName as string | undefined) || fileBaseName
+        coderDataList.push({ coderId, annotations })
+      }
+
+      // ── 2. Tokenize（空白分词，保留字符位置） ───────────────────
+      const tokens: { word: string; start: number; end: number }[] = []
+      {
+        const re = /\S+/g
+        let m: RegExpExecArray | null
+        while ((m = re.exec(fullText)) !== null) {
+          tokens.push({ word: m[0], start: m.index, end: m.index + m[0].length })
+        }
+      }
+
+      // ── 3. 收集唯一层级（按首次出现位置排序） ──────────────────
+      const layerFirstSeen = new Map<string, number>()
+      for (const cd of coderDataList) {
+        for (const ann of cd.annotations) {
+          if (ann.layer && !layerFirstSeen.has(ann.layer)) {
+            layerFirstSeen.set(ann.layer, ann.startPosition)
+          }
+        }
+      }
+      const layerOrder = [...layerFirstSeen.entries()]
+        .sort((a, b) => a[1] - b[1])
+        .map(([layer]) => layer)
+      if (layerOrder.length === 0) layerOrder.push('标注')
+
+      const coderIds = coderDataList.map(cd => cd.coderId)
+
+      // ── 4. 生成 CSV ─────────────────────────────────────────────
+      const rows: string[] = []
+
+      // 元数据
+      rows.push(csvEsc('编码者间标注详情（词汇纵向格式）'))
+      rows.push(['框架', csvEsc(dataSummary?.framework || '')].join(','))
+      rows.push(['编码者数', coderIds.length].join(','))
+      rows.push(['编码者', ...coderIds.map(csvEsc)].join(','))
+      rows.push(['标注层级', layerOrder.length, ...layerOrder.map(csvEsc)].join(','))
+      rows.push(['总词数', tokens.length].join(','))
+      rows.push(['导出时间', csvEsc(new Date().toLocaleString('zh-CN'))].join(','))
+      rows.push('')
+      rows.push(['说明', '一致=全员标注且标签相同', '不一致=全员标注但标签不同', '部分=部分人员标注', '均未标注=该层级无人标注'].join(','))
+      rows.push('')
+
+      // 表头
+      rows.push(['词汇', '标注层级', ...coderIds.map(csvEsc), '一致情况', '讨论'].map(csvEsc).join(','))
+
+      let agreeCount = 0, disagreeCount = 0, partialCount = 0, noneCount = 0
+
+      for (const token of tokens) {
+        // 检查任意编码者是否标注了该 token
+        const hasAny = coderDataList.some(cd =>
+          cd.annotations.some(a => a.startPosition <= token.start && a.endPosition >= token.end)
+        )
+
+        if (!hasAny) {
+          // 无标注词汇：单行，层级留空
+          rows.push([token.word, '', ...coderIds.map(() => ''), '均未标注', ''].map(csvEsc).join(','))
+          noneCount++
+          continue
+        }
+
+        // 有标注：按层级展开，每层一行
+        for (const layer of layerOrder) {
+          const coderLabels = coderDataList.map(cd => {
+            const ann = cd.annotations.find(a =>
+              a.layer === layer &&
+              a.startPosition <= token.start &&
+              a.endPosition >= token.end
+            )
+            return ann ? ann.label : ''
+          })
+
+          const nonEmpty = coderLabels.filter(l => l !== '')
+          let agreement: string
+          if (nonEmpty.length === 0) {
+            agreement = '均未标注'
+            noneCount++
+          } else if (nonEmpty.length < coderIds.length) {
+            const unique = [...new Set(nonEmpty)]
+            agreement = unique.length === 1 ? '部分(一致)' : '部分(不一致)'
+            partialCount++
+          } else {
+            const unique = [...new Set(nonEmpty)]
+            agreement = unique.length === 1 ? '一致' : '不一致'
+            if (unique.length === 1) agreeCount++; else disagreeCount++
+          }
+
+          rows.push([token.word, layer, ...coderLabels, agreement, ''].map(csvEsc).join(','))
+        }
+      }
+
+      // 汇总
+      rows.push('')
+      rows.push(csvEsc('汇总'))
+      rows.push(['一致', agreeCount].join(','))
+      rows.push(['不一致', disagreeCount].join(','))
+      rows.push(['部分标注', partialCount].join(','))
+      rows.push(['均未标注（层级行）', noneCount].join(','))
+
+      // ── 5. 下载 ─────────────────────────────────────────────────
+      const csv = '﻿' + rows.join('\r\n')
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `annotation_details_${new Date().toISOString().slice(0, 10)}.csv`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      console.error('Export details error:', err)
+    } finally {
+      setExportingDetails(false)
+    }
+  }
+
   // 从文件中提取全文
   useEffect(() => {
     if (files.length > 0) {
@@ -574,11 +758,24 @@ export default function KWICTable({ files }: KWICTableProps) {
         <Typography variant="body2" color="text.secondary">
           {t('reliability.clickRowToExpand', '点击行查看各编码者标注情况')}
         </Typography>
-        <Chip 
-          label={`${kwicItems.length} ${t('reliability.annotationUnits', '个标注单元')}`}
-          color="primary"
-          size="small"
-        />
+        <Stack direction="row" spacing={1} alignItems="center">
+          <Chip
+            label={`${kwicItems.length} ${t('reliability.annotationUnits', '个标注单元')}`}
+            color="primary"
+            size="small"
+          />
+          <Button
+            size="small"
+            variant="outlined"
+            startIcon={exportingDetails ? <CircularProgress size={14} /> : <DownloadIcon />}
+            onClick={handleExportDetails}
+            disabled={exportingDetails || kwicItems.length === 0}
+          >
+            {exportingDetails
+              ? t('reliability.exportingDetails', '导出中...')
+              : t('reliability.exportDetails', '导出详情 CSV')}
+          </Button>
+        </Stack>
       </Stack>
       
       <TableContainer component={Paper} variant="outlined">

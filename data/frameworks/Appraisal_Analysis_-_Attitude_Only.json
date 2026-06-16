@@ -20,21 +20,21 @@
             "name": "ambiguous",
             "type": "label",
             "definition": "模糊性 (ambiguous): 态度倾向不明确或存在歧义的表达。",
-            "color": "#cc79c8"
+            "color": "#cc8ec9"
           },
           {
             "id": "71d66eec-66b8-4471-ae16-a6bed89639ea",
             "name": "negative-attitude",
             "type": "label",
             "definition": "消极态度 (negative-attitude): 表达负面评价或情感的语言资源。",
-            "color": "#938c99"
+            "color": "#b7cc8e"
           },
           {
             "id": "b74295c6-1657-4737-a316-6b7fa1480f6f",
             "name": "positive-attitude",
             "type": "label",
             "definition": "积极态度 (positive-attitude): 表达正面评价或情感的语言资源。",
-            "color": "#b2bb9c"
+            "color": "#8ea5cc"
           }
         ]
       },
@@ -61,14 +61,14 @@
                     "name": "authorial-evaluation",
                     "type": "label",
                     "definition": "作者评价 (authorial-evaluation): 文本作者直接表达的情感评价。",
-                    "color": "#d1917b"
+                    "color": "#cc8ebe"
                   },
                   {
                     "id": "45f9ca03-043e-44fc-80c1-231d4a577361",
                     "name": "non-authorial-evaluation",
                     "type": "label",
                     "definition": "非作者评价 (non-authorial-evaluation): 非作者（如文中人物）表达的情感评价。",
-                    "color": "#bc8ca7"
+                    "color": "#accc8e"
                   }
                 ]
               },
@@ -83,7 +83,7 @@
                     "name": "dis-inclination",
                     "type": "label",
                     "definition": "不倾向 (dis-inclination): 表达不愿意、不想要的情感。",
-                    "color": "#c39c85"
+                    "color": "#b28ecc"
                   },
                   {
                     "id": "db8ec367-164f-4fb0-a72c-c82bdf27c755",
@@ -102,19 +102,19 @@
                             "name": "dis-pleasure",
                             "type": "label",
                             "definition": "不愉快 (dis-pleasure): 表达不高兴、痛苦的情感。",
-                            "color": "#db8e90"
+                            "color": "#cc998e"
                           },
                           {
                             "id": "cf0773b6-1c0d-4109-b9da-c23d86761ae5",
                             "name": "ennui-interest",
                             "type": "label",
                             "definition": "厌倦-兴趣 (ennui-interest): 表达厌倦与兴趣对立的情感。",
-                            "color": "#8079c9"
+                            "color": "#8eccab"
                           }
                         ]
                       }
                     ],
-                    "color": "#c67adb"
+                    "color": "#ccc58e"
                   },
                   {
                     "id": "439870f1-1af5-4a16-ae5b-512fb9f6ad82",
@@ -133,19 +133,19 @@
                             "name": "dis-quiet",
                             "type": "label",
                             "definition": "不安 (dis-quiet): 表达焦虑、不安的情感。",
-                            "color": "#96ae8d"
+                            "color": "#8ebccc"
                           },
                           {
                             "id": "7d9d5e82-df49-4a1b-8961-94410d1f4842",
                             "name": "dis-trust",
                             "type": "label",
                             "definition": "不信任 (dis-trust): 表达怀疑、不信任的情感。",
-                            "color": "#ba947a"
+                            "color": "#cc8eaa"
                           }
                         ]
                       }
                     ],
-                    "color": "#dbc0a4"
+                    "color": "#8ec1cc"
                   },
                   {
                     "id": "627462b4-5980-4a7d-9532-a82f96f0e30a",
@@ -164,24 +164,24 @@
                             "name": "antipathy-affection",
                             "type": "label",
                             "definition": "反感-喜爱 (antipathy-affection): 表达厌恶与喜爱对立的情感。",
-                            "color": "#8dcbbb"
+                            "color": "#8eccbd"
                           },
                           {
                             "id": "90566138-9619-4f80-9d3f-31bb6833a86d",
                             "name": "misery-cheer",
                             "type": "label",
                             "definition": "痛苦-愉快 (misery-cheer): 表达痛苦与愉快对立的情感。",
-                            "color": "#88b0c8"
+                            "color": "#cc8ec9"
                           }
                         ]
                       }
                     ],
-                    "color": "#8abf98"
+                    "color": "#cc8eaf"
                   }
                 ]
               }
             ],
-            "color": "#a7b289"
+            "color": "#bf8ecc"
           },
           {
             "id": "f5a15ca7-67fd-48ae-919b-e41fc5becb7a",
@@ -212,19 +212,19 @@
                             "name": "balance",
                             "type": "label",
                             "definition": "平衡 (balance): 评价事物的协调性、比例关系。",
-                            "color": "#969aba"
+                            "color": "#cc948e"
                           },
                           {
                             "id": "2018caf9-f6d5-4e25-87d7-022d99b1110e",
                             "name": "complexity",
                             "type": "label",
                             "definition": "复杂性 (complexity): 评价事物的复杂程度或简单性。",
-                            "color": "#7daed2"
+                            "color": "#8ecca6"
                           }
                         ]
                       }
                     ],
-                    "color": "#c4808f"
+                    "color": "#8eccba"
                   },
                   {
                     "id": "37e9e896-4139-45b8-b603-cb0b1ef74870",
@@ -243,31 +243,31 @@
                             "name": "impact",
                             "type": "label",
                             "definition": "影响 (impact): 评价事物的冲击力、感染力。",
-                            "color": "#b79ed6"
+                            "color": "#bf8ecc"
                           },
                           {
                             "id": "50168426-8811-4d82-aba2-6b090bc7d40a",
                             "name": "quality",
                             "type": "label",
                             "definition": "质量 (quality): 评价事物的品质、水准。",
-                            "color": "#8ac7a0"
+                            "color": "#c7cc8e"
                           }
                         ]
                       }
                     ],
-                    "color": "#c6cf8c"
+                    "color": "#cc8ecc"
                   },
                   {
                     "id": "02ab53bd-92fc-487b-aaf7-0b1d946cb631",
                     "name": "social-valuation",
                     "type": "label",
                     "definition": "社会评价 (social-valuation): 基于社会价值观的评价。",
-                    "color": "#d7a7a3"
+                    "color": "#bacc8e"
                   }
                 ]
               }
             ],
-            "color": "#9c96be"
+            "color": "#c6cc8e"
           },
           {
             "id": "b12f974a-2b02-42ec-9c7a-e80b687f01a1",
@@ -286,47 +286,47 @@
                     "name": "capacity",
                     "type": "label",
                     "definition": "能力 (capacity): 评价某人的能力、技能水平。",
-                    "color": "#d2999c"
+                    "color": "#95cc8e"
                   },
                   {
                     "id": "7c775964-eabb-41cb-97e3-67f8fd47edce",
                     "name": "normality",
                     "type": "label",
                     "definition": "正常性 (normality): 评价行为是否符合常规、正常。",
-                    "color": "#a787dc"
+                    "color": "#998ecc"
                   },
                   {
                     "id": "5981d97b-bb10-4bb7-aa1c-6350fabbfa88",
                     "name": "propriety",
                     "type": "label",
                     "definition": "合宜性 (propriety): 评价行为的道德性、合理性。",
-                    "color": "#b08e99"
+                    "color": "#ccab8e"
                   },
                   {
                     "id": "75c508b4-b1fc-48ba-89da-d6f77f5626f0",
                     "name": "tenacity",
                     "type": "label",
                     "definition": "坚持性 (tenacity): 评价某人的坚持力、毅力。",
-                    "color": "#8badbb"
+                    "color": "#8eccbd"
                   },
                   {
                     "id": "3b031b7b-caad-4e29-9fde-b1373cf74202",
                     "name": "unclear",
                     "type": "label",
                     "definition": "不明确 (unclear): 判断类型不明确的情况。",
-                    "color": "#bc9dc2"
+                    "color": "#cc8ec9"
                   },
                   {
                     "id": "a5a0f423-574e-4667-acc3-546c1eb0572b",
                     "name": "veracity",
                     "type": "label",
                     "definition": "真实性 (veracity): 评价某人的诚实度、可信度。",
-                    "color": "#bbdb87"
+                    "color": "#b7cc8e"
                   }
                 ]
               }
             ],
-            "color": "#ccb092"
+            "color": "#8eb4cc"
           }
         ]
       },
@@ -341,14 +341,14 @@
             "name": "inscribed",
             "type": "label",
             "definition": "铭刻 (inscribed): 态度通过明确的词汇直接表达。",
-            "color": "#8dc9aa"
+            "color": "#a08ecc"
           },
           {
             "id": "f3102e42-a05d-4000-b9d0-85ef668e9f12",
             "name": "invoked",
             "type": "label",
             "definition": "唤起 (invoked): 态度通过暗示、隐喻等间接方式表达。",
-            "color": "#c4aa85"
+            "color": "#ccb28e"
           }
         ]
       }

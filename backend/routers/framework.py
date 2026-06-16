@@ -11,6 +11,7 @@ from pathlib import Path
 import json
 import uuid
 import hashlib
+import colorsys
 
 # Import paths from config module
 import sys
@@ -85,24 +86,38 @@ FrameworkNode.model_rebuild()
 
 # ==================== Utility Functions ====================
 
-def generate_color_for_path(path: str) -> str:
-    """Generate a unique color based on path hash (matches frontend logic)"""
-    path_hash = hashlib.md5(path.encode('utf-8')).hexdigest()
+_GOLDEN_ANGLE_DEG = 137.508  # golden angle — maximally spreads hues for any N
 
+
+def _parent_phase(parent_path: str) -> float:
+    """Derive a stable starting hue (0–360°) from the parent path."""
+    h = hashlib.md5(parent_path.encode('utf-8')).hexdigest()
+    return (int(h[:4], 16) / 0xFFFF) * 360.0
+
+
+def generate_color_for_sibling(sibling_index: int, parent_path: str) -> str:
+    """Generate a visually distinct color for a label node.
+
+    Uses golden-angle HSL distribution so sibling labels always get
+    maximally spread hues regardless of how many siblings exist.
+    S=0.38, L=0.68 → muted/professional palette consistent with
+    existing built-in framework colors.
+    """
+    hue = (_parent_phase(parent_path) + sibling_index * _GOLDEN_ANGLE_DEG) % 360.0
+    r, g, b = colorsys.hls_to_rgb(hue / 360.0, 0.68, 0.38)
+    return f"#{int(r * 255):02x}{int(g * 255):02x}{int(b * 255):02x}"
+
+
+def generate_color_for_path(path: str) -> str:
+    """Legacy: generate color from full path hash. Used only for folder imports."""
+    path_hash = hashlib.md5(path.encode('utf-8')).hexdigest()
     r_raw = int(path_hash[0:2], 16)
     g_raw = int(path_hash[2:4], 16)
     b_raw = int(path_hash[4:6], 16)
-
-    # Map to range 80-210 to match existing framework color depth
-    # (prior range 80-180 produced colors that were too dark vs. imported frameworks)
-    min_val = 80
-    max_val = 210
-    range_size = max_val - min_val
-
-    r = min_val + int((r_raw / 255) * range_size)
-    g = min_val + int((g_raw / 255) * range_size)
-    b = min_val + int((b_raw / 255) * range_size)
-
+    min_val, max_val = 80, 210
+    r = min_val + int((r_raw / 255) * (max_val - min_val))
+    g = min_val + int((g_raw / 255) * (max_val - min_val))
+    b = min_val + int((b_raw / 255) * (max_val - min_val))
     return f"#{r:02x}{g:02x}{b:02x}"
 
 
@@ -203,11 +218,21 @@ def list_all_frameworks() -> List[Dict]:
 
 
 def assign_colors_to_nodes(node: Dict, parent_path: str = "") -> None:
-    """Recursively assign colors to label nodes based on path"""
+    """Recursively assign colors to label nodes.
+
+    All label children of the same parent share a golden-angle hue sequence
+    anchored to the parent path, guaranteeing visual distinctness regardless
+    of how many siblings there are. Already-colored nodes keep their color
+    but still consume an index slot so the sequence stays consistent.
+    """
     current_path = f"{parent_path}/{node['name']}" if parent_path else node['name']
 
-    if node['type'] == 'label' and not node.get('color'):
-        node['color'] = generate_color_for_path(current_path)
+    label_idx = 0
+    for child in (node.get('children') or []):
+        if child.get('type') == 'label':
+            if not child.get('color'):
+                child['color'] = generate_color_for_sibling(label_idx, current_path)
+            label_idx += 1
 
     for child in (node.get('children') or []):
         assign_colors_to_nodes(child, current_path)
@@ -691,9 +716,10 @@ async def add_node_to_framework(framework_id: str, data: dict):
             }
             
             if node_type == 'label':
-                # 为标签生成颜色
-                full_path = '/'.join(path_parts + [formatted_name])
-                new_node['color'] = generate_color_for_path(full_path)
+                # Count existing label siblings for golden-angle index
+                existing_labels = sum(1 for c in node.get('children', []) if c.get('type') == 'label')
+                parent_color_path = '/'.join(path_parts)
+                new_node['color'] = generate_color_for_sibling(existing_labels, parent_color_path)
             
             node['children'].append(new_node)
             return True
@@ -724,7 +750,8 @@ async def add_node_to_framework(framework_id: str, data: dict):
                 'definition': definition if definition else None
             }
             if node_type == 'label':
-                new_node['color'] = generate_color_for_path(formatted_name)
+                existing_labels = sum(1 for c in framework['root'].get('children', []) if c.get('type') == 'label')
+                new_node['color'] = generate_color_for_sibling(existing_labels, framework['root']['name'])
 
             framework['root']['children'].append(new_node)
             success = True
@@ -740,7 +767,8 @@ async def add_node_to_framework(framework_id: str, data: dict):
             'definition': definition if definition else None
         }
         if node_type == 'label':
-            new_node['color'] = generate_color_for_path(formatted_name)
+            existing_labels = sum(1 for c in framework['root'].get('children', []) if c.get('type') == 'label')
+            new_node['color'] = generate_color_for_sibling(existing_labels, framework['root']['name'])
 
         framework['root']['children'].append(new_node)
         success = True

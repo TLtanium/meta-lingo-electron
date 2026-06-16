@@ -231,6 +231,7 @@ def register(mcp: FastMCP, client: MetaLingoClient):
         search_target: str = "word",
         min_freq: int = 0,
         max_freq: int = 0,
+        include_implicit: bool = False,
         limit: int = 50,
         save_path: str | None = None,
         chart_type: str | None = None,
@@ -238,28 +239,45 @@ def register(mcp: FastMCP, client: MetaLingoClient):
     ) -> str:
         """Analyze metaphor usage in the corpus using MIPVU methodology.
 
-        When to use: Metaphor density and metaphor-related words (MIPVU pipeline).
-        English-focused; ensure metaphor annotation stage has completed for your texts.
+        When to use: Metaphor density and distribution of metaphor-related words (MRWs)
+        via the MIPVU pipeline. English-focused; ensure MIPVU annotation has completed.
 
-        MIPVU identifies words used metaphorically (context vs. basic meaning).
-        Use get_metaphor_sources() to see available detection source types.
+        MIPVU classifies each word token into one of these types:
+          INDIRECT  — word used metaphorically (contextual ≠ basic meaning); majority of MRWs
+          DIRECT    — word used literally but introduces an incongruous source domain (simile target)
+          MFLAG     — explicit metaphor signal (like / as / as if / imagine / resembles / etc.)
+          IMPLICIT  — no source-domain word; references a prior MRW via cohesion (substitution/ellipsis)
+          literal   — non-metaphorical (is_metaphor=False); included so word frequency is visible
+
+        Source types in results:
+          filter    = excluded by word-form filter (NOT metaphorical)
+          rule      = MIPVU SpaCy rule-based detection
+          clause    = metalingo-indirect-metaphor, content word (VERB/NOUN/ADJ/…) — green in UI
+          finetuned = metalingo-indirect-metaphor, function word (IN/DT/RB/RP) — orange in UI
+          direct    = metalingo-direct-metaphor model output
+          mflag     = MFlag metaphor signal word
+          (hitz     = legacy label in old annotations, treated same as clause)
 
         Args:
             corpus_id: Corpus ID to analyze
-            text_ids: Specific text IDs (None = all)
-            result_mode: "word" for word-level, "source" for by detection source
-            pos_filter: Filter by POS tags, e.g. ["NOUN", "VERB", "ADJ"]
-            search_word: Filter by word pattern
-            search_type: Match type: "exact", "contains", "starts", "ends", "regex"
-            search_target: Search in: "word" or "lemma"
-            min_freq: Minimum frequency threshold
+            text_ids: Specific text IDs (None = all texts in corpus)
+            result_mode: "word" (default) for word-level ranked table; "source" for by-source summary
+            pos_filter: Filter by Universal POS, e.g. ["NOUN", "VERB", "ADJ", "ADV", "ADP", "DET"]
+            search_word: Filter by word/lemma pattern
+            search_type: Match type: "exact" | "contains" | "starts" | "ends" | "regex"
+            search_target: Search in: "word" (wordform) or "lemma"
+            min_freq: Minimum frequency (default 0 = no minimum)
             max_freq: Maximum frequency (0 = no limit)
-            limit: Max results (default: 50)
-            save_path: Save results as CSV. Path, directory, or empty string for ~/Downloads. None = don't save.
+            include_implicit: When True, implicit metaphors are resolved to their antecedent MRW,
+                              and an implicit_ref_count (+N) is added to that antecedent's frequency
+                              display. Default False (implicit metaphors shown as separate rows).
+            limit: Max rows to return (default 50)
+            save_path: Save results as CSV. Path, directory, or "" for ~/Downloads. None = don't save.
         """
         body: dict = {
             "corpus_id": corpus_id,
             "result_mode": result_mode,
+            "include_implicit": include_implicit,
         }
         if text_ids:
             body["text_ids"] = text_ids
@@ -281,76 +299,144 @@ def register(mcp: FastMCP, client: MetaLingoClient):
         results = data.get("results", [])
         stats = data.get("statistics", {})
 
-        total_words = stats.get("total_words", 0)
-        metaphor_count = stats.get("metaphor_count", 0)
-        metaphor_rate = stats.get("metaphor_rate", 0.0)
+        # ── statistics ───────────────────────────────────────────────────────────
+        total_tokens   = stats.get("total_tokens", 0)
+        metaphor_count = stats.get("metaphor_tokens", 0)
+        literal_count  = stats.get("literal_tokens", 0)
+        metaphor_rate  = stats.get("metaphor_rate", 0.0)
+        indirect_count = stats.get("indirect_metaphor_tokens", 0)
+        direct_count   = stats.get("direct_metaphor_tokens", 0)
+        mflag_count    = stats.get("mflag_tokens", 0)
+        implicit_count = stats.get("implicit_metaphor_tokens", 0)
 
-        # Fallback: derive stats from results if backend returns all-zeros
-        # (statistics field is sometimes empty even when annotation exists)
-        if total_words == 0 and results:
-            total_words = sum(r.get("frequency", r.get("count", 0)) for r in results)
-            metaphor_count = sum(
-                r.get("frequency", r.get("count", 0))
-                for r in results
-                if r.get("is_metaphor", False)
-            )
-            metaphor_rate = (100.0 * metaphor_count / total_words) if total_words else 0.0
+        # Fallback from result rows if statistics field empty
+        if total_tokens == 0 and results:
+            total_tokens   = sum(r.get("frequency", 0) for r in results)
+            metaphor_count = sum(r.get("frequency", 0) for r in results if r.get("is_metaphor"))
+            literal_count  = total_tokens - metaphor_count
+            metaphor_rate  = metaphor_count / total_tokens if total_tokens else 0.0
 
+        rate_pct = metaphor_rate * 100 if metaphor_rate <= 1.0 else metaphor_rate
+
+        # ── header ───────────────────────────────────────────────────────────────
         lines = [
-            "MIPVU Metaphor Analysis\n",
-            f"Total token occurrences in results: {total_words}",
-            f"Metaphorical tokens (is_metaphor=True): {metaphor_count} ({metaphor_rate:.1f}%)\n",
-            "Source types: rule=rule-based metaphor | finetuned=model-detected metaphor | "
-            "clause=clause-level metaphor | filter=excluded function word (NOT metaphorical)\n",
+            "=== MIPVU Metaphor Analysis ===\n",
+            f"Total tokens : {total_tokens:,}",
+            f"All MRWs     : {metaphor_count:,}  ({rate_pct:.1f}%)",
+            f"  INDIRECT   : {indirect_count:,}  — word used metaphorically (contextual ≠ basic meaning)",
+            f"  DIRECT     : {direct_count:,}  — word used literally; introduces source domain",
+            f"  MFLAG      : {mflag_count:,}  — explicit comparison signal (like/as/as if/…)",
+            f"  IMPLICIT   : {implicit_count:,}  — cohesive back-reference to a prior MRW",
+            f"Literal      : {literal_count:,}  — non-metaphorical tokens",
         ]
+        if include_implicit:
+            lines.append("  (implicit resolution ON — antecedent +N counts shown in Freq column)")
+        lines.append("")
 
+        # ── source legend ────────────────────────────────────────────────────────
+        lines.append(
+            "Sources (all from metalingo-indirect-metaphor): "
+            "filter=excluded (non-metaphorical) | rule=MIPVU rule-based | "
+            "finetuned=DeBERTa function word (IN/DT/RB/RP) | "
+            "clause=DeBERTa content word (VERB/NOUN/ADJ/…)"
+        )
+        lines.append("")
+
+        # ── result table ─────────────────────────────────────────────────────────
         if results:
             if result_mode == "word":
-                lines.append(f"{'Rank':<6}{'Word':<25}{'POS':<8}{'Freq':<8}{'Source':<12}")
-                lines.append("-" * 59)
-                for i, r in enumerate(results[:limit], 1):
-                    word = r.get("word", "?")
-                    pos = r.get("pos", "-")
-                    freq = r.get("frequency", r.get("count", 0))
-                    source = r.get("source", "-")
-                    lines.append(f"{i:<6}{word:<25}{pos:<8}{freq:<8}{source:<12}")
-            else:
-                for r in results:
-                    source = r.get("source", "?")
-                    count = r.get("count", 0)
-                    lines.append(f"  {source}: {count} words")
+                # Type label helper
+                def _mtype(r: dict) -> str:
+                    if r.get("is_mflag"):
+                        return "MFLAG"
+                    if r.get("is_direct_metaphor"):
+                        return "DIRECT"
+                    if r.get("is_implicit_metaphor"):
+                        return "IMPLICIT"
+                    if r.get("is_metaphor"):
+                        return "INDIRECT"
+                    return "literal"
 
-        total = len(results)
-        if total > limit:
-            lines.append(f"\n... showing top {limit} of {total}")
+                hdr = f"{'#':<5}{'Word':<22}{'POS':<7}{'Type':<10}{'Freq':<12}{'Source':<12}{'%'}"
+                lines.append(hdr)
+                lines.append("-" * 72)
+                for i, r in enumerate(results[:limit], 1):
+                    word   = r.get("word", "?")
+                    pos    = r.get("pos", "-")
+                    freq   = r.get("frequency", 0)
+                    source = r.get("source", "-")
+                    pct    = r.get("percentage", 0.0)
+                    mtype  = _mtype(r)
+                    ref    = r.get("implicit_ref_count", 0)
+                    # Show implicit back-ref count next to frequency
+                    freq_str = f"{freq}" + (f" (+{ref})" if ref > 0 else "")
+                    lines.append(
+                        f"{i:<5}{word:<22}{pos:<7}{mtype:<10}{freq_str:<12}{source:<12}{pct:.2f}%"
+                    )
+            else:
+                # source-grouping mode
+                lines.append(f"{'Source':<12}{'Name':<35}{'Count':<10}{'%'}")
+                lines.append("-" * 60)
+                for r in results:
+                    src   = r.get("source", "?")
+                    name  = r.get("name", src)
+                    count = r.get("count", 0)
+                    pct   = r.get("percentage", 0.0)
+                    lines.append(f"{src:<12}{name:<35}{count:<10}{pct:.1f}%")
+
+        total_rows = len(results)
+        if total_rows > limit:
+            lines.append(f"\n… showing top {limit} of {total_rows} rows")
+
         output = "\n".join(lines)
 
+        # ── CSV export ────────────────────────────────────────────────────────────
         if save_path is not None and results:
             csv_rows = []
             for r in results:
+                is_m    = r.get("is_metaphor", False)
+                is_dir  = r.get("is_direct_metaphor", False)
+                is_flag = r.get("is_mflag", False)
+                is_impl = r.get("is_implicit_metaphor", False)
+                if is_flag:
+                    mtype = "MFLAG"
+                elif is_dir:
+                    mtype = "DIRECT"
+                elif is_impl:
+                    mtype = "IMPLICIT"
+                elif is_m:
+                    mtype = "INDIRECT"
+                else:
+                    mtype = "literal"
                 csv_rows.append({
                     "Word": r.get("word", ""),
                     "Lemma": r.get("lemma", ""),
                     "POS": r.get("pos", ""),
-                    "Frequency": r.get("frequency", r.get("count", 0)),
+                    "Type": mtype,
+                    "Frequency": r.get("frequency", 0),
+                    "Implicit_Ref_Count": r.get("implicit_ref_count", 0),
                     "Percentage": f"{r.get('percentage', 0):.4f}",
-                    "Is Metaphor": 1 if r.get("is_metaphor", True) else 0,
                     "Source": r.get("source", ""),
                 })
-            saved = save_csv(csv_rows, save_path, f"metaphor_analysis_{today()}.csv",
-                             ["Word", "Lemma", "POS", "Frequency", "Percentage",
-                              "Is Metaphor", "Source"])
+            saved = save_csv(
+                csv_rows, save_path, f"metaphor_analysis_{today()}.csv",
+                ["Word", "Lemma", "POS", "Type", "Frequency",
+                 "Implicit_Ref_Count", "Percentage", "Source"],
+            )
             if saved:
                 output += f"\n\nCSV saved: {saved} ({len(csv_rows)} rows)"
 
+        # ── chart export ──────────────────────────────────────────────────────────
         if chart_type and results and result_mode == "word":
             chart_items = [
                 {"word": r.get("word", ""),
-                 "frequency": r.get("frequency", r.get("count", 0))}
+                 "frequency": r.get("frequency", 0)}
                 for r in results[:50]
+                if r.get("is_metaphor") or r.get("is_direct_metaphor")
+                or r.get("is_mflag") or r.get("is_implicit_metaphor")
             ]
             chart_path = chart_path if chart_path is not None else ""
-            chart_title = "MIPVU Metaphorical Words"
+            chart_title = "MIPVU MRW Frequency"
             if chart_type == "bar":
                 saved_chart = save_bar_chart(
                     chart_items, "word", "frequency", chart_title, chart_path,

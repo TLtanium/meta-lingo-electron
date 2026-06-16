@@ -152,7 +152,7 @@ export default function InterCoderReliability() {
                 </Typography>
               </AccordionSummary>
               <AccordionDetails sx={{ pt: 0 }}>
-                <KWICTable files={loadedFiles} />
+                <KWICTable files={loadedFiles} dataSummary={dataSummary} />
               </AccordionDetails>
             </Accordion>
           )}

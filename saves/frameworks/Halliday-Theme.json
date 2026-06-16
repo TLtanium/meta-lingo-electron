@@ -20,14 +20,14 @@
             "name": "rheme",
             "type": "label",
             "definition": "述题（rheme）：句子中除主题之外的部分，通常包含句子的主要信息内容。",
-            "color": "#db7fd2"
+            "color": "#8ecca0"
           },
           {
             "id": "31f73168-f381-4623-bab8-e0242d0b1b6d",
             "name": "sentence",
             "type": "label",
             "definition": "句子（sentence）：完整的语法单位，包含主题和述题两个基本组成部分。",
-            "color": "#c5bc7f"
+            "color": "#b38ecc"
           },
           {
             "id": "641ca3de-75d0-4e7e-ac4f-00aaeedbb2e2",
@@ -94,33 +94,33 @@
                                                     "name": "desirability",
                                                     "type": "label",
                                                     "definition": "合意性（desirability）：表达说话者对事物是否令人满意或期望的态度判断。",
-                                                    "color": "#967986"
+                                                    "color": "#cc8e8e"
                                                   },
                                                   {
                                                     "id": "c2644653-a5df-4e0d-8431-8fd077a04574",
                                                     "name": "reaction",
                                                     "type": "label",
                                                     "definition": "反应（reaction）：表达说话者对某一事件或情况的情感反应。",
-                                                    "color": "#a0acbb"
+                                                    "color": "#8ecca0"
                                                   },
                                                   {
                                                     "id": "87d9babc-0ed8-4a70-8cae-ecca6465f116",
                                                     "name": "sensibleness",
                                                     "type": "label",
                                                     "definition": "合理性（sensibleness）：表达说话者对事物是否合乎情理或明智的判断。",
-                                                    "color": "#8d7fc0"
+                                                    "color": "#b28ecc"
                                                   },
                                                   {
                                                     "id": "f3ebd23e-36ac-4f59-8a2f-231cb484f95a",
                                                     "name": "validity",
                                                     "type": "label",
                                                     "definition": "有效性（validity）：表达说话者对陈述或论证是否成立、有根据的判断。",
-                                                    "color": "#bbbecc"
+                                                    "color": "#ccc48e"
                                                   }
                                                 ]
                                               }
                                             ],
-                                            "color": "#8aa179"
+                                            "color": "#cccc8e"
                                           },
                                           {
                                             "id": "a281a807-ad6a-4a4d-bd13-5f010881e967",
@@ -139,75 +139,75 @@
                                                     "name": "belief",
                                                     "type": "label",
                                                     "definition": "信念（belief）：表达说话者的个人信念或信仰立场。",
-                                                    "color": "#c7d98d"
+                                                    "color": "#9e8ecc"
                                                   },
                                                   {
                                                     "id": "c12af367-876b-43e5-9394-50833615df51",
                                                     "name": "claim",
                                                     "type": "label",
                                                     "definition": "声称（claim）：表达说话者提出的主张或断言。",
-                                                    "color": "#aba78c"
+                                                    "color": "#ccb08e"
                                                   },
                                                   {
                                                     "id": "991e8d55-3ba4-4409-99db-65aabd97c021",
                                                     "name": "evidence",
                                                     "type": "label",
                                                     "definition": "证据（evidence）：表达基于具体证据或事实的判断。",
-                                                    "color": "#d783ad"
+                                                    "color": "#8eccc2"
                                                   },
                                                   {
                                                     "id": "d8e5f61d-46cb-4caa-af4b-a570742a4729",
                                                     "name": "expectation",
                                                     "type": "label",
                                                     "definition": "期望（expectation）：表达说话者的预期或期待。",
-                                                    "color": "#957978"
+                                                    "color": "#cc8ec4"
                                                   },
                                                   {
                                                     "id": "e5eec1e0-185b-4ccc-af62-06991f9772f4",
                                                     "name": "factuality",
                                                     "type": "label",
                                                     "definition": "事实性（factuality）：表达对事实真实性的确认或质疑。",
-                                                    "color": "#ae9aae"
+                                                    "color": "#b2cc8e"
                                                   },
                                                   {
                                                     "id": "eb68e2cf-70cb-4e54-92d8-477288162887",
                                                     "name": "obviousness",
                                                     "type": "label",
                                                     "definition": "明显性（obviousness）：表达事物的显而易见程度。",
-                                                    "color": "#bdc68e"
+                                                    "color": "#8ea0cc"
                                                   },
                                                   {
                                                     "id": "942ff65e-68f5-45a5-9750-3a56525b5d3d",
                                                     "name": "opinion",
                                                     "type": "label",
                                                     "definition": "观点（opinion）：表达说话者的个人看法或观点。",
-                                                    "color": "#b59fa7"
+                                                    "color": "#cc8e8e"
                                                   },
                                                   {
                                                     "id": "2770a85f-01ed-4eee-a30f-73e23cbe0266",
                                                     "name": "probability",
                                                     "type": "label",
                                                     "definition": "概率（probability）：表达事件发生的可能性程度。",
-                                                    "color": "#ae8b93"
+                                                    "color": "#8ecca0"
                                                   },
                                                   {
                                                     "id": "bb3d80b0-bdeb-4e48-88ff-ada64c14fafb",
                                                     "name": "typicality",
                                                     "type": "label",
                                                     "definition": "典型性（typicality）：表达事物是否符合常规或典型情况。",
-                                                    "color": "#c0c9a0"
+                                                    "color": "#b28ecc"
                                                   },
                                                   {
                                                     "id": "9eaf99e2-9e89-41c2-a3bc-ff3c4410ff59",
                                                     "name": "usuality",
                                                     "type": "label",
                                                     "definition": "惯常性（usuality）：表达行为或事件的习惯性或常规性。",
-                                                    "color": "#9bcd82"
+                                                    "color": "#ccc48e"
                                                   }
                                                 ]
                                               }
                                             ],
-                                            "color": "#aab98a"
+                                            "color": "#8eb9cc"
                                           },
                                           {
                                             "id": "8e48e759-950c-493b-8341-8055b073269a",
@@ -226,43 +226,43 @@
                                                     "name": "admission",
                                                     "type": "label",
                                                     "definition": "承认（admission）：表达说话者的承认或认可态度。",
-                                                    "color": "#d2d6c9"
+                                                    "color": "#aecc8e"
                                                   },
                                                   {
                                                     "id": "018dfdd9-edd9-4f0d-b027-ca263374f4f0",
                                                     "name": "approximation",
                                                     "type": "label",
                                                     "definition": "近似（approximation）：表达大致或大约的程度判断。",
-                                                    "color": "#cb8383"
+                                                    "color": "#8e9ccc"
                                                   },
                                                   {
                                                     "id": "3e90f3ac-ded9-4894-9c73-8b56c9c1857b",
                                                     "name": "tentativeness",
                                                     "type": "label",
                                                     "definition": "试探性（tentativeness）：表达不确定、谨慎或试探性的态度。",
-                                                    "color": "#7b8195"
+                                                    "color": "#cc928e"
                                                   }
                                                 ]
                                               }
                                             ],
-                                            "color": "#b4ced7"
+                                            "color": "#cc8ea7"
                                           }
                                         ]
                                       }
                                     ],
-                                    "color": "#7eb6c7"
+                                    "color": "#8ec9cc"
                                   },
                                   {
                                     "id": "bbdb8187-cfb8-4425-b3f2-365d986c4d72",
                                     "name": "fronted-verb",
                                     "type": "label",
                                     "definition": "前置动词（fronted-verb）：位于句首的动词成分，通常用于强调或特殊语法结构。",
-                                    "color": "#78b8cd"
+                                    "color": "#cc8eb7"
                                   }
                                 ]
                               }
                             ],
-                            "color": "#89aed6"
+                            "color": "#cc8eb3"
                           },
                           {
                             "id": "65812334-891b-4e4f-a6ce-84ef6a94ad63",
@@ -293,40 +293,40 @@
                                             "name": "adversative",
                                             "type": "label",
                                             "definition": "对立（adversative）：表达对比、转折或相反的逻辑关系。",
-                                            "color": "#adc9bd"
+                                            "color": "#978ecc"
                                           },
                                           {
                                             "id": "ef1d618d-1810-4afb-b211-4dd458b04fac",
                                             "name": "alternatively",
                                             "type": "label",
                                             "definition": "择一（alternatively）：表达选择或替代的逻辑关系。",
-                                            "color": "#ccd9da"
+                                            "color": "#cca98e"
                                           },
                                           {
                                             "id": "9a65f43f-c7ac-424c-8c5a-e202f9b511aa",
                                             "name": "concessive",
                                             "type": "label",
                                             "definition": "让步（concessive）：表达让步或承认的逻辑关系。",
-                                            "color": "#b09e93"
+                                            "color": "#8eccbb"
                                           },
                                           {
                                             "id": "37bf8243-2def-45b5-952b-e75df4009183",
                                             "name": "consequence",
                                             "type": "label",
                                             "definition": "结果（consequence）：表达因果或结果的逻辑关系。",
-                                            "color": "#a7abd1"
+                                            "color": "#cc8ecb"
                                           },
                                           {
                                             "id": "53fdcccb-561c-4ca3-bf0b-ee70c27442c3",
                                             "name": "corrective",
                                             "type": "label",
                                             "definition": "纠正（corrective）：表达修正或纠正先前信息的关系。",
-                                            "color": "#9da9b9"
+                                            "color": "#b9cc8e"
                                           }
                                         ]
                                       }
                                     ],
-                                    "color": "#8a78c5"
+                                    "color": "#978ecc"
                                   },
                                   {
                                     "id": "e1213bcf-3def-4cf4-91a7-e5536e2a6034",
@@ -345,54 +345,54 @@
                                             "name": "actuality",
                                             "type": "label",
                                             "definition": "现实性（actuality）：表达事实或现实情况。",
-                                            "color": "#9b9e9d"
+                                            "color": "#ccc88e"
                                           },
                                           {
                                             "id": "0e7c9f86-a157-4f51-b212-42e0901234ae",
                                             "name": "addition",
                                             "type": "label",
                                             "definition": "添加（addition）：表达信息的补充或增加。",
-                                            "color": "#ad8584"
+                                            "color": "#8ebecc"
                                           },
                                           {
                                             "id": "83a3a990-3c3e-41a9-ab84-5ceafe0c7f8e",
                                             "name": "appositive",
                                             "type": "label",
                                             "definition": "同位（appositive）：表达解释、说明或重新表述的关系。",
-                                            "color": "#d8b5bb"
+                                            "color": "#cc8eac"
                                           },
                                           {
                                             "id": "cbdd4390-5825-4b98-95e5-dcf0ef177ebb",
                                             "name": "contextualizing",
                                             "type": "label",
                                             "definition": "语境化（contextualizing）：提供语境背景或框架信息。",
-                                            "color": "#d29a8f"
+                                            "color": "#99cc8e"
                                           },
                                           {
                                             "id": "78ddbb55-ba5e-42e4-9b93-04655e433d50",
                                             "name": "likewise",
                                             "type": "label",
                                             "definition": "同样（likewise）：表达相似或相同的关系。",
-                                            "color": "#8ac8af"
+                                            "color": "#948ecc"
                                           },
                                           {
                                             "id": "ede1acc9-9ea5-4ab7-ae3a-5115ac787daa",
                                             "name": "summative",
                                             "type": "label",
                                             "definition": "总结（summative）：表达概括或总结的关系。",
-                                            "color": "#8589d7"
+                                            "color": "#cca78e"
                                           }
                                         ]
                                       }
                                     ],
-                                    "color": "#84c07f"
+                                    "color": "#cca98e"
                                   },
                                   {
                                     "id": "065f479c-5aae-4947-aa13-a401c37e9649",
                                     "name": "other-textual-type",
                                     "type": "label",
                                     "definition": "其他语篇类型（other-textual-type）：不属于上述具体类别的其他语篇连接成分。",
-                                    "color": "#91c7b7"
+                                    "color": "#8eccbb"
                                   },
                                   {
                                     "id": "235c76fa-3803-4f68-831a-b888b23ccaeb",
@@ -411,50 +411,50 @@
                                             "name": "comparing",
                                             "type": "label",
                                             "definition": "比较（comparing）：表达比较或对照的关系。",
-                                            "color": "#c2c28f"
+                                            "color": "#8ecc90"
                                           },
                                           {
                                             "id": "1cfdff1a-0fdd-4bab-a449-628bf174b1c5",
                                             "name": "concluding",
                                             "type": "label",
                                             "definition": "结论（concluding）：表达结束或总结的关系。",
-                                            "color": "#be8a99"
+                                            "color": "#a38ecc"
                                           },
                                           {
                                             "id": "52555401-a503-4e79-a6a6-367a58bf620e",
                                             "name": "dismissive",
                                             "type": "label",
                                             "definition": "摒弃（dismissive）：表达否定或摒弃的态度。",
-                                            "color": "#9e8198"
+                                            "color": "#ccb58e"
                                           },
                                           {
                                             "id": "2281b385-4d97-44ba-86a8-e95b1f3dd25b",
                                             "name": "sequencing",
                                             "type": "label",
                                             "definition": "序列（sequencing）：表达时间或逻辑顺序的关系。",
-                                            "color": "#dbc985"
+                                            "color": "#8eccc7"
                                           }
                                         ]
                                       }
                                     ],
-                                    "color": "#c4d6c3"
+                                    "color": "#cc8ecb"
                                   }
                                 ]
                               }
                             ],
-                            "color": "#acb5a6"
+                            "color": "#a1cc8e"
                           },
                           {
                             "id": "57585bdc-77c2-4265-830f-ad8a33bfc93b",
                             "name": "topical-theme",
                             "type": "label",
                             "definition": "概念主题（topical-theme）：承载主要概念内容的主题成分，通常是句子的语法主语或其他核心成分。",
-                            "color": "#829ea6"
+                            "color": "#8e8fcc"
                           }
                         ]
                       }
                     ],
-                    "color": "#a1cdbf"
+                    "color": "#ad8ecc"
                   },
                   {
                     "id": "7d03e52e-a2b6-46a6-845e-4cab3f5027d7",
@@ -473,14 +473,14 @@
                             "name": "has-textual-theme",
                             "type": "label",
                             "definition": "有语篇主题（has-textual-theme）：包含语篇主题成分的主题群组。",
-                            "color": "#848693"
+                            "color": "#cc928e"
                           },
                           {
                             "id": "3b76a34d-f4bc-4794-a0f0-bbeb55c27eb3",
                             "name": "no-textual-theme",
                             "type": "label",
                             "definition": "无语篇主题（no-textual-theme）：不包含语篇主题成分的主题群组。",
-                            "color": "#d4b1d1"
+                            "color": "#8ecca4"
                           }
                         ]
                       },
@@ -495,14 +495,14 @@
                             "name": "has-interpersonal-theme",
                             "type": "label",
                             "definition": "有人际主题（has-interpersonal-theme）：包含人际主题成分的主题群组。",
-                            "color": "#94d381"
+                            "color": "#a08ecc"
                           },
                           {
                             "id": "67e44d1a-4ef9-4dfa-bd43-5d06c4310a31",
                             "name": "no-interpersonal-theme",
                             "type": "label",
                             "definition": "无人际主题（no-interpersonal-theme）：不包含人际主题成分的主题群组。",
-                            "color": "#cdaeba"
+                            "color": "#ccb28e"
                           }
                         ]
                       },
@@ -517,45 +517,45 @@
                             "name": "adjunct-ideat-theme",
                             "type": "label",
                             "definition": "附加语概念主题（adjunct-ideat-theme）：由附加语充当的概念主题。",
-                            "color": "#aebd7e"
+                            "color": "#8ea8cc"
                           },
                           {
                             "id": "936eea34-69c4-4981-b9bb-d5e1104e4703",
                             "name": "complem-ideat-theme",
                             "type": "label",
                             "definition": "补语概念主题（complem-ideat-theme）：由补语充当的概念主题。",
-                            "color": "#a67a96"
+                            "color": "#cc8e96"
                           },
                           {
                             "id": "9a8cf14a-4f0c-47d0-9cfb-2b4a6e5e4760",
                             "name": "elided-ideat-theme",
                             "type": "label",
                             "definition": "省略概念主题（elided-ideat-theme）：在语境中被省略但在语义上存在的概念主题。",
-                            "color": "#96c6af"
+                            "color": "#8ecc98"
                           },
                           {
                             "id": "fea9dc7d-9199-4b29-a6f1-f41bd51ca234",
                             "name": "empty-ideat-theme",
                             "type": "label",
                             "definition": "空概念主题（empty-ideat-theme）：语法上必需但语义内容空虚的概念主题（如虚词it）。",
-                            "color": "#7f89d2"
+                            "color": "#aa8ecc"
                           },
                           {
                             "id": "1d547567-0835-441e-8182-88a3e3c4f93f",
                             "name": "unmarked-ideat-theme",
                             "type": "label",
                             "definition": "无标记概念主题（unmarked-ideat-theme）：语法上常规的、未经特殊标记的概念主题，通常是句子的主语。",
-                            "color": "#d49579"
+                            "color": "#ccbd8e"
                           }
                         ]
                       }
                     ],
-                    "color": "#7fd295"
+                    "color": "#ccbf8e"
                   }
                 ]
               }
             ],
-            "color": "#d19bda"
+            "color": "#ccc58e"
           }
         ]
       }

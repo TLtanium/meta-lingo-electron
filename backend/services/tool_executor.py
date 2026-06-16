@@ -2,7 +2,7 @@
 Tool executor for Agent Chat mode.
 Reuses MCP tool functions by creating a FastMCP server instance
 and extracting the registered async functions. This avoids duplicating
-the 53 tool implementations and their REST API call logic.
+the 56 tool implementations and their REST API call logic.
 """
 import json
 import logging
@@ -12,17 +12,23 @@ from mcp.server.fastmcp import FastMCP
 from mcp_server.api_client import MetaLingoClient
 from mcp_server.tools import (
     corpus, analysis, concordance, semantic,
-    sketch, topic, export, reference, annotation, biblio,
+    sketch, topic, export, reference, annotation, biblio, dmip, task,
 )
 
 logger = logging.getLogger(__name__)
 
 _TOOL_MODULES = [
     corpus, analysis, concordance, semantic,
-    sketch, topic, export, reference, annotation, biblio,
+    sketch, topic, export, reference, annotation, biblio, dmip, task,
 ]
 
-MAX_RESULT_LEN = 4000  # Truncate tool results to avoid LLM context overflow
+MAX_RESULT_LEN = 4000  # Default truncation limit for tool results
+# Large-context tools (full text + analysis context) — no truncation
+_NO_TRUNCATE_TOOLS = {
+    "dmip_analysis", "get_text_content", "get_text_segment", "get_text_sentences",
+    # Task tools: read_task_results can be large; others are short status strings
+    "read_task_results",
+}
 
 
 class ToolExecutor:
@@ -67,8 +73,8 @@ class ToolExecutor:
             logger.error("Tool %s execution error: %s", tool_name, e, exc_info=True)
             result_str = f"Error executing {tool_name}: {e}"
 
-        # Truncate large results
-        if len(result_str) > MAX_RESULT_LEN:
+        # Truncate large results (skip truncation for tools that need full context)
+        if tool_name not in _NO_TRUNCATE_TOOLS and len(result_str) > MAX_RESULT_LEN:
             result_str = result_str[:MAX_RESULT_LEN] + f"\n\n... [truncated, {len(result_str)} chars total]"
 
         return result_str

@@ -36,6 +36,7 @@ import ContentCopyIcon from '@mui/icons-material/ContentCopy'
 import SelectAllIcon from '@mui/icons-material/SelectAll'
 import DeselectIcon from '@mui/icons-material/Deselect'
 import TuneIcon from '@mui/icons-material/Tune'
+import FilterListIcon from '@mui/icons-material/FilterList'
 import MoreVertIcon from '@mui/icons-material/MoreVert'
 import LinkIcon from '@mui/icons-material/Link'
 import TextFieldsIcon from '@mui/icons-material/TextFields'
@@ -51,6 +52,9 @@ import type {
 import { STAT_MEASURE_INFO } from '../../../types/collocationAnalysis'
 import { useTabStore } from '../../../stores/tabStore'
 import type { TabType, CrossLinkParams } from '../../../types'
+import type { POSFilterConfig, POSTagInfo } from '../../../types/wordFrequency'
+import { DEFAULT_COLLOCATE_POS_FILTER } from '../../../types/collocationAnalysis'
+import CollocationCollocatePOSDialog from './CollocationCollocatePOSDialog'
 
 interface CollocationResultsTableProps {
   results: CollocationAnalysisResult[]
@@ -70,6 +74,9 @@ interface CollocationResultsTableProps {
   tableFilter?: string
   onTableFilterChange?: (value: string) => void
   onOpenStatisticsDialog: () => void
+  collocatePosFilter?: POSFilterConfig
+  onCollocatePosFilterChange?: (config: POSFilterConfig) => void
+  posTags?: POSTagInfo[]
   isLoading?: boolean
   corpusId?: string
   textIds?: string[] | 'all'
@@ -97,6 +104,9 @@ export default function CollocationResultsTable({
   tableFilter: tableFilterProp,
   onTableFilterChange,
   onOpenStatisticsDialog,
+  collocatePosFilter,
+  onCollocatePosFilterChange,
+  posTags = [],
   isLoading = false,
   corpusId,
   textIds,
@@ -117,6 +127,18 @@ export default function CollocationResultsTable({
       setTableFilterInternal(value)
     }
     onPaginationChange({ ...paginationConfig, page: 0 })
+  }
+
+  // Collocate POS filter dialog state (internal if no external handler)
+  const [posDialogOpen, setPosDialogOpen] = useState(false)
+  const [localCollocatePosFilter, setLocalCollocatePosFilter] = useState<POSFilterConfig>(DEFAULT_COLLOCATE_POS_FILTER)
+  const activePosFilter = collocatePosFilter ?? localCollocatePosFilter
+  const setActivePosFilter = (cfg: POSFilterConfig) => {
+    if (onCollocatePosFilterChange) {
+      onCollocatePosFilterChange(cfg)
+    } else {
+      setLocalCollocatePosFilter(cfg)
+    }
   }
 
   // Three-dot menu state
@@ -140,7 +162,7 @@ export default function CollocationResultsTable({
     return isZh ? info.name_zh : info.name_en
   }
 
-  // Filter results: text filter + threshold filter (must satisfy ALL enabled thresholds)
+  // Filter results: text filter + threshold filter + collocate POS filter
   const filteredResults = useMemo(() => {
     let filtered = results
 
@@ -155,6 +177,18 @@ export default function CollocationResultsTable({
       )
     }
 
+    // Apply collocate POS filter
+    if (activePosFilter.selectedPOS.length > 0) {
+      filtered = filtered.filter(r => {
+        const pos = r.collocate_pos || ''
+        if (activePosFilter.keepMode) {
+          return activePosFilter.selectedPOS.includes(pos)
+        } else {
+          return !activePosFilter.selectedPOS.includes(pos)
+        }
+      })
+    }
+
     // Apply text filter
     if (tableFilter.trim()) {
       const filter = tableFilter.toLowerCase()
@@ -162,7 +196,7 @@ export default function CollocationResultsTable({
     }
 
     return filtered
-  }, [results, tableFilter, statConfigs])
+  }, [results, tableFilter, statConfigs, activePosFilter])
 
   // Sort results
   const sortedResults = useMemo(() => {
@@ -435,6 +469,18 @@ export default function CollocationResultsTable({
           {t('collocationAnalysis.statistics.title')}
         </Button>
 
+        {/* Collocate POS filter button */}
+        <Button
+          size="small"
+          variant={activePosFilter.selectedPOS.length > 0 ? 'contained' : 'outlined'}
+          color={activePosFilter.selectedPOS.length > 0 ? 'primary' : 'inherit'}
+          startIcon={<FilterListIcon />}
+          onClick={() => setPosDialogOpen(true)}
+          sx={{ whiteSpace: 'nowrap', flexShrink: 0 }}
+        >
+          {t('collocationAnalysis.collocatePosFilter.buttonLabel')}
+        </Button>
+
         {/* Table filter */}
         <TextField
           size="small"
@@ -661,6 +707,15 @@ export default function CollocationResultsTable({
         rowsPerPageOptions={[10, 25, 50, 100]}
         labelRowsPerPage={t('collocationAnalysis.results.rowsPerPage')}
         sx={{ flexShrink: 0 }}
+      />
+
+      {/* Collocate POS filter dialog */}
+      <CollocationCollocatePOSDialog
+        open={posDialogOpen}
+        onClose={() => setPosDialogOpen(false)}
+        config={activePosFilter}
+        onConfigChange={setActivePosFilter}
+        posTags={posTags}
       />
     </Box>
   )

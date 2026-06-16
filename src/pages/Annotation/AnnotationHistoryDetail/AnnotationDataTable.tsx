@@ -41,10 +41,11 @@ import TableChartIcon from '@mui/icons-material/TableChart'
 import BarChartIcon from '@mui/icons-material/BarChart'
 import ViewColumnIcon from '@mui/icons-material/ViewColumn'
 import { useTranslation } from 'react-i18next'
-import type { Annotation, SpacyToken } from '../../../types'
+import type { Annotation, SpacyToken, AnnotationRelation } from '../../../types'
 
 interface AnnotationDataTableProps {
   annotations: Annotation[]
+  relations?: AnnotationRelation[]
   archiveName: string
   excludeVideoAnnotations?: boolean
   originalText?: string
@@ -116,6 +117,7 @@ const downloadCsv = (content: string, filename: string) => {
 
 export default function AnnotationDataTable({
   annotations,
+  relations = [],
   archiveName,
   excludeVideoAnnotations = false,
   originalText,
@@ -202,9 +204,22 @@ export default function AnnotationDataTable({
   // 导出格式 1: 标注列表 (原有格式)
   const handleExportAnnotationList = () => {
     setExportAnchorEl(null)
+
+    // Build relation lookup: annotationId → comma-separated target texts
+    const annIdToText = new Map(annotations.map(a => [a.id, a.text]))
+    const relLookup = new Map<string, string[]>()
+    for (const rel of relations) {
+      const targetText = annIdToText.get(rel.targetId) || rel.targetId
+      const existing = relLookup.get(rel.sourceId) || []
+      existing.push(targetText)
+      relLookup.set(rel.sourceId, existing)
+    }
+    const hasRelations = relations.length > 0
+
     const headers = ['#', t('annotation.label', '标签'), t('annotation.text', '文本'),
                      t('annotation.pos', '词性'), t('annotation.ner', '命名实体'),
-                     t('annotation.position', '位置'), t('annotation.remark', '备注')]
+                     t('annotation.position', '位置'), t('annotation.remark', '备注'),
+                     ...(hasRelations ? ['→ 关联目标'] : [])]
 
     const rows = sortedData.map((ann, idx) => [
       String(idx + 1),
@@ -213,7 +228,8 @@ export default function AnnotationDataTable({
       ann.pos || '-',
       ann.entity || '-',
       String(ann.startPosition),
-      ann.remark ? csvEscape(ann.remark) : '-'
+      ann.remark ? csvEscape(ann.remark) : '-',
+      ...(hasRelations ? [csvEscape((relLookup.get(ann.id) || []).join('; ') || '-')] : [])
     ])
 
     const csvContent = [
@@ -530,16 +546,24 @@ export default function AnnotationDataTable({
                 </TableSortLabel>
               </TableCell>
               <TableCell sx={headerCellSx}>{t('annotation.remark', '备注')}</TableCell>
+              {relations.length > 0 && (
+                <TableCell sx={{ ...headerCellSx, textAlign: 'center' }}>关联</TableCell>
+              )}
             </TableRow>
           </TableHead>
           <TableBody>
-            {paginatedData.map((ann, idx) => (
-              <TableRow
-                key={ann.id}
-                sx={{
-                  '&:hover': { bgcolor: `${ann.color}10` }
-                }}
-              >
+            {paginatedData.map((ann, idx) => {
+              // Build target label chip for this annotation's outgoing relations
+              const outgoing = relations.filter(r => r.sourceId === ann.id)
+              const annIdToLabel = new Map(annotations.map(a => [a.id, { text: a.text, color: a.color }]))
+              return (
+                <TableRow
+                  key={ann.id}
+                  data-annotation-row={ann.id}
+                  sx={{
+                    '&:hover': { bgcolor: `${ann.color}10` }
+                  }}
+                >
                 <TableCell sx={bodyCellSx}>
                   {page * rowsPerPage + idx + 1}
                 </TableCell>
@@ -623,8 +647,31 @@ export default function AnnotationDataTable({
                     </Typography>
                   </Tooltip>
                 </TableCell>
+                {relations.length > 0 && (
+                  <TableCell sx={bodyCellSx} align="center">
+                    {outgoing.length > 0 ? (
+                      <Stack direction="row" spacing={0.5} flexWrap="wrap" justifyContent="center">
+                        {outgoing.map(rel => {
+                          const tgt = annIdToLabel.get(rel.targetId)
+                          return (
+                            <Tooltip key={rel.id} title={`→ ${tgt?.text || rel.targetId}`}>
+                              <Chip
+                                label={`→ ${tgt?.text ? (tgt.text.length > 8 ? tgt.text.slice(0, 8) + '…' : tgt.text) : rel.targetId.slice(0, 6)}`}
+                                size="small"
+                                sx={{ height: 18, fontSize: 10, bgcolor: `${tgt?.color || '#8a96af'}30`, color: tgt?.color || '#8a96af' }}
+                              />
+                            </Tooltip>
+                          )
+                        })}
+                      </Stack>
+                    ) : (
+                      <Typography variant="caption" color="text.disabled">-</Typography>
+                    )}
+                  </TableCell>
+                )}
               </TableRow>
-            ))}
+              )
+            })}
           </TableBody>
         </Table>
       </TableContainer>

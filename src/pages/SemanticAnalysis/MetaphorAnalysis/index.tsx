@@ -13,7 +13,6 @@ import {
   Stack,
   Chip,
   Button,
-  Paper,
   Alert
 } from '@mui/material'
 import PlayArrowIcon from '@mui/icons-material/PlayArrow'
@@ -31,7 +30,7 @@ import type {
 } from '../../../types/metaphorAnalysis'
 import { DEFAULT_METAPHOR_VIZ_CONFIG } from '../../../types/metaphorAnalysis'
 import POSFilterPanel from '../../WordFrequency/POSFilterPanel'
-import SearchConfigPanel from '../../WordFrequency/SearchConfigPanel'
+import SearchConfigPanel from '../SearchConfigPanel'
 import ResultsTable from './ResultsTable'
 import VisualizationPanel from './VisualizationPanel'
 import type { POSTagInfo } from '../../../types/wordFrequency'
@@ -50,7 +49,6 @@ const DEFAULT_SEARCH_CONFIG: SearchConfig = {
   searchType: 'all',
   searchValue: '',
   excludeWords: [],
-  searchTarget: 'word',
   removeStopwords: false
 }
 
@@ -76,6 +74,7 @@ export default function MetaphorAnalysis({ crossLinkParams }: MetaphorAnalysisPr
   const [minFreq, setMinFreq] = useState(1)
   const [maxFreq, setMaxFreq] = useState<number | null>(null)
   const [lowercase, setLowercase] = useState(true)
+  const [includeImplicit, setIncludeImplicit] = useState(false)
 
   // Results state
   const [results, setResults] = useState<MetaphorResult[]>([])
@@ -154,11 +153,12 @@ export default function MetaphorAnalysis({ crossLinkParams }: MetaphorAnalysisPr
         corpus_id: corpusSelection.corpusId,
         text_ids: corpusSelection.textIds,
         pos_filter: posFilter.selectedPOS.length > 0 ? posFilter : undefined,
-        search_config: searchConfig.searchValue || searchConfig.excludeWords.length > 0 ? searchConfig : undefined,
+        search_config: searchConfig.searchValue || searchConfig.excludeWords.length > 0 || searchConfig.searchType !== 'all' ? searchConfig : undefined,
         min_freq: minFreq,
         max_freq: maxFreq || undefined,
         lowercase,
-        result_mode: 'word'
+        result_mode: 'word',
+        include_implicit: includeImplicit
       }
 
       const response = await analysisApi.metaphorAnalysis(request)
@@ -265,8 +265,8 @@ export default function MetaphorAnalysis({ crossLinkParams }: MetaphorAnalysisPr
         {/* 3. Search Config Panel */}
         <Box sx={{ mb: 2 }}>
           <SearchConfigPanel
-            config={searchConfig}
-            onChange={setSearchConfig}
+            config={searchConfig as any}
+            onChange={(config) => setSearchConfig(config as SearchConfig)}
             minFreq={minFreq}
             maxFreq={maxFreq}
             lowercase={lowercase}
@@ -274,8 +274,6 @@ export default function MetaphorAnalysis({ crossLinkParams }: MetaphorAnalysisPr
             onMaxFreqChange={setMaxFreq}
             onLowercaseChange={setLowercase}
             disabled={!corpusSelection}
-            corpusLanguage="english"
-            hideSearchTarget
           />
         </Box>
 
@@ -353,6 +351,8 @@ export default function MetaphorAnalysis({ crossLinkParams }: MetaphorAnalysisPr
                 selectedTags={corpusSelection?.selectedKeywords ?? corpusSelection?.selectedTags ?? []}
                 libraryId={corpusSelection?.dataSource === 'library' ? corpusSelection.libraryId : undefined}
                 selectedEntryIds={corpusSelection?.dataSource === 'library' && corpusSelection?.selectionMode === 'selected' ? corpusSelection?.selectedEntryIds : undefined}
+                includeImplicit={includeImplicit}
+                onIncludeImplicitChange={setIncludeImplicit}
               />
             ) : (
               <Box sx={{

@@ -34,8 +34,6 @@ export default function ChatMessages({
   }, [isStreaming, thinkingMessages.length])
 
   useEffect(() => {
-    // Scroll container directly (not scrollIntoView which may target window).
-    // Throttle during streaming to 150ms to reduce layout thrashing.
     if (scrollTimerRef.current) clearTimeout(scrollTimerRef.current)
     scrollTimerRef.current = setTimeout(() => {
       scrollTimerRef.current = null
@@ -43,6 +41,9 @@ export default function ChatMessages({
       if (el) el.scrollTop = el.scrollHeight
     }, isStreaming ? 150 : 0)
   }, [messages, isStreaming])
+
+  // Only render visible messages (skip hidden compact summaries)
+  const visibleMessages = messages.filter((m) => !m.hidden && !m.isCompactIndicator)
 
   return (
     <Box
@@ -58,16 +59,16 @@ export default function ChatMessages({
         gap: 2,
       }}
     >
-      {messages.map((msg, idx) => (
+      {visibleMessages.map((msg, idx, arr) => (
         <Box key={msg.id} sx={{ flexShrink: 0 }}>
           <MessageBubble
             message={msg}
-            isStreaming={isStreaming && idx === messages.length - 1 && msg.role === 'assistant'}
+            isStreaming={isStreaming && idx === arr.length - 1 && msg.role === 'assistant'}
           />
         </Box>
       ))}
 
-      {isStreaming && messages[messages.length - 1]?.role !== 'assistant' && (
+      {isStreaming && visibleMessages.at(-1)?.role !== 'assistant' && (
         <Stack direction="row" spacing={1} alignItems="center" sx={{ pl: 5.5, flexShrink: 0 }}>
           <CircularProgress size={14} thickness={4} />
           <Typography

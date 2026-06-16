@@ -106,7 +106,7 @@ async def get_mcp_config_info():
             "backend_url": backend_url,
             "stdio_snippet": stdio_snippet,
             "http_url": mcp_http_url,
-            "tool_count": 55,
+            "tool_count": 60,
             "has_dxt": has_dxt,
         },
     }
@@ -122,11 +122,14 @@ def _get_dxt_path() -> Path | None:
         if p.exists():
             return p
     else:
-        # Dev mode: dist/meta-lingo-mcp.dxt
+        # Dev mode: check backend-dist/ first, then dist/ as fallback
         project_root = Path(__file__).parent.parent.parent
-        p = project_root / "dist" / "meta-lingo-mcp.dxt"
-        if p.exists():
-            return p
+        for candidate in [
+            project_root / "backend-dist" / "meta-lingo-mcp.dxt",
+            project_root / "dist" / "meta-lingo-mcp.dxt",
+        ]:
+            if candidate.exists():
+                return candidate
     return None
 
 

@@ -210,6 +210,8 @@ class SaveAnnotationRequest(BaseModel):
     audioBoxes: Optional[List[AudioBox]] = None  # Audio box annotations
     pitchData: Optional[PitchDataArchive] = None  # Pitch data for visualization
     audioVisualizationSvg: Optional[str] = None  # SVG visualization of audio waveform
+    relations: Optional[List[dict]] = None  # 标注关联（有向箭头）
+    appendMode: Optional[bool] = False  # True = MCP incremental append; False (default) = UI full replace
 
 
 class AnnotationArchiveListItem(BaseModel):
@@ -440,9 +442,9 @@ async def save_annotation(data: SaveAnnotationRequest):
     if data.archiveId:
         existing_archive = load_archive(data.corpusName, data.archiveId)
     
-    # Merge annotations: if updating an existing archive, APPEND new spans
+    # UI sends full state → replace; MCP sends incremental batches → append
     new_annotations = [ann.model_dump() for ann in data.annotations]
-    if existing_archive and data.archiveId:
+    if data.appendMode and existing_archive:
         merged_annotations = existing_archive.get('annotations', []) + new_annotations
     else:
         merged_annotations = new_annotations
@@ -517,6 +519,12 @@ async def save_annotation(data: SaveAnnotationRequest):
         if data.audioVisualizationSvg:
             archive['audioVisualizationSvg'] = data.audioVisualizationSvg
     
+    # Save relations (always overwrite with latest, since relations reference current annotation IDs)
+    if data.relations is not None:
+        archive['relations'] = data.relations
+    elif existing_archive and 'relations' in existing_archive:
+        archive['relations'] = existing_archive['relations']
+
     # Save to file
     saved_path = save_archive(data.corpusName, archive)
     
@@ -765,9 +773,14 @@ async def get_supported_frameworks():
                     'id': 'MIPVU',
                     'name': 'MIPVU',
                     'auto_annotation_type': 'mipvu',
-                    'description': 'Auto-annotate metaphor-related words using MIPVU data',
+                    'description': 'Auto-annotate metaphor-related words using MIPVU data (indirect + direct + mflag)',
                     'target_label': 'indirect',
-                    'target_label_id': '79ee0895-6eaf-4f39-adad-d0ba5c0c068b'
+                    'target_label_id': '79ee0895-6eaf-4f39-adad-d0ba5c0c068b',
+                    'target_labels': {
+                        'indirect': '79ee0895-6eaf-4f39-adad-d0ba5c0c068b',
+                        'direct': '67d591b5-dcb6-4664-8742-b52e389d8ce0',
+                        'mflag': '621b899e-c406-4f46-ba21-0c6fad3445a3'
+                    }
                 },
                 {
                     'id': 'Halliday-Theme',

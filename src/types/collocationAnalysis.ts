@@ -63,6 +63,7 @@ export interface CollocationAnalysisResult {
   collocate: string
   collocation_freq: number   // f_xy: frequency of node + collocate co-occurrence
   total_freq: number         // f_y: total frequency of collocate in corpus
+  collocate_pos?: string     // dominant POS tag for the collocate
   // Statistical scores (present only if requested)
   logdice?: number
   mi?: number
@@ -258,6 +259,11 @@ export const ALL_STAT_METHODS: StatisticalMeasure[] = [
   'logdice', 'mi', 'll', 'zscore', 'tscore', 'logratio',
   'mi2', 'mi3', 'dice', 'deltap1', 'deltap2', 'minsens'
 ]
+
+export const DEFAULT_COLLOCATE_POS_FILTER: import('./wordFrequency').POSFilterConfig = {
+  selectedPOS: [],
+  keepMode: true
+}
 
 export const DEFAULT_SPAN = 5
 export const MIN_SPAN = 1

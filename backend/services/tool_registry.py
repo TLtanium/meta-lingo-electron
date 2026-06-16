@@ -1,6 +1,6 @@
 """
 Tool registry for Agent Chat mode.
-Defines all 55 MCP tools in OpenAI function-calling format,
+Defines all 56 MCP tools in OpenAI function-calling format,
 grouped by module for the frontend module selector.
 NOTE: keep in sync with backend/mcp_server/tools/* and backend/routers/mcp.py tool_count.
 """
@@ -97,6 +97,21 @@ TOOL_MODULES_META: list[dict[str, Any]] = [
             "list_biblio_libraries", "create_biblio_library",
             "upload_biblio_file", "get_biblio_library_info",
             "biblio_network", "biblio_temporal", "biblio_cluster", "biblio_wordcloud",
+        ],
+    },
+    {
+        "name": "dmip",
+        "display_en": "Deliberate Metaphor (DMIP)",
+        "display_zh": "刻意隐喻分析（DMIP）",
+        "tools": ["dmip_analysis"],
+    },
+    {
+        "name": "task",
+        "display_en": "Task Management",
+        "display_zh": "任务管理",
+        "tools": [
+            "plan_analysis_task", "start_analysis_task",
+            "save_text_result", "read_task_results", "get_task_status",
         ],
     },
 ]
@@ -391,18 +406,24 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
               "lowercase": _bool("Merge case variants", default=True),
           }, ["corpus_id", "domain"]),
     _tool("metaphor_analysis",
-          "Analyze MIPVU metaphor distribution in a corpus.",
+          "Analyze MIPVU metaphor distribution in a corpus. Returns INDIRECT/DIRECT/MFLAG/IMPLICIT breakdown.",
           {
               "corpus_id": _str("Corpus ID"),
-              "text_ids": _arr({"type": "string"}, "Specific text IDs"),
-              "result_mode": _str("'word' or 'source'", default="word"),
-              "pos_filter": _arr({"type": "string"}, "POS tags to filter"),
-              "search_word": _str("Filter by word pattern"),
+              "text_ids": _arr({"type": "string"}, "Specific text IDs (None = all)"),
+              "result_mode": _str("'word' (ranked word table) or 'source' (by detection source)", default="word"),
+              "pos_filter": _arr({"type": "string"}, "Universal POS tags to include, e.g. ['NOUN','VERB','ADJ']"),
+              "search_word": _str("Filter by word/lemma pattern"),
               "search_type": _str("'exact','contains','starts','ends','regex'", default="contains"),
-              "search_target": _str("'word' or 'lemma'", default="word"),
-              "min_freq": _int("Minimum frequency"),
+              "search_target": _str("'word' (wordform) or 'lemma'", default="word"),
+              "min_freq": _int("Minimum frequency threshold"),
               "max_freq": _int("Maximum frequency (0=no limit)"),
-              "limit": _int("Max results", default=50),
+              "include_implicit": _bool(
+                  "When True, implicit metaphors are resolved to their antecedent MRW "
+                  "and an implicit_ref_count (+N) is shown next to that antecedent's frequency. "
+                  "Default False.",
+                  default=False,
+              ),
+              "limit": _int("Max rows to return", default=50),
           }, ["corpus_id"]),
     _tool("sentiment_analysis",
           "Analyze NRC sentiment/emotion distribution in a corpus.",
@@ -711,6 +732,116 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
               "keyword": _str("Filter by keyword (optional)"),
               "journal": _str("Filter by journal (optional)"),
           }, ["library_id"]),
+
+    # ─── task management ───
+    _tool("plan_analysis_task",
+          (
+              "PREFERRED: Create a structured analysis plan and start a multi-text task. "
+              "Records corpus_id, task_type, ordered text list, analysis dimensions, "
+              "and execution_order in a plan.json file. "
+              "Returns task_id. Use this for any analysis of more than 3 texts."
+          ),
+          {
+              "corpus_id": _str("The corpus being analyzed"),
+              "task_type": _str("e.g. 'dmip', 'metaphor', 'stance', 'multi'"),
+              "texts": {
+                  "type": "array",
+                  "description": "Ordered list of texts from get_corpus_info. Each item: {text_id, label}",
+                  "items": {"type": "object"},
+              },
+              "analysis_dimensions": {
+                  "type": "array",
+                  "description": "What to analyze per text, e.g. ['metaphor', 'stance_markers']",
+                  "items": {"type": "string"},
+              },
+              "execution_order": _str(
+                  "'sequential' (default) or 'parallel' (batch tool calls per text)",
+                  default="sequential",
+              ),
+              "session_hint": _str("Optional label, e.g. 'Amazon Report DMIP 2026'", default=""),
+          }, ["corpus_id", "task_type", "texts", "analysis_dimensions"]),
+
+    _tool("start_analysis_task",
+          (
+              "Simple task start (no plan structure). "
+              "Prefer plan_analysis_task() for new tasks. "
+              "Returns task_id for use with save_text_result and read_task_results."
+          ),
+          {
+              "corpus_id": _str("Corpus being analyzed"),
+              "task_type": _str("Analysis type, e.g. 'dmip', 'metaphor', 'concordance'"),
+              "total_texts": _int("Total number of texts that will be analyzed"),
+              "session_hint": _str("Optional label, e.g. 'Amazon DMIP 2026'", default=""),
+          }, ["corpus_id", "task_type", "total_texts"]),
+
+    _tool("save_text_result",
+          (
+              "Save one text's analysis result to temporary file storage. "
+              "Set status='success'|'failed'|'skipped' and error_message for failures. "
+              "The content stays on disk only — NOT in conversation context. "
+              "After calling: output ONLY '✓ [k/N] label — saved'."
+          ),
+          {
+              "task_id": _str("Task ID from plan_analysis_task() or start_analysis_task()"),
+              "text_id": _str("The text's ID in the corpus"),
+              "text_label": _str("Human-readable filename/label"),
+              "content": _str("Complete analysis in markdown (empty string for failed texts)"),
+              "status": _str("'success' | 'failed' | 'skipped'", default="success"),
+              "error_message": _str("Error description for failed texts", default=""),
+          }, ["task_id", "text_id", "text_label", "content"]),
+
+    _tool("read_task_results",
+          (
+              "Read saved per-text results for aggregation or progress check. "
+              "index_only=false (default): full content for FINAL aggregation — call once when all texts done. "
+              "index_only=true: status index only (task_id+label+status per text) — lightweight mid-task check."
+          ),
+          {
+              "task_id": _str("Task ID from plan_analysis_task()"),
+              "index_only": _bool(
+                  "True = return status index only (mid-task check). "
+                  "False (default) = return full content for final aggregation.",
+                  default=False,
+              ),
+          }, ["task_id"]),
+
+    _tool("get_task_status",
+          (
+              "Get quick progress of a multi-text task: completed/total counts, "
+              "success/failed/skipped breakdown, and completed text labels."
+          ),
+          {
+              "task_id": _str("Task ID from plan_analysis_task()"),
+          }, ["task_id"]),
+
+    # ─── dmip ───
+    _tool("dmip_analysis",
+          (
+              "Prepare a DMIP (Deliberate Metaphor Identification Procedure) analysis "
+              "context for a single text. FIRST checks annotation history for saved MIPVU "
+              "archives (listed with coder names). Two data sources: "
+              "A) annotation_archive_id=<id> — use a saved annotation archive (only "
+              "indirect/direct/mflag/implicit labels are read; other labels ignored); "
+              "B) use_automatic_mipvu=True — read corpus MIPVU metadata (existing sidecar, "
+              "no re-annotation). If archives exist and user has not specified, ASK first. "
+              "Provides annotated text with inline markers [MET:word]/[DIR:word]/[MFLAG:word]/"
+              "[IMPL:word] (multi-word MRWs shown as full span) and the full DMIP procedure."
+          ),
+          {
+              "corpus_id": _str("Corpus ID containing the text"),
+              "text_id": _str("Text ID from get_corpus_info"),
+              "annotation_archive_id": _str(
+                  "Archive ID of a saved MIPVU annotation to use as MRW source (source A). "
+                  "Only labels indirect/direct/mflag/implicit are read; others are ignored. "
+                  "Obtain from the archive list returned when calling without an ID."
+              ),
+              "use_automatic_mipvu": _bool(
+                  "Set True to read MRW data from corpus MIPVU metadata (source B — "
+                  "existing sidecar annotation, no re-annotation). Use when skipping "
+                  "archive check or when no archives exist.",
+                  default=False,
+              ),
+          }, ["corpus_id", "text_id"]),
 ]
 
 

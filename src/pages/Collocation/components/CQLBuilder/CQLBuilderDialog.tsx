@@ -35,7 +35,8 @@ export default function CQLBuilderDialog({
   open,
   onClose,
   onApply,
-  initialCQL
+  initialCQL,
+  annotationLabels
 }: CQLBuilderDialogProps) {
   const { i18n } = useTranslation()
   const isZh = i18n.language === 'zh'
@@ -227,6 +228,7 @@ export default function CQLBuilderDialog({
             externalElementsVersion={templateVersion}
             onCQLChange={handleCQLChange}
             onCopy={handleCopy}
+            annotationLabels={annotationLabels}
           />
         </DialogContent>
 

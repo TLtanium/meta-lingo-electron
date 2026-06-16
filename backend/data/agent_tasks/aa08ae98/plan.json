@@ -1,0 +1,128 @@
+{
+  "corpus_id": "beae90a9-ec5d-49c1-bed3-6fca0bde13b6",
+  "task_type": "dmip",
+  "analysis_dimensions": [
+    "dmip_deliberate_metaphor"
+  ],
+  "texts": [
+    {
+      "text_id": "2497f1ae-f1f1-423e-9147-763d88b7746c",
+      "label": "1997-Shareholder-Letter"
+    },
+    {
+      "text_id": "6865c3ef-29ad-49c8-8171-fda822830d49",
+      "label": "1998-Shareholder-Letter"
+    },
+    {
+      "text_id": "7c6b3c2f-7f20-4915-bd46-65b25c1ce8ec",
+      "label": "1999-Shareholder-Letter"
+    },
+    {
+      "text_id": "4eae57c7-9182-45af-84c3-641e48363ea3",
+      "label": "2000-Shareholder-Letter"
+    },
+    {
+      "text_id": "d2949fc6-c3c4-4584-a28a-54c0e9dfb8a0",
+      "label": "2001-Shareholder-Letter"
+    },
+    {
+      "text_id": "9ff1144e-3191-48ea-9e0c-7927b3b25117",
+      "label": "2002-Shareholder-Letter"
+    },
+    {
+      "text_id": "f0388c47-8807-426e-87de-0d2b396851ba",
+      "label": "2003-Shareholder-Letter"
+    },
+    {
+      "text_id": "960f702a-b294-4f6a-a33a-86854c1feb6a",
+      "label": "2004-Shareholder-Letter"
+    },
+    {
+      "text_id": "c8df191c-35d3-4e19-8c5b-9c7e9cb025a2",
+      "label": "2005-Shareholder-Letter"
+    },
+    {
+      "text_id": "188a822d-9977-4119-bbc4-8fef59dffb69",
+      "label": "2006-Shareholder-Letter"
+    },
+    {
+      "text_id": "4cd5e8d6-812b-46a1-8d16-5dbccdf2bca4",
+      "label": "2007-Shareholder-Letter"
+    },
+    {
+      "text_id": "fe6ca3a6-8595-484c-a4e6-1b8b7c8bd51b",
+      "label": "2008-Shareholder-Letter"
+    },
+    {
+      "text_id": "1c6b6928-7b5f-45eb-956d-22510c655d7d",
+      "label": "2009-Shareholder-Letter"
+    },
+    {
+      "text_id": "39b1bcd5-789f-4d57-a5d9-2f7ee128d70a",
+      "label": "2010-Shareholder-Letter"
+    },
+    {
+      "text_id": "f1d4a429-1c04-4e71-909a-ae4f6ab99eff",
+      "label": "2011-Shareholder-Letter"
+    },
+    {
+      "text_id": "05ed2c82-af4f-4e60-b254-12f67be8f3de",
+      "label": "2012-Shareholder-Letter"
+    },
+    {
+      "text_id": "5bbfbfda-771e-455f-9147-768bf58b82e3",
+      "label": "2013-Shareholder-Letter"
+    },
+    {
+      "text_id": "3ce28aa3-9e73-4e5a-967a-03d08d1c4513",
+      "label": "2014-Shareholder-Letter"
+    },
+    {
+      "text_id": "30555cba-36e5-46fd-ac3f-9df244036873",
+      "label": "2015-Shareholder-Letter"
+    },
+    {
+      "text_id": "39971060-802d-482e-9a1d-9c2a5e5cac37",
+      "label": "2016-Shareholder-Letter"
+    },
+    {
+      "text_id": "5f7618d1-e340-4075-a577-f7e8647ff67c",
+      "label": "2017-Shareholder-Letter"
+    },
+    {
+      "text_id": "3e5d9c78-b4e1-4db7-bfb6-e883887991e5",
+      "label": "2018-Shareholder-Letter"
+    },
+    {
+      "text_id": "81f281dd-e63e-4197-bebd-b10bef8963e5",
+      "label": "2019-Shareholder-Letter"
+    },
+    {
+      "text_id": "7778cdfb-e2c9-4662-8480-519b0281f94c",
+      "label": "2020-Shareholder-Letter"
+    },
+    {
+      "text_id": "aed7a81c-6717-4510-9efc-26d1b505b6eb",
+      "label": "2021-Shareholder-Letter"
+    },
+    {
+      "text_id": "1beada96-5f64-415b-84b5-70337217f075",
+      "label": "2022-Shareholder-Letter"
+    },
+    {
+      "text_id": "23a9790d-3ff6-4000-891d-8cb9e3bf4807",
+      "label": "2023-Shareholder-Letter"
+    },
+    {
+      "text_id": "82dbff0b-8b5e-473b-b768-786456ee2644",
+      "label": "2024-Shareholder-Letter"
+    },
+    {
+      "text_id": "7605c0f5-20bc-4209-b581-b53fdaa865a9",
+      "label": "2025-Shareholder-Letter"
+    }
+  ],
+  "execution_order": "sequential",
+  "total_texts": 29,
+  "output_schema_version": "2.0"
+}

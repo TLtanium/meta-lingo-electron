@@ -9,7 +9,8 @@ import {
   InputAdornment,
   IconButton,
   Button,
-  CircularProgress
+  CircularProgress,
+  Autocomplete,
 } from '@mui/material'
 import ApiIcon from '@mui/icons-material/Api'
 import VisibilityOff from '@mui/icons-material/VisibilityOff'
@@ -35,16 +36,32 @@ export default function OpenAIApiSettings() {
   const [showApiKey, setShowApiKey] = useState(false)
   const [testing, setTesting] = useState(false)
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null)
+  const [availableModels, setAvailableModels] = useState<string[]>([])
+
+  const handleBaseUrlChange = (value: string) => {
+    setOpenaiApiBaseUrl(value)
+    setAvailableModels([])
+    setTestResult(null)
+  }
+
+  const handleApiKeyChange = (value: string) => {
+    setOpenaiApiKey(value)
+    setAvailableModels([])
+    setTestResult(null)
+  }
 
   const handleTestConnection = async () => {
     setTesting(true)
     setTestResult(null)
+    setAvailableModels([])
     try {
       const response = await openaiApi.check(openaiApiBaseUrl, openaiApiKey)
       if (response.success && response.data?.connected) {
+        const models = response.data.models ?? []
+        setAvailableModels(models)
         setTestResult({
           success: true,
-          message: t('settings.openaiApi.testSuccess', { count: response.data.models?.length ?? 0 })
+          message: t('settings.openaiApi.testSuccess', { count: models.length })
         })
       } else {
         const errMsg = (response.data as { error?: string })?.error || response.error || ''
@@ -100,7 +117,7 @@ export default function OpenAIApiSettings() {
             <TextField
               label={t('settings.openaiApi.baseUrl')}
               value={openaiApiBaseUrl}
-              onChange={(e) => setOpenaiApiBaseUrl(e.target.value)}
+              onChange={(e) => handleBaseUrlChange(e.target.value)}
               size="small"
               fullWidth
               placeholder="https://api.openai.com/v1"
@@ -110,7 +127,7 @@ export default function OpenAIApiSettings() {
               label={t('settings.openaiApi.apiKey')}
               type={showApiKey ? 'text' : 'password'}
               value={openaiApiKey}
-              onChange={(e) => setOpenaiApiKey(e.target.value)}
+              onChange={(e) => handleApiKeyChange(e.target.value)}
               size="small"
               fullWidth
               placeholder="sk-..."
@@ -129,14 +146,26 @@ export default function OpenAIApiSettings() {
               }}
               helperText={t('settings.openaiApi.apiKeyHelp')}
             />
-            <TextField
-              label={t('settings.openaiApi.model')}
-              value={openaiApiModel}
-              onChange={(e) => setOpenaiApiModel(e.target.value)}
-              size="small"
+            <Autocomplete
+              freeSolo
               fullWidth
-              placeholder="gpt-4o-mini"
-              helperText={t('settings.openaiApi.modelHelp')}
+              disablePortal
+              options={availableModels}
+              inputValue={openaiApiModel}
+              onInputChange={(_, newValue) => setOpenaiApiModel(newValue)}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label={t('settings.openaiApi.model')}
+                  size="small"
+                  placeholder="gpt-4o-mini"
+                  helperText={
+                    availableModels.length > 0
+                      ? t('settings.openaiApi.modelSelectHint', { count: availableModels.length })
+                      : t('settings.openaiApi.modelHelp')
+                  }
+                />
+              )}
             />
             <Stack direction="row" spacing={2} alignItems="center">
               <Button

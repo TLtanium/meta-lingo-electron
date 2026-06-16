@@ -40,6 +40,7 @@ export default function TokenEditor({
   element,
   onUpdate,
   onComplete,
+  annotationLabels = [],
 }: TokenEditorProps) {
   const { i18n } = useTranslation()
   const isZh = i18n.language === 'zh'
@@ -128,6 +129,8 @@ export default function TokenEditor({
             group: isZh ? '情感' : 'Emotion',
           }))
         ]
+      case 'annotation':
+        return annotationLabels.map(l => ({ value: l, label: l }))
       default:
         return []
     }
@@ -138,24 +141,44 @@ export default function TokenEditor({
 
   // Check if attribute needs autocomplete suggestions
   const needsSuggestions = (attr: TokenAttribute): boolean =>
-    ['pos', 'tag', 'dep', 'headpos', 'headdep', 'usas', 'nrc'].includes(attr)
+    ['pos', 'tag', 'dep', 'headpos', 'headdep', 'usas', 'nrc', 'annotation'].includes(attr)
+
+  // MIPVU label options (fixed set)
+  const MIPVU_OPTIONS = [
+    { value: 'indirect', label: isZh ? '间接隐喻 (indirect)' : 'Indirect (indirect)' },
+    { value: 'direct',   label: isZh ? '直接隐喻 (direct)'   : 'Direct (direct)'     },
+    { value: 'mflag',    label: isZh ? '隐喻信号词 (mflag)'  : 'MFlag (mflag)'       },
+    { value: 'none',     label: isZh ? '非隐喻 (none)'       : 'Non-metaphor (none)' },
+  ]
 
 
 
   // Update condition in group
   const updateCondition = (
-    groupIndex: number, 
-    conditionIndex: number, 
-    field: keyof TokenCondition, 
+    groupIndex: number,
+    conditionIndex: number,
+    field: keyof TokenCondition,
     value: string
   ) => {
     setConditionGroups(prev => {
       const newGroups = [...prev]
       const newConditions = [...newGroups[groupIndex].conditions]
-      newConditions[conditionIndex] = {
-        ...newConditions[conditionIndex],
-        [field]: value
+      const updated: TokenCondition = { ...newConditions[conditionIndex], [field]: value }
+      // When switching to mipvu, auto-set operator=== and value=indirect
+      if (field === 'attribute' && value === 'mipvu') {
+        updated.operator = '=='
+        updated.value = 'indirect'
       }
+      // When switching to annotation, auto-set operator===
+      if (field === 'attribute' && value === 'annotation') {
+        updated.operator = '=='
+        updated.value = annotationLabels[0] ?? ''
+      }
+      // When switching away from mipvu/annotation, clear the preset value so it's not stale
+      if (field === 'attribute' && (newConditions[conditionIndex].attribute === 'mipvu' || newConditions[conditionIndex].attribute === 'annotation') && value !== 'mipvu' && value !== 'annotation') {
+        updated.value = ''
+      }
+      newConditions[conditionIndex] = updated
       newGroups[groupIndex] = { ...newGroups[groupIndex], conditions: newConditions }
       return newGroups
     })
@@ -298,54 +321,99 @@ export default function TokenEditor({
                         value={condition.attribute}
                         onChange={(e) => updateCondition(groupIndex, conditionIndex, 'attribute', e.target.value)}
                         label={isZh ? '属性' : 'Attr'}
+                        renderValue={(val) => {
+                          const attr = TOKEN_ATTRIBUTES.find(a => a.value === val)
+                          return attr ? (isZh ? attr.label.zh : attr.label.en) : String(val)
+                        }}
                       >
-                        {/* Basic attributes */}
-                        <MenuItem disabled sx={{ opacity: 0.7, fontWeight: 'bold', fontSize: '0.75rem' }}>
-                          {isZh ? '--- 基本属性 ---' : '--- Basic ---'}
+                        {/* Basic attributes (exclude annotation if no labels available) */}
+                        <MenuItem disabled sx={{ opacity: 0.6, fontSize: '0.7rem', letterSpacing: '0.05em', py: 0.5 }}>
+                          {isZh ? '基本属性' : 'Basic'}
                         </MenuItem>
-                        {TOKEN_ATTRIBUTES.filter(a => a.category === 'basic' || !a.category).map(attr => (
-                          <MenuItem key={attr.value} value={attr.value}>
-                            <Tooltip title={isZh ? attr.description.zh : attr.description.en} placement="right">
-                              <span>{isZh ? attr.label.zh : attr.label.en}</span>
-                            </Tooltip>
-                          </MenuItem>
-                        ))}
+                        {TOKEN_ATTRIBUTES
+                          .filter(a => (a.category === 'basic' || !a.category) && (a.value !== 'annotation' || annotationLabels.length > 0))
+                          .map(attr => (
+                            <MenuItem key={attr.value} value={attr.value} sx={{ py: 0.75 }}>
+                              <Stack spacing={0}>
+                                <Typography fontSize="0.85rem" color="primary.main" fontWeight={600} lineHeight={1.3}>
+                                  {isZh ? attr.label.zh : attr.label.en}
+                                </Typography>
+                                <Typography variant="caption" color="text.secondary" lineHeight={1.2}>
+                                  {isZh ? attr.description.zh : attr.description.en}
+                                </Typography>
+                              </Stack>
+                            </MenuItem>
+                          ))}
                         {/* Head-based attributes for dependency constraints */}
-                        <MenuItem disabled sx={{ opacity: 0.7, fontWeight: 'bold', fontSize: '0.75rem', mt: 1 }}>
-                          {isZh ? '--- 头词属性 ---' : '--- Head Token ---'}
+                        <MenuItem disabled sx={{ opacity: 0.6, fontSize: '0.7rem', letterSpacing: '0.05em', py: 0.5, mt: 0.5 }}>
+                          {isZh ? '头词属性' : 'Head Token'}
                         </MenuItem>
                         {TOKEN_ATTRIBUTES.filter(a => a.category === 'head').map(attr => (
-                          <MenuItem key={attr.value} value={attr.value}>
-                            <Tooltip title={isZh ? attr.description.zh : attr.description.en} placement="right">
-                              <span>{isZh ? attr.label.zh : attr.label.en}</span>
-                            </Tooltip>
+                          <MenuItem key={attr.value} value={attr.value} sx={{ py: 0.75 }}>
+                            <Stack spacing={0}>
+                              <Typography fontSize="0.85rem" color="primary.main" fontWeight={600} lineHeight={1.3}>
+                                {isZh ? attr.label.zh : attr.label.en}
+                              </Typography>
+                              <Typography variant="caption" color="text.secondary" lineHeight={1.2}>
+                                {isZh ? attr.description.zh : attr.description.en}
+                              </Typography>
+                            </Stack>
                           </MenuItem>
                         ))}
                       </Select>
                     </FormControl>
 
-                    {/* Operator selector */}
+                    {/* Operator selector — mipvu only allows == / !== */}
                     <FormControl size="small" sx={{ minWidth: 70 }}>
                       <Select
                         value={condition.operator}
                         onChange={(e) => updateCondition(groupIndex, conditionIndex, 'operator', e.target.value)}
                       >
-                        {COMPARISON_OPERATORS.map(op => (
-                          <MenuItem key={op.value} value={op.value}>
-                            <Tooltip title={isZh ? op.description.zh : op.description.en}>
-                              <span>{op.label}</span>
-                            </Tooltip>
-                          </MenuItem>
-                        ))}
+                        {COMPARISON_OPERATORS
+                          .filter(op => (condition.attribute !== 'mipvu' && condition.attribute !== 'annotation') || op.value === '==' || op.value === '!==')
+                          .map(op => (
+                            <MenuItem key={op.value} value={op.value}>
+                              <Tooltip title={isZh ? op.description.zh : op.description.en}>
+                                <span>{op.label}</span>
+                              </Tooltip>
+                            </MenuItem>
+                          ))}
                       </Select>
                     </FormControl>
 
-                    {/* Value input
-                        == / !== → Autocomplete dropdown (pick from fixed list)
-                        =  / !=  → plain TextField (type any regex pattern freely) */}
+                    {/* Value input:
+                        mipvu        → fixed Select (indirect/direct/mflag/none)
+                        annotation   → fixed Select from annotationLabels
+                        == / !== + suggestions → Autocomplete dropdown
+                        =  / !=              → plain TextField (regex) */}
                     <Box sx={{ display: 'flex', alignItems: 'center', flex: 1 }}>
                       <Typography sx={{ mr: 0.5, color: 'text.secondary' }}>"</Typography>
-                      {needsSuggestions(condition.attribute) ? (
+                      {condition.attribute === 'mipvu' ? (
+                        <FormControl size="small" sx={{ flex: 1, minWidth: 160 }}>
+                          <Select
+                            value={condition.value || 'indirect'}
+                            onChange={(e) => updateCondition(groupIndex, conditionIndex, 'value', e.target.value)}
+                          >
+                            {MIPVU_OPTIONS.map(opt => (
+                              <MenuItem key={opt.value} value={opt.value}>
+                                {opt.label}
+                              </MenuItem>
+                            ))}
+                          </Select>
+                        </FormControl>
+                      ) : condition.attribute === 'annotation' ? (
+                        <FormControl size="small" sx={{ flex: 1, minWidth: 140 }}>
+                          <Select
+                            value={condition.value || annotationLabels[0] || ''}
+                            onChange={(e) => updateCondition(groupIndex, conditionIndex, 'value', e.target.value)}
+                            displayEmpty
+                          >
+                            {annotationLabels.map(lbl => (
+                              <MenuItem key={lbl} value={lbl}>{lbl}</MenuItem>
+                            ))}
+                          </Select>
+                        </FormControl>
+                      ) : needsSuggestions(condition.attribute) ? (
                         <Autocomplete
                           freeSolo
                           size="small"

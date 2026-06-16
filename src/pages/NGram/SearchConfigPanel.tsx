@@ -18,15 +18,15 @@ import {
   AccordionDetails,
   FormControlLabel,
   Switch,
-  Divider,
-  Tooltip
+  Tooltip,
+  IconButton
 } from '@mui/material'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import SearchIcon from '@mui/icons-material/Search'
-import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined'
+import HelpOutlineIcon from '@mui/icons-material/HelpOutline'
 import { useTranslation } from 'react-i18next'
 import { NumberInput } from '../../components/common'
-import type { SearchConfig, SearchType } from '../../types/ngram'
+import type { SearchConfig, SearchType, SearchTarget } from '../../types/ngram'
 
 interface SearchConfigPanelProps {
   config: SearchConfig
@@ -66,58 +66,46 @@ export default function SearchConfigPanel({
   disabled = false
 }: SearchConfigPanelProps) {
   const { t } = useTranslation()
-  const [expanded, setExpanded] = useState(false)
+  const [expanded, setExpanded] = useState(true)
 
-  // Handle search type change
   const handleSearchTypeChange = (type: SearchType) => {
-    onChange({
-      ...config,
-      searchType: type
-    })
+    onChange({ ...config, searchType: type })
   }
 
-  // Handle search value change
   const handleSearchValueChange = (value: string) => {
-    onChange({
-      ...config,
-      searchValue: value
-    })
+    onChange({ ...config, searchValue: value })
   }
 
-  // Local state for exclude words text (allows multiline editing)
   const [excludeWordsText, setExcludeWordsText] = useState(config.excludeWords.join('\n'))
 
-  // Sync local state when config changes from outside
   useEffect(() => {
     setExcludeWordsText(config.excludeWords.join('\n'))
   }, [config.excludeWords])
 
-  // Handle exclude words text change (keep raw text for editing)
-  const handleExcludeWordsChange = (value: string) => {
-    setExcludeWordsText(value)
-  }
-
-  // Handle exclude words blur (save to config)
   const handleExcludeWordsBlur = () => {
     const words = excludeWordsText.split('\n').map(w => w.trim()).filter(w => w)
-    onChange({
-      ...config,
-      excludeWords: words
-    })
+    onChange({ ...config, excludeWords: words })
   }
 
-  // Get current search type description
   const getCurrentSearchTypeDesc = () => {
     const option = SEARCH_TYPE_OPTIONS.find(o => o.value === config.searchType)
     return option ? t(option.descKey) : ''
   }
 
+  const getSearchValuePlaceholder = () => {
+    switch (config.searchType) {
+      case 'regex': return t('ngram.search.regexPlaceholder')
+      case 'wordlist': return t('ngram.search.wordlistPlaceholder')
+      default: return t('ngram.search.valuePlaceholder')
+    }
+  }
+
   return (
-    <Accordion 
-      expanded={expanded} 
+    <Accordion
+      expanded={expanded}
       onChange={(_, isExpanded) => setExpanded(isExpanded)}
       disabled={disabled}
-      sx={{ 
+      sx={{
         '&:before': { display: 'none' },
         boxShadow: 'none',
         border: 1,
@@ -134,167 +122,152 @@ export default function SearchConfigPanel({
           </Typography>
         </Stack>
       </AccordionSummary>
-      
+
       <AccordionDetails>
-        <Stack spacing={2}>
-          {/* Frequency range */}
-          <Box>
-            <Typography variant="caption" color="text.secondary" sx={{ mb: 1.5, display: 'block' }}>
-              {t('ngram.search.frequencyRange')}
-            </Typography>
-            <Stack direction="row" spacing={2}>
-              <NumberInput
-                label={t('ngram.search.minFrequency')}
-                size="small"
-                value={minFreq}
-                onChange={onMinFreqChange}
-                min={1}
-                step={1}
-                integer
-                defaultValue={1}
-                sx={{ flex: 1 }}
-              />
-              <NumberInput
-                label={t('ngram.search.maxFrequency')}
-                size="small"
-                value={maxFreq ?? 0}
-                onChange={(val) => onMaxFreqChange(val === 0 ? null : val)}
-                min={0}
-                step={10}
-                integer
-                defaultValue={0}
-                helperText={maxFreq === null ? t('wordFrequency.search.noLimit') : ''}
-                sx={{ flex: 1 }}
-              />
-            </Stack>
-          </Box>
-
-          {/* Minimum word length */}
-          <Box>
-            <Typography variant="body2" gutterBottom>
-              {t('ngram.search.minWordLength')}
-              <Tooltip title={t('ngram.search.minWordLengthDesc')}>
-                <InfoOutlinedIcon 
-                  fontSize="inherit" 
-                  sx={{ ml: 0.5, verticalAlign: 'middle', opacity: 0.6 }} 
-                />
-              </Tooltip>
-            </Typography>
-            <NumberInput
-              size="small"
-              value={minWordLength}
-              onChange={onMinWordLengthChange}
-              min={1}
-              max={20}
-              step={1}
-              integer
-              defaultValue={1}
-              fullWidth
-            />
-          </Box>
-
-          <Divider />
-
-          {/* Search type */}
-          <Box>
-            <Typography variant="body2" gutterBottom>
-              {t('ngram.search.searchType')}
-            </Typography>
-            <FormControl fullWidth size="small">
-              <Select
-                value={config.searchType}
-                onChange={(e) => handleSearchTypeChange(e.target.value as SearchType)}
-              >
-                {SEARCH_TYPE_OPTIONS.map(option => (
-                  <MenuItem key={option.value} value={option.value}>
-                    {t(option.labelKey)}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-            <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
-              {getCurrentSearchTypeDesc()}
-            </Typography>
-          </Box>
-
-          {/* Search value - show when not 'all' */}
-          {config.searchType !== 'all' && (
-            <Box>
-              <Typography variant="body2" gutterBottom>
-                {config.searchType === 'wordlist' 
-                  ? t('ngram.search.searchWordlist')
-                  : t('ngram.search.searchValue')
-                }
-              </Typography>
-              {config.searchType === 'wordlist' ? (
-                <TextField
-                  multiline
-                  rows={4}
-                  size="small"
-                  value={config.searchValue}
-                  onChange={(e) => handleSearchValueChange(e.target.value)}
-                  placeholder={t('ngram.search.wordlistPlaceholder')}
-                  fullWidth
-                />
-              ) : (
-                <TextField
-                  size="small"
-                  value={config.searchValue}
-                  onChange={(e) => handleSearchValueChange(e.target.value)}
-                  placeholder={
-                    config.searchType === 'regex' 
-                      ? t('ngram.search.regexPlaceholder')
-                      : t('ngram.search.valuePlaceholder')
-                  }
-                  fullWidth
-                />
-              )}
-            </Box>
-          )}
-
-          <Divider />
-
-          {/* Exclude words */}
-          <Box>
-            <Typography variant="body2" gutterBottom>
-              {t('ngram.search.excludeWords')}
-              <Tooltip title={t('ngram.search.excludeWordsDesc')}>
-                <InfoOutlinedIcon 
-                  fontSize="inherit" 
-                  sx={{ ml: 0.5, verticalAlign: 'middle', opacity: 0.6 }} 
-                />
-              </Tooltip>
-            </Typography>
-            <TextField
-              multiline
-              rows={3}
-              size="small"
-              value={excludeWordsText}
-              onChange={(e) => handleExcludeWordsChange(e.target.value)}
-              onBlur={handleExcludeWordsBlur}
-              placeholder={t('ngram.search.excludeWordsPlaceholder')}
-              fullWidth
-            />
-          </Box>
-
-          <Divider />
-
-          {/* Lowercase toggle */}
-          <FormControlLabel
-            control={
-              <Switch
-                checked={lowercase}
-                onChange={(e) => onLowercaseChange(e.target.checked)}
-                size="small"
-              />
-            }
-            label={
-              <Typography variant="body2">
-                {t('ngram.search.lowercase')}
-              </Typography>
-            }
+        {/* Frequency Range */}
+        <Typography variant="caption" color="text.secondary" sx={{ mb: 1.5, display: 'block' }}>
+          {t('ngram.search.frequencyRange')}
+        </Typography>
+        <Stack direction="row" spacing={2} sx={{ mb: 2 }}>
+          <NumberInput
+            label={t('ngram.search.minFrequency')}
+            size="small"
+            value={minFreq}
+            onChange={onMinFreqChange}
+            min={1}
+            step={1}
+            integer
+            defaultValue={1}
+            sx={{ flex: 1 }}
+          />
+          <NumberInput
+            label={t('ngram.search.maxFrequency')}
+            size="small"
+            value={maxFreq ?? 0}
+            onChange={(val) => onMaxFreqChange(val === 0 ? null : val)}
+            min={0}
+            step={10}
+            integer
+            defaultValue={0}
+            helperText={maxFreq === null ? t('wordFrequency.search.noLimit') : ''}
+            sx={{ flex: 1 }}
           />
         </Stack>
+
+        {/* Lowercase */}
+        <FormControlLabel
+          control={
+            <Switch
+              checked={lowercase}
+              onChange={(e) => onLowercaseChange(e.target.checked)}
+              size="small"
+            />
+          }
+          label={<Typography variant="body2">{t('ngram.search.lowercase')}</Typography>}
+          sx={{ mb: 2 }}
+        />
+
+        {/* Min Word Length */}
+        <NumberInput
+          label={t('ngram.search.minWordLength')}
+          size="small"
+          value={minWordLength}
+          onChange={onMinWordLengthChange}
+          min={1}
+          max={20}
+          step={1}
+          integer
+          defaultValue={1}
+          helperText={t('ngram.search.minWordLengthDesc')}
+          fullWidth
+          sx={{ mb: 2 }}
+        />
+
+        {/* Search Target: Word Form / Lemma */}
+        <FormControl fullWidth size="small" sx={{ mb: 2 }}>
+          <InputLabel>{t('ngram.search.searchTarget')}</InputLabel>
+          <Select
+            value={config.searchTarget ?? 'word'}
+            label={t('ngram.search.searchTarget')}
+            onChange={(e) => onChange({ ...config, searchTarget: e.target.value as SearchTarget })}
+          >
+            <MenuItem value="word">{t('ngram.search.targetWord')}</MenuItem>
+            <MenuItem value="lemma">{t('ngram.search.targetLemma')}</MenuItem>
+          </Select>
+        </FormControl>
+        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 2, mt: -1 }}>
+          {(config.searchTarget ?? 'word') === 'lemma' ? t('ngram.search.lemmaDesc') : t('ngram.search.wordDesc')}
+        </Typography>
+
+        {/* Search Type */}
+        <FormControl fullWidth size="small" sx={{ mb: 2 }}>
+          <InputLabel>{t('ngram.search.searchType')}</InputLabel>
+          <Select
+            value={config.searchType}
+            label={t('ngram.search.searchType')}
+            onChange={(e) => handleSearchTypeChange(e.target.value as SearchType)}
+          >
+            {SEARCH_TYPE_OPTIONS.map(option => (
+              <MenuItem key={option.value} value={option.value}>
+                {t(option.labelKey)}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 2, mt: -1 }}>
+          {getCurrentSearchTypeDesc()}
+        </Typography>
+
+        {/* Search Value */}
+        {config.searchType !== 'all' && (
+          <Box sx={{ mb: 2 }}>
+            {config.searchType === 'wordlist' ? (
+              <TextField
+                label={t('ngram.search.searchWordlist')}
+                multiline
+                rows={4}
+                fullWidth
+                size="small"
+                value={config.searchValue}
+                onChange={(e) => handleSearchValueChange(e.target.value)}
+                placeholder={t('ngram.search.wordlistPlaceholder')}
+                helperText={t('wordFrequency.search.wordlistHelp')}
+              />
+            ) : (
+              <TextField
+                label={t('ngram.search.searchValue')}
+                fullWidth
+                size="small"
+                value={config.searchValue}
+                onChange={(e) => handleSearchValueChange(e.target.value)}
+                placeholder={getSearchValuePlaceholder()}
+                InputProps={{
+                  endAdornment: config.searchType === 'regex' && (
+                    <Tooltip title={t('wordFrequency.search.regexHelp')}>
+                      <IconButton size="small">
+                        <HelpOutlineIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  )
+                }}
+              />
+            )}
+          </Box>
+        )}
+
+        {/* Exclude Words */}
+        <TextField
+          label={t('ngram.search.excludeWords')}
+          multiline
+          rows={3}
+          fullWidth
+          size="small"
+          value={excludeWordsText}
+          onChange={(e) => setExcludeWordsText(e.target.value)}
+          onBlur={handleExcludeWordsBlur}
+          placeholder={t('ngram.search.excludeWordsPlaceholder')}
+          helperText={t('ngram.search.excludeWordsDesc')}
+        />
       </AccordionDetails>
     </Accordion>
   )

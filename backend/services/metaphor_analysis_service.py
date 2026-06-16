@@ -90,6 +90,14 @@ class MetaphorAnalysisService:
                                     total_stats['total_tokens'] += seg_stats.get('total_tokens', 0)
                                     total_stats['metaphor_tokens'] += seg_stats.get('metaphor_tokens', 0)
                                     total_stats['literal_tokens'] += seg_stats.get('literal_tokens', 0)
+                                    total_stats.setdefault('indirect_metaphor_tokens', 0)
+                                    total_stats['indirect_metaphor_tokens'] += seg_stats.get('indirect_metaphor_tokens', 0)
+                                    total_stats.setdefault('direct_metaphor_tokens', 0)
+                                    total_stats['direct_metaphor_tokens'] += seg_stats.get('direct_metaphor_tokens', 0)
+                                    total_stats.setdefault('mflag_tokens', 0)
+                                    total_stats['mflag_tokens'] += seg_stats.get('mflag_tokens', 0)
+                                    total_stats.setdefault('implicit_metaphor_tokens', 0)
+                                    total_stats['implicit_metaphor_tokens'] += seg_stats.get('implicit_metaphor_tokens', 0)
                                     # Merge pos_group_stats if available
                                     seg_pos_groups = seg_stats.get('pos_group_stats') or {}
                                     for group_key, group_stats in seg_pos_groups.items():
@@ -169,39 +177,58 @@ class MetaphorAnalysisService:
         
         return filtered
     
-    def _apply_search_filter(self, word: str, search_config: Optional[Dict]) -> bool:
-        """Check if word passes search filter"""
+    def _apply_search_filter(self, word: str, search_config: Optional[Dict], lemma: str = "") -> bool:
+        """Check if word/lemma passes search filter"""
         if not search_config:
             return True
-        
+
         search_type = search_config.get('searchType', 'all')
         search_value = search_config.get('searchValue', '').strip()
         exclude_words = search_config.get('excludeWords', [])
-        
-        # Check exclusion first (regex-aware)
+
+        # wordform / lemma use exact match against the selected field so that
+        # e.g. lemma="build" matches "build"/"builds"/"built" but NOT "rebuild".
+        if search_type == 'wordform':
+            search_target = 'word'
+            effective_type = 'exact'
+        elif search_type == 'lemma':
+            search_target = 'lemma'
+            effective_type = 'exact'
+        else:
+            search_target = search_config.get('searchTarget', 'word')
+            effective_type = search_type
+
+        # Exclusion always checks against word form
         if exclude_words:
             exclusion_patterns = compile_exclusion_patterns(normalize_exclusion_words(exclude_words))
             if matches_exclusion(word.lower(), exclusion_patterns):
                 return False
-        
-        if search_type == 'all' or not search_value:
+
+        # Select search target value
+        target = (lemma or word) if search_target == 'lemma' else word
+
+        sv_lower = search_value.lower()
+        tgt_lower = target.lower()
+
+        if effective_type == 'all' or not search_value:
             return True
-        
-        if search_type == 'starts':
-            return word.lower().startswith(search_value.lower())
-        elif search_type == 'ends':
-            return word.lower().endswith(search_value.lower())
-        elif search_type == 'contains':
-            return search_value.lower() in word.lower()
-        elif search_type == 'regex':
+        elif effective_type == 'exact':
+            return tgt_lower == sv_lower
+        elif effective_type == 'starts':
+            return tgt_lower.startswith(sv_lower)
+        elif effective_type == 'ends':
+            return tgt_lower.endswith(sv_lower)
+        elif effective_type == 'contains':
+            return sv_lower in tgt_lower
+        elif effective_type == 'regex':
             try:
-                return bool(re.search(search_value, word, re.IGNORECASE))
+                return bool(re.search(search_value, target, re.IGNORECASE))
             except:
                 return False
-        elif search_type == 'wordlist':
-            wordlist = [w.strip().lower() for w in search_value.split('\n') if w.strip()]
-            return word.lower() in wordlist
-        
+        elif effective_type == 'wordlist':
+            wordlist = {w.strip().lower() for w in search_value.split('\n') if w.strip()}
+            return tgt_lower in wordlist
+
         return True
     
     def _normalize_source(self, source: str) -> str:
@@ -216,6 +243,74 @@ class MetaphorAnalysisService:
             return source
         return 'unknown'
     
+    def _find_implicit_antecedents(
+        self,
+        text_ids: List[str],
+        lowercase: bool,
+        context_window: int = 2
+    ) -> "Counter":
+        """
+        Second-pass over MIPVU data to find antecedent tokens for each implicit
+        metaphor token and count how many times each antecedent word is back-referenced.
+
+        Returns a Counter mapping (normalized_word, is_metaphor=True) → ref_count.
+        Only tokens whose `implicit_rule` is set (VPE-1, VPE-2, SUB-1) are processed.
+        """
+        _VERB_POS  = {'VERB', 'AUX'}
+        _NOUN_POS  = {'NOUN', 'PROPN'}
+        antecedent_refs: Counter = Counter()
+
+        for text_id in text_ids:
+            mipvu_data = self._load_mipvu_data(text_id)
+            if not mipvu_data or not mipvu_data.get('success', False):
+                continue
+
+            # Preserve sentence structure for look-back
+            sentence_tokens: List[List[Dict]] = [
+                s.get('tokens', [])
+                for s in mipvu_data.get('sentences', [])
+            ]
+
+            for sent_idx, tokens in enumerate(sentence_tokens):
+                for token in tokens:
+                    if not token.get('is_implicit_metaphor', False):
+                        continue
+
+                    rule = token.get('implicit_rule', '')
+                    antecedent: Optional[Dict] = None
+
+                    if rule == 'SUB-1':
+                        # Single MRW noun in same sentence
+                        mrw_nouns = [
+                            t for t in tokens
+                            if t.get('is_metaphor', False)
+                            and t.get('pos', '').upper() in _NOUN_POS
+                        ]
+                        if len(mrw_nouns) == 1:
+                            antecedent = mrw_nouns[0]
+
+                    elif rule in ('VPE-1', 'VPE-2'):
+                        # Most recent MRW verb in current + prior `context_window` sentences
+                        search_start = max(0, sent_idx - context_window)
+                        found = False
+                        for s_idx in range(sent_idx, search_start - 1, -1):
+                            for t in reversed(sentence_tokens[s_idx]):
+                                if (t.get('is_metaphor', False)
+                                        and t.get('pos', '').upper() in _VERB_POS):
+                                    antecedent = t
+                                    found = True
+                                    break
+                            if found:
+                                break
+
+                    if antecedent:
+                        ant_word = antecedent.get('word', '')
+                        if ant_word and ant_word.isalpha():
+                            ant_key_word = ant_word.lower() if lowercase else ant_word
+                            antecedent_refs[(ant_key_word, True)] += 1
+
+        return antecedent_refs
+
     def analyze(
         self,
         corpus_id: str,
@@ -225,7 +320,8 @@ class MetaphorAnalysisService:
         min_freq: int = 1,
         max_freq: Optional[int] = None,
         lowercase: bool = True,
-        result_mode: str = "word"  # "word" or "source"
+        result_mode: str = "word",  # "word" or "source"
+        include_implicit: bool = False
     ) -> Dict[str, Any]:
         """
         Analyze metaphor annotations from corpus.
@@ -294,39 +390,66 @@ class MetaphorAnalysisService:
                 'frequency': 0,
                 'lemma': '',
                 'pos': '',
-                'sources': Counter()
+                'sources': Counter(),
+                'is_direct': False,
+                'is_mflag': False,
+                'is_implicit': False,
+                'implicit_ref_count': 0,  # back-references from implicit metaphors
             })
-            
+
             total_tokens = 0
             metaphor_tokens = 0
+            indirect_metaphor_tokens = 0
+            direct_metaphor_tokens = 0
+            mflag_tokens = 0
+            implicit_metaphor_tokens = 0
             source_distribution = Counter()
-            
+
             for token in all_tokens:
                 word = token.get('word', '')
                 if not word or not word.isalpha():
                     continue
-                
-                # Apply search filter
-                if not self._apply_search_filter(word, search_config):
+
+                # Apply search filter (pass lemma for lemma-mode searching)
+                token_lemma = token.get('lemma', word)
+                if not self._apply_search_filter(word, search_config, lemma=token_lemma):
                     continue
-                
+
                 if lowercase:
                     word = word.lower()
-                
-                is_metaphor = token.get('is_metaphor', False)
+
+                is_metaphor  = token.get('is_metaphor', False)
+                is_direct    = bool(token.get('is_direct_metaphor', False))
+                is_mflag     = bool(token.get('is_mflag', False))
+                is_implicit  = bool(token.get('is_implicit_metaphor', False))
                 source = self._normalize_source(token.get('metaphor_source', ''))
-                
+
                 total_tokens += 1
                 if is_metaphor:
-                    metaphor_tokens += 1
+                    indirect_metaphor_tokens += 1
                     source_distribution[source] += 1
-                
+                if is_direct:
+                    direct_metaphor_tokens += 1
+                if is_mflag:
+                    mflag_tokens += 1
+                if is_implicit:
+                    implicit_metaphor_tokens += 1
+                # Total metaphors = any metaphor type (no double-counting)
+                if is_metaphor or is_direct or is_mflag or is_implicit:
+                    metaphor_tokens += 1
+
                 # Use (word, is_metaphor) as key to separate metaphor/non-metaphor
                 key = (word, is_metaphor)
                 word_data[key]['frequency'] += 1
                 word_data[key]['lemma'] = token.get('lemma', word)
                 word_data[key]['pos'] = token.get('pos', '')
                 word_data[key]['sources'][source] += 1
+                if is_direct:
+                    word_data[key]['is_direct'] = True
+                if is_mflag:
+                    word_data[key]['is_mflag'] = True
+                if is_implicit:
+                    word_data[key]['is_implicit'] = True
             
             # Filter by frequency
             filtered_words = {}
@@ -335,18 +458,31 @@ class MetaphorAnalysisService:
                 if freq >= min_freq and (max_freq is None or freq <= max_freq):
                     filtered_words[key] = data
             
+            # ── Step: Implicit antecedent ref counting (always computed for word mode) ──
+            if result_mode == "word":
+                antecedent_refs = self._find_implicit_antecedents(
+                    actual_text_ids, lowercase
+                )
+                for ant_key, ref_count in antecedent_refs.items():
+                    if ant_key in word_data:
+                        word_data[ant_key]['implicit_ref_count'] += ref_count
+
             # Calculate statistics
             literal_tokens = total_tokens - metaphor_tokens
             metaphor_rate = metaphor_tokens / total_tokens if total_tokens > 0 else 0.0
-            
+
             statistics = {
                 'total_tokens': total_tokens,
                 'metaphor_tokens': metaphor_tokens,
                 'literal_tokens': literal_tokens,
                 'metaphor_rate': metaphor_rate,
+                'indirect_metaphor_tokens': indirect_metaphor_tokens,
+                'direct_metaphor_tokens': direct_metaphor_tokens,
+                'mflag_tokens': mflag_tokens,
+                'implicit_metaphor_tokens': implicit_metaphor_tokens,
                 'source_distribution': dict(source_distribution)
             }
-            
+
             # Generate results based on mode
             if result_mode == "source":
                 # Group by source
@@ -360,24 +496,36 @@ class MetaphorAnalysisService:
                     })
                 results.sort(key=lambda x: x['count'], reverse=True)
             else:
-                # Word-level results - key is now (word, is_metaphor) tuple
+                # Word-level results - key is (word, is_metaphor) tuple
                 results = []
-                sorted_words = sorted(filtered_words.items(), key=lambda x: x[1]['frequency'], reverse=True)
-                
+                sorted_words = sorted(
+                    filtered_words.items(),
+                    key=lambda item: item[1]['frequency'],
+                    reverse=True
+                )
+
                 for key, data in sorted_words:
                     word, is_metaphor = key
                     # Get most common source
                     most_common_source = data['sources'].most_common(1)
                     source = most_common_source[0][0] if most_common_source else 'unknown'
-                    
+
+                    raw_freq    = data['frequency']
+                    ref_count   = data.get('implicit_ref_count', 0)
+                    percentage  = raw_freq / total_tokens * 100 if total_tokens > 0 else 0
+
                     results.append({
                         'word': word,
                         'lemma': data['lemma'],
                         'pos': data['pos'],
                         'is_metaphor': is_metaphor,
-                        'frequency': data['frequency'],
-                        'percentage': data['frequency'] / total_tokens * 100 if total_tokens > 0 else 0,
-                        'source': source
+                        'is_direct_metaphor': data.get('is_direct', False),
+                        'is_mflag': data.get('is_mflag', False),
+                        'is_implicit_metaphor': data.get('is_implicit', False),
+                        'frequency': raw_freq,
+                        'percentage': percentage,
+                        'source': source,
+                        'implicit_ref_count': ref_count,
                     })
             
             return {

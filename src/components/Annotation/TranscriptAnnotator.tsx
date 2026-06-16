@@ -21,10 +21,14 @@ import ImageIcon from '@mui/icons-material/Image'
 import CodeIcon from '@mui/icons-material/Code'
 import AccountTreeIcon from '@mui/icons-material/AccountTree'
 import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh'
+import KeyboardIcon from '@mui/icons-material/Keyboard'
 import html2canvas from 'html2canvas'
-import type { Annotation, SelectedLabel, TranscriptSegment, YoloTrack, ClipAnnotationData } from '../../types'
+import type { Annotation, AnnotationRelation, SelectedLabel, TranscriptSegment, YoloTrack, ClipAnnotationData } from '../../types'
 import SyntaxVisualization from './SyntaxVisualization'
 import type { SentenceInfo } from './SyntaxVisualization'
+import RelationArrows from './RelationArrows'
+import LinkIcon from '@mui/icons-material/Link'
+import LinkOffIcon from '@mui/icons-material/LinkOff'
 
 // Export ref type
 export interface TranscriptAnnotatorRef {
@@ -53,11 +57,21 @@ interface TranscriptAnnotatorProps {
   searchHighlights?: SearchHighlight[]  // 搜索高亮
   disabled?: boolean  // 禁用标注功能（例如音频画框模式时）
   selectedAnnotationId?: string | null  // 当前选中的标注ID（来自标注列表），用于双圈阴影+上浮高亮
+  /** Called when annotation block is clicked in normal mode — navigates to table row */
+  onAnnotationClick?: (id: string) => void
+  // ── 标注关联 ──────────────────────────────────────────────────────────────
+  relations?: AnnotationRelation[]
+  onRelationAdd?: (relation: AnnotationRelation) => void
+  onRelationRemove?: (relationId: string) => void
   // 自动标注（多模态转录）相关
   autoAnnotateEnabled?: boolean
   autoAnnotating?: boolean
   autoAnnotateTooltip?: string
   onAutoAnnotate?: () => void
+  /** 打开键盘快捷键设置对话框（由父级控制） */
+  onKeyboardShortcuts?: () => void
+  /** 当前框架是否已选（用于控制快捷键按钮的启用状态） */
+  hasFramework?: boolean
 }
 
 // Format time in MM:SS format
@@ -211,10 +225,16 @@ const TranscriptAnnotator = forwardRef<TranscriptAnnotatorRef, TranscriptAnnotat
   searchHighlights = [],
   disabled = false,
   selectedAnnotationId = null,
+  onAnnotationClick,
+  relations = [],
+  onRelationAdd,
+  onRelationRemove,
   autoAnnotateEnabled = false,
   autoAnnotating = false,
   autoAnnotateTooltip,
-  onAutoAnnotate
+  onAutoAnnotate,
+  onKeyboardShortcuts,
+  hasFramework = false
 }, ref) => {
   const { t } = useTranslation()
   const theme = useTheme()
@@ -222,6 +242,18 @@ const TranscriptAnnotator = forwardRef<TranscriptAnnotatorRef, TranscriptAnnotat
   const [selectedSegmentId, setSelectedSegmentId] = useState<string | null>(null)
   const [warningMessage, setWarningMessage] = useState<string | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
+
+  // ── Link mode ───────────────────────────────────────────────────────────────
+  const [linkMode, setLinkMode]         = useState(false)
+  const [linkSourceId, setLinkSourceId] = useState<string | null>(null)
+  const canLink = !disabled && !!onRelationAdd
+
+  const toggleLinkMode = useCallback(() => {
+    setLinkMode(prev => {
+      if (prev) setLinkSourceId(null)
+      return !prev
+    })
+  }, [])
   const [blockPositions, setBlockPositions] = useState<Map<string, Map<string, { left: number; width: number }>>>(new Map())
   const [exporting, setExporting] = useState<'png' | 'svg' | null>(null)
   
@@ -596,13 +628,36 @@ const TranscriptAnnotator = forwardRef<TranscriptAnnotatorRef, TranscriptAnnotat
     selection.removeAllRanges()
   }, [selectedLabel, onAnnotationAdd, annotations, disabled])
 
-  // Handle annotation block click (delete)
+  // Handle annotation block click — navigate to table row or link in link mode
   const handleBlockClick = useCallback((ann: Annotation, e: React.MouseEvent) => {
     e.stopPropagation()
-    if (confirm(`确定删除标注 "${ann.label}: ${ann.text}"？`)) {
-      onAnnotationRemove(ann.id)
+
+    if (linkMode && canLink) {
+      if (!linkSourceId) {
+        setLinkSourceId(ann.id)
+      } else if (linkSourceId === ann.id) {
+        setLinkSourceId(null)
+      } else {
+        const existingRel = relations.find(
+          r => r.sourceId === linkSourceId && r.targetId === ann.id
+        )
+        if (existingRel && onRelationRemove) {
+          onRelationRemove(existingRel.id)
+        } else {
+          onRelationAdd!({
+            id: crypto.randomUUID(),
+            sourceId: linkSourceId,
+            targetId: ann.id,
+          })
+        }
+        setLinkSourceId(null)
+      }
+      return
     }
-  }, [onAnnotationRemove])
+
+    // Normal mode: navigate to table row
+    onAnnotationClick?.(ann.id)
+  }, [linkMode, canLink, linkSourceId, relations, onRelationAdd, onRelationRemove, onAnnotationClick])
   
   // 渲染带搜索高亮的文本
   const renderHighlightedText = useCallback((segText: string, segOffset: number) => {
@@ -730,13 +785,30 @@ const TranscriptAnnotator = forwardRef<TranscriptAnnotatorRef, TranscriptAnnotat
               </IconButton>
             </span>
           </Tooltip>
+          {onKeyboardShortcuts && (
+            <Tooltip title={t('annotation.keyboardShortcuts', '键盘快捷键设置')}>
+              <span>
+                <IconButton
+                  size="small"
+                  onClick={onKeyboardShortcuts}
+                  disabled={!hasFramework}
+                  sx={{
+                    bgcolor: 'action.hover',
+                    '&:hover': { bgcolor: 'primary.light', color: 'white' }
+                  }}
+                >
+                  <KeyboardIcon fontSize="small" />
+                </IconButton>
+              </span>
+            </Tooltip>
+          )}
           <Tooltip title={t('syntax.viewSyntax', '查看句法结构')}>
             <span>
-              <IconButton 
-                size="small" 
+              <IconButton
+                size="small"
                 onClick={() => setShowSyntax(!showSyntax)}
                 disabled={transcriptSegments.length === 0}
-                sx={{ 
+                sx={{
                   bgcolor: showSyntax ? 'primary.main' : 'action.hover',
                   color: showSyntax ? 'white' : 'inherit',
                   '&:hover': { bgcolor: showSyntax ? 'primary.dark' : 'primary.light', color: 'white' }
@@ -765,6 +837,21 @@ const TranscriptAnnotator = forwardRef<TranscriptAnnotatorRef, TranscriptAnnotat
               </span>
             </Tooltip>
           )}
+          {canLink && (
+            <Tooltip title={linkMode ? t('annotation.linkModeOff', '退出关联模式') : t('annotation.linkModeOn', '标签关联模式')}>
+              <IconButton
+                size="small"
+                onClick={toggleLinkMode}
+                sx={{
+                  bgcolor: linkMode ? 'warning.main' : 'action.hover',
+                  color: linkMode ? 'warning.contrastText' : 'inherit',
+                  '&:hover': { bgcolor: linkMode ? 'warning.dark' : 'warning.light', color: 'white' }
+                }}
+              >
+                {linkMode ? <LinkOffIcon fontSize="small" /> : <LinkIcon fontSize="small" />}
+              </IconButton>
+            </Tooltip>
+          )}
         </Stack>
       </Box>
 
@@ -777,7 +864,7 @@ const TranscriptAnnotator = forwardRef<TranscriptAnnotatorRef, TranscriptAnnotat
           bgcolor: isDarkMode ? 'rgba(255,255,255,0.03)' : '#fafafa',
           borderRadius: 1, 
           border: `1px solid ${isDarkMode ? 'rgba(255,255,255,0.1)' : '#e0e0e0'}`,
-          maxHeight: 400,
+          maxHeight: 500,
           overflow: 'auto',  // 支持横向和纵向滚动
           opacity: disabled ? 0.7 : 1,  // 禁用时降低透明度
           position: 'relative',
@@ -983,11 +1070,20 @@ const TranscriptAnnotator = forwardRef<TranscriptAnnotatorRef, TranscriptAnnotat
                           {layerAnnotations.map(ann => {
                             const pos = segPositions.get(ann.id)
                             const isSelectedBlock = ann.id === selectedAnnotationId
+                            const isLinkSrc  = linkMode && ann.id === linkSourceId
+                            const isLinkable = linkMode && !isLinkSrc
 
                             return (
                               <Box
                                 key={ann.id}
+                                data-annotation-id={ann.id}
                                 onClick={(e) => handleBlockClick(ann, e)}
+                                title={linkMode
+                                  ? (isLinkSrc
+                                      ? t('annotation.linkSrcSelected')
+                                      : t('annotation.linkClickToLink', '点击与「{{label}}」建立关联', { label: ann.label }))
+                                  : t('annotation.clickToLocate', '点击定位到标注表格 | {{label}}: {{text}}', { label: ann.label, text: ann.text })
+                                }
                                 sx={{
                                   position: 'absolute',
                                   height: 22,
@@ -1003,15 +1099,18 @@ const TranscriptAnnotator = forwardRef<TranscriptAnnotatorRef, TranscriptAnnotat
                                   textOverflow: 'ellipsis',
                                   whiteSpace: 'nowrap',
                                   px: '2px',
-                                  boxShadow: isSelectedBlock
-                                    ? `0 0 0 2px white, 0 0 0 4px ${ann.color || '#2196F3'}, 0 3px 8px rgba(0,0,0,0.3)`
-                                    : '0 1px 2px rgba(0,0,0,0.3)',
+                                  boxShadow: isLinkSrc
+                                    ? `0 0 0 2px white, 0 0 0 4px #FF9800, 0 4px 14px rgba(255,152,0,0.7)`
+                                    : isSelectedBlock
+                                      ? `0 0 0 2px white, 0 0 0 4px ${ann.color || '#2196F3'}, 0 3px 8px rgba(0,0,0,0.3)`
+                                      : '0 1px 2px rgba(0,0,0,0.3)',
+                                  outline: isLinkable ? '2px dashed #FF9800' : undefined,
                                   bgcolor: ann.color || '#2196F3',
                                   opacity: pos ? 1 : 0,
                                   left: pos?.left ?? 0,
                                   width: pos?.width ?? 'auto',
-                                  transform: isSelectedBlock ? 'translateY(-2px) scaleY(1.1)' : undefined,
-                                  zIndex: isSelectedBlock ? 15 : undefined,
+                                  transform: isSelectedBlock || isLinkSrc ? 'translateY(-2px) scaleY(1.1)' : undefined,
+                                  zIndex: isSelectedBlock || isLinkSrc ? 15 : undefined,
                                   transition: 'transform 0.15s, box-shadow 0.15s, opacity 0.2s',
                                   '&:hover': {
                                     transform: isSelectedBlock ? 'translateY(-3px) scaleY(1.1)' : 'translateY(-1px)',
@@ -1021,7 +1120,6 @@ const TranscriptAnnotator = forwardRef<TranscriptAnnotatorRef, TranscriptAnnotat
                                     zIndex: 10
                                   }
                                 }}
-                                title={`${ann.label}: ${ann.text}`}
                               >
                                 {ann.label}
                               </Box>
@@ -1036,11 +1134,22 @@ const TranscriptAnnotator = forwardRef<TranscriptAnnotatorRef, TranscriptAnnotat
             </Box>
           )
         })}
+
+        {/* SVG relation arrows overlay */}
+        {relations.length > 0 && (
+          <RelationArrows
+            relations={relations}
+            annotations={annotations}
+            containerRef={containerRef}
+          />
+        )}
       </Paper>
 
       {/* Statistics */}
       <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
-        {annotations.length} {t('annotation.annotationCount')} | {transcriptSegments.length} {t('annotation.segmentCount')} | {t('annotation.transcriptHints')}
+        {annotations.length} {t('annotation.annotationCount')}
+        {relations.length > 0 && ` | ${relations.length} ${t('annotation.relationCount', '条关联')}`}
+        {` | `}{transcriptSegments.length} {t('annotation.segmentCount')} | {t('annotation.transcriptHints')}
       </Typography>
 
       {/* Syntax Visualization Dialog */}

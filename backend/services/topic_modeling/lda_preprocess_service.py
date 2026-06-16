@@ -435,9 +435,22 @@ class LDAPreprocessService:
         
         # N-gram mode: build n-grams first (interleave by position so multi-N preview shows all), then filter by stopword then POS.
         # Normal mode: apply POS filter per token, then stopword, then length.
+        # Exclusion words are applied in two passes in n-gram mode:
+        #   Pass 1 (pre-n-gram): remove individual tokens that match exclusion patterns
+        #     → "have" in exclusion list removes "have" before any n-gram that would contain it is built
+        #   Pass 2 (post-n-gram): check the joined n-gram string against exclusion patterns
+        #     → "I_have" in exclusion list removes the combined bigram string
         processed_tokens: List[str] = []
         if ngram_enabled and ngram_n_values:
             sorted_n = sorted(ngram_n_values)
+
+            # Pass 1: pre-n-gram exclusion — remove constituent tokens that match
+            if exclusion_patterns:
+                after_punct = [
+                    (form, is_stop, pos) for form, is_stop, pos in after_punct
+                    if not matches_exclusion(form, exclusion_patterns)
+                ]
+
             for i in range(len(after_punct)):
                 for n in sorted_n:
                     if i + n > len(after_punct):
@@ -454,10 +467,10 @@ class LDAPreprocessService:
                                 continue
                     if any(len(w[0]) < min_word_length for w in window):
                         continue
-                    # Apply custom exclusion patterns to each token in n-gram
-                    if exclusion_patterns and any(matches_exclusion(w[0], exclusion_patterns) for w in window):
-                        continue
                     ngram_str = '_'.join(w[0] for w in window)
+                    # Pass 2: post-n-gram exclusion — check the joined n-gram string
+                    if exclusion_patterns and matches_exclusion(ngram_str, exclusion_patterns):
+                        continue
                     processed_tokens.append(ngram_str)
             stats['after_pos_filter'] = len(processed_tokens)
             stats['after_stopwords'] = len(processed_tokens)

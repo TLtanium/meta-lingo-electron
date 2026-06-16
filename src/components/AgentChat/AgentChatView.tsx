@@ -1,6 +1,12 @@
 import { useState, useRef, useCallback, lazy, Suspense } from 'react'
 import {
   Box,
+  Button,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogContentText,
+  DialogActions,
   IconButton,
   Tooltip,
   Typography,
@@ -17,11 +23,13 @@ import CloseIcon from '@mui/icons-material/Close'
 import { useTranslation } from 'react-i18next'
 import { useChatStore } from '../../stores/chatStore'
 import { useSettingsStore } from '../../stores/settingsStore'
-import { chatStream } from '../../api/agentChat'
-import type { AgentChatRequest } from '../../api/agentChat'
+import { chatStream, cleanupTasks } from '../../api/agentChat'
+import type { AgentChatRequest, TaskProgressEvent, ContextUsageEvent, CompactDoneEvent, TaskStartedEvent } from '../../api/agentChat'
 import ChatSidebar from './ChatSidebar'
 import ChatMessages from './ChatMessages'
 import ChatInput from './ChatInput'
+import TaskProgressPanel from './TaskProgressPanel'
+import type { TaskProgress, ContextUsage } from './ContextRing'
 import appIcon from '../../../assets/icon.png'
 
 const Settings = lazy(() => import('../../pages/Settings'))
@@ -67,6 +75,9 @@ export default function AgentChatView() {
     setEnabledModules,
     toggleSidebar,
     clearAllConversations,
+    archiveAndAddMessages,
+    addTaskId,
+    getTaskIds,
   } = useChatStore()
 
   const {
@@ -87,6 +98,19 @@ export default function AgentChatView() {
   const abortRef = useRef<AbortController | null>(null)
   const [overlayTabs, setOverlayTabs] = useState<OverlayTab[]>([])
   const [activeOverlay, setActiveOverlay] = useState<OverlayTab | 'chat'>('chat')
+
+  // Context management state
+  const [taskProgress, setTaskProgress] = useState<TaskProgress | null>(null)
+  const [contextUsage, setContextUsage] = useState<ContextUsage | null>(null)
+  const [isCompacting, setIsCompacting] = useState(false)
+  const [ringAnchorEl, setRingAnchorEl] = useState<HTMLElement | null>(null)
+
+  // Delete confirmation dialog state
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null)
+  const deleteTargetConv = conversations.find((c) => c.id === deleteTargetId) ?? null
+
+  // Clear-all confirmation dialog state
+  const [clearAllOpen, setClearAllOpen] = useState(false)
 
   // Find active conversation
   const activeConv =
@@ -139,9 +163,16 @@ export default function AgentChatView() {
         .conversations.find((c) => c.id === convId)
       if (!conv) return
 
+      // Send user + assistant messages to the model.
+      // Hidden messages (compact summaries) are included so the model retains
+      // compacted context. isCompactIndicator messages are excluded (no longer stored).
       const historyMessages = conv.messages
         .filter((m) => m.role === 'user' || m.role === 'assistant')
-        .map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content }))
+        .map((m) => ({
+          role: m.role as 'user' | 'assistant',
+          content: m.content,
+          hidden: m.hidden,
+        }))
 
       const request: AgentChatRequest = {
         provider: hasOpenai ? 'openai' : 'ollama',
@@ -220,10 +251,44 @@ export default function AgentChatView() {
             errorDetail: detail,
           })
         },
+        onTaskProgress: (evt: TaskProgressEvent) => {
+          setTaskProgress({
+            task_id: evt.task_id,
+            completed: evt.completed,
+            total: evt.total,
+            current_label: evt.current_label,
+            pct: evt.pct,
+          })
+        },
+        onContextUsage: (evt: ContextUsageEvent) => {
+          setContextUsage({ chars: evt.chars, threshold: evt.threshold, pct: evt.pct })
+        },
+        onCompactStart: () => {
+          setIsCompacting(true)
+        },
+        onCompactDone: (evt: CompactDoneEvent) => {
+          setIsCompacting(false)
+          if (evt.removed_turns > 0) {
+            // Compaction removed messages — reset the ring so the user sees a
+            // clear "context freed" signal. The backend emits a post-compact
+            // context_usage event right after, which refills the ring to the
+            // actual (lower) value. React batches both updates so the ring
+            // jumps directly from 100% → post-compact% without flickering.
+            setContextUsage(null)
+          }
+          if (convId && evt.new_messages.length > 0) {
+            archiveAndAddMessages(convId, evt.new_messages)
+          }
+        },
+        onTaskStarted: (evt: TaskStartedEvent) => {
+          if (convId) addTaskId(convId, evt.task_id)
+        },
         onDone: () => {
           if (flushTimer) clearTimeout(flushTimer)
           flushText() // flush remaining text
           setIsStreaming(false)
+          setIsCompacting(false)   // guard: clear if compact_done was never received
+          setContextUsage(null)    // clear ring when turn is fully done
           abortRef.current = null
         },
       })
@@ -243,8 +308,54 @@ export default function AgentChatView() {
       addMessage,
       appendToLastAssistant,
       completeToolCall,
+      archiveAndAddMessages,
+      addTaskId,
     ]
   )
+
+  // Handle /compact slash command — send it as a user message
+  const handleCompact = useCallback(() => {
+    handleSend('/compact')
+  }, [handleSend])
+
+  // Context ring click — anchor for TaskProgressPanel popover
+  const handleContextRingClick = useCallback((el: HTMLElement) => {
+    setRingAnchorEl(el)
+  }, [])
+
+  // Delete conversation: show MUI dialog, then cleanup + delete on confirm
+  const handleDeleteRequest = useCallback((id: string) => {
+    setDeleteTargetId(id)
+  }, [])
+
+  const handleDeleteConfirm = useCallback(async () => {
+    if (!deleteTargetId) return
+    const taskIds = getTaskIds(deleteTargetId)
+    setDeleteTargetId(null)
+    await cleanupTasks(taskIds)
+    deleteConversation(deleteTargetId)
+  }, [deleteTargetId, getTaskIds, deleteConversation])
+
+  const handleDeleteCancel = useCallback(() => {
+    setDeleteTargetId(null)
+  }, [])
+
+  // Clear-all: collect every task ID across all conversations → cleanup → clear store
+  const handleClearAllRequest = useCallback(() => {
+    setClearAllOpen(true)
+  }, [])
+
+  const handleClearAllConfirm = useCallback(async () => {
+    setClearAllOpen(false)
+    // Collect all task IDs from all conversations
+    const allTaskIds = conversations.flatMap((c) => c.taskIds ?? [])
+    await cleanupTasks(allTaskIds)
+    clearAllConversations()
+  }, [conversations, clearAllConversations])
+
+  const handleClearAllCancel = useCallback(() => {
+    setClearAllOpen(false)
+  }, [])
 
   const handleStop = useCallback(() => {
     abortRef.current?.abort()
@@ -408,8 +519,8 @@ export default function AgentChatView() {
                 createConversation()
                 setActiveOverlay('chat')
               }}
-              onDelete={deleteConversation}
-              onClearAll={clearAllConversations}
+              onDelete={handleDeleteRequest}
+              onClearAll={handleClearAllRequest}
             />
           </Box>
         )}
@@ -449,6 +560,16 @@ export default function AgentChatView() {
                     messages={activeConv?.messages ?? []}
                     isStreaming={isStreaming}
                   />
+                  <TaskProgressPanel
+                    anchorEl={ringAnchorEl}
+                    open={Boolean(ringAnchorEl)}
+                    onClose={() => setRingAnchorEl(null)}
+                    contextUsage={contextUsage}
+                    taskProgress={taskProgress}
+                    isCompacting={isCompacting}
+                    isStreaming={isStreaming}
+                    onCompact={handleCompact}
+                  />
                   <ChatInput
                     onSend={handleSend}
                     onStop={handleStop}
@@ -457,6 +578,10 @@ export default function AgentChatView() {
                     disabledReason={disabledReason}
                     enabledModules={activeConv?.enabledModules ?? null}
                     onModulesChange={handleModulesChange}
+                    contextUsage={contextUsage}
+                    taskProgress={taskProgress}
+                    isCompacting={isCompacting}
+                    onContextRingClick={handleContextRingClick}
                   />
                 </>
               ) : (
@@ -536,6 +661,54 @@ export default function AgentChatView() {
           )}
         </Box>
       </Box>
+
+      {/* ── Clear-all confirmation dialog ───────────────────────────── */}
+      <Dialog
+        open={clearAllOpen}
+        onClose={handleClearAllCancel}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle>{t('agentChat.clearAll')}</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            {t('agentChat.confirmClearAllBody', { n: conversations.length })}
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleClearAllCancel} color="inherit">
+            {t('common.cancel')}
+          </Button>
+          <Button onClick={handleClearAllConfirm} color="error" variant="contained" autoFocus>
+            {t('agentChat.clearAll')}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* ── Delete conversation confirmation dialog ─────────────────── */}
+      <Dialog
+        open={Boolean(deleteTargetId)}
+        onClose={handleDeleteCancel}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle>{t('agentChat.confirmDelete')}</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            {t('agentChat.confirmDeleteBody', {
+              title: deleteTargetConv?.title || t('agentChat.untitledConversation'),
+            })}
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleDeleteCancel} color="inherit">
+            {t('common.cancel')}
+          </Button>
+          <Button onClick={handleDeleteConfirm} color="error" variant="contained" autoFocus>
+            {t('common.delete')}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   )
 }

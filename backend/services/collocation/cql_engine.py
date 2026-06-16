@@ -129,7 +129,7 @@ class CQLEngine:
     """
     CQL Query Engine for SpaCy-annotated corpus
 
-    Supported attributes: word, lemma, pos, tag, dep, headword, headlemma, headpos, headdep, usas, nrc
+    Supported attributes: word, lemma, pos, tag, dep, headword, headlemma, headpos, headdep, usas, nrc, mipvu
 
     Basic attributes:
     - word      Token text
@@ -138,6 +138,7 @@ class CQLEngine:
     - tag       Fine-grained POS tag
     - dep       Dependency relation label
     - nrc       NRC emotion/sentiment labels (space-joined, e.g. "positive joy trust")
+    - mipvu     MIPVU metaphor labels (space-joined subset of {indirect, direct, mflag}, or "none")
 
     Head-based attributes (for dependency constraints):
     - headword  Word text of the token's head
@@ -163,8 +164,8 @@ class CQLEngine:
     - []?       Optional (0 or 1)
     """
 
-    # Supported attributes (including head-based, usas for semantic domain, nrc for emotion/sentiment, ws for word sketch)
-    ATTRIBUTES = {'word', 'lemma', 'pos', 'tag', 'dep', 'headword', 'headlemma', 'headpos', 'headdep', 'usas', 'nrc', 'ws'}
+    # Supported attributes (including head-based, usas, nrc, mipvu, ws)
+    ATTRIBUTES = {'word', 'lemma', 'pos', 'tag', 'dep', 'headword', 'headlemma', 'headpos', 'headdep', 'usas', 'nrc', 'mipvu', 'ws'}
 
     # Token pattern regex - matches [...] with optional {n} or {n,m} or ?
     TOKEN_PATTERN = re.compile(
@@ -662,15 +663,30 @@ class CQLEngine:
             True if condition matches
         """
         # Get token value for attribute
-        # usas reads from usas_tag; nrc reads from nrc_tag (space-joined emotion labels)
+        # usas reads from usas_tag; nrc reads from nrc_tag; mipvu reads from mipvu_tag
         if condition.attribute == 'usas':
             token_value = token.get('usas_tag', '') or ''
         elif condition.attribute == 'nrc':
             token_value = token.get('nrc_tag', '') or ''
+        elif condition.attribute == 'mipvu':
+            token_value = token.get('mipvu_tag', 'none') or 'none'
         else:
             token_value = token.get(condition.attribute, '')
         if token_value is None:
             token_value = ''
+
+        # For mipvu: match against space-separated MIPVU labels {indirect, direct, mflag, none}
+        if condition.attribute == 'mipvu':
+            mipvu_labels = set(token_value.split()) if token_value else {'none'}
+            if condition.operator in ('==', '='):
+                match = condition.value.lower() in mipvu_labels
+            elif condition.operator in ('!==', '!='):
+                match = condition.value.lower() not in mipvu_labels
+            else:
+                match = False
+            if condition.negated:
+                match = not match
+            return match
 
         # For nrc: match against space-separated emotion/polarity labels
         if condition.attribute == 'nrc':

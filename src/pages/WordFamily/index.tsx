@@ -51,6 +51,7 @@ export default function SynonymAnalysis({ crossLinkParams }: SynonymAnalysisProp
   // Filter state
   const [posFilter, setPosFilter] = useState<string>('auto')
   const [searchQuery, setSearchQuery] = useState('')
+  const [searchTarget, setSearchTarget] = useState<'word' | 'lemma'>('lemma')
   const [minFreq, setMinFreq] = useState(1)
   const [maxResults, setMaxResults] = useState(100)
   const [lowercase, setLowercase] = useState(true)
@@ -124,7 +125,8 @@ export default function SynonymAnalysis({ crossLinkParams }: SynonymAnalysisProp
         search_query: searchQuery,
         min_freq: minFreq,
         max_results: maxResults,
-        lowercase
+        lowercase,
+        search_target: searchTarget
       }
 
       const response = await analysisApi.synonymAnalysis(request)
@@ -231,10 +233,12 @@ export default function SynonymAnalysis({ crossLinkParams }: SynonymAnalysisProp
         <Box sx={{ mb: 2 }}>
           <SearchConfigPanel
             searchQuery={searchQuery}
+            searchTarget={searchTarget}
             minFreq={minFreq}
             maxResults={maxResults}
             lowercase={lowercase}
             onSearchQueryChange={setSearchQuery}
+            onSearchTargetChange={setSearchTarget}
             onMinFreqChange={setMinFreq}
             onMaxResultsChange={setMaxResults}
             onLowercaseChange={setLowercase}

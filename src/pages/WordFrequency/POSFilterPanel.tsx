@@ -32,6 +32,7 @@ interface POSFilterPanelProps {
   onChange: (config: POSFilterConfig) => void
   posTags: POSTagInfo[]
   disabled?: boolean
+  titleKey?: string
 }
 
 // Group POS tags by category for better organization
@@ -45,7 +46,8 @@ export default function POSFilterPanel({
   config,
   onChange,
   posTags,
-  disabled = false
+  disabled = false,
+  titleKey = 'wordFrequency.posFilter.title'
 }: POSFilterPanelProps) {
   const { t, i18n } = useTranslation()
   const isZh = i18n.language === 'zh'
@@ -161,7 +163,7 @@ export default function POSFilterPanel({
         <Stack direction="row" alignItems="center" spacing={1}>
           <FilterListIcon fontSize="small" color="action" />
           <Typography variant="subtitle2">
-            {t('wordFrequency.posFilter.title')}
+            {t(titleKey)}
           </Typography>
           {config.selectedPOS.length > 0 && (
             <Chip 

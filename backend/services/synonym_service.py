@@ -103,11 +103,12 @@ class SynonymService:
         search_query: str = "",
         min_freq: int = 1,
         max_results: int = 100,
-        lowercase: bool = True
+        lowercase: bool = True,
+        search_target: str = "lemma"
     ) -> Dict[str, Any]:
         """
         Perform synonym analysis on corpus texts
-        
+
         Args:
             corpus_id: Corpus ID
             text_ids: List of text IDs or "all" for all texts
@@ -116,7 +117,9 @@ class SynonymService:
             min_freq: Minimum frequency threshold
             max_results: Maximum number of results to return
             lowercase: Convert all to lowercase
-            
+            search_target: "lemma" to match query against lemma (default),
+                           "word" to match against original word forms
+
         Returns:
             Analysis results with synonyms for each word
         """
@@ -155,13 +158,21 @@ class SynonymService:
             # Build corpus vocabulary: only synonyms that appear in corpus are retained
             corpus_vocab = set(k[0] for k in word_data.keys())
             
-            # Filter by search query if provided (exact word match only; no substring)
+            # Filter by search query if provided
             if search_query:
                 q = search_query.lower() if lowercase else search_query
-                word_data = {
-                    key: data for key, data in word_data.items()
-                    if (key[0].lower() if lowercase else key[0]) == q
-                }
+                if search_target == "word":
+                    # Match against stored word forms
+                    word_data = {
+                        key: data for key, data in word_data.items()
+                        if q in {wf.lower() if lowercase else wf for wf in data.get('word_forms', set())}
+                    }
+                else:
+                    # Default: match against lemma (key[0] is already lowercased in lowercase mode)
+                    word_data = {
+                        key: data for key, data in word_data.items()
+                        if (key[0].lower() if lowercase else key[0]) == q
+                    }
             
             # Filter by minimum frequency
             word_data = {
@@ -260,17 +271,19 @@ class SynonymService:
                 
                 # Use lemma for consistency
                 word_key = lemma.lower() if lowercase else lemma
-                
+
                 # Use (word, pos) as key to separate by POS
                 key = (word_key, pos)
-                
+
                 if key not in word_data:
                     word_data[key] = {
                         'frequency': 0,
-                        'pos_tags': set([pos])  # Single POS per entry
+                        'pos_tags': set([pos]),
+                        'word_forms': set()
                     }
-                
+
                 word_data[key]['frequency'] += 1
+                word_data[key]['word_forms'].add(word.lower() if lowercase else word)
         
         return word_data
     

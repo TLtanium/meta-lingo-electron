@@ -51,7 +51,8 @@ import {
   MAX_SPAN,
   DEFAULT_COLLOCATION_TABLE_SORT,
   DEFAULT_COLLOCATION_TABLE_PAGINATION,
-  DEFAULT_COLLOCATION_VIZ_CONFIG
+  DEFAULT_COLLOCATION_VIZ_CONFIG,
+  DEFAULT_COLLOCATE_POS_FILTER
 } from '../../types/collocationAnalysis'
 import POSFilterPanel from '../WordFrequency/POSFilterPanel'
 import CollocationResultsTable from './components/CollocationResultsTable'
@@ -77,6 +78,7 @@ export default function CollocationAnalysisTab({ crossLinkParams }: CollocationA
   // POS tags
   const [posTags, setPosTags] = useState<POSTagInfo[]>([])
   const [posFilter, setPosFilter] = useState<POSFilterConfig>(DEFAULT_POS_FILTER)
+  const [collocatePosFilter, setCollocatePosFilter] = useState<POSFilterConfig>(DEFAULT_COLLOCATE_POS_FILTER)
 
   // Search config
   const [matchMode, setMatchMode] = useState<CollocationMatchMode>('lemma')
@@ -329,13 +331,14 @@ export default function CollocationAnalysisTab({ crossLinkParams }: CollocationA
           externalSelection={externalSelection}
         />
 
-        {/* 2. POS Filter */}
+        {/* 2. POS Filter (node word) */}
         <Box sx={{ mb: 2 }}>
           <POSFilterPanel
             config={posFilter}
             onChange={setPosFilter}
             posTags={posTags}
             disabled={!corpusSelection}
+            titleKey="collocationAnalysis.posFilter.title"
           />
         </Box>
 
@@ -514,6 +517,9 @@ export default function CollocationAnalysisTab({ crossLinkParams }: CollocationA
                 tableFilter={tableFilter}
                 onTableFilterChange={setTableFilter}
                 onOpenStatisticsDialog={() => setStatsDialogOpen(true)}
+                collocatePosFilter={collocatePosFilter}
+                onCollocatePosFilterChange={setCollocatePosFilter}
+                posTags={posTags}
                 isLoading={isLoading}
                 corpusId={corpusSelection?.corpusId}
                 textIds={corpusSelection?.textIds}

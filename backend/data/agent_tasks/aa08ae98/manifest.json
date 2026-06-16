@@ -1,0 +1,216 @@
+{
+  "task_id": "aa08ae98",
+  "task_type": "dmip",
+  "corpus_id": "beae90a9-ec5d-49c1-bed3-6fca0bde13b6",
+  "total_texts": 29,
+  "session_hint": "",
+  "created_at": "2026-06-06T21:54:29.978970",
+  "texts": {
+    "2497f1ae-f1f1-423e-9147-763d88b7746c": {
+      "label": "1997-Shareholder-Letter",
+      "file": "2497f1ae-f1f1-423e-9147-763d88b7746c.md",
+      "saved_at": "2026-06-06T21:55:18.953043",
+      "status": "success",
+      "error_message": null
+    },
+    "6865c3ef-29ad-49c8-8171-fda822830d49": {
+      "label": "1998-Shareholder-Letter",
+      "file": "6865c3ef-29ad-49c8-8171-fda822830d49.md",
+      "saved_at": "2026-06-06T21:55:56.637555",
+      "status": "success",
+      "error_message": null
+    },
+    "7c6b3c2f-7f20-4915-bd46-65b25c1ce8ec": {
+      "label": "1999-Shareholder-Letter",
+      "file": "7c6b3c2f-7f20-4915-bd46-65b25c1ce8ec.md",
+      "saved_at": "2026-06-06T21:56:16.365068",
+      "status": "success",
+      "error_message": null
+    },
+    "d2949fc6-c3c4-4584-a28a-54c0e9dfb8a0": {
+      "label": "2001-Shareholder-Letter",
+      "file": "d2949fc6-c3c4-4584-a28a-54c0e9dfb8a0.md",
+      "saved_at": "2026-06-06T21:56:53.883476",
+      "status": "success",
+      "error_message": null
+    },
+    "9ff1144e-3191-48ea-9e0c-7927b3b25117": {
+      "label": "2002-Shareholder-Letter",
+      "file": "9ff1144e-3191-48ea-9e0c-7927b3b25117.md",
+      "saved_at": "2026-06-06T21:56:53.887974",
+      "status": "success",
+      "error_message": null
+    },
+    "4eae57c7-9182-45af-84c3-641e48363ea3": {
+      "label": "2000-Shareholder-Letter",
+      "file": "4eae57c7-9182-45af-84c3-641e48363ea3.md",
+      "saved_at": "2026-06-06T21:56:53.893008",
+      "status": "success",
+      "error_message": null
+    },
+    "f0388c47-8807-426e-87de-0d2b396851ba": {
+      "label": "2003-Shareholder-Letter",
+      "file": "f0388c47-8807-426e-87de-0d2b396851ba.md",
+      "saved_at": "2026-06-06T21:57:28.911915",
+      "status": "success",
+      "error_message": null
+    },
+    "c8df191c-35d3-4e19-8c5b-9c7e9cb025a2": {
+      "label": "2005-Shareholder-Letter",
+      "file": "c8df191c-35d3-4e19-8c5b-9c7e9cb025a2.md",
+      "saved_at": "2026-06-06T21:57:39.624389",
+      "status": "success",
+      "error_message": null
+    },
+    "960f702a-b294-4f6a-a33a-86854c1feb6a": {
+      "label": "2004-Shareholder-Letter",
+      "file": "960f702a-b294-4f6a-a33a-86854c1feb6a.md",
+      "saved_at": "2026-06-06T21:57:39.629095",
+      "status": "success",
+      "error_message": null
+    },
+    "4cd5e8d6-812b-46a1-8d16-5dbccdf2bca4": {
+      "label": "2007-Shareholder-Letter",
+      "file": "4cd5e8d6-812b-46a1-8d16-5dbccdf2bca4.md",
+      "saved_at": "2026-06-06T21:58:10.773241",
+      "status": "success",
+      "error_message": null
+    },
+    "fe6ca3a6-8595-484c-a4e6-1b8b7c8bd51b": {
+      "label": "2008-Shareholder-Letter",
+      "file": "fe6ca3a6-8595-484c-a4e6-1b8b7c8bd51b.md",
+      "saved_at": "2026-06-06T21:58:10.777349",
+      "status": "success",
+      "error_message": null
+    },
+    "188a822d-9977-4119-bbc4-8fef59dffb69": {
+      "label": "2006-Shareholder-Letter",
+      "file": "188a822d-9977-4119-bbc4-8fef59dffb69.md",
+      "saved_at": "2026-06-06T21:58:10.781196",
+      "status": "success",
+      "error_message": null
+    },
+    "39b1bcd5-789f-4d57-a5d9-2f7ee128d70a": {
+      "label": "2010-Shareholder-Letter",
+      "file": "39b1bcd5-789f-4d57-a5d9-2f7ee128d70a.md",
+      "saved_at": "2026-06-06T21:58:38.455587",
+      "status": "success",
+      "error_message": null
+    },
+    "f1d4a429-1c04-4e71-909a-ae4f6ab99eff": {
+      "label": "2011-Shareholder-Letter",
+      "file": "f1d4a429-1c04-4e71-909a-ae4f6ab99eff.md",
+      "saved_at": "2026-06-06T21:58:38.459975",
+      "status": "success",
+      "error_message": null
+    },
+    "1c6b6928-7b5f-45eb-956d-22510c655d7d": {
+      "label": "2009-Shareholder-Letter",
+      "file": "1c6b6928-7b5f-45eb-956d-22510c655d7d.md",
+      "saved_at": "2026-06-06T21:58:38.464447",
+      "status": "success",
+      "error_message": null
+    },
+    "5bbfbfda-771e-455f-9147-768bf58b82e3": {
+      "label": "2013-Shareholder-Letter",
+      "file": "5bbfbfda-771e-455f-9147-768bf58b82e3.md",
+      "saved_at": "2026-06-06T21:59:22.199168",
+      "status": "success",
+      "error_message": null
+    },
+    "3ce28aa3-9e73-4e5a-967a-03d08d1c4513": {
+      "label": "2014-Shareholder-Letter",
+      "file": "3ce28aa3-9e73-4e5a-967a-03d08d1c4513.md",
+      "saved_at": "2026-06-06T21:59:22.203096",
+      "status": "success",
+      "error_message": null
+    },
+    "05ed2c82-af4f-4e60-b254-12f67be8f3de": {
+      "label": "2012-Shareholder-Letter",
+      "file": "05ed2c82-af4f-4e60-b254-12f67be8f3de.md",
+      "saved_at": "2026-06-06T21:59:22.207079",
+      "status": "success",
+      "error_message": null
+    },
+    "39971060-802d-482e-9a1d-9c2a5e5cac37": {
+      "label": "2016-Shareholder-Letter",
+      "file": "39971060-802d-482e-9a1d-9c2a5e5cac37.md",
+      "saved_at": "2026-06-06T22:00:03.379858",
+      "status": "success",
+      "error_message": null
+    },
+    "5f7618d1-e340-4075-a577-f7e8647ff67c": {
+      "label": "2017-Shareholder-Letter",
+      "file": "5f7618d1-e340-4075-a577-f7e8647ff67c.md",
+      "saved_at": "2026-06-06T22:00:03.385390",
+      "status": "success",
+      "error_message": null
+    },
+    "30555cba-36e5-46fd-ac3f-9df244036873": {
+      "label": "2015-Shareholder-Letter",
+      "file": "30555cba-36e5-46fd-ac3f-9df244036873.md",
+      "saved_at": "2026-06-06T22:00:03.391798",
+      "status": "success",
+      "error_message": null
+    },
+    "81f281dd-e63e-4197-bebd-b10bef8963e5": {
+      "label": "2019-Shareholder-Letter",
+      "file": "81f281dd-e63e-4197-bebd-b10bef8963e5.md",
+      "saved_at": "2026-06-06T22:00:39.574375",
+      "status": "success",
+      "error_message": null
+    },
+    "7778cdfb-e2c9-4662-8480-519b0281f94c": {
+      "label": "2020-Shareholder-Letter",
+      "file": "7778cdfb-e2c9-4662-8480-519b0281f94c.md",
+      "saved_at": "2026-06-06T22:00:39.577940",
+      "status": "success",
+      "error_message": null
+    },
+    "3e5d9c78-b4e1-4db7-bfb6-e883887991e5": {
+      "label": "2018-Shareholder-Letter",
+      "file": "3e5d9c78-b4e1-4db7-bfb6-e883887991e5.md",
+      "saved_at": "2026-06-06T22:00:39.582419",
+      "status": "success",
+      "error_message": null
+    },
+    "1beada96-5f64-415b-84b5-70337217f075": {
+      "label": "2022-Shareholder-Letter",
+      "file": "1beada96-5f64-415b-84b5-70337217f075.md",
+      "saved_at": "2026-06-06T22:01:01.038258",
+      "status": "success",
+      "error_message": null
+    },
+    "aed7a81c-6717-4510-9efc-26d1b505b6eb": {
+      "label": "2021-Shareholder-Letter",
+      "file": "aed7a81c-6717-4510-9efc-26d1b505b6eb.md",
+      "saved_at": "2026-06-06T22:01:01.043112",
+      "status": "success",
+      "error_message": null
+    },
+    "82dbff0b-8b5e-473b-b768-786456ee2644": {
+      "label": "2024-Shareholder-Letter",
+      "file": "82dbff0b-8b5e-473b-b768-786456ee2644.md",
+      "saved_at": "2026-06-06T22:01:40.857176",
+      "status": "success",
+      "error_message": null
+    },
+    "7605c0f5-20bc-4209-b581-b53fdaa865a9": {
+      "label": "2025-Shareholder-Letter",
+      "file": "7605c0f5-20bc-4209-b581-b53fdaa865a9.md",
+      "saved_at": "2026-06-06T22:01:40.861917",
+      "status": "success",
+      "error_message": null
+    },
+    "23a9790d-3ff6-4000-891d-8cb9e3bf4807": {
+      "label": "2023-Shareholder-Letter",
+      "file": "23a9790d-3ff6-4000-891d-8cb9e3bf4807.md",
+      "saved_at": "2026-06-06T22:01:40.866253",
+      "status": "success",
+      "error_message": null
+    }
+  },
+  "failed_count": 0,
+  "skipped_count": 0,
+  "has_plan": true
+}

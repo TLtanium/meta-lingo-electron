@@ -233,10 +233,9 @@ class NeuralUSASTagger:
             lang = (language or 'english').lower().strip()
             lang = LANGUAGE_ALIASES.get(lang, lang)
             spacy_models = SPACY_MODEL_MAP.get(lang, SPACY_MODEL_MAP['english'])
-            primary, fallback = spacy_models
 
             nlp = None
-            for model_name in [m for m in (primary, fallback) if m]:
+            for model_name in spacy_models:
                 try:
                     nlp = spacy.load(model_name)
                     break

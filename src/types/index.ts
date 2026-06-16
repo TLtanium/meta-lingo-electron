@@ -38,6 +38,14 @@ export interface Tab {
 // Settings types
 export type Language = 'zh' | 'en'
 
+export interface ApiLine {
+  id: string
+  name: string
+  baseUrl: string
+  apiKey: string
+  model: string
+}
+
 export interface AppSettings {
   language: Language
   wallpaper: string | null

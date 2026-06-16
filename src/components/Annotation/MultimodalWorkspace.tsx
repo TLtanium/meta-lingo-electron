@@ -53,6 +53,7 @@ import ClearIcon from '@mui/icons-material/Clear'
 import SaveIcon from '@mui/icons-material/Save'
 import type {
   Annotation,
+  AnnotationRelation,
   SelectedLabel,
   YoloTrack,
   TranscriptSegment,
@@ -207,6 +208,11 @@ interface MultimodalWorkspaceProps {
   autoAnnotateEnabledForTranscript?: boolean
   autoAnnotatingTranscript?: boolean
   autoAnnotateTranscriptTooltip?: string
+  relations?: AnnotationRelation[]
+  onRelationAdd?: (rel: AnnotationRelation) => void
+  onRelationRemove?: (id: string) => void
+  onKeyboardShortcuts?: () => void
+  hasFramework?: boolean
 }
 
 // Format time in seconds to MM:SS.ms format
@@ -288,7 +294,12 @@ export default function MultimodalWorkspace({
   onRequestAutoAnnotateTranscript,
   autoAnnotateEnabledForTranscript,
   autoAnnotatingTranscript,
-  autoAnnotateTranscriptTooltip
+  autoAnnotateTranscriptTooltip,
+  relations,
+  onRelationAdd,
+  onRelationRemove,
+  onKeyboardShortcuts,
+  hasFramework = false
 }: MultimodalWorkspaceProps) {
   // showSpacyAnnotations is no longer used (removed from UI)
   void showSpacyAnnotations
@@ -1136,7 +1147,7 @@ export default function MultimodalWorkspace({
   const videoAnnotations = useMemo(() => annotations.filter(a => a.type === 'video'), [annotations])
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', gap: 2, overflow: 'auto' }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100%', gap: 2 }}>
       {/* Info Bar */}
       <Paper sx={{ p: 1.5, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
         <Stack direction="row" spacing={2} alignItems="center">
@@ -1595,7 +1606,7 @@ export default function MultimodalWorkspace({
       )}
 
       {/* Bottom Section: Transcript & Annotations */}
-      <Paper sx={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 250 }}>
+      <Paper sx={{ display: 'flex', flexDirection: 'column', minHeight: 450 }}>
         <Tabs value={bottomTabIndex} onChange={(_, v) => setBottomTabIndex(v)} sx={{ borderBottom: 1, borderColor: 'divider' }}>
           <Tab label={t('annotation.transcriptTextAnnotation', '转录文本标注')} />
           <Tab label={`${t('annotation.textAnnotationList', '文本标注列表')} (${textAnnotations.length})`} />
@@ -1631,6 +1642,12 @@ export default function MultimodalWorkspace({
               autoAnnotating={autoAnnotatingTranscript}
               autoAnnotateTooltip={autoAnnotateTranscriptTooltip}
               onAutoAnnotate={onRequestAutoAnnotateTranscript}
+              relations={relations}
+              onRelationAdd={onRelationAdd}
+              onRelationRemove={onRelationRemove}
+              onAnnotationClick={(id) => setSelectedAnnotationId(prev => prev === id ? null : id)}
+              onKeyboardShortcuts={onKeyboardShortcuts}
+              hasFramework={hasFramework}
             />
           )}
 
@@ -1651,6 +1668,7 @@ export default function MultimodalWorkspace({
               selectedTags={selectedTags}
               onSelect={(id) => setSelectedAnnotationId(id)}
               selectedId={selectedAnnotationId}
+              relations={relations}
             />
           )}
 
@@ -1782,6 +1800,7 @@ export default function MultimodalWorkspace({
               onSelect={(id) => setSelectedAnnotationId(id)}
               selectedId={selectedAnnotationId}
               directDeleteOnly={true}
+              relations={relations}
             />
           )}
         </Box>

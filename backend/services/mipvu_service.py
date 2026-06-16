@@ -114,29 +114,42 @@ class MIPVUService:
         
         # Group tokens by sentence boundaries
         restructured_sentences = []
-        
+
         for sent in sentences:
             sent_start = sent.get('start', 0)
             sent_end = sent.get('end', 0)
             sent_text = sent.get('text', '')
-            
+
+            # Collect (global_doc_idx, token) pairs for this sentence
+            sent_token_pairs = [
+                (global_idx, token)
+                for global_idx, token in enumerate(tokens)
+                if token.get('start', 0) >= sent_start and token.get('end', 0) <= sent_end
+            ]
+
+            # Map global doc index → sentence-local index for dependency head resolution
+            global_to_local = {
+                gidx: lidx for lidx, (gidx, _) in enumerate(sent_token_pairs)
+            }
+
             # Find tokens that belong to this sentence
             sent_tokens = []
-            for token in tokens:
+            for _lidx, (global_idx, token) in enumerate(sent_token_pairs):
                 token_start = token.get('start', 0)
                 token_end = token.get('end', 0)
-                # Token belongs to sentence if it overlaps
-                if token_start >= sent_start and token_end <= sent_end:
-                    # Convert SpaCy token format to MIPVU expected format
-                    sent_tokens.append({
-                        'word': token.get('text', ''),
-                        'lemma': token.get('lemma', ''),
-                        'pos': token.get('pos', ''),  # Universal POS
-                        'tag': token.get('tag', ''),  # Penn Treebank tag
-                        'dep': token.get('dep', ''),
-                        'start': token_start,
-                        'end': token_end
-                    })
+                head_global = token.get('head', global_idx)
+                head_local = global_to_local.get(head_global, -1)
+                # Convert SpaCy token format to MIPVU expected format
+                sent_tokens.append({
+                    'word': token.get('text', ''),
+                    'lemma': token.get('lemma', ''),
+                    'pos': token.get('pos', ''),   # Universal POS
+                    'tag': token.get('tag', ''),   # Penn Treebank tag
+                    'dep': token.get('dep', ''),
+                    'head': head_local,            # sentence-local head index
+                    'start': token_start,
+                    'end': token_end
+                })
             
             restructured_sentences.append({
                 'text': sent_text,

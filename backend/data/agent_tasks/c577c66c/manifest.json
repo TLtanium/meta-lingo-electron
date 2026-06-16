@@ -1,0 +1,12 @@
+{
+  "task_id": "c577c66c",
+  "task_type": "dmip",
+  "corpus_id": "beae90a9-ec5d-49c1-bed3-6fca0bde13b6",
+  "total_texts": 5,
+  "session_hint": "Jassy DMIP 2021-2025",
+  "created_at": "2026-06-06T22:34:16.041846",
+  "texts": {},
+  "failed_count": 0,
+  "skipped_count": 0,
+  "has_plan": true
+}

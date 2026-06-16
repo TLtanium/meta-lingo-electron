@@ -32,19 +32,19 @@
                     "name": "sharpen",
                     "type": "label",
                     "definition": "锐化 (sharpen): 使分类边界更加清晰、明确。",
-                    "color": "#c079bc"
+                    "color": "#ccc88e"
                   },
                   {
                     "id": "de679b6e-fe9e-4c42-898c-c8e3cf7902d8",
                     "name": "soften",
                     "type": "label",
                     "definition": "软化 (soften): 使分类边界变得模糊、不确定。",
-                    "color": "#d78b82"
+                    "color": "#8ebecc"
                   }
                 ]
               }
             ],
-            "color": "#c98179"
+            "color": "#978ecc"
           },
           {
             "id": "04d5a1c3-e37a-43e8-a9fb-22e705a6941a",
@@ -75,19 +75,19 @@
                             "name": "degree",
                             "type": "label",
                             "definition": "程度 (degree): 调整质量的强度程度。",
-                            "color": "#9185b5"
+                            "color": "#cc9d8e"
                           },
                           {
                             "id": "b58bee1a-6d01-4a26-af74-0a8c46a248ad",
                             "name": "vigour",
                             "type": "label",
                             "definition": "活力 (vigour): 调整过程的强度或活跃程度。",
-                            "color": "#947fc0"
+                            "color": "#8eccaf"
                           }
                         ]
                       }
                     ],
-                    "color": "#80d17d"
+                    "color": "#95cc8e"
                   },
                   {
                     "id": "930a00a0-7169-43f9-89cb-bf7d7c8d0245",
@@ -130,19 +130,19 @@
                                             "name": "distrib-space",
                                             "type": "label",
                                             "definition": "空间分布 (distrib-space): 空间范围内的分布。",
-                                            "color": "#aa9fab"
+                                            "color": "#cc8eae"
                                           },
                                           {
                                             "id": "2b6a49b5-9e30-42a7-9a03-417d50277e6d",
                                             "name": "distrib-time",
                                             "type": "label",
                                             "definition": "时间分布 (distrib-time): 时间范围内的分布。",
-                                            "color": "#cdc2c7"
+                                            "color": "#9ccc8e"
                                           }
                                         ]
                                       }
                                     ],
-                                    "color": "#94d88c"
+                                    "color": "#ccc88e"
                                   },
                                   {
                                     "id": "895325d1-ea2c-4ad0-a3c4-30ae18a25caf",
@@ -161,43 +161,43 @@
                                             "name": "space",
                                             "type": "label",
                                             "definition": "空间 (space): 空间上的接近程度。",
-                                            "color": "#bbb7c4"
+                                            "color": "#cc8e9b"
                                           },
                                           {
                                             "id": "6fc57424-bf86-4a9f-93f6-2d96cc44ddcb",
                                             "name": "time",
                                             "type": "label",
                                             "definition": "时间 (time): 时间上的接近程度。",
-                                            "color": "#79c37e"
+                                            "color": "#8ecc93"
                                           }
                                         ]
                                       }
                                     ],
-                                    "color": "#9e80b7"
+                                    "color": "#8ebecc"
                                   }
                                 ]
                               }
                             ],
-                            "color": "#a1c8ba"
+                            "color": "#cc8e90"
                           },
                           {
                             "id": "aac2e0e0-6f22-4735-af0e-0ff09ccab770",
                             "name": "mass",
                             "type": "label",
                             "definition": "质量 (mass): 涉及不可数量的量化。",
-                            "color": "#d2dbb2"
+                            "color": "#8ecc9e"
                           },
                           {
                             "id": "b637bed4-cb63-436a-9321-17a9a9a42229",
                             "name": "number",
                             "type": "label",
                             "definition": "数量 (number): 涉及可数量的量化。",
-                            "color": "#9280c1"
+                            "color": "#b08ecc"
                           }
                         ]
                       }
                     ],
-                    "color": "#ac93b2"
+                    "color": "#998ecc"
                   }
                 ]
               },
@@ -212,14 +212,14 @@
                     "name": "infusing",
                     "type": "label",
                     "definition": "融入 (infusing): 级差意义融入词汇本身。",
-                    "color": "#c7a9b2"
+                    "color": "#bbcc8e"
                   },
                   {
                     "id": "724556dd-f6c7-4a65-8aa8-117f73767223",
                     "name": "isolating",
                     "type": "label",
                     "definition": "独立 (isolating): 级差意义通过独立词汇表达。",
-                    "color": "#8db9d5"
+                    "color": "#8ea9cc"
                   }
                 ]
               },
@@ -234,19 +234,19 @@
                     "name": "downscale",
                     "type": "label",
                     "definition": "降级 (downscale): 降低强度或程度。",
-                    "color": "#d6a58a"
+                    "color": "#b7cc8e"
                   },
                   {
                     "id": "070a7916-ccb8-417f-96fb-b2f359c7d8e8",
                     "name": "upscale",
                     "type": "label",
                     "definition": "升级 (upscale): 提高强度或程度。",
-                    "color": "#9685a9"
+                    "color": "#8ea5cc"
                   }
                 ]
               }
             ],
-            "color": "#c18f91"
+            "color": "#ccaa8e"
           }
         ]
       }

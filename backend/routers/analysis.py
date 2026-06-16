@@ -426,6 +426,7 @@ class SynonymRequest(BaseModel):
     min_freq: int = 1
     max_results: int = 100
     lowercase: bool = True
+    search_target: str = "lemma"  # "lemma" or "word"
 
 
 class SynsetInfo(BaseModel):
@@ -493,7 +494,8 @@ async def synonym_analysis(request: SynonymRequest):
         search_query=request.search_query,
         min_freq=request.min_freq,
         max_results=request.max_results,
-        lowercase=request.lowercase
+        lowercase=request.lowercase,
+        search_target=request.search_target
     )
     
     return SynonymResponse(**result)
@@ -661,6 +663,7 @@ class MetaphorAnalysisRequest(BaseModel):
     max_freq: Optional[int] = None
     lowercase: bool = True
     result_mode: str = "word"  # "word" or "source"
+    include_implicit: bool = False  # When True, antecedent words of implicit metaphors get ref-count increments
 
 
 class MetaphorResult(BaseModel):
@@ -669,9 +672,13 @@ class MetaphorResult(BaseModel):
     lemma: str
     pos: str
     is_metaphor: bool
+    is_direct_metaphor: bool = False
+    is_mflag: bool = False
+    is_implicit_metaphor: bool = False
     frequency: int
     percentage: float
     source: str  # 'filter', 'rule', 'clause', 'finetuned'
+    implicit_ref_count: int = 0  # How many times this word was back-referenced by implicit metaphors
 
 
 class MetaphorSourceResult(BaseModel):
@@ -696,6 +703,10 @@ class MetaphorStatistics(BaseModel):
     metaphor_tokens: int
     literal_tokens: int
     metaphor_rate: float
+    indirect_metaphor_tokens: int = 0
+    direct_metaphor_tokens: int = 0
+    mflag_tokens: int = 0
+    implicit_metaphor_tokens: int = 0
     source_distribution: Dict[str, int]
     # Optional statistics grouped by POS (ALL/IN/DT/RB/RP/OTHER)
     pos_group_stats: Optional[Dict[str, MetaphorPOSGroupStats]] = None
@@ -730,7 +741,7 @@ class MetaphorWordsResponse(BaseModel):
 async def metaphor_analysis(request: MetaphorAnalysisRequest):
     """
     Analyze metaphors from corpus MIPVU annotations
-    
+
     Supports:
     - Two result modes: by word or by source
     - POS filtering (keep/filter mode)
@@ -738,14 +749,15 @@ async def metaphor_analysis(request: MetaphorAnalysisRequest):
     - Search filtering (starts/ends/contains/regex/wordlist)
     - Exclusion words
     - Case normalization
+    - include_implicit: when True, antecedent words of implicit metaphors get ref-count increments
     """
     from services.metaphor_analysis_service import get_metaphor_analysis_service
-    
+
     service = get_metaphor_analysis_service()
-    
+
     pos_filter = request.pos_filter.model_dump() if request.pos_filter else None
     search_config = request.search_config.model_dump() if request.search_config else None
-    
+
     result = service.analyze(
         corpus_id=request.corpus_id,
         text_ids=request.text_ids,
@@ -754,9 +766,10 @@ async def metaphor_analysis(request: MetaphorAnalysisRequest):
         min_freq=request.min_freq,
         max_freq=request.max_freq,
         lowercase=request.lowercase,
-        result_mode=request.result_mode
+        result_mode=request.result_mode,
+        include_implicit=request.include_implicit
     )
-    
+
     return MetaphorAnalysisResponse(**result)
 
 
@@ -784,8 +797,10 @@ async def get_metaphor_sources():
     return [
         {"id": "filter", "name_en": "Word Filter", "name_zh": "词表过滤"},
         {"id": "rule", "name_en": "Rule Filter", "name_zh": "规则过滤"},
-        {"id": "clause", "name_en": "Clause Model", "name_zh": "从句模型"},
-        {"id": "finetuned", "name_en": "Clause Model (Function Words)", "name_zh": "从句模型（功能词）"},
+        {"id": "clause", "name_en": "Indirect Metaphor Model (Content Words)", "name_zh": "间接隐喻模型（实义词）"},
+        {"id": "finetuned", "name_en": "Indirect Metaphor Model (Function Words)", "name_zh": "间接隐喻模型（功能词）"},
+        {"id": "direct", "name_en": "Direct Metaphor Model", "name_zh": "直接隐喻模型"},
+        {"id": "mflag", "name_en": "MFlag (Metaphor Marker)", "name_zh": "MFlag（隐喻信号词）"},
     ]
 
 

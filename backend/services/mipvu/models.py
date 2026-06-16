@@ -1,26 +1,49 @@
 """
 Metaphor Detection Model Loader
 
-Loads and manages the DeBERTa model for metaphor detection.
+Loads and manages the DeBERTa models for metaphor detection.
 
-Model:
-- metalingo-deberta-metaphor
+Models:
+- metalingo-indirect-metaphor
   - Binary token classifier (two-stage knowledge distillation, VUAMC NAACL FLP 2018 split)
   - id2label: {0: non_metaphor, 1: metaphor}
   - Judgment threshold: P(LABEL_1) >= 0.5
   - Max sequence length: 192
-  - F1: 81.24 / Precision: 83.82 / Recall: 78.81
+  - F1: 82.29 / Precision: 85.26 / Recall: 79.53 / Accuracy: 96.04
+- metalingo-direct-metaphor
+  - Token classifier for direct metaphor detection (mFlag + mrw_lit)
+  - id2label: O, mFlag, mrw_lit (exact labels read from model config at runtime)
+  - Applied only on sentences that contain mflag candidate words
 """
 
 import os
 import sys
 import logging
-from typing import Dict, List, Optional, Tuple, Any
+from typing import Dict, List, Optional, Tuple, Any, Set
 
 import torch
 from transformers import AutoTokenizer, AutoModelForTokenClassification
 
 logger = logging.getLogger(__name__)
+
+# Label strings that map to the mflag annotation
+_MFLAG_LABEL_KEYWORDS = ('mflag', 'flag', 'marker')
+# Label strings that map to the direct annotation
+_DIRECT_LABEL_KEYWORDS = ('direct', 'mrw', 'metaphor')
+
+
+def _classify_direct_label(label: str) -> str:
+    """Map a model output label to 'mflag', 'direct', or 'O'."""
+    label_lower = label.lower()
+    if label_lower in ('o', 'none', 'non_metaphor', 'non-metaphor', '0', 'no_metaphor'):
+        return 'O'
+    for kw in _MFLAG_LABEL_KEYWORDS:
+        if kw in label_lower:
+            return 'mflag'
+    for kw in _DIRECT_LABEL_KEYWORDS:
+        if kw in label_lower:
+            return 'direct'
+    return 'O'
 
 
 class MetaphorModelLoader:
@@ -28,13 +51,13 @@ class MetaphorModelLoader:
     Loads and manages the metaphor detection model used in the MIPVU pipeline.
 
     Model:
-    - metalingo-deberta-metaphor
+    - metalingo-indirect-metaphor
       - Binary token classifier (two-stage KD, VUAMC NAACL FLP 2018 split)
       - id 0: non_metaphor (O)
       - id 1: metaphor (METAPHOR)
       - Uses threshold: P(id=1) >= 0.5 -> metaphor
       - Trained with max_length=192
-      - F1: 81.24 / Precision: 83.82 / Recall: 78.81
+      - F1: 82.29 / Precision: 85.26 / Recall: 79.53 / Accuracy: 96.04
 
     For backward compatibility, older models with 3 labels
     (O/B-METAPHOR/I-METAPHOR) are still supported at inference time.
@@ -48,19 +71,24 @@ class MetaphorModelLoader:
     def __init__(
         self,
         finetuned_model_path: Optional[str] = None,
+        direct_model_path: Optional[str] = None,
         device: Optional[str] = None
     ):
         """
         Initialize the model loader.
 
         Args:
-            finetuned_model_path: Path to clause-level metaphor model.
-                                  If None, uses default location.
+            finetuned_model_path: Path to indirect metaphor model (metalingo-indirect-metaphor).
+            direct_model_path: Path to direct metaphor model (metalingo-direct-metaphor).
             device: Device to use ('cuda', 'mps', 'cpu'). If None, auto-detect.
         """
         self.clause_model = None
         self.clause_tokenizer = None
+        self.direct_model = None
+        self.direct_tokenizer = None
+        self._direct_label_map: Dict[int, str] = {}  # id → 'O'|'mflag'|'direct'
         self._loaded = False
+        self._direct_loaded = False
 
         # Determine device
         if device is None:
@@ -75,10 +103,16 @@ class MetaphorModelLoader:
 
         logger.info(f"Using device: {self.device}")
 
-        # Find clause model path
+        # Find clause model path (indirect metaphor)
         self.clause_model_path = self._find_model_path(
             finetuned_model_path,
-            'metalingo-deberta-metaphor'
+            'metalingo-indirect-metaphor'
+        )
+
+        # Find direct metaphor model path
+        self.direct_model_path = self._find_model_path(
+            direct_model_path,
+            'metalingo-direct-metaphor'
         )
 
     def _find_model_path(self, provided_path: Optional[str], model_name: str) -> Optional[str]:
@@ -128,15 +162,14 @@ class MetaphorModelLoader:
 
     def load_models(self) -> bool:
         """
-        Load the clause model into memory.
+        Load the clause (indirect) metaphor model into memory.
 
         Returns:
-            True if model loaded successfully, False otherwise
+            True if indirect model loaded successfully, False otherwise
         """
         try:
             if self.clause_model_path:
                 logger.info(f"Loading clause-level metaphor model from {self.clause_model_path}")
-                # Ensure tokenizer config is compatible with the installed transformers version.
                 self._patch_tokenizer_config(self.clause_model_path)
                 self.clause_tokenizer = AutoTokenizer.from_pretrained(self.clause_model_path)
                 self.clause_model = AutoModelForTokenClassification.from_pretrained(self.clause_model_path)
@@ -149,11 +182,46 @@ class MetaphorModelLoader:
             self._loaded = self.clause_model is not None
             if not self._loaded:
                 logger.error("Clause model failed to load - _loaded is False")
+
+            # Also attempt to load direct metaphor model (non-fatal if absent)
+            self._load_direct_model()
+
             return self._loaded
 
         except Exception as e:
             logger.error(f"Failed to load clause model: {e}", exc_info=True)
             return False
+
+    def _load_direct_model(self) -> None:
+        """Load the direct metaphor model. Non-fatal — direct annotation is optional."""
+        if not self.direct_model_path:
+            logger.info("Direct metaphor model not found — direct annotation disabled")
+            return
+        try:
+            logger.info(f"Loading direct metaphor model from {self.direct_model_path}")
+            self._patch_tokenizer_config(self.direct_model_path)
+            self.direct_tokenizer = AutoTokenizer.from_pretrained(self.direct_model_path)
+            self.direct_model = AutoModelForTokenClassification.from_pretrained(self.direct_model_path)
+            self.direct_model.to(self.device)
+            self.direct_model.eval()
+
+            # Build label map: model id → 'O'|'mflag'|'direct'
+            id2label = self.direct_model.config.id2label
+            self._direct_label_map = {
+                int(k): _classify_direct_label(v)
+                for k, v in id2label.items()
+            }
+            logger.info(f"Direct metaphor model loaded. Label map: {self._direct_label_map}")
+            self._direct_loaded = True
+        except Exception as e:
+            logger.warning(f"Failed to load direct metaphor model: {e}")
+            self.direct_model = None
+            self.direct_tokenizer = None
+            self._direct_loaded = False
+
+    def is_direct_model_loaded(self) -> bool:
+        """Return True if the direct metaphor model is ready."""
+        return self._direct_loaded
 
     def is_loaded(self) -> bool:
         """Check if model is loaded."""
@@ -171,7 +239,7 @@ class MetaphorModelLoader:
         aligns with its clause-level training approach.
 
         Two supported label configurations:
-        - **Binary model** (metalingo-deberta-metaphor):
+        - **Binary model** (metalingo-indirect-metaphor):
           - id 0: non_metaphor (O)
           - id 1: metaphor (METAPHOR)
           - Uses threshold: P(id=1) >= threshold -> metaphor
@@ -236,6 +304,51 @@ class MetaphorModelLoader:
             logger.error(f"Clause model prediction failed: {e}")
             return [(0, 0.0)] * len(words)
 
+    def predict_direct(self, words: List[str]) -> List[Tuple[str, float]]:
+        """
+        Run the direct metaphor model on a sentence and return per-token labels
+        with confidence scores.
+
+        Returns:
+            List of (label, confidence) tuples, one per word.
+            label ∈ {'O', 'mflag', 'direct'}; confidence ∈ [0, 1].
+            Returns all-('O', 0.0) if model is not loaded.
+        """
+        if not self.direct_model or not words:
+            return [('O', 0.0)] * len(words)
+
+        try:
+            enc = self.direct_tokenizer(
+                words,
+                is_split_into_words=True,
+                return_tensors='pt',
+                truncation=True,
+                max_length=self.CLAUSE_MAX_LENGTH,
+            )
+            word_ids = enc.word_ids(batch_index=0)
+            enc_dev = {k: v.to(self.device) for k, v in enc.items()}
+
+            with torch.no_grad():
+                logits = self.direct_model(**enc_dev).logits
+                probs = torch.softmax(logits, dim=-1)  # (1, seq_len, num_labels)
+                pred_ids = probs.argmax(dim=-1)[0]     # (seq_len,)
+
+            # Map first subword prediction (label + confidence) to word
+            word_pred: Dict[int, Tuple[str, float]] = {}
+            for idx, wid in enumerate(word_ids):
+                if wid is None or wid in word_pred:
+                    continue
+                label_id = int(pred_ids[idx].item())
+                label = self._direct_label_map.get(label_id, 'O')
+                confidence = float(probs[0, idx, label_id].item())
+                word_pred[wid] = (label, confidence)
+
+            return [word_pred.get(wi, ('O', 0.0)) for wi in range(len(words))]
+
+        except Exception as e:
+            logger.error(f"Direct metaphor model prediction failed: {e}")
+            return [('O', 0.0)] * len(words)
+
     # ---------------------------------------------------------------------------
     # Backward-compatibility aliases
     # ---------------------------------------------------------------------------
@@ -245,10 +358,15 @@ class MetaphorModelLoader:
         return self.predict_clause(words, threshold)
 
     def unload_models(self) -> None:
-        """Unload model from memory."""
+        """Unload all models from memory."""
         self.clause_model = None
         self.clause_tokenizer = None
         self._loaded = False
+
+        self.direct_model = None
+        self.direct_tokenizer = None
+        self._direct_loaded = False
+        self._direct_label_map = {}
 
         import gc
         gc.collect()
@@ -256,4 +374,4 @@ class MetaphorModelLoader:
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
 
-        logger.info("Clause model unloaded")
+        logger.info("Metaphor models unloaded")

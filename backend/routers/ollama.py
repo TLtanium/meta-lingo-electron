@@ -42,7 +42,7 @@ async def connect_ollama(request: OllamaConnectRequest):
     url = request.url.rstrip('/')
     
     try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
+        async with httpx.AsyncClient(timeout=10.0, trust_env=False) as client:
             # Try to connect to Ollama API
             api_url = f"{url}/api/tags"
             logger.info(f"Calling Ollama API: {api_url}")
@@ -85,7 +85,7 @@ async def connect_ollama(request: OllamaConnectRequest):
 async def list_ollama_models(url: str):
     """List available Ollama models"""
     try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
+        async with httpx.AsyncClient(timeout=10.0, trust_env=False) as client:
             response = await client.get(f"{url}/api/tags")
             
             if response.status_code == 200:
@@ -102,7 +102,7 @@ async def list_ollama_models(url: str):
 async def chat_with_ollama(request: OllamaChatRequest):
     """Send chat message to Ollama"""
     try:
-        async with httpx.AsyncClient(timeout=60.0) as client:
+        async with httpx.AsyncClient(timeout=60.0, trust_env=False) as client:
             response = await client.post(
                 f"{request.url}/api/generate",
                 json={

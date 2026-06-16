@@ -1,0 +1,48 @@
+{
+  "task_id": "d133d14f",
+  "task_type": "dmip",
+  "corpus_id": "beae90a9-ec5d-49c1-bed3-6fca0bde13b6",
+  "total_texts": 5,
+  "session_hint": "Jassy DMIP 2021-2025",
+  "created_at": "2026-06-06T22:40:48.568782",
+  "texts": {
+    "aed7a81c-6717-4510-9efc-26d1b505b6eb": {
+      "label": "2021-Shareholder-Letter",
+      "file": "aed7a81c-6717-4510-9efc-26d1b505b6eb.md",
+      "saved_at": "2026-06-06T22:41:46.551251",
+      "status": "success",
+      "error_message": null
+    },
+    "1beada96-5f64-415b-84b5-70337217f075": {
+      "label": "2022-Shareholder-Letter",
+      "file": "1beada96-5f64-415b-84b5-70337217f075.md",
+      "saved_at": "2026-06-06T22:42:22.056163",
+      "status": "success",
+      "error_message": null
+    },
+    "23a9790d-3ff6-4000-891d-8cb9e3bf4807": {
+      "label": "2023-Shareholder-Letter",
+      "file": "23a9790d-3ff6-4000-891d-8cb9e3bf4807.md",
+      "saved_at": "2026-06-06T22:43:02.122632",
+      "status": "success",
+      "error_message": null
+    },
+    "82dbff0b-8b5e-473b-b768-786456ee2644": {
+      "label": "2024-Shareholder-Letter",
+      "file": "82dbff0b-8b5e-473b-b768-786456ee2644.md",
+      "saved_at": "2026-06-06T22:43:44.524763",
+      "status": "success",
+      "error_message": null
+    },
+    "7605c0f5-20bc-4209-b581-b53fdaa865a9": {
+      "label": "2025-Shareholder-Letter",
+      "file": "7605c0f5-20bc-4209-b581-b53fdaa865a9.md",
+      "saved_at": "2026-06-06T22:44:34.239663",
+      "status": "success",
+      "error_message": null
+    }
+  },
+  "failed_count": 0,
+  "skipped_count": 0,
+  "has_plan": true
+}

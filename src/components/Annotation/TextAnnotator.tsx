@@ -1,19 +1,19 @@
 /**
  * TextAnnotator Component
  * 文本划词标注组件 - 分句显示，标签块精确对齐
- * 
- * 功能：
- * - 分句显示（每句不换行）
- * - 标签块在划词正下方，边界精确对齐
- * - 大标签在上层（靠近文本），小标签在下层
- * - 禁止交叉标注，只允许完全包含或不重叠
- * - 整体容器滚动（非每句单独滚动）
+ *
+ * Performance: SentenceRow is React.memo'd with content-aware comparison so
+ * that adding an annotation only re-renders the affected sentence and its
+ * annotation blocks, not the whole list.
  */
 
-import { useCallback, useRef, useState, useMemo, useEffect, forwardRef, useImperativeHandle } from 'react'
-import { Box, Typography, Paper, Alert, useTheme } from '@mui/material'
+import React, { useCallback, useRef, useState, useMemo, useEffect, forwardRef, useImperativeHandle } from 'react'
+import { Box, Typography, Paper, Alert, Tooltip, useTheme } from '@mui/material'
+import LinkIcon from '@mui/icons-material/Link'
+import LinkOffIcon from '@mui/icons-material/LinkOff'
 import { useTranslation } from 'react-i18next'
-import type { Annotation, SelectedLabel } from '../../types'
+import type { Annotation, AnnotationRelation, SelectedLabel } from '../../types'
+import RelationArrows from './RelationArrows'
 
 // SpaCy 句子接口
 interface SpacySentence {
@@ -40,6 +40,12 @@ interface TextAnnotatorProps {
   searchHighlights?: SearchHighlight[]
   // 选中标注 ID（来自表格行点击，用于定位高亮）
   selectedAnnotationId?: string | null
+  /** Called when annotation block is clicked in normal mode — navigates to table row */
+  onAnnotationClick?: (id: string) => void
+  // ── 标注关联 ──────────────────────────────────────────────────────────────
+  relations?: AnnotationRelation[]
+  onRelationAdd?: (relation: AnnotationRelation) => void
+  onRelationRemove?: (relationId: string) => void
 }
 
 // 导出 ref 类型
@@ -57,372 +63,183 @@ const COMMON_ABBREVIATIONS = new Set([
   'jan', 'feb', 'mar', 'apr', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'
 ])
 
-/**
- * 查找所有受保护的字符范围（包含不应作为句子边界的句点）
- * 与后端 find_protected_spans 保持一致
- */
 function findProtectedSpans(text: string): Array<[number, number]> {
   const spans: Array<[number, number]> = []
-  
-  // 邮箱模式: user@domain.com
   const emailPattern = /[\w.-]+@[\w.-]+\.\w+/g
   let match
   while ((match = emailPattern.exec(text)) !== null) {
     spans.push([match.index, match.index + match[0].length])
   }
-  
-  // URL 模式: http://... https://... www....
   const urlPattern = /https?:\/\/\S+|www\.\S+/g
   while ((match = urlPattern.exec(text)) !== null) {
     spans.push([match.index, match.index + match[0].length])
   }
-  
-  // 小数模式: 3.14, 100.5
   const decimalPattern = /\d+\.\d+/g
   while ((match = decimalPattern.exec(text)) !== null) {
     spans.push([match.index, match.index + match[0].length])
   }
-  
-  // 人名缩写模式: J. P. Morgan
   const nameAbbrevPattern = /\b[A-Z]\.\s*(?=[A-Z]|\s|$)/g
   while ((match = nameAbbrevPattern.exec(text)) !== null) {
     spans.push([match.index, match.index + match[0].length])
   }
-  
-  // 有序列表模式: 1. 2. 3. 在行首
   const orderedListPattern = /(?:^|\n)\s*\d+\.\s/g
   while ((match = orderedListPattern.exec(text)) !== null) {
     spans.push([match.index, match.index + match[0].length])
   }
-  
   return spans
 }
 
-/**
- * 检查位置是否在受保护的范围内
- */
 function isPositionProtected(pos: number, protectedSpans: Array<[number, number]>): boolean {
   for (const [start, end] of protectedSpans) {
-    if (start <= pos && pos < end) {
-      return true
-    }
+    if (start <= pos && pos < end) return true
   }
   return false
 }
 
-/**
- * 检查句点是否为缩写的一部分
- */
 function isAbbreviationPeriod(text: string, periodPos: number): boolean {
   if (periodPos <= 0) return false
-  
-  // 找到句点前的词
   let wordStart = periodPos - 1
-  while (wordStart > 0 && /[a-zA-Z]/.test(text[wordStart - 1])) {
-    wordStart--
-  }
-  
+  while (wordStart > 0 && /[a-zA-Z]/.test(text[wordStart - 1])) wordStart--
   const wordBefore = text.substring(wordStart, periodPos).toLowerCase()
-  
-  // 检查是否为常见缩写
-  if (COMMON_ABBREVIATIONS.has(wordBefore)) {
-    return true
-  }
-  
-  // 单个大写字母后跟句点（如首字母缩写: J. K. Rowling）
-  if (wordBefore.length === 1 && /[A-Z]/.test(text[wordStart])) {
-    return true
-  }
-  
+  if (COMMON_ABBREVIATIONS.has(wordBefore)) return true
+  if (wordBefore.length === 1 && /[A-Z]/.test(text[wordStart])) return true
   return false
 }
 
-/**
- * 检查位置是否在受保护的范围内（邮箱、URL、小数点、人名缩写、有序列表等）
- * 兼容旧版 API
- */
-function isProtectedPeriod(text: string, periodPos: number): boolean {
-  const protectedSpans = findProtectedSpans(text)
-  
-  if (isPositionProtected(periodPos, protectedSpans)) {
-    return true
-  }
-  
-  if (isAbbreviationPeriod(text, periodPos)) {
-    return true
-  }
-  
-  return false
-}
 
-/**
- * 查找原生换行位置（排除空行）
- * 与后端 find_native_newlines 保持一致
- * 
- * 原生换行是指单个换行符后跟有实际内容的位置。
- * 空行（连续换行或仅包含空白的行）不计入。
- */
 function findNativeNewlines(text: string): Set<number> {
   const boundaries = new Set<number>()
-  
   let i = 0
   while (i < text.length) {
     if (text[i] === '\n') {
-      // 检查这是否是空行的一部分（连续换行或换行后只有空白然后又换行）
       let j = i + 1
-      
-      // 跳过空格/制表符（不跳过换行符）
-      while (j < text.length && (text[j] === ' ' || text[j] === '\t')) {
-        j++
-      }
-      
-      // 如果遇到另一个换行符或文本结束，这是一个空行 - 跳过
-      if (j >= text.length || text[j] === '\n') {
-        i++
-        continue
-      }
-      
-      // 这是一个原生换行，后面有实际内容
-      // 边界位于实际内容的开始位置（空白之后）
+      while (j < text.length && (text[j] === ' ' || text[j] === '\t')) j++
+      if (j >= text.length || text[j] === '\n') { i++; continue }
       boundaries.add(j)
     }
-    
     i++
   }
-  
   return boundaries
 }
 
-/**
- * 查找 Markdown 结构边界位置
- * 与后端 find_markdown_boundaries 保持一致
- */
 function findMarkdownBoundaries(text: string): Set<number> {
   const boundaries = new Set<number>()
-  
-  // 空行边界（段落分隔符）
   const emptyLinePattern = /\n\s*\n/g
   let match
   while ((match = emptyLinePattern.exec(text)) !== null) {
     let endPos = match.index + match[0].length
-    // 跳过空白找到实际内容开始位置
-    while (endPos < text.length && (text[endPos] === ' ' || text[endPos] === '\t')) {
-      endPos++
-    }
-    if (endPos < text.length) {
-      boundaries.add(endPos)
-    }
+    while (endPos < text.length && (text[endPos] === ' ' || text[endPos] === '\t')) endPos++
+    if (endPos < text.length) boundaries.add(endPos)
   }
-  
-  // Markdown 标题边界: # ## ### 等
   const headingPattern = /(?:^|\n)(#{1,6})\s+/g
   while ((match = headingPattern.exec(text)) !== null) {
     let start = match.index
-    if (start > 0 && text[start] === '\n') {
-      start += 1
-    }
+    if (start > 0 && text[start] === '\n') start += 1
     boundaries.add(start)
   }
-  
-  // 无序列表边界: - * +
   const unorderedListPattern = /(?:^|\n)\s*[-*+]\s+/g
   while ((match = unorderedListPattern.exec(text)) !== null) {
     let start = match.index
-    if (start > 0 && text[start] === '\n') {
-      start += 1
-    }
-    // 跳过空白到列表标记
-    while (start < text.length && (text[start] === ' ' || text[start] === '\t')) {
-      start++
-    }
+    if (start > 0 && text[start] === '\n') start += 1
+    while (start < text.length && (text[start] === ' ' || text[start] === '\t')) start++
     boundaries.add(start)
   }
-  
-  // 有序列表边界: 1. 2. 3.
   const orderedListPattern = /(?:^|\n)\s*\d+\.\s/g
   while ((match = orderedListPattern.exec(text)) !== null) {
     let start = match.index
-    if (start > 0 && text[start] === '\n') {
-      start += 1
-    }
-    // 跳过空白到数字
-    while (start < text.length && (text[start] === ' ' || text[start] === '\t')) {
-      start++
-    }
+    if (start > 0 && text[start] === '\n') start += 1
+    while (start < text.length && (text[start] === ' ' || text[start] === '\t')) start++
     boundaries.add(start)
   }
-  
-  // 引用块边界: >
   const blockquotePattern = /(?:^|\n)\s*>\s*/g
   while ((match = blockquotePattern.exec(text)) !== null) {
     let start = match.index
-    if (start > 0 && text[start] === '\n') {
-      start += 1
-    }
-    // 跳过空白到 >
-    while (start < text.length && (text[start] === ' ' || text[start] === '\t')) {
-      start++
-    }
+    if (start > 0 && text[start] === '\n') start += 1
+    while (start < text.length && (text[start] === ' ' || text[start] === '\t')) start++
     boundaries.add(start)
   }
-  
   return boundaries
 }
 
-/**
- * 正则分句（fallback），支持原生换行和 Markdown 结构分段
- * 与后端 post_process_sentences 保持一致
- * 
- * 处理流程：
- * 1. 首先按原生换行分段（优先级最高，排除空行）
- * 2. 然后按 Markdown 结构分段（标题、列表、引用、空行）
- * 3. 在每个段落内部按句子结束标点分句
- * 4. 保护特殊情况：邮箱、URL、小数、人名缩写、常见缩写
- * 
- * 优先级：原生换行 > Markdown边界 > 句子标点
- */
 function splitSentences(text: string): SpacySentence[] {
   const sentences: SpacySentence[] = []
   const protectedSpans = findProtectedSpans(text)
   const nativeNewlines = findNativeNewlines(text)
   const markdownBoundaries = findMarkdownBoundaries(text)
-  
-  // 第一步：收集所有分段点（原生换行 + Markdown 边界，原生换行优先）
+
   const allBoundaries = new Set<number>()
-  nativeNewlines.forEach(boundary => allBoundaries.add(boundary))
-  markdownBoundaries.forEach(boundary => allBoundaries.add(boundary))
-  
+  nativeNewlines.forEach(b => allBoundaries.add(b))
+  markdownBoundaries.forEach(b => allBoundaries.add(b))
+
   const splitPoints: number[] = [0]
-  allBoundaries.forEach(boundary => {
-    if (boundary > 0 && boundary < text.length) {
-      splitPoints.push(boundary)
-    }
-  })
+  allBoundaries.forEach(b => { if (b > 0 && b < text.length) splitPoints.push(b) })
   splitPoints.push(text.length)
   splitPoints.sort((a, b) => a - b)
-  
-  // 去重
   const uniquePoints = [...new Set(splitPoints)]
-  
-  // 第二步：按分段点切分，然后在每个段落内按句子标点分割
+
   for (let i = 0; i < uniquePoints.length - 1; i++) {
     const segStart = uniquePoints[i]
     const segEnd = uniquePoints[i + 1]
     const segment = text.substring(segStart, segEnd)
-    
     if (!segment.trim()) continue
-    
-    // 在段落内找句子结束标点
+
     const sentenceEndings: number[] = []
     const sentencePattern = /[.!?]/g
     let sentMatch
-    
     while ((sentMatch = sentencePattern.exec(segment)) !== null) {
       const posInText = segStart + sentMatch.index
-      
-      // 检查是否为受保护的位置
-      if (isPositionProtected(posInText, protectedSpans)) {
-        continue
-      }
-      if (isAbbreviationPeriod(text, posInText)) {
-        continue
-      }
-      
-      // 检查句点后的字符
+      if (isPositionProtected(posInText, protectedSpans)) continue
+      if (isAbbreviationPeriod(text, posInText)) continue
       const afterPos = sentMatch.index + 1
       if (afterPos < segment.length) {
-        // 跳过空白
         let nextCharPos = afterPos
-        while (nextCharPos < segment.length && /\s/.test(segment[nextCharPos])) {
-          nextCharPos++
-        }
-        // 如果下一个字符是小写字母，不是句子边界
-        if (nextCharPos < segment.length && /[a-z]/.test(segment[nextCharPos])) {
-          continue
-        }
+        while (nextCharPos < segment.length && /\s/.test(segment[nextCharPos])) nextCharPos++
+        if (nextCharPos < segment.length && /[a-z]/.test(segment[nextCharPos])) continue
       }
-      
-      sentenceEndings.push(sentMatch.index + 1) // 包含标点
+      sentenceEndings.push(sentMatch.index + 1)
     }
-    
-    // 如果没有找到句子边界，整个段落作为一个句子
+
     if (sentenceEndings.length === 0) {
-      // 调整起始位置（跳过开头空白）
       let actualStart = segStart
-      while (actualStart < segEnd && /\s/.test(text[actualStart])) {
-        actualStart++
-      }
-      // 调整结束位置（跳过结尾空白）
+      while (actualStart < segEnd && /\s/.test(text[actualStart])) actualStart++
       let actualEnd = segEnd
-      while (actualEnd > actualStart && /\s/.test(text[actualEnd - 1])) {
-        actualEnd--
-      }
-      
-      if (actualStart < actualEnd) {
-        sentences.push({
-          text: text.substring(actualStart, actualEnd),
-          start: actualStart,
-          end: actualEnd
-        })
-      }
+      while (actualEnd > actualStart && /\s/.test(text[actualEnd - 1])) actualEnd--
+      if (actualStart < actualEnd) sentences.push({ text: text.substring(actualStart, actualEnd), start: actualStart, end: actualEnd })
     } else {
-      // 按句子边界分割
       sentenceEndings.unshift(0)
       sentenceEndings.push(segment.length)
-      
       for (let j = 0; j < sentenceEndings.length - 1; j++) {
         const subStartRel = sentenceEndings[j]
         let subEndRel = sentenceEndings[j + 1]
-        
-        // 跳过开头空白
         let actualStartRel = subStartRel
-        while (actualStartRel < subEndRel && /\s/.test(segment[actualStartRel])) {
-          actualStartRel++
-        }
-        
-        // 跳过结尾空白
+        while (actualStartRel < subEndRel && /\s/.test(segment[actualStartRel])) actualStartRel++
         let actualEndRel = subEndRel
-        while (actualEndRel > actualStartRel && /\s/.test(segment[actualEndRel - 1])) {
-          actualEndRel--
-        }
-        
+        while (actualEndRel > actualStartRel && /\s/.test(segment[actualEndRel - 1])) actualEndRel--
         if (actualStartRel < actualEndRel) {
-          const actualStart = segStart + actualStartRel
-          const actualEnd = segStart + actualEndRel
           sentences.push({
-            text: text.substring(actualStart, actualEnd),
-            start: actualStart,
-            end: actualEnd
+            text: text.substring(segStart + actualStartRel, segStart + actualEndRel),
+            start: segStart + actualStartRel,
+            end: segStart + actualEndRel
           })
         }
       }
     }
   }
-  
-  // 如果没有分出任何句子，返回整个文本作为一个句子
+
   if (sentences.length === 0) {
     const trimmedText = text.trim()
     if (trimmedText) {
       const startOffset = text.indexOf(trimmedText)
-      sentences.push({
-        text: trimmedText,
-        start: startOffset,
-        end: startOffset + trimmedText.length
-      })
+      sentences.push({ text: trimmedText, start: startOffset, end: startOffset + trimmedText.length })
     } else {
       sentences.push({ text: text, start: 0, end: text.length })
     }
   }
-  
-  // 排序并去重
+
   sentences.sort((a, b) => a.start - b.start)
-  
   return sentences
 }
 
-/**
- * 计算标注层级 - 大标签分配到第0层（最靠近文本）
- */
 function calculateAnnotationLayers(sentAnnotations: Annotation[], sentStart: number): Map<string, number> {
   const sorted = [...sentAnnotations].sort((a, b) => {
     const aLen = a.endPosition - a.startPosition
@@ -437,21 +254,13 @@ function calculateAnnotationLayers(sentAnnotations: Annotation[], sentStart: num
   for (const ann of sorted) {
     const annStart = ann.startPosition - sentStart
     const annEnd = ann.endPosition - sentStart
-
     let layerIdx = 0
     while (true) {
-      if (!layers[layerIdx]) {
-        layers[layerIdx] = []
-      }
-
+      if (!layers[layerIdx]) layers[layerIdx] = []
       let hasConflict = false
       for (const interval of layers[layerIdx]) {
-        if (!(annEnd <= interval.start || annStart >= interval.end)) {
-          hasConflict = true
-          break
-        }
+        if (!(annEnd <= interval.start || annStart >= interval.end)) { hasConflict = true; break }
       }
-
       if (!hasConflict) {
         layers[layerIdx].push({ start: annStart, end: annEnd })
         annotationLayers.set(ann.id, layerIdx)
@@ -464,35 +273,220 @@ function calculateAnnotationLayers(sentAnnotations: Annotation[], sentStart: num
   return annotationLayers
 }
 
-/**
- * 检查交叉重叠
- */
-function checkPartialOverlap(
-  newStart: number,
-  newEnd: number,
-  existingStart: number,
-  existingEnd: number
-): boolean {
-  if (newEnd <= existingStart || newStart >= existingEnd) {
-    return false
-  }
-  if ((newStart >= existingStart && newEnd <= existingEnd) ||
-      (existingStart >= newStart && existingEnd <= newEnd)) {
-    return false
-  }
+function checkPartialOverlap(newStart: number, newEnd: number, existingStart: number, existingEnd: number): boolean {
+  if (newEnd <= existingStart || newStart >= existingEnd) return false
+  if ((newStart >= existingStart && newEnd <= existingEnd) || (existingStart >= newStart && existingEnd <= newEnd)) return false
   return true
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SentenceRow — memoized to skip re-render when this sentence is unaffected
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface SentenceRowProps {
+  sent: SpacySentence
+  sentIdx: number
+  sentAnnotations: Annotation[]
+  sentPositions: Map<string, { left: number; width: number }>
+  selectedAnnotationId: string | null
+  linkMode: boolean
+  linkSourceId: string | null
+  readOnly: boolean
+  selectedLabel: SelectedLabel | null
+  onMouseUp: (sentIdx: number, sentStart: number) => void
+  onBlockClick: (ann: Annotation, e: React.MouseEvent) => void
+  renderHighlightedText: (sentText: string, sentStart: number) => React.ReactNode
+  t: (key: string, defaultValue: string, params?: Record<string, unknown>) => string
+}
+
+const SentenceRow = React.memo<SentenceRowProps>(({
+  sent, sentIdx, sentAnnotations, sentPositions,
+  selectedAnnotationId, linkMode, linkSourceId,
+  readOnly, selectedLabel,
+  onMouseUp, onBlockClick, renderHighlightedText, t
+}) => {
+  // Compute layers only when this sentence's annotations change
+  const layers = useMemo(
+    () => calculateAnnotationLayers(sentAnnotations, sent.start),
+    [sentAnnotations, sent.start]
+  )
+  const maxLayers = useMemo(() => {
+    if (layers.size === 0) return 0
+    return Math.max(...Array.from(layers.values())) + 1
+  }, [layers])
+
+  const userAnnotations = sentAnnotations.filter(a => !a.id.startsWith('spacy-'))
+  const barColor = userAnnotations.length > 0 ? (userAnnotations[0]?.color || '#2196F3') : '#bdbdbd'
+  const totalHeight = 28 + maxLayers * 26
+
+  return (
+    <Box
+      data-sentence-idx={sentIdx}
+      className="sentence-row"
+      sx={{ display: 'flex', flexDirection: 'row', alignItems: 'stretch', mb: 0.5, minHeight: 28 }}
+    >
+      {/* 左侧色条 */}
+      <Box
+        className="color-bar"
+        sx={{
+          width: 4, minHeight: totalHeight, borderRadius: '2px',
+          mr: 1, flexShrink: 0, bgcolor: barColor, alignSelf: 'stretch'
+        }}
+      />
+
+      {/* 句子内容 */}
+      <Box className="sentence-content" sx={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0 }}>
+        {/* 句子文本 - 不换行 */}
+        <Box
+          className="sentence-text"
+          onMouseUp={() => onMouseUp(sentIdx, sent.start)}
+          sx={{
+            whiteSpace: 'nowrap',
+            py: 0.5,
+            lineHeight: 1.6,
+            position: 'relative',
+            fontSize: '14px',
+            fontFamily: '"Segoe UI", "Microsoft YaHei", Arial, sans-serif',
+            userSelect: readOnly ? 'none' : 'text',
+            cursor: selectedLabel ? 'text' : 'default',
+            '&::selection': {
+              backgroundColor: selectedLabel ? selectedLabel.color : '#bbdefb',
+              color: 'white'
+            }
+          }}
+        >
+          {renderHighlightedText(sent.text, sent.start)}
+        </Box>
+
+        {/* 标注层 */}
+        {maxLayers > 0 && (
+          <Box
+            className="annotation-layers"
+            sx={{ display: 'flex', flexDirection: 'column', position: 'relative', minHeight: 0 }}
+          >
+            {Array.from({ length: maxLayers }).map((_, layerIdx) => {
+              const layerAnnotations = sentAnnotations.filter(ann => layers.get(ann.id) === layerIdx)
+              if (layerAnnotations.length === 0) return null
+
+              return (
+                <Box key={layerIdx} className="annotation-layer" sx={{ position: 'relative', height: 24, mt: '2px' }}>
+                  {layerAnnotations.map(ann => {
+                    const pos        = sentPositions.get(ann.id)
+                    const isSpacy    = ann.id.startsWith('spacy-')
+                    const isSelected = !isSpacy && ann.id === selectedAnnotationId
+                    const isLinkSrc  = linkMode && ann.id === linkSourceId
+                    const isLinkable = linkMode && !isSpacy && !isLinkSrc
+
+                    const boxShadow = isLinkSrc
+                      ? `0 0 0 2px white, 0 0 0 4px #FF9800, 0 3px 10px rgba(255,152,0,0.6)`
+                      : isSelected
+                        ? `0 0 0 2px white, 0 0 0 4px ${ann.color || '#2196F3'}, 0 3px 8px rgba(0,0,0,0.3)`
+                        : '0 1px 2px rgba(0,0,0,0.15)'
+
+                    return (
+                      <Box
+                        key={ann.id}
+                        className="annotation-block"
+                        data-annotation-id={ann.id}
+                        onClick={(e) => onBlockClick(ann, e)}
+                        sx={{
+                          position: 'absolute',
+                          height: 22,
+                          borderRadius: '3px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: '11px',
+                          color: 'white',
+                          fontWeight: 500,
+                          cursor: 'pointer',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                          px: '2px',
+                          boxShadow,
+                          bgcolor: ann.color || '#2196F3',
+                          opacity: isSpacy ? 0.6 : (pos ? 1 : 0),
+                          left: pos?.left ?? 0,
+                          width: pos?.width ?? 'auto',
+                          zIndex: isLinkSrc ? 20 : (isSelected ? 15 : undefined),
+                          outline: isLinkable ? '2px dashed rgba(255,152,0,0.6)' : undefined,
+                          outlineOffset: isLinkable ? '2px' : undefined,
+                          transform: isLinkSrc
+                            ? 'translateY(-3px) scaleY(1.12)'
+                            : isSelected ? 'translateY(-2px) scaleY(1.1)' : undefined,
+                          transition: 'transform 0.15s, box-shadow 0.15s, opacity 0.2s, outline 0.15s',
+                          '&:hover': readOnly || isSpacy ? {} : {
+                            transform: isLinkSrc
+                              ? 'translateY(-3px) scaleY(1.12)'
+                              : isSelected ? 'translateY(-2px) scaleY(1.1)' : 'translateY(-1px)',
+                            boxShadow: isLinkSrc
+                              ? `0 0 0 2px white, 0 0 0 4px #FF9800, 0 4px 14px rgba(255,152,0,0.7)`
+                              : isSelected
+                                ? `0 0 0 2px white, 0 0 0 4px ${ann.color || '#2196F3'}, 0 4px 10px rgba(0,0,0,0.35)`
+                                : '0 2px 4px rgba(0,0,0,0.2)',
+                            zIndex: 10
+                          }
+                        }}
+                        title={isSpacy
+                          ? `${ann.label}: ${ann.text} (SpaCy)`
+                          : linkMode
+                            ? (isLinkSrc
+                                ? t('annotation.linkSrcSelected', '已选为起源，点击另一标注建立关联')
+                                : t('annotation.linkClickToLink', '点击与「{{label}}」建立关联', { label: ann.label }))
+                            : t('annotation.clickToLocate', '点击定位到标注表格 | {{label}}: {{text}}', { label: ann.label, text: ann.text })
+                        }
+                      >
+                        {ann.label}
+                      </Box>
+                    )
+                  })}
+                </Box>
+              )
+            })}
+          </Box>
+        )}
+      </Box>
+    </Box>
+  )
+}, (prev, next) => {
+  // Only re-render when this sentence's data actually changed.
+  // sentAnnotations: compare by annotation IDs (content-aware, not reference)
+  if (prev.sentAnnotations.length !== next.sentAnnotations.length) return false
+  for (let i = 0; i < prev.sentAnnotations.length; i++) {
+    if (prev.sentAnnotations[i].id !== next.sentAnnotations[i].id) return false
+  }
+  // sentPositions: reference equality is enough because we use functional Map updates
+  if (prev.sentPositions !== next.sentPositions) return false
+  if (prev.selectedAnnotationId !== next.selectedAnnotationId) return false
+  if (prev.linkMode !== next.linkMode) return false
+  if (prev.linkSourceId !== next.linkSourceId) return false
+  if (prev.readOnly !== next.readOnly) return false
+  if (prev.selectedLabel !== next.selectedLabel) return false
+  // Callbacks (onMouseUp, onBlockClick, renderHighlightedText, t) are stable useCallbacks — skip
+  return true
+})
+
+SentenceRow.displayName = 'SentenceRow'
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TextAnnotator
+// ─────────────────────────────────────────────────────────────────────────────
 
 const TextAnnotator = forwardRef<TextAnnotatorRef, TextAnnotatorProps>(({
   text,
   annotations,
   selectedLabel,
   onAnnotationAdd,
-  onAnnotationRemove,
+  onAnnotationRemove: _onAnnotationRemove,
   readOnly = false,
   sentences: externalSentences,
   searchHighlights = [],
-  selectedAnnotationId = null
+  selectedAnnotationId = null,
+  onAnnotationClick,
+  relations = [],
+  onRelationAdd,
+  onRelationRemove,
 }, ref) => {
   const { t } = useTranslation()
   const theme = useTheme()
@@ -500,6 +494,53 @@ const TextAnnotator = forwardRef<TextAnnotatorRef, TextAnnotatorProps>(({
   const containerRef = useRef<HTMLDivElement>(null)
   const [warning, setWarning] = useState<string | null>(null)
   const [blockPositions, setBlockPositions] = useState<Map<string, Map<string, { left: number; width: number }>>>(new Map())
+
+  // Stable refs so handlers don't need these as deps and don't recreate on each render
+  const annotationsRef = useRef(annotations)
+  annotationsRef.current = annotations
+  const relationsRef = useRef(relations)
+  relationsRef.current = relations
+
+  // ── Link mode ──────────────────────────────────────────────────────────────
+  const [linkMode, setLinkMode]         = useState(false)
+  const [linkSourceId, setLinkSourceId] = useState<string | null>(null)
+
+  const canLink = !readOnly && !!onRelationAdd
+
+  const toggleLinkMode = useCallback(() => {
+    setLinkMode(prev => {
+      if (prev) setLinkSourceId(null)
+      return !prev
+    })
+  }, [])
+
+  // Stable: does not depend on `relations` — uses relationsRef
+  const handleBlockClick = useCallback((ann: Annotation, e: React.MouseEvent) => {
+    if (readOnly) return
+    if (ann.id.startsWith('spacy-')) return
+    e.stopPropagation()
+
+    if (linkMode && canLink) {
+      if (!linkSourceId) {
+        setLinkSourceId(ann.id)
+      } else if (linkSourceId === ann.id) {
+        setLinkSourceId(null)
+      } else {
+        const existingRel = relationsRef.current.find(
+          r => r.sourceId === linkSourceId && r.targetId === ann.id
+        )
+        if (existingRel && onRelationRemove) {
+          onRelationRemove(existingRel.id)
+        } else {
+          onRelationAdd!({ id: crypto.randomUUID(), sourceId: linkSourceId, targetId: ann.id })
+        }
+        setLinkSourceId(null)
+      }
+      return
+    }
+
+    onAnnotationClick?.(ann.id)
+  }, [readOnly, linkMode, canLink, linkSourceId, onRelationAdd, onRelationRemove, onAnnotationClick])
 
   // 暴露 ref 方法
   useImperativeHandle(ref, () => ({
@@ -511,7 +552,6 @@ const TextAnnotator = forwardRef<TextAnnotatorRef, TextAnnotatorProps>(({
       if (!annEl) return
       const sentenceRow = annEl.closest('[data-sentence-idx]') as HTMLElement
       const target = sentenceRow || annEl
-      // 在转录文本容器内将目标句子滚动到可视区域中间（避免目标被挤到框外）
       const containerRect = container.getBoundingClientRect()
       const elRect = target.getBoundingClientRect()
       const elTop = elRect.top - containerRect.top + container.scrollTop
@@ -523,48 +563,25 @@ const TextAnnotator = forwardRef<TextAnnotatorRef, TextAnnotatorProps>(({
   // 获取句子（SpaCy 或 fallback）- 动态重新对齐索引
   const sentences = useMemo(() => {
     if (externalSentences && externalSentences.length > 0) {
-      // Re-align sentence indices to match the actual text prop
-      // SpaCy data may have been generated with \r\n (2 chars) but text prop uses \n (1 char)
-      // We need to find each sentence's actual position in the normalized text
       const realignedSentences: SpacySentence[] = []
       let searchStart = 0
-      
       for (const sent of externalSentences) {
-        // Normalize sentence text (remove \r)
         const normalizedSentText = sent.text.replace(/\r\n/g, '\n').replace(/\r/g, '\n')
-        
-        // Find this sentence in the text starting from last position
         const foundIdx = text.indexOf(normalizedSentText, searchStart)
-        
         if (foundIdx !== -1) {
-          realignedSentences.push({
-            text: normalizedSentText,
-            start: foundIdx,
-            end: foundIdx + normalizedSentText.length
-          })
+          realignedSentences.push({ text: normalizedSentText, start: foundIdx, end: foundIdx + normalizedSentText.length })
           searchStart = foundIdx + normalizedSentText.length
         } else {
-          // Fallback: try fuzzy match by finding the start of the sentence
           const firstWords = normalizedSentText.substring(0, Math.min(30, normalizedSentText.length))
           const fuzzyIdx = text.indexOf(firstWords, searchStart)
           if (fuzzyIdx !== -1) {
-            realignedSentences.push({
-              text: normalizedSentText,
-              start: fuzzyIdx,
-              end: fuzzyIdx + normalizedSentText.length
-            })
+            realignedSentences.push({ text: normalizedSentText, start: fuzzyIdx, end: fuzzyIdx + normalizedSentText.length })
             searchStart = fuzzyIdx + normalizedSentText.length
           } else {
-            // Last resort: use original indices but with text normalization
-            realignedSentences.push({
-              text: normalizedSentText,
-              start: sent.start,
-              end: sent.start + normalizedSentText.length
-            })
+            realignedSentences.push({ text: normalizedSentText, start: sent.start, end: sent.start + normalizedSentText.length })
           }
         }
       }
-      
       return realignedSentences
     }
     return splitSentences(text)
@@ -573,99 +590,127 @@ const TextAnnotator = forwardRef<TextAnnotatorRef, TextAnnotatorProps>(({
   // 按句子分组标注
   const annotationsBySentence = useMemo(() => {
     const result = new Map<number, Annotation[]>()
-    
     sentences.forEach((sent, sentIdx) => {
-      const sentAnnotations = annotations.filter(ann => {
-        return ann.startPosition >= sent.start && ann.endPosition <= sent.end
-      })
-      result.set(sentIdx, sentAnnotations)
+      result.set(sentIdx, annotations.filter(ann =>
+        ann.startPosition >= sent.start && ann.endPosition <= sent.end
+      ))
     })
-    
     return result
   }, [sentences, annotations])
 
-  // 计算每句的标注层级
-  const layersBySentence = useMemo(() => {
-    const result = new Map<number, Map<string, number>>()
-    
-    sentences.forEach((sent, sentIdx) => {
-      const sentAnnotations = annotationsBySentence.get(sentIdx) || []
-      result.set(sentIdx, calculateAnnotationLayers(sentAnnotations, sent.start))
-    })
-    
-    return result
-  }, [sentences, annotationsBySentence])
+  // ── Targeted DOM measurement — only remeasure sentences whose annotations changed ──
 
-  // 获取每句最大层数
-  const maxLayersBySentence = useMemo(() => {
-    const result = new Map<number, number>()
-    
-    layersBySentence.forEach((layers, sentIdx) => {
-      const maxLayer = Math.max(...Array.from(layers.values()), -1)
-      result.set(sentIdx, maxLayer + 1)
-    })
-    
-    return result
-  }, [layersBySentence])
+  // Track previous per-sentence annotation arrays to detect which sentences changed
+  const prevAnnotationsBySentenceRef = useRef<Map<number, Annotation[]>>(new Map())
 
-  // 渲染后测量标签块位置
   useEffect(() => {
-    if (!containerRef.current || annotations.length === 0) {
-      setBlockPositions(new Map())
+    if (!containerRef.current) {
+      if (annotations.length === 0) setBlockPositions(new Map())
       return
     }
 
-    const measurePositions = () => {
+    // Find which sentence indices actually changed
+    const changedIndices: number[] = []
+    sentences.forEach((_, sentIdx) => {
+      const curr = annotationsBySentence.get(sentIdx)
+      const prev = prevAnnotationsBySentenceRef.current.get(sentIdx)
+      // Compare by length + IDs; if different, remeasure
+      if (!curr || !prev || curr.length !== prev.length ||
+          curr.some((a, i) => a.id !== prev[i].id)) {
+        changedIndices.push(sentIdx)
+      }
+    })
+    // Also detect sentences that disappeared (e.g. sentence count changed)
+    prevAnnotationsBySentenceRef.current.forEach((_, sentIdx) => {
+      if (!annotationsBySentence.has(sentIdx) && !changedIndices.includes(sentIdx)) {
+        changedIndices.push(sentIdx)
+      }
+    })
+    prevAnnotationsBySentenceRef.current = annotationsBySentence
+
+    if (changedIndices.length === 0) return
+
+    const measureChanged = () => {
+      setBlockPositions(prev => {
+        const next = new Map(prev) // shallow copy — reuses Map objects for unchanged sentences
+
+        for (const sentIdx of changedIndices) {
+          const sent = sentences[sentIdx]
+          if (!sent) { next.delete(sentIdx.toString()); continue }
+
+          const sentTextEl = containerRef.current?.querySelector(
+            `[data-sentence-idx="${sentIdx}"] .sentence-text`
+          )
+          if (!sentTextEl) { next.delete(sentIdx.toString()); continue }
+
+          const textNode = sentTextEl.firstChild
+          if (!textNode || textNode.nodeType !== Node.TEXT_NODE) { next.delete(sentIdx.toString()); continue }
+
+          const sentAnnotations = annotationsBySentence.get(sentIdx) || []
+          const sentPositions = new Map<string, { left: number; width: number }>()
+          const range = document.createRange()
+
+          for (const ann of sentAnnotations) {
+            try {
+              const relStart = ann.startPosition - sent.start
+              const relEnd   = ann.endPosition   - sent.start
+              range.setStart(textNode, Math.min(relStart, sent.text.length))
+              range.setEnd(textNode,   Math.min(relEnd,   sent.text.length))
+              const rect          = range.getBoundingClientRect()
+              const containerRect = sentTextEl.getBoundingClientRect()
+              sentPositions.set(ann.id, { left: rect.left - containerRect.left, width: rect.width })
+            } catch {
+              const relStart = ann.startPosition - sent.start
+              sentPositions.set(ann.id, { left: relStart * 8, width: (ann.endPosition - ann.startPosition) * 8 })
+            }
+          }
+
+          next.set(sentIdx.toString(), sentPositions)
+        }
+
+        return next
+      })
+    }
+
+    requestAnimationFrame(measureChanged)
+  }, [annotationsBySentence, sentences, annotations.length])
+
+  // Full remeasure on window resize (infrequent — no need for targeted approach here)
+  useEffect(() => {
+    const measureAll = () => {
+      if (!containerRef.current) return
       const positions = new Map<string, Map<string, { left: number; width: number }>>()
-      
       sentences.forEach((sent, sentIdx) => {
         const sentTextEl = containerRef.current?.querySelector(`[data-sentence-idx="${sentIdx}"] .sentence-text`)
         if (!sentTextEl) return
-        
         const textNode = sentTextEl.firstChild
         if (!textNode || textNode.nodeType !== Node.TEXT_NODE) return
-        
         const sentAnnotations = annotationsBySentence.get(sentIdx) || []
         const sentPositions = new Map<string, { left: number; width: number }>()
         const range = document.createRange()
-        
         for (const ann of sentAnnotations) {
           try {
             const relStart = ann.startPosition - sent.start
-            const relEnd = ann.endPosition - sent.start
-            
+            const relEnd   = ann.endPosition   - sent.start
             range.setStart(textNode, Math.min(relStart, sent.text.length))
-            range.setEnd(textNode, Math.min(relEnd, sent.text.length))
-            const rect = range.getBoundingClientRect()
+            range.setEnd(textNode,   Math.min(relEnd,   sent.text.length))
+            const rect          = range.getBoundingClientRect()
             const containerRect = sentTextEl.getBoundingClientRect()
-            
-            sentPositions.set(ann.id, {
-              left: rect.left - containerRect.left,
-              width: rect.width
-            })
-          } catch (e) {
-            const charWidth = 8
+            sentPositions.set(ann.id, { left: rect.left - containerRect.left, width: rect.width })
+          } catch {
             const relStart = ann.startPosition - sent.start
-            sentPositions.set(ann.id, {
-              left: relStart * charWidth,
-              width: (ann.endPosition - ann.startPosition) * charWidth
-            })
+            sentPositions.set(ann.id, { left: relStart * 8, width: (ann.endPosition - ann.startPosition) * 8 })
           }
         }
-        
         positions.set(sentIdx.toString(), sentPositions)
       })
-      
       setBlockPositions(positions)
     }
+    window.addEventListener('resize', measureAll)
+    return () => window.removeEventListener('resize', measureAll)
+  }, [sentences, annotationsBySentence])
 
-    requestAnimationFrame(measurePositions)
-    
-    window.addEventListener('resize', measurePositions)
-    return () => window.removeEventListener('resize', measurePositions)
-  }, [annotations, sentences, annotationsBySentence])
-
-  // 处理文本选择
+  // Stable: does not depend on `annotations` — uses annotationsRef
   const handleMouseUp = useCallback((sentIdx: number, sentStart: number) => {
     if (readOnly || !selectedLabel) return
 
@@ -677,18 +722,16 @@ const TextAnnotator = forwardRef<TextAnnotatorRef, TextAnnotatorProps>(({
 
     const range = selection.getRangeAt(0)
     const sentTextEl = containerRef.current?.querySelector(`[data-sentence-idx="${sentIdx}"] .sentence-text`)
-    
-    if (!sentTextEl || !sentTextEl.contains(range.commonAncestorContainer)) {
-      return
-    }
+
+    if (!sentTextEl || !sentTextEl.contains(range.commonAncestorContainer)) return
 
     const preCaretRange = document.createRange()
     preCaretRange.selectNodeContents(sentTextEl)
     preCaretRange.setEnd(range.startContainer, range.startOffset)
-    
+
     const relativeStart = preCaretRange.toString().length
     const start = sentStart + relativeStart
-    const end = start + selectedText.length
+    const end   = start + selectedText.length
 
     const actualText = text.slice(start, end)
     if (actualText !== selectedText) {
@@ -702,7 +745,7 @@ const TextAnnotator = forwardRef<TextAnnotatorRef, TextAnnotatorProps>(({
       }
     }
 
-    for (const ann of annotations) {
+    for (const ann of annotationsRef.current) {
       if (checkPartialOverlap(start, end, ann.startPosition, ann.endPosition)) {
         setWarning(t('annotation.crossOverlap', '标注范围与已有标注交叉，请重新选择'))
         setTimeout(() => setWarning(null), 3000)
@@ -722,89 +765,43 @@ const TextAnnotator = forwardRef<TextAnnotatorRef, TextAnnotatorProps>(({
 
     selection.removeAllRanges()
     setWarning(null)
-  }, [text, annotations, selectedLabel, onAnnotationAdd, readOnly, t])
+  }, [text, selectedLabel, onAnnotationAdd, readOnly, t])
 
-  // 点击标签块删除
-  const handleBlockClick = useCallback((ann: Annotation, e: React.MouseEvent) => {
-    if (readOnly) return
-    if (ann.id.startsWith('spacy-')) return
-    
-    e.stopPropagation()
-    
-    if (confirm(t('annotation.confirmDelete', `确定删除标注 "${ann.label}: ${ann.text}"？`))) {
-      onAnnotationRemove(ann.id)
-    }
-  }, [onAnnotationRemove, readOnly, t])
-  
   // 渲染带搜索高亮的文本
-  const renderHighlightedText = useCallback((sentText: string, sentStart: number) => {
-    if (searchHighlights.length === 0) {
-      return sentText
-    }
-    
-    // 筛选在当前句子范围内的高亮
+  const renderHighlightedText = useCallback((sentText: string, sentStart: number): React.ReactNode => {
+    if (searchHighlights.length === 0) return sentText
+
     const sentEnd = sentStart + sentText.length
-    const relevantHighlights = searchHighlights.filter(
-      h => h.start >= sentStart && h.end <= sentEnd
-    ).map(h => ({
-      start: h.start - sentStart,
-      end: h.end - sentStart
-    })).sort((a, b) => a.start - b.start)
-    
-    if (relevantHighlights.length === 0) {
-      return sentText
-    }
-    
-    // 分割文本并添加高亮
+    const relevantHighlights = searchHighlights
+      .filter(h => h.start >= sentStart && h.end <= sentEnd)
+      .map(h => ({ start: h.start - sentStart, end: h.end - sentStart }))
+      .sort((a, b) => a.start - b.start)
+
+    if (relevantHighlights.length === 0) return sentText
+
     const parts: React.ReactNode[] = []
     let lastEnd = 0
-    
     for (let i = 0; i < relevantHighlights.length; i++) {
       const { start, end } = relevantHighlights[i]
-      
-      // 添加高亮前的普通文本
-      if (start > lastEnd) {
-        parts.push(sentText.substring(lastEnd, start))
-      }
-      
-      // 添加高亮文本
+      if (start > lastEnd) parts.push(sentText.substring(lastEnd, start))
       parts.push(
         <Box
           key={`highlight-${sentStart}-${i}`}
           component="span"
-          sx={{
-            backgroundColor: '#ffeb3b',
-            color: '#000',
-            borderRadius: '2px',
-            px: '1px'
-          }}
+          sx={{ backgroundColor: '#ffeb3b', color: '#000', borderRadius: '2px', px: '1px' }}
         >
           {sentText.substring(start, end)}
         </Box>
       )
-      
       lastEnd = end
     }
-    
-    // 添加最后的普通文本
-    if (lastEnd < sentText.length) {
-      parts.push(sentText.substring(lastEnd))
-    }
-    
+    if (lastEnd < sentText.length) parts.push(sentText.substring(lastEnd))
     return parts
   }, [searchHighlights])
 
   if (!text) {
     return (
-      <Paper
-        sx={{
-          p: 3,
-          minHeight: 200,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center'
-        }}
-      >
+      <Paper sx={{ p: 3, minHeight: 200, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <Typography color="text.secondary">
           {t('annotation.noText', '暂无文本')}
         </Typography>
@@ -821,14 +818,40 @@ const TextAnnotator = forwardRef<TextAnnotatorRef, TextAnnotatorProps>(({
         </Alert>
       )}
 
-      {/* 操作提示 */}
+      {/* 操作提示 + 关联模式按钮 */}
       {!readOnly && (
-        <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
-          {selectedLabel 
-            ? t('annotation.selectToAnnotate', `选中文本以使用 "${selectedLabel.node.name}" 标注。点击标签块可删除。`)
-            : t('annotation.selectLabelFirst', '请先从框架树选择一个标签')
-          }
-        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+          <Typography variant="caption" color={linkMode ? 'warning.main' : 'text.secondary'}>
+            {linkMode
+              ? (linkSourceId
+                  ? t('annotation.linkSelectTarget', '已选起源标注，点击目标标注建立关联；再次点击起源取消')
+                  : t('annotation.linkSelectSource', '关联模式：点击起源标注'))
+              : (selectedLabel
+                  ? t('annotation.selectToAnnotate', `选中文本以使用 "${selectedLabel.node.name}" 标注。点击标签块可删除。`)
+                  : t('annotation.selectLabelFirst', '请先从框架树选择一个标签'))
+            }
+          </Typography>
+          {canLink && (
+            <Tooltip title={linkMode ? t('annotation.linkModeOff', '退出关联模式') : t('annotation.linkModeOn', '标签关联模式')}>
+              <Box
+                component="span"
+                onClick={toggleLinkMode}
+                sx={{
+                  display: 'inline-flex', alignItems: 'center', cursor: 'pointer',
+                  p: '2px 6px', borderRadius: 1, border: '1px solid',
+                  borderColor: linkMode ? 'warning.main' : 'divider',
+                  bgcolor: linkMode ? 'warning.main' : 'transparent',
+                  color: linkMode ? 'warning.contrastText' : 'text.secondary',
+                  transition: 'all 0.15s', '&:hover': { opacity: 0.8 },
+                  gap: '3px', fontSize: 12,
+                }}
+              >
+                {linkMode ? <LinkOffIcon sx={{ fontSize: 14 }} /> : <LinkIcon sx={{ fontSize: 14 }} />}
+                {linkMode ? t('annotation.exitLink', '退出') : t('annotation.linkMode', '关联')}
+              </Box>
+            </Tooltip>
+          )}
+        </Box>
       )}
 
       {/* 文本容器 - 整体滚动 */}
@@ -837,184 +860,59 @@ const TextAnnotator = forwardRef<TextAnnotatorRef, TextAnnotatorProps>(({
         className="text-annotation-container"
         sx={{
           p: 1.5,
+          position: 'relative',
           bgcolor: isDarkMode ? 'rgba(255,255,255,0.03)' : '#fafafa',
-          border: `1px solid ${isDarkMode ? 'rgba(255,255,255,0.1)' : '#e0e0e0'}`,
+          border: `1px solid ${isDarkMode
+            ? (linkMode ? 'rgba(255,152,0,0.5)' : 'rgba(255,255,255,0.1)')
+            : (linkMode ? 'rgba(255,152,0,0.5)' : '#e0e0e0')}`,
           borderRadius: 1,
           maxHeight: 500,
-          overflow: 'auto'  // 整体滚动
+          overflow: 'auto',
+          cursor: linkMode ? 'crosshair' : undefined,
         }}
       >
-        {sentences.map((sent, sentIdx) => {
-          const sentAnnotations = annotationsBySentence.get(sentIdx) || []
-          const layers = layersBySentence.get(sentIdx) || new Map()
-          const maxLayers = maxLayersBySentence.get(sentIdx) || 0
-          const sentPositions = blockPositions.get(sentIdx.toString()) || new Map()
-          
-          // 句子色条颜色
-          const userAnnotations = sentAnnotations.filter(a => !a.id.startsWith('spacy-'))
-          const hasAnnotation = userAnnotations.length > 0
-          const barColor = hasAnnotation ? (userAnnotations[0]?.color || '#2196F3') : '#bdbdbd'
+        {sentences.map((sent, sentIdx) => (
+          <SentenceRow
+            key={sentIdx}
+            sent={sent}
+            sentIdx={sentIdx}
+            sentAnnotations={annotationsBySentence.get(sentIdx) || []}
+            sentPositions={blockPositions.get(sentIdx.toString()) || new Map()}
+            selectedAnnotationId={selectedAnnotationId}
+            linkMode={linkMode}
+            linkSourceId={linkSourceId}
+            readOnly={readOnly}
+            selectedLabel={selectedLabel}
+            onMouseUp={handleMouseUp}
+            onBlockClick={handleBlockClick}
+            renderHighlightedText={renderHighlightedText}
+            t={t as SentenceRowProps['t']}
+          />
+        ))}
 
-          // 计算总高度
-          const totalHeight = 28 + (maxLayers * 26)
-
-          return (
-            <Box
-              key={sentIdx}
-              data-sentence-idx={sentIdx}
-              className="sentence-row"
-              sx={{
-                display: 'flex',
-                flexDirection: 'row',
-                alignItems: 'stretch',
-                mb: 0.5,
-                minHeight: 28
-              }}
-            >
-              {/* 左侧色条 */}
-              <Box
-                className="color-bar"
-                sx={{
-                  width: 4,
-                  minHeight: totalHeight,
-                  borderRadius: '2px',
-                  mr: 1,
-                  flexShrink: 0,
-                  bgcolor: barColor,
-                  alignSelf: 'stretch'
-                }}
-              />
-              
-              {/* 句子内容 */}
-              <Box
-                className="sentence-content"
-                sx={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  flex: 1,
-                  minWidth: 0
-                }}
-              >
-                {/* 句子文本 - 不换行 */}
-                <Box
-                  className="sentence-text"
-                  onMouseUp={() => handleMouseUp(sentIdx, sent.start)}
-                  sx={{
-                    whiteSpace: 'nowrap',
-                    py: 0.5,
-                    lineHeight: 1.6,
-                    position: 'relative',
-                    fontSize: '14px',
-                    fontFamily: '"Segoe UI", "Microsoft YaHei", Arial, sans-serif',
-                    userSelect: readOnly ? 'none' : 'text',
-                    cursor: selectedLabel ? 'text' : 'default',
-                    '&::selection': {
-                      backgroundColor: selectedLabel ? selectedLabel.color : '#bbdefb',
-                      color: 'white'
-                    }
-                  }}
-                >
-                  {renderHighlightedText(sent.text, sent.start)}
-                </Box>
-
-                {/* 标注层 */}
-                {maxLayers > 0 && (
-                  <Box
-                    className="annotation-layers"
-                    sx={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      position: 'relative',
-                      minHeight: 0
-                    }}
-                  >
-                    {Array.from({ length: maxLayers }).map((_, layerIdx) => {
-                      const layerAnnotations = sentAnnotations.filter(
-                        ann => layers.get(ann.id) === layerIdx
-                      )
-                      
-                      if (layerAnnotations.length === 0) return null
-
-                      return (
-                        <Box
-                          key={layerIdx}
-                          className="annotation-layer"
-                          sx={{
-                            position: 'relative',
-                            height: 24,
-                            mt: '2px'
-                          }}
-                        >
-                          {layerAnnotations.map(ann => {
-                            const pos = sentPositions.get(ann.id)
-                            const isSpacy = ann.id.startsWith('spacy-')
-                            const isSelected = !isSpacy && ann.id === selectedAnnotationId
-
-                            return (
-                              <Box
-                                key={ann.id}
-                                className="annotation-block"
-                                data-annotation-id={ann.id}
-                                onClick={(e) => handleBlockClick(ann, e)}
-                                sx={{
-                                  position: 'absolute',
-                                  height: 22,
-                                  borderRadius: '3px',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'center',
-                                  fontSize: '11px',
-                                  color: 'white',
-                                  fontWeight: 500,
-                                  cursor: readOnly || isSpacy ? 'default' : 'pointer',
-                                  overflow: 'hidden',
-                                  textOverflow: 'ellipsis',
-                                  whiteSpace: 'nowrap',
-                                  px: '2px',
-                                  boxShadow: isSelected
-                                    ? `0 0 0 2px white, 0 0 0 4px ${ann.color || '#2196F3'}, 0 3px 8px rgba(0,0,0,0.3)`
-                                    : '0 1px 2px rgba(0,0,0,0.15)',
-                                  bgcolor: ann.color || '#2196F3',
-                                  opacity: isSpacy ? 0.6 : (pos ? 1 : 0),
-                                  left: pos?.left ?? 0,
-                                  width: pos?.width ?? 'auto',
-                                  zIndex: isSelected ? 15 : undefined,
-                                  transform: isSelected ? 'translateY(-2px) scaleY(1.1)' : undefined,
-                                  transition: 'transform 0.15s, box-shadow 0.15s, opacity 0.2s',
-                                  '&:hover': readOnly || isSpacy ? {} : {
-                                    transform: isSelected ? 'translateY(-2px) scaleY(1.1)' : 'translateY(-1px)',
-                                    boxShadow: isSelected
-                                      ? `0 0 0 2px white, 0 0 0 4px ${ann.color || '#2196F3'}, 0 4px 10px rgba(0,0,0,0.35)`
-                                      : '0 2px 4px rgba(0,0,0,0.2)',
-                                    zIndex: 10
-                                  }
-                                }}
-                                title={isSpacy
-                                  ? `${ann.label}: ${ann.text} (SpaCy)`
-                                  : `${ann.label}: ${ann.text}`
-                                }
-                              >
-                                {ann.label}
-                              </Box>
-                            )
-                          })}
-                        </Box>
-                      )
-                    })}
-                  </Box>
-                )}
-              </Box>
-            </Box>
-          )
-        })}
+        {/* SVG arrow overlay for annotation relations */}
+        {relations.length > 0 && (
+          <RelationArrows
+            relations={relations}
+            annotations={annotations}
+            containerRef={containerRef as React.RefObject<HTMLDivElement>}
+          />
+        )}
       </Paper>
 
-      {/* 标注统计 */}
-      {annotations.length > 0 && (
-        <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-          {annotations.filter(a => !a.id.startsWith('spacy-')).length} {t('annotation.annotationCount', '条标注')}，{sentences.length} {t('annotation.sentenceCount', '个句子')}
-        </Typography>
-      )}
+      {/* 标注统计 + 关联计数 */}
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mt: 1 }}>
+        {annotations.length > 0 && (
+          <Typography variant="caption" color="text.secondary">
+            {annotations.filter(a => !a.id.startsWith('spacy-')).length} {t('annotation.annotationCount', '条标注')}，{sentences.length} {t('annotation.sentenceCount', '个句子')}
+          </Typography>
+        )}
+        {relations.length > 0 && (
+          <Typography variant="caption" color="text.secondary">
+            {relations.length} {t('annotation.relationCount', '条关联')}
+          </Typography>
+        )}
+      </Box>
     </Box>
   )
 })

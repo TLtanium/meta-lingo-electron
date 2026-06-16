@@ -6,7 +6,7 @@
  * - Halliday-Theme / Berry-Theme: Auto-annotate theme and rheme
  */
 
-import type { Annotation } from '../types'
+import type { Annotation, AnnotationRelation } from '../types'
 import type { ThemeRhemeResult } from '../api'
 
 // Framework IDs that support auto-annotation
@@ -18,10 +18,22 @@ export const AUTO_ANNOTATION_FRAMEWORKS = {
 
 // Label IDs for each framework
 export const FRAMEWORK_LABELS = {
+  // Framework id stays 'MIPVU' (auto-annotation detection); display name is now
+  // 'Metaphor', and the mipvu labels live under metaphor > SYSTEM-TYPE > mipvu.
+  // Paths below are label-only breadcrumbs (tiers omitted) for display.
   MIPVU: {
     indirect: '79ee0895-6eaf-4f39-adad-d0ba5c0c068b',
     indirect_color: '#ad89aa',
-    indirect_path: 'metaphor > markers > mrw > indirect'
+    indirect_path: 'metaphor > mipvu > markers > mrw > indirect',
+    direct: '67d591b5-dcb6-4664-8742-b52e389d8ce0',
+    direct_color: '#d0d59f',
+    direct_path: 'metaphor > mipvu > markers > mrw > direct',
+    mflag: '621b899e-c406-4f46-ba21-0c6fad3445a3',
+    mflag_color: '#b3a89c',
+    mflag_path: 'metaphor > mipvu > markers > mflag',
+    implicit: '42d5860a-a427-4118-9053-a8bce286a34c',
+    implicit_color: '#8a96af',
+    implicit_path: 'metaphor > mipvu > markers > mrw > implicit'
   },
   'Halliday-Theme': {
     theme: '641ca3de-75d0-4e7e-ac4f-00aaeedbb2e2',
@@ -137,7 +149,14 @@ interface MIPVUToken {
   start: number
   end: number
   is_metaphor: boolean
+  is_direct_metaphor?: boolean
+  is_mflag?: boolean
+  is_implicit_metaphor?: boolean
   metaphor_confidence: number
+  direct_confidence?: number
+  implicit_rule?: string    // 'VPE-1' | 'VPE-2' | 'SUB-1' | ''
+  implicit_antecedent_start?: number  // char offset of antecedent MRW token
+  implicit_antecedent_end?: number
   metaphor_source: string
 }
 
@@ -158,31 +177,57 @@ interface MIPVUAnnotationData {
   }
 }
 
+/** Maps implicit_rule code to a short description for remarks. */
+function _implicitRuleDesc(rule: string | undefined): string {
+  if (rule === 'VPE-1') return 'VP ellipsis: trigger + AUX'
+  if (rule === 'VPE-2') return 'VP ellipsis: bare AUX clause'
+  if (rule === 'SUB-1') return 'pronoun substitution (single antecedent)'
+  return 'rule-based'
+}
+
 /**
- * Create MIPVU annotations from MIPVU annotation data
- * Marks all metaphor tokens with the 'indirect' label
+ * Create MIPVU annotations from MIPVU annotation data.
+ * Creates one annotation per applicable label per token:
+ * - indirect:  tokens with is_metaphor=true          (metalingo-indirect-metaphor)
+ * - direct:    tokens with is_direct_metaphor=true   (metalingo-direct-metaphor)
+ * - mflag:     tokens with is_mflag=true             (metalingo-direct-metaphor)
+ * - implicit:  tokens with is_implicit_metaphor=true (rule-based post-processing, Step 5)
+ * A token may receive multiple annotations if multiple labels apply.
+ *
+ * Returns { annotations, relations } where relations are arrow links from each
+ * implicit metaphor annotation to its antecedent indirect metaphor annotation.
  */
 export function createMipvuAnnotations(
   mipvuData: MIPVUAnnotationData,
   textContent: string
-): Annotation[] {
+): { annotations: Annotation[], relations: AnnotationRelation[] } {
   const annotations: Annotation[] = []
-  
+
   if (!mipvuData.success || !mipvuData.sentences) {
-    return annotations
+    return { annotations, relations: [] }
   }
-  
+
   const labelInfo = FRAMEWORK_LABELS.MIPVU
-  
+
+  // Map: character start offset → annotation id (for indirect metaphors only)
+  const indirectStartToId = new Map<number, string>()
+
+  // Collect implicit tokens with antecedent offsets for later relation building
+  interface ImplicitPending { annId: string; antStart: number | undefined }
+  const implicitPending: ImplicitPending[] = []
+
   for (const sentence of mipvuData.sentences) {
     for (const token of sentence.tokens) {
+      const annotatedText = textContent.substring(token.start, token.end) || token.word
+      const confPct = (token.metaphor_confidence * 100).toFixed(1)
+
+      // Indirect metaphor
       if (token.is_metaphor) {
-        // Extract the actual text from the content
-        const annotatedText = textContent.substring(token.start, token.end)
-        
-        const annotation: Annotation = {
-          id: crypto.randomUUID(),
-          text: annotatedText || token.word,
+        const annId = crypto.randomUUID()
+        indirectStartToId.set(token.start, annId)
+        annotations.push({
+          id: annId,
+          text: annotatedText,
           startPosition: token.start,
           endPosition: token.end,
           label: 'indirect',
@@ -191,15 +236,89 @@ export function createMipvuAnnotations(
           type: 'text',
           pos: token.pos,
           entity: undefined,
-          remark: `Metaphor (confidence: ${(token.metaphor_confidence * 100).toFixed(1)}%)`
-        }
-        
-        annotations.push(annotation)
+          remark: `Indirect metaphor (MRW, ind) — confidence: ${confPct}%`
+        })
+      }
+
+      // Direct metaphor MRW
+      if (token.is_direct_metaphor) {
+        const dConf = token.direct_confidence != null
+          ? ` — confidence: ${(token.direct_confidence * 100).toFixed(1)}%`
+          : ''
+        annotations.push({
+          id: crypto.randomUUID(),
+          text: annotatedText,
+          startPosition: token.start,
+          endPosition: token.end,
+          label: 'direct',
+          labelPath: labelInfo.direct_path,
+          color: labelInfo.direct_color,
+          type: 'text',
+          pos: token.pos,
+          entity: undefined,
+          remark: `Direct metaphor (MRW, lit)${dConf}`
+        })
+      }
+
+      // MFlag marker
+      if (token.is_mflag) {
+        const dConf = token.direct_confidence != null
+          ? ` — confidence: ${(token.direct_confidence * 100).toFixed(1)}%`
+          : ''
+        annotations.push({
+          id: crypto.randomUUID(),
+          text: annotatedText,
+          startPosition: token.start,
+          endPosition: token.end,
+          label: 'mflag',
+          labelPath: labelInfo.mflag_path,
+          color: labelInfo.mflag_color,
+          type: 'text',
+          pos: token.pos,
+          entity: undefined,
+          remark: `MFlag (metaphor signal marker)${dConf}`
+        })
+      }
+
+      // Implicit metaphor (MRW, impl) — rule-based Step 5
+      if (token.is_implicit_metaphor) {
+        const ruleDesc = _implicitRuleDesc(token.implicit_rule)
+        const ruleTag  = token.implicit_rule ? ` [${token.implicit_rule}]` : ''
+        const annId    = crypto.randomUUID()
+        annotations.push({
+          id: annId,
+          text: annotatedText,
+          startPosition: token.start,
+          endPosition: token.end,
+          label: 'implicit',
+          labelPath: labelInfo.implicit_path,
+          color: labelInfo.implicit_color,
+          type: 'text',
+          pos: token.pos,
+          entity: undefined,
+          remark: `Implicit metaphor (MRW, impl) — ${ruleDesc}${ruleTag}`
+        })
+        implicitPending.push({ annId, antStart: token.implicit_antecedent_start })
       }
     }
   }
-  
-  return annotations
+
+  // Build relations: implicit → antecedent indirect
+  const relations: AnnotationRelation[] = []
+  for (const { annId, antStart } of implicitPending) {
+    if (antStart == null) continue
+    const targetId = indirectStartToId.get(antStart)
+    if (!targetId) continue
+    relations.push({
+      id: crypto.randomUUID(),
+      sourceId: annId,
+      targetId,
+      label: 'refers-to',
+      color: labelInfo.implicit_color,
+    })
+  }
+
+  return { annotations, relations }
 }
 
 /**

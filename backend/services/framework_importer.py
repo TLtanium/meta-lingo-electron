@@ -6,9 +6,12 @@ Converts folder-based frameworks from corpuscortex_app to JSON format
 import json
 import uuid
 import hashlib
+import colorsys
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 from datetime import datetime
+
+_GOLDEN_ANGLE_DEG = 137.508
 
 
 class FrameworkImporter:
@@ -18,23 +21,26 @@ class FrameworkImporter:
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
     
+    def _parent_phase(self, parent_path: str) -> float:
+        h = hashlib.md5(parent_path.encode('utf-8')).hexdigest()
+        return (int(h[:4], 16) / 0xFFFF) * 360.0
+
+    def generate_color_for_sibling(self, sibling_index: int, parent_path: str) -> str:
+        """Generate a visually distinct color using golden-angle HSL distribution."""
+        hue = (self._parent_phase(parent_path) + sibling_index * _GOLDEN_ANGLE_DEG) % 360.0
+        r, g, b = colorsys.hls_to_rgb(hue / 360.0, 0.68, 0.38)
+        return f"#{int(r * 255):02x}{int(g * 255):02x}{int(b * 255):02x}"
+
     def generate_color_for_path(self, path: str) -> str:
-        """Generate a unique color based on path hash"""
+        """Legacy path-hash color (kept for backward compatibility)."""
         path_hash = hashlib.md5(path.encode('utf-8')).hexdigest()
-        
         r_raw = int(path_hash[0:2], 16)
         g_raw = int(path_hash[2:4], 16)
         b_raw = int(path_hash[4:6], 16)
-        
-        # Map to range 120-220 to avoid too dark or too light colors
-        min_val = 120
-        max_val = 220
-        range_size = max_val - min_val
-        
-        r = min_val + int((r_raw / 255) * range_size)
-        g = min_val + int((g_raw / 255) * range_size)
-        b = min_val + int((b_raw / 255) * range_size)
-        
+        min_val, max_val = 120, 220
+        r = min_val + int((r_raw / 255) * (max_val - min_val))
+        g = min_val + int((g_raw / 255) * (max_val - min_val))
+        b = min_val + int((b_raw / 255) * (max_val - min_val))
         return f"#{r:02x}{g:02x}{b:02x}"
     
     def read_definition(self, folder_path: Path) -> Optional[str]:
@@ -48,7 +54,7 @@ class FrameworkImporter:
                 print(f"Error reading definition from {txt_files[0]}: {e}")
         return None
     
-    def convert_folder_to_node(self, folder_path: Path, parent_path: str = "") -> Optional[Dict]:
+    def convert_folder_to_node(self, folder_path: Path, parent_path: str = "", sibling_index: int = 0) -> Optional[Dict]:
         """Convert a folder to a framework node"""
         if not folder_path.is_dir():
             return None
@@ -70,15 +76,21 @@ class FrameworkImporter:
             'children': []
         }
         
-        # Assign color for label nodes
+        # Assign color for label nodes using sibling-aware golden-angle distribution
         if node_type == 'label':
-            node['color'] = self.generate_color_for_path(current_path)
-        
+            node['color'] = self.generate_color_for_sibling(sibling_index, parent_path or folder_name)
+
         # Process children folders (sorted for consistency)
+        label_idx = 0
         for child_path in sorted(folder_path.iterdir()):
             if child_path.is_dir() and not child_path.name.startswith('.'):
-                child_node = self.convert_folder_to_node(child_path, current_path)
+                child_name = child_path.name
+                child_type = 'tier' if child_name.isupper() else 'label'
+                idx = label_idx if child_type == 'label' else 0
+                child_node = self.convert_folder_to_node(child_path, current_path, idx)
                 if child_node:
+                    if child_type == 'label':
+                        label_idx += 1
                     node['children'].append(child_node)
         
         # Remove empty children list

@@ -83,7 +83,7 @@ export default function StartupScreen({ onReady }: StartupScreenProps) {
   const [currentStep, setCurrentStep] = useState(0)
   const [retrying, setRetrying] = useState(false)
   const checkCountRef = useRef(0)
-  const maxChecks = isDevelopment ? 20 : 60
+  const maxChecks = isDevelopment ? 60 : 60
   // 防止 onReady 被重复调用（IPC 事件与 getStartupStatus 可能同时触发）
   const onReadyCalledRef = useRef(false)
   // IPC 状态可能乱序到达：用 seq 丢弃旧消息；用 attemptId 允许“重试”安全重置
@@ -485,17 +485,6 @@ export default function StartupScreen({ onReady }: StartupScreenProps) {
         {/* 错误时显示重试按钮 */}
         {isError && (
           <Box sx={{ mt: 3 }}>
-            {isDevelopment && (
-              <Typography
-                sx={{
-                  fontSize: '0.85rem',
-                  opacity: 0.7,
-                  mb: 2
-                }}
-              >
-                {t('startup.devModeHint')}
-              </Typography>
-            )}
             <Button
               variant="contained"
               onClick={handleRetry}
