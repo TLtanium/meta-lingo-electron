@@ -11,9 +11,11 @@ import React, { useCallback, useRef, useState, useMemo, useEffect, forwardRef, u
 import { Box, Typography, Paper, Alert, Tooltip, useTheme } from '@mui/material'
 import LinkIcon from '@mui/icons-material/Link'
 import LinkOffIcon from '@mui/icons-material/LinkOff'
+import JoinInnerIcon from '@mui/icons-material/JoinInner'
 import { useTranslation } from 'react-i18next'
-import type { Annotation, AnnotationRelation, SelectedLabel } from '../../types'
+import type { Annotation, AnnotationRelation, AnnotationGroup, SelectedLabel } from '../../types'
 import RelationArrows from './RelationArrows'
+import { measureBlockPositions } from './annotationMeasure'
 
 // SpaCy 句子接口
 interface SpacySentence {
@@ -38,6 +40,8 @@ interface TextAnnotatorProps {
   sentences?: SpacySentence[]
   // 搜索高亮相关
   searchHighlights?: SearchHighlight[]
+  /** 当前定位的匹配序号（用于将该匹配高亮为「当前」橙色并支持上下箭头跳转） */
+  currentMatchIndex?: number
   // 选中标注 ID（来自表格行点击，用于定位高亮）
   selectedAnnotationId?: string | null
   /** Called when annotation block is clicked in normal mode — navigates to table row */
@@ -46,6 +50,10 @@ interface TextAnnotatorProps {
   relations?: AnnotationRelation[]
   onRelationAdd?: (relation: AnnotationRelation) => void
   onRelationRemove?: (relationId: string) => void
+  // ── 非连续词组分组 ──────────────────────────────────────────────────────────
+  groups?: AnnotationGroup[]
+  onGroupAdd?: (group: AnnotationGroup) => void
+  onGroupRemove?: (groupId: string) => void
 }
 
 // 导出 ref 类型
@@ -53,6 +61,8 @@ export interface TextAnnotatorRef {
   getContainer: () => HTMLDivElement | null
   /** 滚动到指定标注并在视图内居中 */
   scrollToAnnotation: (id: string) => void
+  /** 滚动到指定序号的搜索匹配并在视图内居中（上下箭头跳转用） */
+  scrollToMatch: (index: number) => void
 }
 
 // 常见缩写列表（与后端保持一致）
@@ -279,9 +289,45 @@ function checkPartialOverlap(newStart: number, newEnd: number, existingStart: nu
   return true
 }
 
+/** Height (px) of a reserved connector lane — one label row, so relation arrows /
+ *  group brackets occupy their own slot instead of overlapping adjacent labels. */
+const CONNECTOR_LANE_H = 24
+
+/**
+ * Measures the pixel left/width of every annotation block in one sentence by
+ * mapping its character span onto the live DOM (highlight-aware — see
+ * {@link measureBlockPositions}).
+ */
+function measureSentencePositions(
+  sentTextEl: Element,
+  sent: SpacySentence,
+  sentAnnotations: Annotation[]
+): Map<string, { left: number; width: number }> {
+  return measureBlockPositions(
+    sentTextEl,
+    sent.text.length,
+    sentAnnotations.map(ann => ({
+      id: ann.id,
+      relStart: ann.startPosition - sent.start,
+      relEnd: ann.endPosition - sent.start,
+    }))
+  )
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // SentenceRow — memoized to skip re-render when this sentence is unaffected
 // ─────────────────────────────────────────────────────────────────────────────
+
+/** 句内搜索高亮（相对句首偏移，带全局匹配序号与是否为当前匹配） */
+interface SentHighlight {
+  start: number   // relative to sentence start
+  end: number     // relative to sentence start
+  index: number   // global match index (data-match-index, for arrow navigation)
+  isCurrent: boolean
+}
+
+/** 稳定的空高亮数组引用：无高亮的句子始终传同一引用，避免触发 memo 重渲染 */
+const EMPTY_HIGHLIGHTS: SentHighlight[] = []
 
 interface SentenceRowProps {
   sent: SpacySentence
@@ -291,20 +337,61 @@ interface SentenceRowProps {
   selectedAnnotationId: string | null
   linkMode: boolean
   linkSourceId: string | null
+  groupMode: boolean
+  groupPendingSet: ReadonlySet<string>
+  groupNums: ReadonlyMap<string, number>
   readOnly: boolean
   selectedLabel: SelectedLabel | null
+  sentHighlights: SentHighlight[]
+  /** Reserve an empty top lane (between text and labels) for a group bracket. */
+  hasTopLane: boolean
+  /** Reserve an empty bottom lane (below labels) for a relation arrow. */
+  hasBottomLane: boolean
   onMouseUp: (sentIdx: number, sentStart: number) => void
   onBlockClick: (ann: Annotation, e: React.MouseEvent) => void
-  renderHighlightedText: (sentText: string, sentStart: number) => React.ReactNode
   t: (key: string, defaultValue: string, params?: Record<string, unknown>) => string
 }
 
 const SentenceRow = React.memo<SentenceRowProps>(({
   sent, sentIdx, sentAnnotations, sentPositions,
   selectedAnnotationId, linkMode, linkSourceId,
-  readOnly, selectedLabel,
-  onMouseUp, onBlockClick, renderHighlightedText, t
+  groupMode, groupPendingSet, groupNums,
+  readOnly, selectedLabel, sentHighlights,
+  hasTopLane, hasBottomLane,
+  onMouseUp, onBlockClick, t
 }) => {
+  // 渲染句子文本，并把搜索匹配高亮为黄色（当前匹配为橙色），每个匹配带 data-match-index 供跳转定位
+  const renderedText = useMemo<React.ReactNode>(() => {
+    if (sentHighlights.length === 0) return sent.text
+    const sorted = [...sentHighlights].sort((a, b) => a.start - b.start)
+    const parts: React.ReactNode[] = []
+    let lastEnd = 0
+    for (let i = 0; i < sorted.length; i++) {
+      const { start, end, index, isCurrent } = sorted[i]
+      if (start > lastEnd) parts.push(sent.text.substring(lastEnd, start))
+      parts.push(
+        <Box
+          key={`hl-${sent.start}-${i}`}
+          component="span"
+          data-match-index={index}
+          sx={{
+            backgroundColor: isCurrent ? '#ff9800' : '#ffeb3b',
+            color: '#000',
+            borderRadius: '2px',
+            px: '1px',
+            boxShadow: isCurrent ? '0 0 0 2px #e65100' : undefined,
+            fontWeight: isCurrent ? 700 : undefined,
+          }}
+        >
+          {sent.text.substring(start, end)}
+        </Box>
+      )
+      lastEnd = Math.max(lastEnd, end)
+    }
+    if (lastEnd < sent.text.length) parts.push(sent.text.substring(lastEnd))
+    return parts
+  }, [sentHighlights, sent.text, sent.start])
+
   // Compute layers only when this sentence's annotations change
   const layers = useMemo(
     () => calculateAnnotationLayers(sentAnnotations, sent.start),
@@ -318,6 +405,8 @@ const SentenceRow = React.memo<SentenceRowProps>(({
   const userAnnotations = sentAnnotations.filter(a => !a.id.startsWith('spacy-'))
   const barColor = userAnnotations.length > 0 ? (userAnnotations[0]?.color || '#2196F3') : '#bdbdbd'
   const totalHeight = 28 + maxLayers * 26
+    + (hasTopLane ? CONNECTOR_LANE_H : 0)
+    + (hasBottomLane ? CONNECTOR_LANE_H : 0)
 
   return (
     <Box
@@ -355,8 +444,14 @@ const SentenceRow = React.memo<SentenceRowProps>(({
             }
           }}
         >
-          {renderHighlightedText(sent.text, sent.start)}
+          {renderedText}
         </Box>
+
+        {/* 顶部连线通道：为词组括号（在标签上方）预留一行标签高度的空位，
+            避免括号横线压在文本或上一层标签上 */}
+        {hasTopLane && (
+          <Box data-lane="top" className="connector-lane-top" sx={{ height: CONNECTOR_LANE_H, flexShrink: 0 }} />
+        )}
 
         {/* 标注层 */}
         {maxLayers > 0 && (
@@ -371,17 +466,29 @@ const SentenceRow = React.memo<SentenceRowProps>(({
               return (
                 <Box key={layerIdx} className="annotation-layer" sx={{ position: 'relative', height: 24, mt: '2px' }}>
                   {layerAnnotations.map(ann => {
-                    const pos        = sentPositions.get(ann.id)
-                    const isSpacy    = ann.id.startsWith('spacy-')
-                    const isSelected = !isSpacy && ann.id === selectedAnnotationId
-                    const isLinkSrc  = linkMode && ann.id === linkSourceId
-                    const isLinkable = linkMode && !isSpacy && !isLinkSrc
+                    const pos            = sentPositions.get(ann.id)
+                    const isSpacy        = ann.id.startsWith('spacy-')
+                    const isSelected     = !isSpacy && ann.id === selectedAnnotationId
+                    const isLinkSrc      = linkMode && ann.id === linkSourceId
+                    const isLinkable     = linkMode && !isSpacy && !isLinkSrc
+                    const isGroupPending = groupMode && !isSpacy && groupPendingSet.has(ann.id)
+                    const isGroupTarget  = groupMode && !isSpacy && !isGroupPending
+                    const groupNum       = groupNums.get(ann.id)
+                    const hasGroup       = !isSpacy && groupNum !== undefined
 
                     const boxShadow = isLinkSrc
                       ? `0 0 0 2px white, 0 0 0 4px #FF9800, 0 3px 10px rgba(255,152,0,0.6)`
-                      : isSelected
-                        ? `0 0 0 2px white, 0 0 0 4px ${ann.color || '#2196F3'}, 0 3px 8px rgba(0,0,0,0.3)`
-                        : '0 1px 2px rgba(0,0,0,0.15)'
+                      : isGroupPending
+                        ? `0 0 0 2px white, 0 0 0 4px #9C27B0, 0 3px 10px rgba(156,39,176,0.6)`
+                        : isSelected
+                          ? `0 0 0 2px white, 0 0 0 4px ${ann.color || '#2196F3'}, 0 3px 8px rgba(0,0,0,0.3)`
+                          : '0 1px 2px rgba(0,0,0,0.15)'
+
+                    const outline = isGroupTarget
+                      ? '2px dashed rgba(156,39,176,0.5)'
+                      : isLinkable
+                        ? '2px dashed rgba(255,152,0,0.6)'
+                        : undefined
 
                     return (
                       <Box
@@ -409,35 +516,68 @@ const SentenceRow = React.memo<SentenceRowProps>(({
                           opacity: isSpacy ? 0.6 : (pos ? 1 : 0),
                           left: pos?.left ?? 0,
                           width: pos?.width ?? 'auto',
-                          zIndex: isLinkSrc ? 20 : (isSelected ? 15 : undefined),
-                          outline: isLinkable ? '2px dashed rgba(255,152,0,0.6)' : undefined,
-                          outlineOffset: isLinkable ? '2px' : undefined,
+                          zIndex: isLinkSrc ? 20 : (isGroupPending ? 18 : (isSelected ? 15 : undefined)),
+                          outline,
+                          outlineOffset: (isGroupTarget || isLinkable) ? '2px' : undefined,
                           transform: isLinkSrc
                             ? 'translateY(-3px) scaleY(1.12)'
+                            : isGroupPending ? 'translateY(-3px) scaleY(1.12)'
                             : isSelected ? 'translateY(-2px) scaleY(1.1)' : undefined,
                           transition: 'transform 0.15s, box-shadow 0.15s, opacity 0.2s, outline 0.15s',
                           '&:hover': readOnly || isSpacy ? {} : {
                             transform: isLinkSrc
                               ? 'translateY(-3px) scaleY(1.12)'
+                              : isGroupPending ? 'translateY(-3px) scaleY(1.12)'
                               : isSelected ? 'translateY(-2px) scaleY(1.1)' : 'translateY(-1px)',
                             boxShadow: isLinkSrc
                               ? `0 0 0 2px white, 0 0 0 4px #FF9800, 0 4px 14px rgba(255,152,0,0.7)`
-                              : isSelected
-                                ? `0 0 0 2px white, 0 0 0 4px ${ann.color || '#2196F3'}, 0 4px 10px rgba(0,0,0,0.35)`
-                                : '0 2px 4px rgba(0,0,0,0.2)',
+                              : isGroupPending
+                                ? `0 0 0 2px white, 0 0 0 4px #9C27B0, 0 4px 14px rgba(156,39,176,0.7)`
+                                : isSelected
+                                  ? `0 0 0 2px white, 0 0 0 4px ${ann.color || '#2196F3'}, 0 4px 10px rgba(0,0,0,0.35)`
+                                  : '0 2px 4px rgba(0,0,0,0.2)',
                             zIndex: 10
                           }
                         }}
                         title={isSpacy
                           ? `${ann.label}: ${ann.text} (SpaCy)`
-                          : linkMode
-                            ? (isLinkSrc
-                                ? t('annotation.linkSrcSelected', '已选为起源，点击另一标注建立关联')
-                                : t('annotation.linkClickToLink', '点击与「{{label}}」建立关联', { label: ann.label }))
-                            : t('annotation.clickToLocate', '点击定位到标注表格 | {{label}}: {{text}}', { label: ann.label, text: ann.text })
+                          : groupMode
+                            ? (hasGroup
+                                ? t('annotation.groupClickToDissolve', '点击解散该词组')
+                                : isGroupPending
+                                  ? t('annotation.groupClickToDeselect', '点击取消选择')
+                                  : t('annotation.groupClickToAdd', '点击加入词组'))
+                            : linkMode
+                              ? (isLinkSrc
+                                  ? t('annotation.linkSrcSelected', '已选为起源，点击另一标注建立关联')
+                                  : t('annotation.linkClickToLink', '点击与「{{label}}」建立关联', { label: ann.label }))
+                              : t('annotation.clickToLocate', '点击定位到标注表格 | {{label}}: {{text}}', { label: ann.label, text: ann.text })
                         }
                       >
                         {ann.label}
+                        {/* Group number badge */}
+                        {hasGroup && (
+                          <Box
+                            sx={{
+                              position: 'absolute',
+                              top: 1, right: 1,
+                              width: 13, height: 13,
+                              borderRadius: '50%',
+                              bgcolor: 'white',
+                              border: `1.5px solid ${ann.color || '#2196F3'}`,
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              fontSize: '7px',
+                              color: ann.color || '#2196F3',
+                              fontWeight: 700,
+                              lineHeight: 1,
+                              zIndex: 30,
+                              pointerEvents: 'none',
+                              userSelect: 'none',
+                            }}
+                          >
+                            {groupNum}
+                          </Box>
+                        )}
                       </Box>
                     )
                   })}
@@ -445,6 +585,12 @@ const SentenceRow = React.memo<SentenceRowProps>(({
               )
             })}
           </Box>
+        )}
+
+        {/* 底部连线通道：为关联箭头（在标签下方）预留一行标签高度的空位，
+            避免箭头横线压在下一句或下一层标签上 */}
+        {hasBottomLane && (
+          <Box data-lane="bottom" className="connector-lane-bottom" sx={{ height: CONNECTOR_LANE_H, flexShrink: 0 }} />
         )}
       </Box>
     </Box>
@@ -461,9 +607,25 @@ const SentenceRow = React.memo<SentenceRowProps>(({
   if (prev.selectedAnnotationId !== next.selectedAnnotationId) return false
   if (prev.linkMode !== next.linkMode) return false
   if (prev.linkSourceId !== next.linkSourceId) return false
+  if (prev.groupMode !== next.groupMode) return false
   if (prev.readOnly !== next.readOnly) return false
   if (prev.selectedLabel !== next.selectedLabel) return false
-  // Callbacks (onMouseUp, onBlockClick, renderHighlightedText, t) are stable useCallbacks — skip
+  if (prev.hasTopLane !== next.hasTopLane) return false
+  if (prev.hasBottomLane !== next.hasBottomLane) return false
+  // Group-related props: compare per-sentence annotation membership
+  for (const ann of prev.sentAnnotations) {
+    if ((prev.groupPendingSet.has(ann.id)) !== (next.groupPendingSet.has(ann.id))) return false
+    if ((prev.groupNums.get(ann.id) ?? 0) !== (next.groupNums.get(ann.id) ?? 0)) return false
+  }
+  // Search highlights: content-compare so the sentence re-renders when its yellow/orange
+  // highlights or the "current match" changes (the array identity changes every parent
+  // render, so we must compare by value here, not by reference).
+  if (prev.sentHighlights.length !== next.sentHighlights.length) return false
+  for (let i = 0; i < prev.sentHighlights.length; i++) {
+    const a = prev.sentHighlights[i], b = next.sentHighlights[i]
+    if (a.start !== b.start || a.end !== b.end || a.index !== b.index || a.isCurrent !== b.isCurrent) return false
+  }
+  // Callbacks (onMouseUp, onBlockClick, t) are stable useCallbacks — skip
   return true
 })
 
@@ -482,11 +644,15 @@ const TextAnnotator = forwardRef<TextAnnotatorRef, TextAnnotatorProps>(({
   readOnly = false,
   sentences: externalSentences,
   searchHighlights = [],
+  currentMatchIndex = -1,
   selectedAnnotationId = null,
   onAnnotationClick,
   relations = [],
   onRelationAdd,
   onRelationRemove,
+  groups = [],
+  onGroupAdd,
+  onGroupRemove,
 }, ref) => {
   const { t } = useTranslation()
   const theme = useTheme()
@@ -494,12 +660,17 @@ const TextAnnotator = forwardRef<TextAnnotatorRef, TextAnnotatorProps>(({
   const containerRef = useRef<HTMLDivElement>(null)
   const [warning, setWarning] = useState<string | null>(null)
   const [blockPositions, setBlockPositions] = useState<Map<string, Map<string, { left: number; width: number }>>>(new Map())
+  // Bumped on every (re)measure so RelationArrows re-tracks blocks that shifted
+  // (e.g. a search highlight added padding/bold width to the sentence text).
+  const [measureRevision, setMeasureRevision] = useState(0)
 
   // Stable refs so handlers don't need these as deps and don't recreate on each render
   const annotationsRef = useRef(annotations)
   annotationsRef.current = annotations
   const relationsRef = useRef(relations)
   relationsRef.current = relations
+  const groupsRef = useRef(groups)
+  groupsRef.current = groups
 
   // ── Link mode ──────────────────────────────────────────────────────────────
   const [linkMode, setLinkMode]         = useState(false)
@@ -509,17 +680,78 @@ const TextAnnotator = forwardRef<TextAnnotatorRef, TextAnnotatorProps>(({
 
   const toggleLinkMode = useCallback(() => {
     setLinkMode(prev => {
-      if (prev) setLinkSourceId(null)
+      if (!prev) {
+        // Entering link mode: exit group mode
+        setGroupMode(false)
+        setGroupPendingIds([])
+      } else {
+        setLinkSourceId(null)
+      }
       return !prev
     })
   }, [])
 
-  // Stable: does not depend on `relations` — uses relationsRef
+  // ── Group mode ─────────────────────────────────────────────────────────────
+  const [groupMode, setGroupMode]         = useState(false)
+  const [groupPendingIds, setGroupPendingIds] = useState<string[]>([])
+
+  const canGroup = !readOnly && !!onGroupAdd && !!onGroupRemove
+
+  const toggleGroupMode = useCallback(() => {
+    setGroupMode(prev => {
+      if (!prev) {
+        // Entering group mode: exit link mode
+        setLinkMode(false)
+        setLinkSourceId(null)
+      } else {
+        setGroupPendingIds([])
+      }
+      return !prev
+    })
+  }, [])
+
+  const handleConfirmGroup = useCallback(() => {
+    if (groupPendingIds.length < 2 || !onGroupAdd) return
+    onGroupAdd({ id: crypto.randomUUID(), annotationIds: [...groupPendingIds] })
+    setGroupPendingIds([])
+  }, [groupPendingIds, onGroupAdd])
+
+  // Memoised lookup structures for group rendering
+  const groupNums = useMemo<ReadonlyMap<string, number>>(() => {
+    const map = new Map<string, number>()
+    groups.forEach((g, idx) => {
+      g.annotationIds.forEach(id => map.set(id, idx + 1))
+    })
+    return map
+  }, [groups])
+
+  const groupPendingSet = useMemo<ReadonlySet<string>>(
+    () => new Set(groupPendingIds),
+    [groupPendingIds]
+  )
+
+  // Stable: does not depend on `relations`/`groups` — uses refs
   const handleBlockClick = useCallback((ann: Annotation, e: React.MouseEvent) => {
     if (readOnly) return
     if (ann.id.startsWith('spacy-')) return
     e.stopPropagation()
 
+    // ── Group mode ───────────────────────────────────────────────────────────
+    if (groupMode && canGroup) {
+      // If annotation already belongs to an existing group, dissolve that group
+      const existingGroup = groupsRef.current.find(g => g.annotationIds.includes(ann.id))
+      if (existingGroup) {
+        onGroupRemove!(existingGroup.id)
+        return
+      }
+      // Otherwise toggle in pending selection
+      setGroupPendingIds(prev =>
+        prev.includes(ann.id) ? prev.filter(id => id !== ann.id) : [...prev, ann.id]
+      )
+      return
+    }
+
+    // ── Link mode ────────────────────────────────────────────────────────────
     if (linkMode && canLink) {
       if (!linkSourceId) {
         setLinkSourceId(ann.id)
@@ -540,7 +772,7 @@ const TextAnnotator = forwardRef<TextAnnotatorRef, TextAnnotatorProps>(({
     }
 
     onAnnotationClick?.(ann.id)
-  }, [readOnly, linkMode, canLink, linkSourceId, onRelationAdd, onRelationRemove, onAnnotationClick])
+  }, [readOnly, groupMode, canGroup, linkMode, canLink, linkSourceId, onRelationAdd, onRelationRemove, onGroupRemove, onAnnotationClick])
 
   // 暴露 ref 方法
   useImperativeHandle(ref, () => ({
@@ -557,6 +789,21 @@ const TextAnnotator = forwardRef<TextAnnotatorRef, TextAnnotatorProps>(({
       const elTop = elRect.top - containerRect.top + container.scrollTop
       const targetScrollTop = elTop - (container.clientHeight - target.offsetHeight) / 2
       container.scrollTo({ top: Math.max(0, targetScrollTop), behavior: 'smooth' })
+    },
+    scrollToMatch: (index: number) => {
+      const container = containerRef.current
+      if (!container) return
+      const el = container.querySelector(`[data-match-index="${CSS.escape(String(index))}"]`) as HTMLElement
+      if (!el) return
+      const containerRect = container.getBoundingClientRect()
+      // 垂直方向：以匹配所在句行为单位居中（句行较矮则退回匹配元素本身）
+      const sentenceRow = (el.closest('[data-sentence-idx]') as HTMLElement) || el
+      const vRect = sentenceRow.getBoundingClientRect()
+      const top = vRect.top - containerRect.top + container.scrollTop - (container.clientHeight - sentenceRow.offsetHeight) / 2
+      // 水平方向：句子不换行，需把匹配元素水平居中（长句可横向滚动）
+      const eRect = el.getBoundingClientRect()
+      const left = eRect.left - containerRect.left + container.scrollLeft - (container.clientWidth - el.offsetWidth) / 2
+      container.scrollTo({ top: Math.max(0, top), left: Math.max(0, left), behavior: 'smooth' })
     }
   }))
 
@@ -598,7 +845,66 @@ const TextAnnotator = forwardRef<TextAnnotatorRef, TextAnnotatorProps>(({
     return result
   }, [sentences, annotations])
 
+  // 把全局搜索高亮（含「当前匹配」序号）按句切分为每句的相对偏移高亮，
+  // SentenceRow 据此渲染黄色/橙色高亮。array 内容随匹配/当前项变化，memo 按值比较。
+  // （定义前移到测量副作用之前：高亮变化会改变句子文本 DOM，需触发对应句子重新测量。）
+  const highlightsBySentence = useMemo(() => {
+    const map = new Map<number, SentHighlight[]>()
+    if (searchHighlights.length === 0) return map
+    sentences.forEach((sent, sentIdx) => {
+      const sentEnd = sent.start + sent.text.length
+      const rel: SentHighlight[] = []
+      searchHighlights.forEach((h, gi) => {
+        if (h.start >= sent.start && h.end <= sentEnd) {
+          rel.push({
+            start: h.start - sent.start,
+            end: h.end - sent.start,
+            index: gi,
+            isCurrent: gi === currentMatchIndex,
+          })
+        }
+      })
+      if (rel.length > 0) map.set(sentIdx, rel)
+    })
+    return map
+  }, [searchHighlights, currentMatchIndex, sentences])
+
+  // 标注 ID → 句子序号，用于决定哪些句子需要预留连线通道
+  const annToSent = useMemo(() => {
+    const m = new Map<string, number>()
+    annotationsBySentence.forEach((anns, sentIdx) => {
+      anns.forEach(a => m.set(a.id, sentIdx))
+    })
+    return m
+  }, [annotationsBySentence])
+
+  // 需要预留连线通道的句子集合：
+  // - bottomLaneSet：含关联箭头横线的句子（取关联两端中较上方的句子，使横线落在
+  //   第一个标签正下方，第二个标签位于横线下方，而非竖线贯穿到下一行标签下方）
+  // - topLaneSet：含词组括号横线的句子（取词组成员中最上方的句子）
+  const { topLaneSet, bottomLaneSet } = useMemo(() => {
+    const top = new Set<number>()
+    const bottom = new Set<number>()
+    for (const rel of relations) {
+      const s = annToSent.get(rel.sourceId)
+      const tg = annToSent.get(rel.targetId)
+      if (s === undefined || tg === undefined) continue
+      bottom.add(Math.min(s, tg))
+    }
+    for (const grp of groups) {
+      const idxs = grp.annotationIds
+        .map(id => annToSent.get(id))
+        .filter((x): x is number => x !== undefined)
+      if (idxs.length >= 2) top.add(Math.min(...idxs))
+    }
+    return { topLaneSet: top, bottomLaneSet: bottom }
+  }, [relations, groups, annToSent])
+
   // ── Targeted DOM measurement — only remeasure sentences whose annotations changed ──
+
+  // Track previous per-sentence search highlights to detect which sentences' text DOM
+  // changed (highlight spans add padding / bold width that shifts token positions).
+  const prevHighlightsBySentenceRef = useRef<Map<number, SentHighlight[]>>(new Map())
 
   // Track previous per-sentence annotation arrays to detect which sentences changed
   const prevAnnotationsBySentenceRef = useRef<Map<number, Annotation[]>>(new Map())
@@ -628,6 +934,26 @@ const TextAnnotator = forwardRef<TextAnnotatorRef, TextAnnotatorProps>(({
     })
     prevAnnotationsBySentenceRef.current = annotationsBySentence
 
+    // Detect sentences whose search highlights changed — the highlight <span>s add
+    // padding / bold width, shifting every token after them, so those sentences
+    // must be re-measured too (and re-measured back to normal once cleared).
+    const highlightsChanged = (a: SentHighlight[] | undefined, b: SentHighlight[] | undefined): boolean => {
+      const al = a?.length ?? 0, bl = b?.length ?? 0
+      if (al !== bl) return true
+      for (let i = 0; i < al; i++) {
+        const x = a![i], y = b![i]
+        if (x.start !== y.start || x.end !== y.end || x.isCurrent !== y.isCurrent) return true
+      }
+      return false
+    }
+    sentences.forEach((_, sentIdx) => {
+      if (highlightsChanged(highlightsBySentence.get(sentIdx), prevHighlightsBySentenceRef.current.get(sentIdx))
+          && !changedIndices.includes(sentIdx)) {
+        changedIndices.push(sentIdx)
+      }
+    })
+    prevHighlightsBySentenceRef.current = highlightsBySentence
+
     if (changedIndices.length === 0) return
 
     const measureChanged = () => {
@@ -643,37 +969,18 @@ const TextAnnotator = forwardRef<TextAnnotatorRef, TextAnnotatorProps>(({
           )
           if (!sentTextEl) { next.delete(sentIdx.toString()); continue }
 
-          const textNode = sentTextEl.firstChild
-          if (!textNode || textNode.nodeType !== Node.TEXT_NODE) { next.delete(sentIdx.toString()); continue }
-
-          const sentAnnotations = annotationsBySentence.get(sentIdx) || []
-          const sentPositions = new Map<string, { left: number; width: number }>()
-          const range = document.createRange()
-
-          for (const ann of sentAnnotations) {
-            try {
-              const relStart = ann.startPosition - sent.start
-              const relEnd   = ann.endPosition   - sent.start
-              range.setStart(textNode, Math.min(relStart, sent.text.length))
-              range.setEnd(textNode,   Math.min(relEnd,   sent.text.length))
-              const rect          = range.getBoundingClientRect()
-              const containerRect = sentTextEl.getBoundingClientRect()
-              sentPositions.set(ann.id, { left: rect.left - containerRect.left, width: rect.width })
-            } catch {
-              const relStart = ann.startPosition - sent.start
-              sentPositions.set(ann.id, { left: relStart * 8, width: (ann.endPosition - ann.startPosition) * 8 })
-            }
-          }
-
-          next.set(sentIdx.toString(), sentPositions)
+          // Walk all text nodes so measurement stays correct when the sentence text
+          // is split by search-highlight spans (not just a single firstChild node).
+          next.set(sentIdx.toString(), measureSentencePositions(sentTextEl, sent, annotationsBySentence.get(sentIdx) || []))
         }
 
         return next
       })
+      setMeasureRevision(v => v + 1)
     }
 
     requestAnimationFrame(measureChanged)
-  }, [annotationsBySentence, sentences, annotations.length])
+  }, [annotationsBySentence, sentences, annotations.length, highlightsBySentence])
 
   // Full remeasure on window resize (infrequent — no need for targeted approach here)
   useEffect(() => {
@@ -683,28 +990,10 @@ const TextAnnotator = forwardRef<TextAnnotatorRef, TextAnnotatorProps>(({
       sentences.forEach((sent, sentIdx) => {
         const sentTextEl = containerRef.current?.querySelector(`[data-sentence-idx="${sentIdx}"] .sentence-text`)
         if (!sentTextEl) return
-        const textNode = sentTextEl.firstChild
-        if (!textNode || textNode.nodeType !== Node.TEXT_NODE) return
-        const sentAnnotations = annotationsBySentence.get(sentIdx) || []
-        const sentPositions = new Map<string, { left: number; width: number }>()
-        const range = document.createRange()
-        for (const ann of sentAnnotations) {
-          try {
-            const relStart = ann.startPosition - sent.start
-            const relEnd   = ann.endPosition   - sent.start
-            range.setStart(textNode, Math.min(relStart, sent.text.length))
-            range.setEnd(textNode,   Math.min(relEnd,   sent.text.length))
-            const rect          = range.getBoundingClientRect()
-            const containerRect = sentTextEl.getBoundingClientRect()
-            sentPositions.set(ann.id, { left: rect.left - containerRect.left, width: rect.width })
-          } catch {
-            const relStart = ann.startPosition - sent.start
-            sentPositions.set(ann.id, { left: relStart * 8, width: (ann.endPosition - ann.startPosition) * 8 })
-          }
-        }
-        positions.set(sentIdx.toString(), sentPositions)
+        positions.set(sentIdx.toString(), measureSentencePositions(sentTextEl, sent, annotationsBySentence.get(sentIdx) || []))
       })
       setBlockPositions(positions)
+      setMeasureRevision(v => v + 1)
     }
     window.addEventListener('resize', measureAll)
     return () => window.removeEventListener('resize', measureAll)
@@ -767,38 +1056,6 @@ const TextAnnotator = forwardRef<TextAnnotatorRef, TextAnnotatorProps>(({
     setWarning(null)
   }, [text, selectedLabel, onAnnotationAdd, readOnly, t])
 
-  // 渲染带搜索高亮的文本
-  const renderHighlightedText = useCallback((sentText: string, sentStart: number): React.ReactNode => {
-    if (searchHighlights.length === 0) return sentText
-
-    const sentEnd = sentStart + sentText.length
-    const relevantHighlights = searchHighlights
-      .filter(h => h.start >= sentStart && h.end <= sentEnd)
-      .map(h => ({ start: h.start - sentStart, end: h.end - sentStart }))
-      .sort((a, b) => a.start - b.start)
-
-    if (relevantHighlights.length === 0) return sentText
-
-    const parts: React.ReactNode[] = []
-    let lastEnd = 0
-    for (let i = 0; i < relevantHighlights.length; i++) {
-      const { start, end } = relevantHighlights[i]
-      if (start > lastEnd) parts.push(sentText.substring(lastEnd, start))
-      parts.push(
-        <Box
-          key={`highlight-${sentStart}-${i}`}
-          component="span"
-          sx={{ backgroundColor: '#ffeb3b', color: '#000', borderRadius: '2px', px: '1px' }}
-        >
-          {sentText.substring(start, end)}
-        </Box>
-      )
-      lastEnd = end
-    }
-    if (lastEnd < sentText.length) parts.push(sentText.substring(lastEnd))
-    return parts
-  }, [searchHighlights])
-
   if (!text) {
     return (
       <Paper sx={{ p: 3, minHeight: 200, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -818,39 +1075,85 @@ const TextAnnotator = forwardRef<TextAnnotatorRef, TextAnnotatorProps>(({
         </Alert>
       )}
 
-      {/* 操作提示 + 关联模式按钮 */}
+      {/* 操作提示 + 模式按钮 */}
       {!readOnly && (
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
-          <Typography variant="caption" color={linkMode ? 'warning.main' : 'text.secondary'}>
-            {linkMode
-              ? (linkSourceId
-                  ? t('annotation.linkSelectTarget', '已选起源标注，点击目标标注建立关联；再次点击起源取消')
-                  : t('annotation.linkSelectSource', '关联模式：点击起源标注'))
-              : (selectedLabel
-                  ? t('annotation.selectToAnnotate', `选中文本以使用 "${selectedLabel.node.name}" 标注。点击标签块可删除。`)
-                  : t('annotation.selectLabelFirst', '请先从框架树选择一个标签'))
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1, gap: 1, flexWrap: 'wrap' }}>
+          <Typography variant="caption" color={groupMode ? 'secondary.main' : linkMode ? 'warning.main' : 'text.secondary'} sx={{ flex: 1, minWidth: 0 }}>
+            {groupMode
+              ? (groupPendingIds.length >= 2
+                  ? t('annotation.groupReadyToConfirm', '已选 {{count}} 个标注，点击「确认词组」完成分组', { count: groupPendingIds.length })
+                  : t('annotation.groupSelectMembers', '词组模式：点击标注加入词组（需选 2 个以上）'))
+              : linkMode
+                ? (linkSourceId
+                    ? t('annotation.linkSelectTarget', '已选起源标注，点击目标标注建立关联；再次点击起源取消')
+                    : t('annotation.linkSelectSource', '关联模式：点击起源标注'))
+                : (selectedLabel
+                    ? t('annotation.selectToAnnotate', `选中文本以使用 "${selectedLabel.node.name}" 标注。点击标签块可删除。`)
+                    : t('annotation.selectLabelFirst', '请先从框架树选择一个标签'))
             }
           </Typography>
-          {canLink && (
-            <Tooltip title={linkMode ? t('annotation.linkModeOff', '退出关联模式') : t('annotation.linkModeOn', '标签关联模式')}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
+            {/* Confirm Group button — only visible in group mode with ≥2 pending */}
+            {groupMode && groupPendingIds.length >= 2 && (
               <Box
                 component="span"
-                onClick={toggleLinkMode}
+                onClick={handleConfirmGroup}
                 sx={{
                   display: 'inline-flex', alignItems: 'center', cursor: 'pointer',
-                  p: '2px 6px', borderRadius: 1, border: '1px solid',
-                  borderColor: linkMode ? 'warning.main' : 'divider',
-                  bgcolor: linkMode ? 'warning.main' : 'transparent',
-                  color: linkMode ? 'warning.contrastText' : 'text.secondary',
-                  transition: 'all 0.15s', '&:hover': { opacity: 0.8 },
-                  gap: '3px', fontSize: 12,
+                  p: '2px 7px', borderRadius: 1, border: '1px solid',
+                  borderColor: 'secondary.main',
+                  bgcolor: 'secondary.main',
+                  color: 'white',
+                  transition: 'all 0.15s', '&:hover': { opacity: 0.85 },
+                  gap: '3px', fontSize: 12, fontWeight: 500,
                 }}
               >
-                {linkMode ? <LinkOffIcon sx={{ fontSize: 14 }} /> : <LinkIcon sx={{ fontSize: 14 }} />}
-                {linkMode ? t('annotation.exitLink', '退出') : t('annotation.linkMode', '关联')}
+                {t('annotation.groupConfirm', '确认词组 ({{count}})', { count: groupPendingIds.length })}
               </Box>
-            </Tooltip>
-          )}
+            )}
+            {/* Group mode toggle */}
+            {canGroup && (
+              <Tooltip title={groupMode ? t('annotation.groupModeOff', '退出词组模式') : t('annotation.groupModeOn', '非连续词组模式（无方向性，计为整体）')}>
+                <Box
+                  component="span"
+                  onClick={toggleGroupMode}
+                  sx={{
+                    display: 'inline-flex', alignItems: 'center', cursor: 'pointer',
+                    p: '2px 6px', borderRadius: 1, border: '1px solid',
+                    borderColor: groupMode ? 'secondary.main' : 'divider',
+                    bgcolor: groupMode ? 'secondary.main' : 'transparent',
+                    color: groupMode ? 'white' : 'text.secondary',
+                    transition: 'all 0.15s', '&:hover': { opacity: 0.8 },
+                    gap: '3px', fontSize: 12,
+                  }}
+                >
+                  <JoinInnerIcon sx={{ fontSize: 14 }} />
+                  {groupMode ? t('annotation.exitGroupMode', '退出') : t('annotation.groupMode', '词组')}
+                </Box>
+              </Tooltip>
+            )}
+            {/* Link mode toggle */}
+            {canLink && (
+              <Tooltip title={linkMode ? t('annotation.linkModeOff', '退出关联模式') : t('annotation.linkModeOn', '标签关联模式')}>
+                <Box
+                  component="span"
+                  onClick={toggleLinkMode}
+                  sx={{
+                    display: 'inline-flex', alignItems: 'center', cursor: 'pointer',
+                    p: '2px 6px', borderRadius: 1, border: '1px solid',
+                    borderColor: linkMode ? 'warning.main' : 'divider',
+                    bgcolor: linkMode ? 'warning.main' : 'transparent',
+                    color: linkMode ? 'warning.contrastText' : 'text.secondary',
+                    transition: 'all 0.15s', '&:hover': { opacity: 0.8 },
+                    gap: '3px', fontSize: 12,
+                  }}
+                >
+                  {linkMode ? <LinkOffIcon sx={{ fontSize: 14 }} /> : <LinkIcon sx={{ fontSize: 14 }} />}
+                  {linkMode ? t('annotation.exitLink', '退出') : t('annotation.linkMode', '关联')}
+                </Box>
+              </Tooltip>
+            )}
+          </Box>
         </Box>
       )}
 
@@ -863,12 +1166,12 @@ const TextAnnotator = forwardRef<TextAnnotatorRef, TextAnnotatorProps>(({
           position: 'relative',
           bgcolor: isDarkMode ? 'rgba(255,255,255,0.03)' : '#fafafa',
           border: `1px solid ${isDarkMode
-            ? (linkMode ? 'rgba(255,152,0,0.5)' : 'rgba(255,255,255,0.1)')
-            : (linkMode ? 'rgba(255,152,0,0.5)' : '#e0e0e0')}`,
+            ? (groupMode ? 'rgba(156,39,176,0.5)' : linkMode ? 'rgba(255,152,0,0.5)' : 'rgba(255,255,255,0.1)')
+            : (groupMode ? 'rgba(156,39,176,0.5)' : linkMode ? 'rgba(255,152,0,0.5)' : '#e0e0e0')}`,
           borderRadius: 1,
           maxHeight: 500,
           overflow: 'auto',
-          cursor: linkMode ? 'crosshair' : undefined,
+          cursor: groupMode ? 'cell' : linkMode ? 'crosshair' : undefined,
         }}
       >
         {sentences.map((sent, sentIdx) => (
@@ -881,37 +1184,51 @@ const TextAnnotator = forwardRef<TextAnnotatorRef, TextAnnotatorProps>(({
             selectedAnnotationId={selectedAnnotationId}
             linkMode={linkMode}
             linkSourceId={linkSourceId}
+            groupMode={groupMode}
+            groupPendingSet={groupPendingSet}
+            groupNums={groupNums}
             readOnly={readOnly}
             selectedLabel={selectedLabel}
+            sentHighlights={highlightsBySentence.get(sentIdx) || EMPTY_HIGHLIGHTS}
+            hasTopLane={topLaneSet.has(sentIdx)}
+            hasBottomLane={bottomLaneSet.has(sentIdx)}
             onMouseUp={handleMouseUp}
             onBlockClick={handleBlockClick}
-            renderHighlightedText={renderHighlightedText}
             t={t as SentenceRowProps['t']}
           />
         ))}
 
-        {/* SVG arrow overlay for annotation relations */}
-        {relations.length > 0 && (
+        {/* SVG overlay for relations (arrows) and groups (brackets) */}
+        {(relations.length > 0 || groups.length > 0) && (
           <RelationArrows
             relations={relations}
             annotations={annotations}
             containerRef={containerRef as React.RefObject<HTMLDivElement>}
+            groups={groups}
+            revision={measureRevision}
           />
         )}
       </Paper>
 
-      {/* 标注统计 + 关联计数 */}
+      {/* 标注统计 + 关联/词组计数 */}
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mt: 1 }}>
         {annotations.length > 0 && (
           <Typography variant="caption" color="text.secondary">
             {annotations.filter(a => !a.id.startsWith('spacy-')).length} {t('annotation.annotationCount', '条标注')}，{sentences.length} {t('annotation.sentenceCount', '个句子')}
           </Typography>
         )}
-        {relations.length > 0 && (
-          <Typography variant="caption" color="text.secondary">
-            {relations.length} {t('annotation.relationCount', '条关联')}
-          </Typography>
-        )}
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          {relations.length > 0 && (
+            <Typography variant="caption" color="text.secondary">
+              {relations.length} {t('annotation.relationCount', '条关联')}
+            </Typography>
+          )}
+          {groups.length > 0 && (
+            <Typography variant="caption" color="secondary.main">
+              {groups.length} {t('annotation.groupCount', '个词组')}
+            </Typography>
+          )}
+        </Box>
       </Box>
     </Box>
   )

@@ -28,10 +28,13 @@ import ImageIcon from '@mui/icons-material/Image'
 import { useTranslation } from 'react-i18next'
 import * as d3 from 'd3'
 import html2canvas from 'html2canvas'
-import type { Annotation } from '../../../types'
+import type { Annotation, AnnotationGroup } from '../../../types'
+import { getAbsorbedMemberIds } from '../../../utils/annotationGroups'
 
 interface AnnotationVisualizationProps {
   annotations: Annotation[]
+  /** 非连续词组：统计时每个词组计为一个单位（仅保留首个成员） */
+  groups?: AnnotationGroup[]
 }
 
 // 美观的颜色调色板 - 更鲜艳的渐变色
@@ -43,7 +46,7 @@ const COLORS = [
 
 type ChartType = 'bar' | 'pie'
 
-export default function AnnotationVisualization({ annotations }: AnnotationVisualizationProps) {
+export default function AnnotationVisualization({ annotations, groups = [] }: AnnotationVisualizationProps) {
   const { t } = useTranslation()
   const theme = useTheme()
   const isDarkMode = theme.palette.mode === 'dark'
@@ -64,11 +67,18 @@ export default function AnnotationVisualization({ annotations }: AnnotationVisua
   const containerRef = useRef<HTMLDivElement>(null)
   const tooltipRef = useRef<HTMLDivElement>(null)
   
+  // 词组计为一个单位：剔除每个词组中除首个成员外的其余成员后再统计
+  const countedAnnotations = useMemo(() => {
+    if (groups.length === 0) return annotations
+    const absorbed = getAbsorbedMemberIds(annotations, groups)
+    return absorbed.size === 0 ? annotations : annotations.filter(a => !absorbed.has(a.id))
+  }, [annotations, groups])
+
   // 统计标签数量
   const labelStats = useMemo(() => {
     const counts: Record<string, { count: number; color: string }> = {}
-    
-    annotations.forEach(ann => {
+
+    countedAnnotations.forEach(ann => {
       if (!counts[ann.label]) {
         counts[ann.label] = { count: 0, color: ann.color || COLORS[Object.keys(counts).length % COLORS.length] }
       }
@@ -82,7 +92,7 @@ export default function AnnotationVisualization({ annotations }: AnnotationVisua
         color: data.color
       }))
       .sort((a, b) => b.value - a.value)
-  }, [annotations])
+  }, [countedAnnotations])
   
   // 绘制柱状图
   const drawBarChart = useCallback(() => {
@@ -193,7 +203,7 @@ export default function AnnotationVisualization({ annotations }: AnnotationVisua
               ${d.name}
             </div>
             <div>${t('annotation.count', '数量')}: <strong>${d.value}</strong></div>
-            <div>${t('annotation.percentage', '占比')}: <strong>${(d.value / annotations.length * 100).toFixed(1)}%</strong></div>
+            <div>${t('annotation.percentage', '占比')}: <strong>${(d.value / countedAnnotations.length * 100).toFixed(1)}%</strong></div>
           `
           tooltipRef.current.style.display = 'block'
           tooltipRef.current.style.left = `${event.pageX + 15}px`
@@ -234,8 +244,8 @@ export default function AnnotationVisualization({ annotations }: AnnotationVisua
       .text(t('annotation.labelStatistics', '标签统计'))
     
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [labelStats, annotations.length, t, isDarkMode])
-  
+  }, [labelStats, countedAnnotations.length, t, isDarkMode])
+
   // 绘制饼图
   const drawPieChart = useCallback(() => {
     if (!svgRef.current || labelStats.length === 0) return
@@ -351,7 +361,7 @@ export default function AnnotationVisualization({ annotations }: AnnotationVisua
       .attr('fill', themeColors.text)
       .attr('font-size', 28)
       .attr('font-weight', 700)
-      .text(annotations.length)
+      .text(countedAnnotations.length)
     
     centerGroup.append('text')
       .attr('y', 15)
@@ -408,8 +418,8 @@ export default function AnnotationVisualization({ annotations }: AnnotationVisua
     }
     
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [labelStats, annotations.length, t, isDarkMode])
-  
+  }, [labelStats, countedAnnotations.length, t, isDarkMode])
+
   // 根据图表类型绘制
   useEffect(() => {
     if (chartType === 'bar') {
@@ -652,7 +662,7 @@ export default function AnnotationVisualization({ annotations }: AnnotationVisua
       {/* 统计摘要 */}
       <Box sx={{ mt: 2 }}>
         <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
-          {t('common.all', '共')} {annotations.length} {t('common.items', '条')} | 
+          {t('common.all', '共')} {countedAnnotations.length} {t('common.items', '条')} |
           {' '}{labelStats.length} {t('annotation.labelTypes', '种标签')}
         </Typography>
         

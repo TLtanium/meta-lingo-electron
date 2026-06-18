@@ -21,16 +21,26 @@ import {
 import SearchIcon from '@mui/icons-material/Search'
 import ClearIcon from '@mui/icons-material/Clear'
 import BuildIcon from '@mui/icons-material/Build'
+import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp'
+import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown'
 import { useTranslation } from 'react-i18next'
 import { collocationApi } from '../../api/collocation'
 import { CQLBuilderDialog } from '../../pages/Collocation/components/CQLBuilder'
 import type { Annotation } from '../../types'
+import {
+  isAnnotationQuery,
+  evaluateAnnotationQuery,
+  AnnotationQueryError,
+  type SearchMatch
+} from './annotationQuery'
+import {
+  evaluateAnnotationTokenQuery,
+  referencesTokenAttribute,
+  TokenQueryError,
+  type QueryToken
+} from './annotationTokenQuery'
 
-export interface SearchMatch {
-  start: number
-  end: number
-  text: string
-}
+export type { SearchMatch }
 
 interface SearchAnnotateBoxProps {
   text: string
@@ -46,6 +56,12 @@ interface SearchAnnotateBoxProps {
   currentAnnotations?: Annotation[]
   /** all unique labels used in current framework annotations */
   frameworkLabels?: string[]
+  /** SpaCy tokens (for mixing annotation with word/lemma/pos/tag/dep client-side) */
+  tokens?: QueryToken[]
+  /** 当前定位的匹配序号（从 0 起；-1 表示无）。用于「n/total」指示与上下箭头跳转 */
+  matchIndex?: number
+  /** 上下箭头/按钮跳转匹配：dir=1 下一个，dir=-1 上一个 */
+  onNavigate?: (dir: 1 | -1) => void
 }
 
 /**
@@ -109,69 +125,6 @@ function findExactMatches(searchTerm: string, text: string): SearchMatch[] {
   return matches
 }
 
-/**
- * Check if CQL contains only annotation attribute conditions (AND or OR logic).
- * Returns { labels, logic } if the entire query is purely annotation conditions,
- * or null if any condition involves a different attribute (falls back to backend).
- */
-function extractAnnotationQuery(cql: string): { labels: string[]; logic: 'and' | 'or' } | null {
-  const trimmed = cql.trim()
-  const innerMatch = trimmed.match(/^\[(.+)\]$/)
-  if (!innerMatch) return null
-  const inner = innerMatch[1].trim()
-
-  const annRe = /^annotation=="([^"]+)"$/
-
-  // Try AND split first
-  const andParts = inner.split(/\s*&\s*/)
-  if (andParts.length > 0 && andParts.every(p => annRe.test(p.trim()))) {
-    const labels = andParts.map(p => p.trim().match(annRe)![1])
-    return { labels, logic: 'and' }
-  }
-
-  // Try OR split
-  const orParts = inner.split(/\s*\|\s*/)
-  if (orParts.length > 1 && orParts.every(p => annRe.test(p.trim()))) {
-    const labels = orParts.map(p => p.trim().match(annRe)![1])
-    return { labels, logic: 'or' }
-  }
-
-  return null
-}
-
-/**
- * Evaluate annotation query client-side.
- * AND logic: returns spans where ALL required labels co-exist on the same position.
- * OR  logic: returns spans that carry any of the required labels.
- */
-function matchAnnotationLabels(
-  labels: string[],
-  logic: 'and' | 'or',
-  annotations: Annotation[]
-): SearchMatch[] {
-  if (logic === 'or') {
-    return annotations
-      .filter(ann => labels.includes(ann.label))
-      .map(ann => ({ start: ann.startPosition, end: ann.endPosition, text: ann.text }))
-  }
-
-  // AND: group annotations by span, keep spans that have every required label
-  const spanMap = new Map<string, { labelsPresent: Set<string>; ann: Annotation }>()
-  for (const ann of annotations) {
-    const key = `${ann.startPosition}-${ann.endPosition}`
-    if (!spanMap.has(key)) spanMap.set(key, { labelsPresent: new Set(), ann })
-    spanMap.get(key)!.labelsPresent.add(ann.label)
-  }
-
-  const matches: SearchMatch[] = []
-  for (const { labelsPresent, ann } of spanMap.values()) {
-    if (labels.every(l => labelsPresent.has(l))) {
-      matches.push({ start: ann.startPosition, end: ann.endPosition, text: ann.text })
-    }
-  }
-  return matches
-}
-
 export default function SearchAnnotateBox({
   text,
   onSearchChange,
@@ -181,7 +134,10 @@ export default function SearchAnnotateBox({
   corpusId,
   textId,
   currentAnnotations = [],
-  frameworkLabels = []
+  frameworkLabels = [],
+  tokens = [],
+  matchIndex = -1,
+  onNavigate
 }: SearchAnnotateBoxProps) {
   const { t } = useTranslation()
   const [searchTerm, setSearchTerm] = useState('')
@@ -201,13 +157,19 @@ export default function SearchAnnotateBox({
     onSearchChange(value, newMatches)
   }, [text, onSearchChange])
 
-  // 处理回车确认
+  // 处理回车确认 + 上下箭头按顺序定位匹配
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && matches.length > 0) {
       e.preventDefault()
       onConfirmAnnotate(matches)
+    } else if (e.key === 'ArrowDown' && matches.length > 0 && onNavigate) {
+      e.preventDefault()
+      onNavigate(1)
+    } else if (e.key === 'ArrowUp' && matches.length > 0 && onNavigate) {
+      e.preventDefault()
+      onNavigate(-1)
     }
-  }, [matches, onConfirmAnnotate])
+  }, [matches, onConfirmAnnotate, onNavigate])
 
   // 清除搜索
   const handleClear = useCallback(() => {
@@ -224,12 +186,51 @@ export default function SearchAnnotateBox({
     setIsCqlMode(true)
     setCqlError(null)
 
-    // Check for annotation-only query (client-side)
-    const annQuery = extractAnnotationQuery(cql)
-    if (annQuery) {
-      const newMatches = matchAnnotationLabels(annQuery.labels, annQuery.logic, currentAnnotations)
-      setMatches(newMatches)
-      onSearchChange(cql, newMatches)
+    // Annotation-attribute queries must be evaluated client-side: the backend CQL
+    // engine has no `annotation` attribute.
+    // - Pure annotation queries → span-level evaluator (annotationQuery): AND/OR/NOT,
+    //   == / != / = / !==, containing / within / !containing / !within.
+    // - Mixed with word/lemma/pos/tag/dep → token-level evaluator (annotationTokenQuery),
+    //   using the loaded SpaCy tokens; each token carries the labels covering it.
+    if (isAnnotationQuery(cql)) {
+      try {
+        let newMatches: SearchMatch[]
+        if (referencesTokenAttribute(cql)) {
+          if (tokens.length === 0) {
+            setCqlError(t('annotation.annNeedsTokens', '混用查询需要 SpaCy 标注数据，请先上传或重新标注文本'))
+            setMatches([])
+            onSearchChange(cql, [])
+            return
+          }
+          newMatches = evaluateAnnotationTokenQuery(cql, tokens, currentAnnotations)
+        } else {
+          newMatches = evaluateAnnotationQuery(cql, currentAnnotations)
+        }
+        setMatches(newMatches)
+        onSearchChange(cql, newMatches)
+      } catch (err) {
+        let msg = t('annotation.cqlSearchFailed', 'CQL 搜索失败')
+        if (err instanceof AnnotationQueryError) {
+          if (err.code === 'mixed') {
+            msg = t('annotation.annMixedAttr', '标注标签仅支持与 word/lemma/pos/tag/dep 混用')
+          } else if (err.code === 'unsupported') {
+            msg = t('annotation.annUnsupported', 'annotation 查询暂不支持该高级语法（序列/距离/meet/结构等）')
+          } else {
+            msg = t('annotation.annParseError', 'annotation 查询语法错误')
+          }
+        } else if (err instanceof TokenQueryError) {
+          if (err.code === 'unsupported_attr') {
+            msg = t('annotation.annMixedAttr', '标注标签仅支持与 word/lemma/pos/tag/dep 混用')
+          } else if (err.code === 'unsupported') {
+            msg = t('annotation.annUnsupported', 'annotation 查询暂不支持该高级语法（序列/距离/meet/结构等）')
+          } else {
+            msg = t('annotation.annParseError', 'annotation 查询语法错误')
+          }
+        }
+        setCqlError(msg)
+        setMatches([])
+        onSearchChange(cql, [])
+      }
       return
     }
 
@@ -281,7 +282,7 @@ export default function SearchAnnotateBox({
     } finally {
       setCqlLoading(false)
     }
-  }, [corpusId, textId, currentAnnotations, onSearchChange, t])
+  }, [corpusId, textId, currentAnnotations, tokens, onSearchChange, t])
 
   // 当文本变化时重新搜索 (plain text mode only)
   useEffect(() => {
@@ -342,14 +343,32 @@ export default function SearchAnnotateBox({
       )}
 
       {!cqlLoading && matches.length > 0 && (
-        <Tooltip title={t('annotation.pressEnterToAnnotate', '按回车键批量标注')}>
-          <Chip
-            label={t('annotation.matchCount', '{{count}} 处匹配', { count: matches.length })}
-            size="small"
-            color="primary"
-            variant="outlined"
-          />
-        </Tooltip>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+          <Tooltip title={t('annotation.pressEnterToAnnotate', '按回车键批量标注')}>
+            <Chip
+              label={onNavigate && matchIndex >= 0
+                ? `${matchIndex + 1}/${matches.length}`
+                : t('annotation.matchCount', '{{count}} 处匹配', { count: matches.length })}
+              size="small"
+              color="primary"
+              variant="outlined"
+            />
+          </Tooltip>
+          {onNavigate && (
+            <>
+              <Tooltip title={t('annotation.prevMatch', '上一个匹配 (↑)')}>
+                <IconButton size="small" onClick={() => onNavigate(-1)}>
+                  <KeyboardArrowUpIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title={t('annotation.nextMatch', '下一个匹配 (↓)')}>
+                <IconButton size="small" onClick={() => onNavigate(1)}>
+                  <KeyboardArrowDownIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            </>
+          )}
+        </Box>
       )}
 
       {!cqlLoading && searchTerm && matches.length === 0 && !cqlError && (

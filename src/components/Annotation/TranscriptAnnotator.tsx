@@ -23,12 +23,14 @@ import AccountTreeIcon from '@mui/icons-material/AccountTree'
 import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh'
 import KeyboardIcon from '@mui/icons-material/Keyboard'
 import html2canvas from 'html2canvas'
-import type { Annotation, AnnotationRelation, SelectedLabel, TranscriptSegment, YoloTrack, ClipAnnotationData } from '../../types'
+import type { Annotation, AnnotationRelation, AnnotationGroup, SelectedLabel, TranscriptSegment, YoloTrack, ClipAnnotationData } from '../../types'
 import SyntaxVisualization from './SyntaxVisualization'
 import type { SentenceInfo } from './SyntaxVisualization'
 import RelationArrows from './RelationArrows'
+import { measureBlockPositions } from './annotationMeasure'
 import LinkIcon from '@mui/icons-material/Link'
 import LinkOffIcon from '@mui/icons-material/LinkOff'
+import JoinInnerIcon from '@mui/icons-material/JoinInner'
 
 // Export ref type
 export interface TranscriptAnnotatorRef {
@@ -63,6 +65,10 @@ interface TranscriptAnnotatorProps {
   relations?: AnnotationRelation[]
   onRelationAdd?: (relation: AnnotationRelation) => void
   onRelationRemove?: (relationId: string) => void
+  // ── 非连续词组分组 ──────────────────────────────────────────────────────────
+  groups?: AnnotationGroup[]
+  onGroupAdd?: (group: AnnotationGroup) => void
+  onGroupRemove?: (groupId: string) => void
   // 自动标注（多模态转录）相关
   autoAnnotateEnabled?: boolean
   autoAnnotating?: boolean
@@ -147,6 +153,10 @@ function getSegmentAnnotationColor(
 /**
  * Calculate annotation layers - larger annotations in layer 0 (closest to text)
  */
+/** Height (px) of a reserved connector lane — one label row, so relation arrows
+ *  occupy their own slot instead of overlapping adjacent labels. */
+const CONNECTOR_LANE_H = 24
+
 function calculateAnnotationLayers(annotations: Annotation[]): Map<string, number> {
   // Sort by length (descending) then by start position
   const sorted = [...annotations].sort((a, b) => {
@@ -229,6 +239,9 @@ const TranscriptAnnotator = forwardRef<TranscriptAnnotatorRef, TranscriptAnnotat
   relations = [],
   onRelationAdd,
   onRelationRemove,
+  groups = [],
+  onGroupAdd,
+  onGroupRemove,
   autoAnnotateEnabled = false,
   autoAnnotating = false,
   autoAnnotateTooltip,
@@ -250,11 +263,41 @@ const TranscriptAnnotator = forwardRef<TranscriptAnnotatorRef, TranscriptAnnotat
 
   const toggleLinkMode = useCallback(() => {
     setLinkMode(prev => {
-      if (prev) setLinkSourceId(null)
+      if (!prev) { setGroupMode(false); setGroupPendingIds([]) }
+      else setLinkSourceId(null)
       return !prev
     })
   }, [])
+
+  // ── Group mode (non-contiguous discontinuous groups) ─────────────────────────
+  const [groupMode, setGroupMode]             = useState(false)
+  const [groupPendingIds, setGroupPendingIds] = useState<string[]>([])
+  const canGroup = !disabled && !!onGroupAdd && !!onGroupRemove
+
+  const toggleGroupMode = useCallback(() => {
+    setGroupMode(prev => {
+      if (!prev) { setLinkMode(false); setLinkSourceId(null) }
+      else setGroupPendingIds([])
+      return !prev
+    })
+  }, [])
+
+  const handleConfirmGroup = useCallback(() => {
+    if (groupPendingIds.length < 2 || !onGroupAdd) return
+    onGroupAdd({ id: crypto.randomUUID(), annotationIds: [...groupPendingIds] })
+    setGroupPendingIds([])
+  }, [groupPendingIds, onGroupAdd])
+
+  const groupNums = useMemo<ReadonlyMap<string, number>>(() => {
+    const map = new Map<string, number>()
+    groups.forEach((g, idx) => g.annotationIds.forEach(id => map.set(id, idx + 1)))
+    return map
+  }, [groups])
+  const groupPendingSet = useMemo<ReadonlySet<string>>(() => new Set(groupPendingIds), [groupPendingIds])
   const [blockPositions, setBlockPositions] = useState<Map<string, Map<string, { left: number; width: number }>>>(new Map())
+  // Bumped on every (re)measure so RelationArrows re-tracks blocks that shifted
+  // (e.g. a search highlight added padding/bold width to the segment text).
+  const [measureRevision, setMeasureRevision] = useState(0)
   const [exporting, setExporting] = useState<'png' | 'svg' | null>(null)
   
   // Syntax visualization state
@@ -469,9 +512,49 @@ const TranscriptAnnotator = forwardRef<TranscriptAnnotatorRef, TranscriptAnnotat
       const maxLayer = layers.size > 0 ? Math.max(...Array.from(layers.values())) : -1
       result.set(segId, maxLayer + 1)
     })
-    
+
     return result
   }, [layersBySegment])
+
+  // 标注 ID → 段落顺序序号（在 transcriptSegments 中的下标），用于判断关联两端的上下关系
+  const annToSegOrder = useMemo(() => {
+    const segOrder = new Map<string, number>()
+    transcriptSegments.forEach((seg, i) => segOrder.set(String(seg.id), i))
+    const m = new Map<string, { segId: string; order: number }>()
+    annotationsBySegment.forEach((anns, segId) => {
+      const order = segOrder.get(segId) ?? 0
+      anns.forEach(a => m.set(a.id, { segId, order }))
+    })
+    return m
+  }, [annotationsBySegment, transcriptSegments])
+
+  // 需要预留底部连线通道的段落集合：取关联两端中较上方（段落序号较小）的段落，
+  // 使横线落在第一个标签正下方、第二个标签位于横线下方。
+  const bottomLaneSegSet = useMemo(() => {
+    const set = new Set<string>()
+    for (const rel of relations) {
+      const s = annToSegOrder.get(rel.sourceId)
+      const tg = annToSegOrder.get(rel.targetId)
+      if (!s || !tg) continue
+      set.add(s.order <= tg.order ? s.segId : tg.segId)
+    }
+    return set
+  }, [relations, annToSegOrder])
+
+  // 需要预留顶部连线通道的段落集合：取词组成员中最上方（段落序号较小）的段落，
+  // 词组括号横线落在该段落标签上方的空通道内。
+  const topLaneSegSet = useMemo(() => {
+    const set = new Set<string>()
+    for (const grp of groups) {
+      const orders = grp.annotationIds
+        .map(id => annToSegOrder.get(id))
+        .filter((x): x is { segId: string; order: number } => !!x)
+      if (orders.length < 2) continue
+      const top = orders.reduce((a, b) => (b.order < a.order ? b : a))
+      set.add(top.segId)
+    }
+    return set
+  }, [groups, annToSegOrder])
 
   // Measure label block positions after render
   useEffect(() => {
@@ -483,60 +566,44 @@ const TranscriptAnnotator = forwardRef<TranscriptAnnotatorRef, TranscriptAnnotat
     const measurePositions = () => {
       const positions = new Map<string, Map<string, { left: number; width: number }>>()
       
+      // Precompute each segment's global char offset (segments are concatenated
+      // with no separator on the frontend).
+      let runningOffset = 0
+      const segOffsets = new Map<string, number>()
+      for (const seg of transcriptSegments) {
+        segOffsets.set(String(seg.id), runningOffset)
+        runningOffset += seg.text.length
+      }
+
       transcriptSegments.forEach((segment) => {
         const segId = String(segment.id)
         const segTextEl = containerRef.current?.querySelector(`[data-segment-id="${segId}"] .segment-text`)
         if (!segTextEl) return
-        
-        const textNode = segTextEl.firstChild
-        if (!textNode || textNode.nodeType !== Node.TEXT_NODE) return
-        
+
+        const segOffset = segOffsets.get(segId) ?? 0
         const segAnnotations = annotationsBySegment.get(segId) || []
-        const segPositions = new Map<string, { left: number; width: number }>()
-        const range = document.createRange()
-        
-        // Calculate offset for this segment
-        let segOffset = 0
-        for (const seg of transcriptSegments) {
-          if (String(seg.id) === segId) break
-          segOffset += seg.text.length
-        }
-        
-        for (const ann of segAnnotations) {
-          try {
-            const relStart = ann.startPosition - segOffset
-            const relEnd = ann.endPosition - segOffset
-            
-            range.setStart(textNode, Math.min(Math.max(relStart, 0), segment.text.length))
-            range.setEnd(textNode, Math.min(Math.max(relEnd, 0), segment.text.length))
-            const rect = range.getBoundingClientRect()
-            const containerRect = segTextEl.getBoundingClientRect()
-            
-            segPositions.set(ann.id, {
-              left: rect.left - containerRect.left,
-              width: rect.width
-            })
-          } catch (e) {
-            const charWidth = 8
-            const relStart = ann.startPosition - segOffset
-            segPositions.set(ann.id, {
-              left: relStart * charWidth,
-              width: (ann.endPosition - ann.startPosition) * charWidth
-            })
-          }
-        }
-        
-        positions.set(segId, segPositions)
+        // Walk all text nodes so measurement stays correct when the segment text is
+        // split by search-highlight spans (not just a single firstChild text node).
+        positions.set(segId, measureBlockPositions(
+          segTextEl,
+          segment.text.length,
+          segAnnotations.map(ann => ({
+            id: ann.id,
+            relStart: ann.startPosition - segOffset,
+            relEnd: ann.endPosition - segOffset,
+          }))
+        ))
       })
-      
+
       setBlockPositions(positions)
+      setMeasureRevision(v => v + 1)
     }
 
     requestAnimationFrame(measurePositions)
-    
+
     window.addEventListener('resize', measurePositions)
     return () => window.removeEventListener('resize', measurePositions)
-  }, [annotations, transcriptSegments, annotationsBySegment])
+  }, [annotations, transcriptSegments, annotationsBySegment, searchHighlights])
 
   // Scroll to highlighted segment when it changes — scroll ONLY within the container,
   // never triggering a full-page scroll (which would drag the waveform/video out of view)
@@ -632,6 +699,16 @@ const TranscriptAnnotator = forwardRef<TranscriptAnnotatorRef, TranscriptAnnotat
   const handleBlockClick = useCallback((ann: Annotation, e: React.MouseEvent) => {
     e.stopPropagation()
 
+    // ── Group mode ─────────────────────────────────────────────────────────────
+    if (groupMode && canGroup) {
+      const existingGroup = groups.find(g => g.annotationIds.includes(ann.id))
+      if (existingGroup) { onGroupRemove!(existingGroup.id); return }
+      setGroupPendingIds(prev =>
+        prev.includes(ann.id) ? prev.filter(id => id !== ann.id) : [...prev, ann.id]
+      )
+      return
+    }
+
     if (linkMode && canLink) {
       if (!linkSourceId) {
         setLinkSourceId(ann.id)
@@ -657,7 +734,7 @@ const TranscriptAnnotator = forwardRef<TranscriptAnnotatorRef, TranscriptAnnotat
 
     // Normal mode: navigate to table row
     onAnnotationClick?.(ann.id)
-  }, [linkMode, canLink, linkSourceId, relations, onRelationAdd, onRelationRemove, onAnnotationClick])
+  }, [groupMode, canGroup, groups, onGroupRemove, linkMode, canLink, linkSourceId, relations, onRelationAdd, onRelationRemove, onAnnotationClick])
   
   // 渲染带搜索高亮的文本
   const renderHighlightedText = useCallback((segText: string, segOffset: number) => {
@@ -852,6 +929,36 @@ const TranscriptAnnotator = forwardRef<TranscriptAnnotatorRef, TranscriptAnnotat
               </IconButton>
             </Tooltip>
           )}
+          {canGroup && groupMode && groupPendingIds.length >= 2 && (
+            <Tooltip title={t('annotation.groupConfirm', '确认词组 ({{count}})', { count: groupPendingIds.length })}>
+              <Box
+                component="span"
+                onClick={handleConfirmGroup}
+                sx={{
+                  display: 'inline-flex', alignItems: 'center', cursor: 'pointer',
+                  px: 1, height: 30, borderRadius: 1, bgcolor: 'secondary.main', color: 'white',
+                  fontSize: 12, fontWeight: 600, '&:hover': { opacity: 0.85 },
+                }}
+              >
+                {t('annotation.groupConfirm', '确认词组 ({{count}})', { count: groupPendingIds.length })}
+              </Box>
+            </Tooltip>
+          )}
+          {canGroup && (
+            <Tooltip title={groupMode ? t('annotation.groupModeOff', '退出词组模式') : t('annotation.groupModeOn', '非连续词组模式（无方向性，计为整体）')}>
+              <IconButton
+                size="small"
+                onClick={toggleGroupMode}
+                sx={{
+                  bgcolor: groupMode ? 'secondary.main' : 'action.hover',
+                  color: groupMode ? 'white' : 'inherit',
+                  '&:hover': { bgcolor: groupMode ? 'secondary.dark' : 'secondary.light', color: 'white' }
+                }}
+              >
+                <JoinInnerIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          )}
         </Stack>
       </Box>
 
@@ -890,8 +997,12 @@ const TranscriptAnnotator = forwardRef<TranscriptAnnotatorRef, TranscriptAnnotat
             barColor = annotationColor // Annotation color
           }
 
+          const hasBottomLane = bottomLaneSegSet.has(segId)
+          const hasTopLane = topLaneSegSet.has(segId)
           // Calculate total height
           const totalHeight = 28 + (maxLayers * 26)
+            + (hasTopLane ? CONNECTOR_LANE_H : 0)
+            + (hasBottomLane ? CONNECTOR_LANE_H : 0)
 
           // Get YOLO labels for this segment's time range
           const segmentYoloLabels = getYoloLabelsForTimeRange(segment.start, segment.end, yoloTracks)
@@ -1040,6 +1151,11 @@ const TranscriptAnnotator = forwardRef<TranscriptAnnotatorRef, TranscriptAnnotat
                   {renderHighlightedText(segment.text, segOffset)}
                 </Box>
 
+                {/* 顶部连线通道：为词组括号（在标签上方）预留一行标签高度的空位 */}
+                {hasTopLane && (
+                  <Box data-lane="top" className="connector-lane-top" sx={{ height: CONNECTOR_LANE_H, flexShrink: 0 }} />
+                )}
+
                 {/* Annotation Layers */}
                 {maxLayers > 0 && (
                   <Box
@@ -1072,17 +1188,27 @@ const TranscriptAnnotator = forwardRef<TranscriptAnnotatorRef, TranscriptAnnotat
                             const isSelectedBlock = ann.id === selectedAnnotationId
                             const isLinkSrc  = linkMode && ann.id === linkSourceId
                             const isLinkable = linkMode && !isLinkSrc
+                            const isGroupPending = groupMode && groupPendingSet.has(ann.id)
+                            const isGroupTarget  = groupMode && !isGroupPending
+                            const groupNum = groupNums.get(ann.id)
+                            const hasGroup = groupNum !== undefined
 
                             return (
                               <Box
                                 key={ann.id}
                                 data-annotation-id={ann.id}
                                 onClick={(e) => handleBlockClick(ann, e)}
-                                title={linkMode
-                                  ? (isLinkSrc
-                                      ? t('annotation.linkSrcSelected')
-                                      : t('annotation.linkClickToLink', '点击与「{{label}}」建立关联', { label: ann.label }))
-                                  : t('annotation.clickToLocate', '点击定位到标注表格 | {{label}}: {{text}}', { label: ann.label, text: ann.text })
+                                title={groupMode
+                                  ? (hasGroup
+                                      ? t('annotation.groupClickToDissolve', '点击解散该词组')
+                                      : isGroupPending
+                                        ? t('annotation.groupClickToDeselect', '点击取消选择')
+                                        : t('annotation.groupClickToAdd', '点击加入词组'))
+                                  : linkMode
+                                    ? (isLinkSrc
+                                        ? t('annotation.linkSrcSelected')
+                                        : t('annotation.linkClickToLink', '点击与「{{label}}」建立关联', { label: ann.label }))
+                                    : t('annotation.clickToLocate', '点击定位到标注表格 | {{label}}: {{text}}', { label: ann.label, text: ann.text })
                                 }
                                 sx={{
                                   position: 'absolute',
@@ -1101,16 +1227,21 @@ const TranscriptAnnotator = forwardRef<TranscriptAnnotatorRef, TranscriptAnnotat
                                   px: '2px',
                                   boxShadow: isLinkSrc
                                     ? `0 0 0 2px white, 0 0 0 4px #FF9800, 0 4px 14px rgba(255,152,0,0.7)`
-                                    : isSelectedBlock
-                                      ? `0 0 0 2px white, 0 0 0 4px ${ann.color || '#2196F3'}, 0 3px 8px rgba(0,0,0,0.3)`
-                                      : '0 1px 2px rgba(0,0,0,0.3)',
-                                  outline: isLinkable ? '2px dashed #FF9800' : undefined,
+                                    : isGroupPending
+                                      ? `0 0 0 2px white, 0 0 0 4px #9C27B0, 0 3px 10px rgba(156,39,176,0.6)`
+                                      : isSelectedBlock
+                                        ? `0 0 0 2px white, 0 0 0 4px ${ann.color || '#2196F3'}, 0 3px 8px rgba(0,0,0,0.3)`
+                                        : '0 1px 2px rgba(0,0,0,0.3)',
+                                  outline: isGroupTarget
+                                    ? '2px dashed rgba(156,39,176,0.5)'
+                                    : isLinkable ? '2px dashed #FF9800' : undefined,
+                                  outlineOffset: (isGroupTarget || isLinkable) ? '2px' : undefined,
                                   bgcolor: ann.color || '#2196F3',
                                   opacity: pos ? 1 : 0,
                                   left: pos?.left ?? 0,
                                   width: pos?.width ?? 'auto',
-                                  transform: isSelectedBlock || isLinkSrc ? 'translateY(-2px) scaleY(1.1)' : undefined,
-                                  zIndex: isSelectedBlock || isLinkSrc ? 15 : undefined,
+                                  transform: isSelectedBlock || isLinkSrc || isGroupPending ? 'translateY(-2px) scaleY(1.1)' : undefined,
+                                  zIndex: isSelectedBlock || isLinkSrc || isGroupPending ? 15 : undefined,
                                   transition: 'transform 0.15s, box-shadow 0.15s, opacity 0.2s',
                                   '&:hover': {
                                     transform: isSelectedBlock ? 'translateY(-3px) scaleY(1.1)' : 'translateY(-1px)',
@@ -1122,6 +1253,20 @@ const TranscriptAnnotator = forwardRef<TranscriptAnnotatorRef, TranscriptAnnotat
                                 }}
                               >
                                 {ann.label}
+                                {hasGroup && (
+                                  <Box
+                                    sx={{
+                                      position: 'absolute', top: 1, right: 1,
+                                      width: 13, height: 13, borderRadius: '50%',
+                                      bgcolor: 'white', border: `1.5px solid ${ann.color || '#2196F3'}`,
+                                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                      fontSize: '7px', color: ann.color || '#2196F3', fontWeight: 700,
+                                      lineHeight: 1, zIndex: 30, pointerEvents: 'none', userSelect: 'none',
+                                    }}
+                                  >
+                                    {groupNum}
+                                  </Box>
+                                )}
                               </Box>
                             )
                           })}
@@ -1130,17 +1275,25 @@ const TranscriptAnnotator = forwardRef<TranscriptAnnotatorRef, TranscriptAnnotat
                     })}
                   </Box>
                 )}
+
+                {/* 底部连线通道：为关联箭头预留一行标签高度的空位，
+                    横线落在该空位内，避免压住相邻行标签 */}
+                {hasBottomLane && (
+                  <Box data-lane="bottom" className="connector-lane-bottom" sx={{ height: CONNECTOR_LANE_H, flexShrink: 0 }} />
+                )}
               </Box>
             </Box>
           )
         })}
 
-        {/* SVG relation arrows overlay */}
-        {relations.length > 0 && (
+        {/* SVG relation arrows + group brackets overlay */}
+        {(relations.length > 0 || groups.length > 0) && (
           <RelationArrows
             relations={relations}
             annotations={annotations}
             containerRef={containerRef}
+            groups={groups}
+            revision={measureRevision}
           />
         )}
       </Paper>
@@ -1149,6 +1302,7 @@ const TranscriptAnnotator = forwardRef<TranscriptAnnotatorRef, TranscriptAnnotat
       <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
         {annotations.length} {t('annotation.annotationCount')}
         {relations.length > 0 && ` | ${relations.length} ${t('annotation.relationCount', '条关联')}`}
+        {groups.length > 0 && ` | ${groups.length} ${t('annotation.groupCount', '个词组')}`}
         {` | `}{transcriptSegments.length} {t('annotation.segmentCount')} | {t('annotation.transcriptHints')}
       </Typography>
 

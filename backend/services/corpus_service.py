@@ -470,12 +470,23 @@ class CorpusService:
             # Ensure unique filename
             save_path = self._get_unique_path(save_path)
             
-            # Write file
+            # For text files: detect encoding and normalise to UTF-8 before saving.
+            # This makes all downstream reads safe to use encoding='utf-8'.
+            if media_type == MediaType.TEXT:
+                from services.encoding_utils import detect_and_decode
+                content_for_save, detected_enc = detect_and_decode(file_content)
+                if detected_enc not in ("utf-8", "utf-8-bom"):
+                    logger.info(f"[save_uploaded_file] Re-encoding {filename}: {detected_enc} → utf-8")
+                file_bytes_to_write = content_for_save.encode("utf-8")
+            else:
+                file_bytes_to_write = file_content
+
+            # Write file (text files saved as UTF-8, binary files unchanged)
             with open(save_path, 'wb') as f:
-                f.write(file_content)
-            
+                f.write(file_bytes_to_write)
+
             logger.info(f"Saved file: {save_path}")
-            
+
             # Create text entry
             text_data = {
                 'id': text_id,
@@ -486,16 +497,16 @@ class CorpusService:
                 'tags': config.tags,
                 'metadata': config.metadata.dict() if config.metadata else {}
             }
-            
+
             spacy_result = None
             usas_result = None
             needs_async_spacy = False
-            
+
             if media_type == MediaType.TEXT:
                 text_data['content_path'] = str(save_path)
                 # Count words and check if async processing needed
                 try:
-                    content = file_content.decode('utf-8')
+                    content = content_for_save  # already decoded above
                     text_data['word_count'] = len(content.split())
                     
                     # All text files use async SpaCy processing for better UX

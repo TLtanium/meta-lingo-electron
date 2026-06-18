@@ -53,7 +53,8 @@ import DeleteIcon from '@mui/icons-material/Delete'
 import CloseIcon from '@mui/icons-material/Close'
 import { useTranslation } from 'react-i18next'
 import { useTabStore } from '../../stores/tabStore'
-import type { Annotation, AnnotationRelation } from '../../types'
+import type { Annotation, AnnotationRelation, AnnotationGroup } from '../../types'
+import { buildGroupNumberMap } from '../../utils/annotationGroups'
 import type { CrossLinkParams, TabType } from '../../types'
 import Stack from '@mui/material/Stack'
 
@@ -94,6 +95,7 @@ interface AnnotationTableProps {
   /** When true, show a direct X delete button instead of MoreVert dropdown menu */
   directDeleteOnly?: boolean
   relations?: AnnotationRelation[]
+  groups?: AnnotationGroup[]
 }
 
 /**
@@ -180,7 +182,7 @@ function getEntityColor(label: string): string {
 
 // Common cell styles - will be customized per theme in component
 const getHeaderCellSx = (isDarkMode: boolean) => ({
-  bgcolor: isDarkMode ? 'rgba(255,255,255,0.05)' : '#f5f5f5',
+  bgcolor: isDarkMode ? '#2a2a2a' : '#f5f5f5',
   fontWeight: 600,
   borderBottom: `2px solid ${isDarkMode ? 'rgba(255,255,255,0.1)' : '#ddd'}`,
   fontSize: '12px',
@@ -216,9 +218,12 @@ export default function AnnotationTable({
   onSelect,
   selectedId,
   directDeleteOnly = false,
-  relations = []
+  relations = [],
+  groups = []
 }: AnnotationTableProps) {
   const { t } = useTranslation()
+  // annotationId → 1-based group number (for the group badge next to the label)
+  const groupMap = useMemo(() => buildGroupNumberMap(groups), [groups])
   const theme = useTheme()
   const isDarkMode = theme.palette.mode === 'dark'
   const headerCellSx = getHeaderCellSx(isDarkMode)
@@ -309,20 +314,36 @@ export default function AnnotationTable({
     })
   }, [annotationsWithSpacy, orderBy, order])
 
-  // Scroll to selected row — index-based so virtual scrolling works even when row isn't in DOM
+  // Scroll to selected row — center in viewport using a two-pass approach:
+  // Pass 1: rough scroll to bring the row into the virtual window.
+  // Pass 2 (double RAF, after React re-renders the new virtual window): find the
+  // actual DOM element and use its bounding rect for pixel-perfect centering.
   useEffect(() => {
     if (!selectedId) return
     const container = tableContainerRef.current
     if (!container) return
     const annIdx = sortedAnnotations.findIndex(a => a.id === selectedId)
     if (annIdx < 0) return
+
+    // Pass 1: approximate — bring the row near the visible window
     const rowTop = annIdx * ROW_HEIGHT
-    const rowBottom = rowTop + ROW_HEIGHT
-    const viewTop = container.scrollTop
-    const viewBottom = viewTop + container.clientHeight
-    if (rowTop < viewTop || rowBottom > viewBottom) {
-      container.scrollTop = Math.max(0, rowTop - container.clientHeight / 2 + ROW_HEIGHT / 2)
-    }
+    container.scrollTop = Math.max(0, rowTop - container.clientHeight / 2 + ROW_HEIGHT / 2)
+
+    // Pass 2: precise — after two frames the virtual rows have been re-rendered
+    let raf1: number, raf2: number
+    raf1 = requestAnimationFrame(() => {
+      raf2 = requestAnimationFrame(() => {
+        const c = tableContainerRef.current
+        if (!c) return
+        const rowEl = c.querySelector<HTMLElement>(`[data-annotation-row="${selectedId}"]`)
+        if (!rowEl) return
+        const cRect = c.getBoundingClientRect()
+        const rRect = rowEl.getBoundingClientRect()
+        const rowRelTop = rRect.top - cRect.top + c.scrollTop
+        c.scrollTop = Math.max(0, rowRelTop - c.clientHeight / 2 + rRect.height / 2)
+      })
+    })
+    return () => { cancelAnimationFrame(raf1); cancelAnimationFrame(raf2) }
   }, [selectedId, sortedAnnotations, ROW_HEIGHT])
 
   // Virtual window: only render rows visible in the 300px container ± buffer
@@ -657,20 +678,39 @@ export default function AnnotationTable({
                   {idx + 1}
                 </TableCell>
                 <TableCell sx={bodyCellSx}>
-                  <Box
-                    component="span"
-                    sx={{
-                      display: 'inline-block',
-                      backgroundColor: ann.color || '#2196F3',
-                      color: '#fff',
-                      padding: '2px 8px',
-                      borderRadius: '3px',
-                      fontSize: '11px',
-                      fontWeight: 500,
-                      whiteSpace: 'nowrap'
-                    }}
-                  >
-                    {ann.label}
+                  <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                    <Box
+                      component="span"
+                      sx={{
+                        display: 'inline-block',
+                        backgroundColor: ann.color || '#2196F3',
+                        color: '#fff',
+                        padding: '2px 8px',
+                        borderRadius: '3px',
+                        fontSize: '11px',
+                        fontWeight: 500,
+                        whiteSpace: 'nowrap'
+                      }}
+                    >
+                      {ann.label}
+                    </Box>
+                    {groupMap.has(ann.id) && (
+                      <Tooltip title={t('annotation.groupBadgeTooltip', '词组 {{n}}（计为一个单位）', { n: groupMap.get(ann.id) })}>
+                        <Box
+                          component="span"
+                          sx={{
+                            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                            width: 16, height: 16, borderRadius: '50%',
+                            bgcolor: isDarkMode ? '#2a2a2a' : 'white',
+                            border: `1.5px solid ${ann.color || '#2196F3'}`,
+                            fontSize: '8px', color: ann.color || '#2196F3',
+                            fontWeight: 700, lineHeight: 1, flexShrink: 0,
+                          }}
+                        >
+                          {groupMap.get(ann.id)}
+                        </Box>
+                      </Tooltip>
+                    )}
                   </Box>
                 </TableCell>
                 {!directDeleteOnly && (

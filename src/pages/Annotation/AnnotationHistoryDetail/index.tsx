@@ -323,11 +323,13 @@ export default function AnnotationHistoryDetail({ archive, onBack }: AnnotationH
           <AnnotationDataTable
             annotations={annotations.filter(a => a.type !== 'video' && a.type !== 'audio')}
             relations={archiveData.relations}
+            groups={(archiveData as any).groups}
             archiveName={archive.textName || archive.resourceName || archive.id}
             excludeVideoAnnotations={isVideo || isAudio}
             originalText={archiveData.text}
             spacyTokens={archiveData.spacyAnnotation?.tokens}
             frameworkName={archiveData.framework}
+            coderName={(archiveData as { coderName?: string }).coderName}
           />
         </TabPanel>
         
@@ -377,7 +379,7 @@ export default function AnnotationHistoryDetail({ archive, onBack }: AnnotationH
               clipAnnotations={clipAnnotations}
             />
           ) : (
-            <AnnotationVisualization annotations={annotations} />
+            <AnnotationVisualization annotations={annotations} groups={(archiveData as { groups?: import('../../../types').AnnotationGroup[] }).groups} />
           )}
         </TabPanel>
       </Paper>

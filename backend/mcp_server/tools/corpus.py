@@ -167,8 +167,8 @@ def register(mcp: FastMCP, client: MetaLingoClient):
             if not os.path.isfile(filepath):
                 return f"File not found: {filepath}"
             try:
-                with open(filepath, "r", encoding="utf-8") as fh:
-                    content = fh.read()
+                from services.encoding_utils import read_text_file
+                content, _enc = read_text_file(filepath)
             except Exception as e:
                 return f"Failed to read file: {e}"
             if not filename:
@@ -325,8 +325,8 @@ def register(mcp: FastMCP, client: MetaLingoClient):
         for filepath in valid_files:
             basename = os.path.basename(filepath)
             try:
-                with open(filepath, "r", encoding="utf-8") as fh:
-                    content = fh.read()
+                from services.encoding_utils import read_text_file
+                content, _enc = read_text_file(filepath)
             except Exception as e:
                 failed.append(f"{basename}: read error - {e}")
                 continue

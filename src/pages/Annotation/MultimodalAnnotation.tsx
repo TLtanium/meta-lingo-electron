@@ -59,6 +59,7 @@ import type {
   FrameworkCategory,
   Annotation,
   AnnotationRelation,
+  AnnotationGroup,
   SelectedLabel,
   AnnotationArchiveListItem,
   Corpus,
@@ -192,6 +193,7 @@ export default function MultimodalAnnotation() {
   // Annotation state
   const [annotations, setAnnotations] = useState<Annotation[]>([])
   const [relations, setRelations] = useState<AnnotationRelation[]>([])
+  const [groups, setGroups] = useState<AnnotationGroup[]>([])
   const [savedAudioBoxes, setSavedAudioBoxes] = useState<AudioBox[]>([])  // 音频画框标注
   const [waveformExportFn, setWaveformExportFn] = useState<(() => string | null) | null>(null)  // 波形导出函数
   const [currentArchiveId, setCurrentArchiveId] = useState<string | null>(null)
@@ -571,6 +573,7 @@ export default function MultimodalAnnotation() {
     setTranscriptText('')
     setAnnotations([])
     setRelations([])
+    setGroups([])
     setCurrentArchiveId(null)
     setSpacyTokens([])
     setSpacyEntities([])
@@ -594,6 +597,7 @@ export default function MultimodalAnnotation() {
     setSelectedMedia(media)
     setAnnotations([])
     setRelations([])
+    setGroups([])
     setCurrentArchiveId(null)
     setCoderName('')
     setSpacyTokens([])
@@ -712,6 +716,7 @@ export default function MultimodalAnnotation() {
         setTranscriptText(data.text)
         setAnnotations(data.annotations)
         setRelations(data.relations || [])
+        setGroups((data as { groups?: AnnotationGroup[] }).groups || [])
         setCurrentArchiveId(data.id)
         
         if (data.transcriptSegments) {
@@ -834,7 +839,14 @@ export default function MultimodalAnnotation() {
 
   const handleAnnotationRemove = useCallback((id: string) => {
     setAnnotations(prev => prev.filter(a => a.id !== id))
-    
+    // 清理引用该标注的关联与词组（词组成员不足 2 个则解散）
+    setRelations(prev => prev.filter(r => r.sourceId !== id && r.targetId !== id))
+    setGroups(prev =>
+      prev
+        .map(g => ({ ...g, annotationIds: g.annotationIds.filter(aid => aid !== id) }))
+        .filter(g => g.annotationIds.length >= 2)
+    )
+
     // 如果是音频画框标注，同时删除 savedAudioBoxes 中的对应项
     if (id.startsWith('audio-box-')) {
       const audioBoxId = parseInt(id.replace('audio-box-', ''), 10)
@@ -1010,7 +1022,9 @@ export default function MultimodalAnnotation() {
           audioBoxes: savedAudioBoxes.length > 0 ? savedAudioBoxes : undefined,
           pitchData: pitchDataArchive,
           acousticData: acousticDataArchive,
-          audioVisualizationSvg
+          audioVisualizationSvg,
+          relations: relations.length > 0 ? relations : undefined,
+          groups: groups.length > 0 ? groups : undefined
         }
       )
 
@@ -1563,6 +1577,7 @@ export default function MultimodalAnnotation() {
                         textId={selectedMedia?.id}
                         currentAnnotations={annotations}
                         frameworkLabels={frameworkLabels}
+                        tokens={spacyTokens}
                       />
                       <Divider orientation="vertical" flexItem />
                     </>
@@ -1650,6 +1665,9 @@ export default function MultimodalAnnotation() {
                 relations={relations}
                 onRelationAdd={(rel) => setRelations(prev => [...prev, rel])}
                 onRelationRemove={(id) => setRelations(prev => prev.filter(r => r.id !== id))}
+                groups={groups}
+                onGroupAdd={(grp) => setGroups(prev => [...prev, grp])}
+                onGroupRemove={(id) => setGroups(prev => prev.filter(g => g.id !== id))}
                 onKeyboardShortcuts={() => setShortcutsDialogOpen(true)}
                 hasFramework={!!currentFramework}
               />

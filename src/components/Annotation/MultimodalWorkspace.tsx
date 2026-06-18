@@ -54,6 +54,7 @@ import SaveIcon from '@mui/icons-material/Save'
 import type {
   Annotation,
   AnnotationRelation,
+  AnnotationGroup,
   SelectedLabel,
   YoloTrack,
   TranscriptSegment,
@@ -211,6 +212,9 @@ interface MultimodalWorkspaceProps {
   relations?: AnnotationRelation[]
   onRelationAdd?: (rel: AnnotationRelation) => void
   onRelationRemove?: (id: string) => void
+  groups?: AnnotationGroup[]
+  onGroupAdd?: (group: AnnotationGroup) => void
+  onGroupRemove?: (id: string) => void
   onKeyboardShortcuts?: () => void
   hasFramework?: boolean
 }
@@ -298,6 +302,9 @@ export default function MultimodalWorkspace({
   relations,
   onRelationAdd,
   onRelationRemove,
+  groups,
+  onGroupAdd,
+  onGroupRemove,
   onKeyboardShortcuts,
   hasFramework = false
 }: MultimodalWorkspaceProps) {
@@ -1645,6 +1652,9 @@ export default function MultimodalWorkspace({
               relations={relations}
               onRelationAdd={onRelationAdd}
               onRelationRemove={onRelationRemove}
+              groups={groups}
+              onGroupAdd={onGroupAdd}
+              onGroupRemove={onGroupRemove}
               onAnnotationClick={(id) => setSelectedAnnotationId(prev => prev === id ? null : id)}
               onKeyboardShortcuts={onKeyboardShortcuts}
               hasFramework={hasFramework}
@@ -1669,6 +1679,7 @@ export default function MultimodalWorkspace({
               onSelect={(id) => setSelectedAnnotationId(id)}
               selectedId={selectedAnnotationId}
               relations={relations}
+              groups={groups}
             />
           )}
 

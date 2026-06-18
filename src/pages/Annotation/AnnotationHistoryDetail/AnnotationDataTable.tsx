@@ -41,16 +41,20 @@ import TableChartIcon from '@mui/icons-material/TableChart'
 import BarChartIcon from '@mui/icons-material/BarChart'
 import ViewColumnIcon from '@mui/icons-material/ViewColumn'
 import { useTranslation } from 'react-i18next'
-import type { Annotation, SpacyToken, AnnotationRelation } from '../../../types'
+import type { Annotation, SpacyToken, AnnotationRelation, AnnotationGroup } from '../../../types'
+import { countAnnotationUnits, buildGroupNumberMap } from '../../../utils/annotationGroups'
 
 interface AnnotationDataTableProps {
   annotations: Annotation[]
   relations?: AnnotationRelation[]
+  groups?: AnnotationGroup[]
   archiveName: string
   excludeVideoAnnotations?: boolean
   originalText?: string
   spacyTokens?: SpacyToken[]
   frameworkName?: string
+  /** 编码者名字（作为「标注列表」纵向导出中编码者列的表头） */
+  coderName?: string
 }
 
 type Order = 'asc' | 'desc'
@@ -96,6 +100,28 @@ const getEntityColor = (label: string): string => {
   return colors[label] || '#757575'
 }
 
+/**
+ * 从标注的 labelPath 推导其「标注层级」（标签所在的上层分组名）。
+ * 框架树按 label → tier → label → … → leaf(label) 交替：
+ * - 手动标注 labelPath 用 '/' 分隔且**包含** tier 节点
+ *   （如 `metaphor/SYSTEM-TYPE/markers/MARKERS-TYPE/mrw/MRW-TYPE/indirect`），
+ *   leaf 的「层级」= 其祖父 label 节点 = 倒数第 3 段（'mrw'）；
+ * - 自动标注 labelPath 用 ' > ' 分隔且为**纯 label** 面包屑
+ *   （如 `metaphor > mipvu > markers > mrw > indirect`），层级 = 父 label = 倒数第 2 段。
+ * 无法推导时回退为标签自身。
+ */
+const deriveTier = (labelPath: string | undefined, label: string): string => {
+  if (!labelPath) return label
+  if (labelPath.includes('>')) {
+    const segs = labelPath.split('>').map(s => s.trim()).filter(Boolean)
+    return segs.length >= 2 ? segs[segs.length - 2] : (segs[0] || label)
+  }
+  const segs = labelPath.split('/').map(s => s.trim()).filter(Boolean)
+  if (segs.length >= 3) return segs[segs.length - 3]
+  if (segs.length === 2) return segs[0]
+  return segs[0] || label
+}
+
 // CSV 安全转义
 const csvEscape = (val: string): string => {
   if (val.includes(',') || val.includes('"') || val.includes('\n')) {
@@ -118,11 +144,13 @@ const downloadCsv = (content: string, filename: string) => {
 export default function AnnotationDataTable({
   annotations,
   relations = [],
+  groups = [],
   archiveName,
   excludeVideoAnnotations = false,
   originalText,
   spacyTokens,
-  frameworkName: _frameworkName
+  frameworkName: _frameworkName,
+  coderName
 }: AnnotationDataTableProps) {
   const { t } = useTranslation()
   const theme = useTheme()
@@ -135,6 +163,15 @@ export default function AnnotationDataTable({
   const [page, setPage] = useState(0)
   const [rowsPerPage, setRowsPerPage] = useState(10)
   const [exportAnchorEl, setExportAnchorEl] = useState<null | HTMLElement>(null)
+
+  // Group lookup: annotationId → group number (1-based)
+  const groupMap = useMemo(() => {
+    const map = new Map<string, number>()
+    groups.forEach((g, idx) => {
+      g.annotationIds.forEach(id => map.set(id, idx + 1))
+    })
+    return map
+  }, [groups])
 
   // 基础数据（排除视频标注如果需要）
   const baseData = useMemo(() => {
@@ -201,11 +238,29 @@ export default function AnnotationDataTable({
 
   const safeFileName = archiveName.replace(/[<>:"/\\|?*]/g, '_')
 
-  // 导出格式 1: 标注列表 (原有格式)
+  // 导出格式 1: 标注列表（纵向逐词 × 已标注层级；参考 mipvu_annotator 的 fulltext 格式）
+  // - 每个词都成行，未标注词的编码者列留空（不是只列出标注）
+  // - 列：词序 / 原文行号 / 词汇 / 词性 / 命名实体 / 位置 / 标注层级 / <编码者名> / 备注 [ / → 关联目标]
+  // - 「标注层级」仅包含文本中实际标注过的层级；用了 N 个层级，则每个词 N 行
   const handleExportAnnotationList = () => {
     setExportAnchorEl(null)
 
-    // Build relation lookup: annotationId → comma-separated target texts
+    // 1) 分词：spacy tokens 优先，否则按空白切分原文
+    interface Tok { text: string; pos: string; ner: string; start: number; end: number }
+    const tokenList: Tok[] = (spacyTokens && spacyTokens.length > 0)
+      ? spacyTokens.map(tk => ({ text: tk.text, pos: tk.pos || '', ner: '', start: tk.start, end: tk.end }))
+      : (originalText
+          ? originalText.split(/(\s+)/).reduce<Tok[]>((acc, part) => {
+              if (!part) return acc
+              const prevEnd = acc.length > 0 ? acc[acc.length - 1].end : 0
+              const start = originalText.indexOf(part, prevEnd)
+              const s = start >= 0 ? start : prevEnd
+              acc.push({ text: part, pos: '', ner: '', start: s, end: s + part.length })
+              return acc
+            }, [])
+          : [])
+
+    // 关联目标查找：annId → 目标文本数组
     const annIdToText = new Map(annotations.map(a => [a.id, a.text]))
     const relLookup = new Map<string, string[]>()
     for (const rel of relations) {
@@ -215,41 +270,146 @@ export default function AnnotationDataTable({
       relLookup.set(rel.sourceId, existing)
     }
     const hasRelations = relations.length > 0
+    const groupNumMap = buildGroupNumberMap(groups)  // annId → 1-based 词组序号
+    const hasGroups = groups.length > 0
+    const coder = (coderName && coderName.trim()) ? coderName.trim() : t('annotation.exportCoder1', '编码者1')
 
-    const headers = ['#', t('annotation.label', '标签'), t('annotation.text', '文本'),
-                     t('annotation.pos', '词性'), t('annotation.ner', '命名实体'),
-                     t('annotation.position', '位置'), t('annotation.remark', '备注'),
-                     ...(hasRelations ? ['→ 关联目标'] : [])]
+    // 列顺序：… 标注层级 / 编码者 / [词组] / [→ 关联目标] / 备注（备注始终最右）
+    const groupHeader = t('annotation.exportGroup', '词组')
 
-    const rows = sortedData.map((ann, idx) => [
-      String(idx + 1),
-      csvEscape(ann.label),
-      csvEscape(ann.text),
-      ann.pos || '-',
-      ann.entity || '-',
-      String(ann.startPosition),
-      ann.remark ? csvEscape(ann.remark) : '-',
-      ...(hasRelations ? [csvEscape((relLookup.get(ann.id) || []).join('; ') || '-')] : [])
-    ])
+    // 无法分词（既无 token 也无原文）→ 回退为逐条标注简表
+    if (tokenList.length === 0) {
+      const headers = ['#', t('annotation.label', '标签'), t('annotation.text', '文本'),
+                       t('annotation.pos', '词性'), t('annotation.ner', '命名实体'),
+                       t('annotation.position', '位置'), t('annotation.exportTier', '标注层级'),
+                       ...(hasGroups ? [groupHeader] : []),
+                       ...(hasRelations ? ['→ 关联目标'] : []),
+                       t('annotation.remark', '备注')]
+      const rows = sortedData.map((ann, idx) => [
+        String(idx + 1), csvEscape(ann.label), csvEscape(ann.text), ann.pos || '-', ann.entity || '-',
+        String(ann.startPosition), csvEscape(deriveTier(ann.labelPath, ann.label)),
+        ...(hasGroups ? [groupNumMap.has(ann.id) ? String(groupNumMap.get(ann.id)) : ''] : []),
+        ...(hasRelations ? [csvEscape((relLookup.get(ann.id) || []).join('; ') || '-')] : []),
+        ann.remark ? csvEscape(ann.remark) : '-',
+      ])
+      downloadCsv([headers.join(','), ...rows.map(r => r.join(','))].join('\n'), `${safeFileName}_annotations.csv`)
+      return
+    }
 
-    const csvContent = [
-      headers.join(','),
-      ...rows.map(row => row.join(','))
-    ].join('\n')
+    // ── 性能优化：先把每条标注的「层级」算一次，再用二分定位它覆盖的 token 区间，
+    //    O(标注数 × 覆盖词数 + 词数 × 层级数)，避免对每个 词×层级 都全量 filter+重算层级。
 
-    downloadCsv(csvContent, `${safeFileName}_annotations.csv`)
+    // 每条标注的层级只推导一次
+    const annTiers = baseData.map(ann => deriveTier(ann.labelPath, ann.label))
+
+    // 二分：返回 [s,e) 字符区间覆盖的 token 索引区间 [lo,hi)（token 按 start/end 升序、互不重叠）
+    const n = tokenList.length
+    const coveredRange = (s: number, e: number): [number, number] => {
+      let lo = 0, hi = n
+      while (lo < hi) { const m = (lo + hi) >> 1; if (tokenList[m].end > s) hi = m; else lo = m + 1 }
+      let j = lo
+      while (j < n && tokenList[j].start < e) j++
+      return [lo, j]
+    }
+
+    // NER 填充（token 完全落在标注范围内）
+    for (let a = 0; a < baseData.length; a++) {
+      const ann = baseData[a]
+      if (!ann.entity || ann.entity === '-') continue
+      const [lo, hi] = coveredRange(ann.startPosition, ann.endPosition)
+      for (let i = lo; i < hi; i++) {
+        if (tokenList[i].start >= ann.startPosition && tokenList[i].end <= ann.endPosition) tokenList[i].ner = ann.entity
+      }
+    }
+
+    // 已标注层级集合（按首次出现位置排序）；无标注时用单个空层级，保证每词仍成行
+    const tierFirstPos = new Map<string, number>()
+    for (let a = 0; a < baseData.length; a++) {
+      const tier = annTiers[a]
+      const prev = tierFirstPos.get(tier)
+      if (prev === undefined || baseData[a].startPosition < prev) tierFirstPos.set(tier, baseData[a].startPosition)
+    }
+    const sortedTiers = Array.from(tierFirstPos.keys()).sort((a, b) => tierFirstPos.get(a)! - tierFirstPos.get(b)!)
+    const usedTiers = sortedTiers.length > 0 ? sortedTiers : ['']
+    const T = usedTiers.length
+    const tierIndex = new Map(usedTiers.map((tr, i) => [tr, i]))
+
+    // 逐 token × 层级的聚合桶：遍历标注一次填充（cells[tokenIdx*T + tierIdx]）
+    interface Cell { labels: string[]; remarks: string[]; groups: string[]; rels: string[] }
+    const cells: (Cell | undefined)[] = new Array(n * T)
+    for (let a = 0; a < baseData.length; a++) {
+      const ann = baseData[a]
+      const ti = tierIndex.get(annTiers[a])
+      if (ti === undefined) continue
+      const gn = groupNumMap.get(ann.id)
+      const rels = relLookup.get(ann.id)
+      const [lo, hi] = coveredRange(ann.startPosition, ann.endPosition)
+      for (let i = lo; i < hi; i++) {
+        const k = i * T + ti
+        let c = cells[k]
+        if (!c) { c = { labels: [], remarks: [], groups: [], rels: [] }; cells[k] = c }
+        c.labels.push(ann.label)
+        if (ann.remark) c.remarks.push(ann.remark)
+        if (hasGroups && gn !== undefined) c.groups.push(String(gn))
+        if (hasRelations && rels) c.rels.push(...rels)
+      }
+    }
+
+    // 行号：统计 token.start 之前的换行数 + 1（无原文则留空）
+    const newlineIdx: number[] = []
+    if (originalText) for (let i = 0; i < originalText.length; i++) if (originalText[i] === '\n') newlineIdx.push(i)
+    const lineNoFor = (pos: number): string => {
+      if (!originalText) return ''
+      let lo = 0, hi = newlineIdx.length
+      while (lo < hi) { const mid = (lo + hi) >> 1; if (newlineIdx[mid] < pos) lo = mid + 1; else hi = mid }
+      return String(lo + 1)
+    }
+
+    const headers = [
+      t('annotation.exportWordSeq', '词序'),
+      t('annotation.exportLineNo', '原文行号'),
+      t('annotation.exportWord', '词汇'),
+      t('annotation.pos', '词性'),
+      t('annotation.ner', '命名实体'),
+      t('annotation.position', '位置'),
+      t('annotation.exportTier', '标注层级'),
+      csvEscape(coder),
+      ...(hasGroups ? [groupHeader] : []),
+      ...(hasRelations ? ['→ 关联目标'] : []),
+      t('annotation.remark', '备注'),
+    ]
+
+    const rows: string[][] = []
+    let wordSeq = 0
+    for (let i = 0; i < n; i++) {
+      const tk = tokenList[i]
+      if (tk.text.trim() === '') continue
+      wordSeq++
+      const ln = lineNoFor(tk.start)
+      for (let ti = 0; ti < T; ti++) {
+        const c = cells[i * T + ti]
+        const labelVal = c ? c.labels.join(', ') : ''
+        const groupVal = c && c.groups.length ? Array.from(new Set(c.groups)).join(', ') : ''
+        const relVal = c && c.rels.length ? c.rels.join('; ') : ''
+        const remarkVal = c && c.remarks.length ? c.remarks.join('; ') : ''
+        rows.push([
+          String(wordSeq), ln, csvEscape(tk.text), tk.pos || '', tk.ner || '',
+          String(tk.start), csvEscape(usedTiers[ti]), labelVal ? csvEscape(labelVal) : '',
+          ...(hasGroups ? [groupVal ? csvEscape(groupVal) : ''] : []),
+          ...(hasRelations ? [relVal ? csvEscape(relVal) : ''] : []),
+          remarkVal ? csvEscape(remarkVal) : '',
+        ])
+      }
+    }
+
+    downloadCsv([headers.join(','), ...rows.map(r => r.join(','))].join('\n'), `${safeFileName}_annotations.csv`)
   }
 
-  // 导出格式 2: 统计表
+  // 导出格式 2: 统计表（词组计为一个单位：每个词组仅以首个成员计入其标签）
   const handleExportStatistics = () => {
     setExportAnchorEl(null)
-    const total = baseData.length
-    const counts: Record<string, number> = {}
-    baseData.forEach(ann => {
-      counts[ann.label] = (counts[ann.label] || 0) + 1
-    })
-
-    const entries = Object.entries(counts).sort((a, b) => b[1] - a[1])
+    const { total, byLabel } = countAnnotationUnits(baseData, groups)
+    const entries = Array.from(byLabel.entries()).sort((a, b) => b[1] - a[1])
 
     const headers = [
       t('annotation.label', '标签'),
@@ -332,81 +492,85 @@ export default function AnnotationDataTable({
           return acc
         }, [])
 
-    // 填充 NER 信息
-    if (tokens) {
-      // 从 spacy entities 或 annotations 中提取 NER
-      baseData.forEach(ann => {
-        if (ann.entity && ann.entity !== '-') {
-          tokenList.forEach(tok => {
-            if (tok.start >= ann.startPosition && tok.end <= ann.endPosition) {
-              tok.ner = ann.entity!
-            }
-          })
-        }
-      })
+    // 二分：返回 [s,e) 覆盖的 token 索引区间 [lo,hi)（token 按 start/end 升序、互不重叠）
+    const n = tokenList.length
+    const coveredRange = (s: number, e: number): [number, number] => {
+      let lo = 0, hi = n
+      while (lo < hi) { const m = (lo + hi) >> 1; if (tokenList[m].end > s) hi = m; else lo = m + 1 }
+      let j = lo
+      while (j < n && tokenList[j].start < e) j++
+      return [lo, j]
     }
 
-    // 为每个 token 计算每个 label 的覆盖情况
-    // 对每个标注，找到覆盖的 token 范围，标记 ✓
-    const tokenLabelMap: Map<number, Set<string>> = new Map()
-    tokenList.forEach((_, idx) => tokenLabelMap.set(idx, new Set()))
-
-    baseData.forEach(ann => {
-      for (let i = 0; i < tokenList.length; i++) {
-        const tok = tokenList[i]
-        // token 与标注有交叉就算覆盖
-        if (tok.end > ann.startPosition && tok.start < ann.endPosition) {
-          tokenLabelMap.get(i)!.add(ann.label)
-        }
+    // 填充 NER 信息（token 完全落在标注范围内）
+    for (let a = 0; a < baseData.length; a++) {
+      const ann = baseData[a]
+      if (!ann.entity || ann.entity === '-') continue
+      const [lo, hi] = coveredRange(ann.startPosition, ann.endPosition)
+      for (let i = lo; i < hi; i++) {
+        if (tokenList[i].start >= ann.startPosition && tokenList[i].end <= ann.endPosition) tokenList[i].ner = ann.entity
       }
-    })
+    }
 
-    // 构建 CSV
+    // 词组序号 + 关联目标查找（每条标注算一次）
+    const groupNumMap = buildGroupNumberMap(groups)
+    const hasGroups = groups.length > 0
+    const annIdToText = new Map(annotations.map(a => [a.id, a.text]))
+    const relLookup = new Map<string, string[]>()
+    for (const rel of relations) {
+      const targetText = annIdToText.get(rel.targetId) || rel.targetId
+      const existing = relLookup.get(rel.sourceId) || []
+      existing.push(targetText)
+      relLookup.set(rel.sourceId, existing)
+    }
+    const hasRelations = relations.length > 0
+
+    // 逐 token 聚合：标签集合 / 词组序号 / 关联目标（遍历标注一次 + 二分定位，避免 O(标注×词) 全扫）
+    const tokenLabels: Set<string>[] = tokenList.map(() => new Set())
+    const tokenGroups: Set<string>[] = hasGroups ? tokenList.map(() => new Set()) : []
+    const tokenRels: Set<string>[] = hasRelations ? tokenList.map(() => new Set()) : []
+    for (let a = 0; a < baseData.length; a++) {
+      const ann = baseData[a]
+      const gn = groupNumMap.get(ann.id)
+      const rels = relLookup.get(ann.id)
+      const [lo, hi] = coveredRange(ann.startPosition, ann.endPosition)
+      for (let i = lo; i < hi; i++) {
+        tokenLabels[i].add(ann.label)
+        if (hasGroups && gn !== undefined) tokenGroups[i].add(String(gn))
+        if (hasRelations && rels) for (const r of rels) tokenRels[i].add(r)
+      }
+    }
+
+    // 构建 CSV（标签 ✓ 列之后追加 词组 / → 关联目标 列）
     const headers = [
-      'article_id',
-      'sentence_id',
-      'word',
-      'lemma',
-      'pos',
-      'ner',
-      ...labels
+      'article_id', 'sentence_id', 'word', 'lemma', 'pos', 'ner',
+      ...labels,
+      ...(hasGroups ? [t('annotation.exportGroup', '词组')] : []),
+      ...(hasRelations ? ['→ 关联目标'] : []),
     ]
 
-    // 分句：基于 spacy 的 sentence boundaries 或简单按标点分句
+    // 分句：简单按句末标点递增句号
     let sentenceId = 1
     const rows: string[][] = []
-
-    for (let i = 0; i < tokenList.length; i++) {
+    for (let i = 0; i < n; i++) {
       const tok = tokenList[i]
+      if (tok.text.trim() === '') continue  // 跳过纯空白 token
 
-      // 跳过纯空白 token
-      if (tok.text.trim() === '') continue
-
-      const labelChecks = labels.map(label =>
-        tokenLabelMap.get(i)!.has(label) ? '✓' : ''
-      )
+      const labelChecks = labels.map(label => tokenLabels[i].has(label) ? '✓' : '')
+      const groupVal = hasGroups ? Array.from(tokenGroups[i]).join(', ') : ''
+      const relVal = hasRelations ? Array.from(tokenRels[i]).join('; ') : ''
 
       rows.push([
-        csvEscape(safeFileName),
-        String(sentenceId),
-        csvEscape(tok.text),
-        csvEscape(tok.lemma),
-        tok.pos || '',
-        tok.ner || '',
-        ...labelChecks
+        csvEscape(safeFileName), String(sentenceId), csvEscape(tok.text), csvEscape(tok.lemma),
+        tok.pos || '', tok.ner || '', ...labelChecks,
+        ...(hasGroups ? [groupVal ? csvEscape(groupVal) : ''] : []),
+        ...(hasRelations ? [relVal ? csvEscape(relVal) : ''] : []),
       ])
 
-      // 遇到句末标点时递增句号
-      if (tok.text.match(/[.!?。！？]/)) {
-        sentenceId++
-      }
+      if (tok.text.match(/[.!?。！？]/)) sentenceId++
     }
 
-    const csvContent = [
-      headers.join(','),
-      ...rows.map(row => row.join(','))
-    ].join('\n')
-
+    const csvContent = [headers.join(','), ...rows.map(row => row.join(','))].join('\n')
     downloadCsv(csvContent, `${safeFileName}_fulltext.csv`)
   }
 
@@ -568,17 +732,35 @@ export default function AnnotationDataTable({
                   {page * rowsPerPage + idx + 1}
                 </TableCell>
                 <TableCell sx={bodyCellSx}>
-                  <Chip
-                    label={ann.label}
-                    size="small"
-                    sx={{
-                      bgcolor: ann.color || '#2196F3',
-                      color: '#fff',
-                      fontWeight: 500,
-                      fontSize: '11px',
-                      height: 22
-                    }}
-                  />
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <Chip
+                      label={ann.label}
+                      size="small"
+                      sx={{
+                        bgcolor: ann.color || '#2196F3',
+                        color: '#fff',
+                        fontWeight: 500,
+                        fontSize: '11px',
+                        height: 22
+                      }}
+                    />
+                    {groupMap.has(ann.id) && (
+                      <Box
+                        component="span"
+                        sx={{
+                          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                          width: 16, height: 16, borderRadius: '50%',
+                          bgcolor: 'white',
+                          border: `1.5px solid ${ann.color || '#2196F3'}`,
+                          fontSize: '8px', color: ann.color || '#2196F3',
+                          fontWeight: 700, lineHeight: 1, flexShrink: 0,
+                        }}
+                        title={`Group ${groupMap.get(ann.id)}`}
+                      >
+                        {groupMap.get(ann.id)}
+                      </Box>
+                    )}
+                  </Box>
                 </TableCell>
                 <TableCell sx={{ ...bodyCellSx, maxWidth: 300 }}>
                   <Tooltip title={ann.text}>

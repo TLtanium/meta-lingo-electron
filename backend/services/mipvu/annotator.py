@@ -166,25 +166,17 @@ class MIPVUAnnotator:
                 result['metaphor_confidence'] = 0.0
                 result['metaphor_source'] = 'unknown'
 
-        # Step 4: Direct metaphor annotation (only on mflag-candidate sentences)
-        # Per MIPVU methodology, a direct MRW must co-occur with an MFlag signal
-        # word in the same sentence.  If the model returns direct labels but NO
-        # mflag label for the sentence, the direct annotations are model errors
-        # and must be discarded.
-        if self._models_loaded and self.models.is_direct_model_loaded() and sentence_has_mflag(tokens):
+        # Step 4: Direct metaphor annotation — use model output as-is
+        # Run on all sentences when the direct model is loaded; accept whatever
+        # the model predicts (mflag-only, lit/direct-only, or co-occurring).
+        if self._models_loaded and self.models.is_direct_model_loaded():
             direct_preds = self.models.predict_direct(words)  # List[Tuple[str, float]]
-
-            # Validate: require at least one mflag in the sentence before
-            # accepting any direct labels.
-            has_sentence_mflag = any(lbl == 'mflag' for lbl, _ in direct_preds)
 
             for i, (label, confidence) in enumerate(direct_preds):
                 if label == 'mflag':
                     results[i]['is_mflag'] = True
                     results[i]['direct_confidence'] = confidence
-                elif label == 'direct' and has_sentence_mflag:
-                    # Only mark as direct metaphor when the sentence also has
-                    # an MFlag token — otherwise treat as no direct annotation.
+                elif label == 'direct':
                     results[i]['is_direct_metaphor'] = True
                     results[i]['direct_confidence'] = confidence
 

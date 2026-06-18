@@ -158,8 +158,9 @@ export function createTextAnnotationRequest(
   archiveId?: string,
   coderName?: string,
   spacyAnnotation?: SpacyAnnotationData,
-  textId?: string,              // 文本ID，用于精确关联
-  relations?: import('../types').AnnotationRelation[]  // 标注关联
+  textId?: string,
+  relations?: import('../types').AnnotationRelation[],
+  groups?: import('../types').AnnotationGroup[]
 ): SaveAnnotationRequest {
   return {
     corpusName,
@@ -171,6 +172,7 @@ export function createTextAnnotationRequest(
     text,
     annotations,
     relations,
+    groups,
     archiveId,
     coderName,
     spacyAnnotation
@@ -201,6 +203,8 @@ export function createMultimodalAnnotationRequest(
     pitchData?: PitchDataArchive
     acousticData?: AcousticDataArchive
     audioVisualizationSvg?: string
+    relations?: import('../types').AnnotationRelation[]
+    groups?: import('../types').AnnotationGroup[]
   }
 ): SaveAnnotationRequest {
   return {
@@ -212,6 +216,8 @@ export function createMultimodalAnnotationRequest(
     type: 'multimodal',
     text,
     annotations,
+    relations: options?.relations,
+    groups: options?.groups,
     mediaType,
     mediaPath,
     yoloAnnotations: options?.yoloAnnotations,

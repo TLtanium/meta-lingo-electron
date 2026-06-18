@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "meta-lingo",
   "display_name": "Meta-Lingo",
-  "version": "4.8.65",
+  "version": "4.8.73",
   "description": "Connect Claude to Meta-Lingo corpus research — run linguistic analyses, manage corpora, and export annotations directly from your AI assistant.",
   "author": {
     "name": "Tommy Leo"

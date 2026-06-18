@@ -72,6 +72,7 @@ import type {
   FrameworkCategory,
   Annotation,
   AnnotationRelation,
+  AnnotationGroup,
   SelectedLabel,
   AnnotationArchiveListItem,
   CorpusText,
@@ -160,6 +161,7 @@ export default function TextAnnotation() {
   // 标注状态
   const [annotations, setAnnotations] = useState<Annotation[]>([])
   const [relations, setRelations] = useState<AnnotationRelation[]>([])
+  const [groups, setGroups] = useState<AnnotationGroup[]>([])
   const [highlightedAnnotationId, setHighlightedAnnotationId] = useState<string | null>(null)
   // 表格行点击选中的标注（用于在文本区域高亮定位）
   const [selectedAnnotationId, setSelectedAnnotationId] = useState<string | null>(null)
@@ -181,6 +183,8 @@ export default function TextAnnotation() {
   // 搜索标注状态
   const [searchTerm, setSearchTerm] = useState('')
   const [searchMatches, setSearchMatches] = useState<SearchMatch[]>([])
+  // 当前定位的搜索匹配序号（上下箭头跳转 / 橙色当前高亮）
+  const [currentMatchIndex, setCurrentMatchIndex] = useState(-1)
   const [batchAnnotateDialogOpen, setBatchAnnotateDialogOpen] = useState(false)
   
   // 自动标注状态
@@ -363,6 +367,7 @@ export default function TextAnnotation() {
     setTextContent('')
     setAnnotations([])
     setRelations([])
+    setGroups([])
     setCurrentArchiveId(null)
     setSpacyAnnotation(null)
   }
@@ -388,6 +393,7 @@ export default function TextAnnotation() {
     setSelectedText(text)
     setAnnotations([])
     setRelations([])
+    setGroups([])
     setCurrentArchiveId(null)
     setCoderName('')
     setSpacyAnnotation(null)
@@ -458,6 +464,7 @@ export default function TextAnnotation() {
         setTextContent(data.text)
         setAnnotations(data.annotations)
         setRelations(data.relations || [])
+        setGroups((data as any).groups || [])
         setCurrentArchiveId(data.id)
         
         // 优先从存档恢复 SpaCy 数据
@@ -527,6 +534,12 @@ export default function TextAnnotation() {
 
   const handleAnnotationRemove = useCallback((id: string) => {
     setAnnotations(prev => prev.filter(a => a.id !== id))
+    // Clean up any groups that contained this annotation
+    setGroups(prev =>
+      prev
+        .map(g => ({ ...g, annotationIds: g.annotationIds.filter(aid => aid !== id) }))
+        .filter(g => g.annotationIds.length >= 2)
+    )
   }, [])
 
   const handleAnnotationUpdate = useCallback((id: string, updates: Partial<Annotation>) => {
@@ -593,7 +606,8 @@ export default function TextAnnotation() {
         coderName || undefined,
         spacyAnnotation || undefined,  // 保存 SpaCy 标注数据
         selectedText?.id || undefined,  // 传递 textId 用于精确关联
-        relations.length > 0 ? relations : undefined  // 保存标注关联
+        relations.length > 0 ? relations : undefined,  // 保存标注关联
+        groups.length > 0 ? groups : undefined          // 保存非连续词组
       )
 
       const response = await annotationApi.save(request)
@@ -838,7 +852,20 @@ export default function TextAnnotation() {
   const handleSearchChange = useCallback((term: string, matches: SearchMatch[]) => {
     setSearchTerm(term)
     setSearchMatches(matches)
+    // 新的匹配集合：当前项重置为首个匹配（不自动滚动，仅以橙色标出）
+    setCurrentMatchIndex(matches.length > 0 ? 0 : -1)
   }, [])
+
+  // 上下箭头按顺序定位匹配（循环），滚动到该匹配并居中
+  const handleNavigateMatch = useCallback((dir: 1 | -1) => {
+    setCurrentMatchIndex(prev => {
+      const n = searchMatches.length
+      if (n === 0) return -1
+      const next = ((prev < 0 ? 0 : prev) + dir + n) % n
+      textAnnotatorRef.current?.scrollToMatch(next)
+      return next
+    })
+  }, [searchMatches])
   
   // 处理搜索确认（按回车）
   const handleSearchConfirm = useCallback((matches: SearchMatch[]) => {
@@ -1284,6 +1311,9 @@ export default function TextAnnotation() {
                   textId={selectedText?.id}
                   currentAnnotations={annotations}
                   frameworkLabels={frameworkLabels}
+                  tokens={spacyAnnotation?.tokens || []}
+                  matchIndex={currentMatchIndex}
+                  onNavigate={handleNavigateMatch}
                 />
                 
                 <Stack direction="row" spacing={1} alignItems="center">
@@ -1403,11 +1433,15 @@ export default function TextAnnotation() {
                 onAnnotationRemove={handleAnnotationRemove}
                 sentences={spacyAnnotation?.sentences}
                 searchHighlights={searchMatches.map(m => ({ start: m.start, end: m.end }))}
+                currentMatchIndex={currentMatchIndex}
                 selectedAnnotationId={selectedAnnotationId}
                 onAnnotationClick={(id) => setSelectedAnnotationId(prev => prev === id ? null : id)}
                 relations={relations}
                 onRelationAdd={(rel) => setRelations(prev => [...prev, rel])}
                 onRelationRemove={(id) => setRelations(prev => prev.filter(r => r.id !== id))}
+                groups={groups}
+                onGroupAdd={(grp) => setGroups(prev => [...prev, grp])}
+                onGroupRemove={(id) => setGroups(prev => prev.filter(g => g.id !== id))}
               />
 
               {/* 标注表格 */}
@@ -1429,6 +1463,7 @@ export default function TextAnnotation() {
                   onSelect={(id) => setSelectedAnnotationId(prev => prev === id ? null : id)}
                   selectedId={selectedAnnotationId}
                   relations={relations}
+                  groups={groups}
                 />
               </Box>
             </Box>

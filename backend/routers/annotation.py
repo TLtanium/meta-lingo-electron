@@ -211,6 +211,7 @@ class SaveAnnotationRequest(BaseModel):
     pitchData: Optional[PitchDataArchive] = None  # Pitch data for visualization
     audioVisualizationSvg: Optional[str] = None  # SVG visualization of audio waveform
     relations: Optional[List[dict]] = None  # 标注关联（有向箭头）
+    groups: Optional[List[dict]] = None    # 非连续词组分组
     appendMode: Optional[bool] = False  # True = MCP incremental append; False (default) = UI full replace
 
 
@@ -524,6 +525,12 @@ async def save_annotation(data: SaveAnnotationRequest):
         archive['relations'] = data.relations
     elif existing_archive and 'relations' in existing_archive:
         archive['relations'] = existing_archive['relations']
+
+    # Save groups (non-continuous phrase groups)
+    if data.groups is not None:
+        archive['groups'] = data.groups
+    elif existing_archive and 'groups' in existing_archive:
+        archive['groups'] = existing_archive['groups']
 
     # Save to file
     saved_path = save_archive(data.corpusName, archive)

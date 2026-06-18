@@ -103,6 +103,16 @@ export interface AnnotationRelation {
 }
 
 /**
+ * 非连续词组分组（无方向性，计为整体）
+ * 用于标注非连续多词单位，如 "not only … but also"、离合短语动词等。
+ */
+export interface AnnotationGroup {
+  id: string
+  annotationIds: string[]  // >= 2 个标注组成一个词组
+  label?: string           // 可选的词组描述
+}
+
+/**
  * 标注存档(保存到文件)
  */
 export interface AnnotationArchive {
@@ -118,6 +128,7 @@ export interface AnnotationArchive {
   text: string              // 原文/转录文本
   annotations: Annotation[]
   relations?: AnnotationRelation[]  // 标注间关联（有向箭头）
+  groups?: AnnotationGroup[]        // 非连续词组分组
   timestamp: string
   annotator?: string
 
@@ -430,7 +441,8 @@ export interface SaveAnnotationRequest {
   type: 'text' | 'multimodal'
   text: string
   annotations: Annotation[]
-  relations?: AnnotationRelation[]  // 标注间关联
+  relations?: AnnotationRelation[]  // 标注间关联（有向箭头）
+  groups?: AnnotationGroup[]        // 非连续词组分组
   mediaType?: 'video' | 'audio'
   mediaPath?: string
   yoloAnnotations?: YoloTrack[]

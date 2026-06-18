@@ -313,7 +313,8 @@ export function createMipvuAnnotations(
       id: crypto.randomUUID(),
       sourceId: annId,
       targetId,
-      label: 'refers-to',
+      // No label — auto-annotated implicit→antecedent arrows render as a bare
+      // connector line, identical to a user-drawn manual relation.
       color: labelInfo.implicit_color,
     })
   }
