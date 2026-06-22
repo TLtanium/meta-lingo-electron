@@ -45,8 +45,7 @@ interface ArrowDatum {
   upper: Rect          // endpoint with the smaller top (higher on screen)
   lower: Rect          // the other endpoint
   color: string
-  connY: number        // y of the horizontal run — in the lane just below the UPPER block
-  stacked: boolean     // true when endpoints are on different rows (no vertical overlap)
+  connY: number        // y of the horizontal run — in the bottom lane below the LOWER block
   targetIsUpper: boolean
 }
 
@@ -54,7 +53,7 @@ interface GroupDatum {
   group: AnnotationGroup
   members: Rect[]
   color: string
-  connY: number  // y of the horizontal bar — placed inside a reserved top lane
+  connY: number  // y of the horizontal bar — in the bottom lane below the LOWEST member
 }
 
 interface RelationArrowsProps {
@@ -123,35 +122,30 @@ const ARROW_SZ = 6   // arrowhead size (px)
 const STROKE   = 1.5
 
 function ArrowPath({ datum }: { datum: ArrowDatum }) {
-  const { upper, lower, color, connY, stacked, targetIsUpper } = datum
+  const { upper, lower, color, connY, targetIsUpper } = datum
 
   const upperCX = upper.left + upper.width / 2
   const lowerCX = lower.left + lower.width / 2
 
-  // The horizontal run sits at connY, in the lane directly BELOW the upper block.
-  // - Upper endpoint always attaches at its BOTTOM (line drops into that lane).
-  // - When stacked (different rows), the lower endpoint attaches at its TOP, so the
-  //   connector lives between the two labels — the lower label sits *below* the run
-  //   rather than the line cutting down past it.
-  // - When on the same line, both attach at the bottom (classic U below the row).
-  const lowerAttachY = stacked ? lower.top : lower.bottom
+  // The horizontal run sits at connY, in the reserved bottom lane below the LOWER
+  // block. BOTH endpoints attach at their BOTTOM edge — so every connector leaves a
+  // label from underneath, including the lower (cross-sentence) endpoint (which used
+  // to attach at its top). The upper endpoint's vertical line drops past the lower
+  // row to reach the run; the lower endpoint drops a short way into the same run.
   const d = [
     `M ${upperCX.toFixed(1)} ${upper.bottom.toFixed(1)}`,
     `L ${upperCX.toFixed(1)} ${connY.toFixed(1)}`,
     `L ${lowerCX.toFixed(1)} ${connY.toFixed(1)}`,
-    `L ${lowerCX.toFixed(1)} ${lowerAttachY.toFixed(1)}`,
+    `L ${lowerCX.toFixed(1)} ${lower.bottom.toFixed(1)}`,
   ].join(' ')
 
-  // Arrowhead sits at the TARGET edge facing the connector, pointing into the target.
+  // Arrowhead sits at the TARGET's BOTTOM edge, pointing UP into the target from the
+  // connector run below it (regardless of whether the target is the upper or lower one).
   const upArrow = (ax: number, ay: number) =>
     `M ${(ax - ARROW_SZ / 2).toFixed(1)} ${(ay + ARROW_SZ).toFixed(1)} L ${ax.toFixed(1)} ${ay.toFixed(1)} L ${(ax + ARROW_SZ / 2).toFixed(1)} ${(ay + ARROW_SZ).toFixed(1)}`
-  const downArrow = (ax: number, ay: number) =>
-    `M ${(ax - ARROW_SZ / 2).toFixed(1)} ${(ay - ARROW_SZ).toFixed(1)} L ${ax.toFixed(1)} ${ay.toFixed(1)} L ${(ax + ARROW_SZ / 2).toFixed(1)} ${(ay - ARROW_SZ).toFixed(1)}`
   const arrowPath = targetIsUpper
-    ? upArrow(upperCX, upper.bottom)                       // into upper, from below
-    : stacked
-      ? downArrow(lowerCX, lower.top)                      // into lower top, from above
-      : upArrow(lowerCX, lower.bottom)                     // same line: into lower bottom
+    ? upArrow(upperCX, upper.bottom)                       // into upper bottom, from below
+    : upArrow(lowerCX, lower.bottom)                       // into lower bottom, from below
 
   // Relation label (if any) — rendered at midpoint of horizontal run
   const labelX = (upperCX + lowerCX) / 2
@@ -192,29 +186,31 @@ function GroupBracket({ datum }: { datum: GroupDatum }) {
 
   return (
     <g>
-      {/* Horizontal bar (solid — matches the directed-relation connector style) */}
+      {/* Horizontal bar (solid — matches the directed-relation connector style),
+          placed in the bottom lane BELOW the members. */}
       <line
         x1={minCX.toFixed(1)} y1={connY.toFixed(1)}
         x2={maxCX.toFixed(1)} y2={connY.toFixed(1)}
         stroke={color} strokeWidth={1.5} opacity={0.85}
       />
-      {/* Vertical drops from each member to the bar */}
+      {/* Vertical risers from each member's BOTTOM down to the bar — every member
+          connects from underneath its label (U bracket below, not above). */}
       {members.map((m, i) => {
         const cx = m.left + m.width / 2
         return (
           <line
             key={i}
             x1={cx.toFixed(1)} y1={connY.toFixed(1)}
-            x2={cx.toFixed(1)} y2={m.top.toFixed(1)}
+            x2={cx.toFixed(1)} y2={m.bottom.toFixed(1)}
             stroke={color} strokeWidth={1.5} opacity={0.85}
           />
         )
       })}
-      {/* Optional group label at midpoint of horizontal bar */}
+      {/* Optional group label just below the horizontal bar */}
       {group.label && (
         <text
           x={((minCX + maxCX) / 2).toFixed(1)}
-          y={(connY - 3).toFixed(1)}
+          y={(connY + 12).toFixed(1)}
           textAnchor="middle"
           fontSize={10}
           fill={color}
@@ -270,20 +266,16 @@ export default function RelationArrows({
         const srcIsUpper  = src.top <= tgt.top
         const upper       = srcIsUpper ? src : tgt
         const lower       = srcIsUpper ? tgt : src
-        const upperId     = srcIsUpper ? rel.sourceId : rel.targetId
+        const lowerId     = srcIsUpper ? rel.targetId : rel.sourceId
         const targetIsUpper = !srcIsUpper  // target == upper iff src is the lower one
-        // Stacked = lower block starts at/below where the upper block ends (different rows).
-        const stacked = lower.top >= upper.bottom - 2
 
-        // Horizontal run sits in the reserved bottom lane directly BELOW the UPPER
-        // block, so the connector shows under the first label and the lower label
-        // sits beneath the run. Fall back to a small fixed gap if no lane exists.
-        const laneY = getLaneCenterY(upperId, container, 'bottom')
-        const connY = laneY ?? (stacked
-          ? upper.bottom + ARROW_H
-          : Math.max(src.bottom, tgt.bottom) + ARROW_H)
+        // Horizontal run sits in the reserved bottom lane directly BELOW the LOWER
+        // block, so BOTH endpoints attach from underneath their labels. Fall back to
+        // a small fixed gap below the lowest block if no lane was reserved.
+        const laneY = getLaneCenterY(lowerId, container, 'bottom')
+        const connY = laneY ?? (Math.max(src.bottom, tgt.bottom) + ARROW_H)
 
-        nextArrows.push({ relation: rel, upper, lower, color, connY, stacked, targetIsUpper })
+        nextArrows.push({ relation: rel, upper, lower, color, connY, targetIsUpper })
       }
 
       // Group brackets
@@ -291,21 +283,22 @@ export default function RelationArrows({
       for (const grp of groups) {
         const memberRects: Rect[] = []
         let color = '#9C27B0'
-        let topId: string | null = null
-        let topY = Infinity
+        let bottomId: string | null = null
+        let bottomY = -Infinity
         for (const annId of grp.annotationIds) {
           const rect = getBlockRect(annId, container)
           if (rect) {
             memberRects.push(rect)
             color = colorMap.get(annId) || color
-            if (rect.top < topY) { topY = rect.top; topId = annId }
+            if (rect.bottom > bottomY) { bottomY = rect.bottom; bottomId = annId }
           }
         }
-        if (memberRects.length >= 2 && topId) {
-          // The horizontal bar sits in the reserved top lane of the topmost
-          // member's sentence row (above all label layers, below the text line).
-          const laneY = getLaneCenterY(topId, container, 'top')
-          const connY = laneY ?? (Math.min(...memberRects.map(m => m.top)) - GROUP_GAP)
+        if (memberRects.length >= 2 && bottomId) {
+          // The horizontal bar sits in the reserved bottom lane of the LOWEST
+          // member's sentence row, so every member connects from underneath its
+          // label (U bracket below, consistent with directed relations).
+          const laneY = getLaneCenterY(bottomId, container, 'bottom')
+          const connY = laneY ?? (Math.max(...memberRects.map(m => m.bottom)) + GROUP_GAP)
           nextBrackets.push({ group: grp, members: memberRects, color, connY })
         }
       }

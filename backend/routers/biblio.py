@@ -5,11 +5,12 @@ Handles CRUD operations for bibliographic libraries and entries,
 as well as visualization data generation.
 """
 
+import io
 import uuid
 from pathlib import Path
 from typing import Optional, List, Literal
 from fastapi import APIRouter, HTTPException, UploadFile, File, Form, Query, BackgroundTasks
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
 
 from models import (
@@ -116,6 +117,56 @@ async def delete_library(library_id: str):
     return {"success": success}
 
 
+# ==================== Migration: export / import bundles ====================
+
+class ExportLibraryBundleRequest(BaseModel):
+    """Request body for exporting one or more libraries as a migration bundle."""
+    library_ids: List[str]
+
+
+@router.post("/export-bundle")
+async def export_library_bundle(request: ExportLibraryBundleRequest):
+    """Export the selected libraries (entries + PDFs + shadow corpus annotations) as a .zip."""
+    from services import migration_service
+    if not request.library_ids:
+        raise HTTPException(status_code=400, detail="No libraries selected")
+    try:
+        data = migration_service.export_libraries(request.library_ids)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Export failed: {e}")
+    filename = migration_service.export_filename("biblio")
+    return StreamingResponse(
+        io.BytesIO(data),
+        media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.post("/import-bundle")
+async def import_library_bundle(file: UploadFile = File(...)):
+    """Import a library migration bundle (.zip), recreating each library in the list."""
+    from services import migration_service
+    if not file.filename or not file.filename.lower().endswith(".zip"):
+        raise HTTPException(status_code=400, detail="File must be a .zip bundle")
+    content = await file.read()
+    try:
+        result = migration_service.import_bundle(content, expect_kind="biblio")
+    except ValueError as e:
+        msg = str(e)
+        if msg == "INVALID_BUNDLE":
+            raise HTTPException(status_code=400, detail="INVALID_BUNDLE")
+        if msg.startswith("BUNDLE_KIND_MISMATCH"):
+            raise HTTPException(status_code=400, detail="BUNDLE_KIND_MISMATCH_BIBLIO")
+        raise HTTPException(status_code=400, detail=msg)
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Import failed: {e}")
+    return result
+
+
 # ==================== File Upload ====================
 
 def _sanitize_biblio_filename(filename: str) -> str:
@@ -182,13 +233,8 @@ async def upload_refworks_file(
             detail=f"No valid entries found in file. Errors: {'; '.join(parse_errors[:5])}"
         )
 
-    MAX_ENTRIES_PER_UPLOAD = 100
-    if len(entries) > MAX_ENTRIES_PER_UPLOAD:
-        raise HTTPException(
-            status_code=400,
-            detail=f"REFWORKS_MAX_ENTRIES_100",
-        )
-    
+    # No hard cap on entries per upload: large imports run their abstract annotation in the
+    # background and are reported as complete via task polling, however long it takes.
     for entry in entries:
         entry['library_id'] = library_id
     
@@ -406,6 +452,132 @@ async def upload_entry_pdf(entry_id: str, file: UploadFile = File(...)):
     rel_thumb = str(Path("biblio") / library_id / "thumbnails" / f"{entry_id}.png") if thumb_ok else None
     BiblioEntryDB.update(entry_id, {"pdf_path": rel_pdf, "pdf_thumbnail_path": rel_thumb})
     return {"success": True, "pdf_path": rel_pdf, "thumbnail_path": rel_thumb}
+
+
+def _queue_abstract_annotation(entry_id: str, abstract: str, corpus_id: str,
+                               files_dir: Path, language: str, background_tasks: BackgroundTasks):
+    """
+    Create a shadow-corpus text from an entry's abstract and queue the same SpaCy/USAS/MIPVU
+    pipeline used for plain corpus text. Returns the task mapping dict, or None if no abstract.
+    """
+    if not (abstract and abstract.strip()):
+        return None
+    from routers.corpus import process_text_spacy_sync, create_progress_queue
+
+    safe_name = _sanitize_biblio_filename(entry_id) + ".txt"
+    save_path = files_dir / safe_name
+    if save_path.exists():
+        base = save_path.stem
+        idx = 1
+        while save_path.exists():
+            save_path = files_dir / f"{base}_{idx}.txt"
+            idx += 1
+    save_path.write_text(abstract.strip(), encoding='utf-8')
+
+    text_id = str(uuid.uuid4())
+    TextDB.create({
+        'id': text_id,
+        'corpus_id': corpus_id,
+        'filename': save_path.name,
+        'original_filename': save_path.name,
+        'content_path': str(save_path),
+        'media_type': 'text',
+        'tags': [],
+        'metadata': {},
+        'word_count': len(abstract.split()),
+    })
+    BiblioEntryAbstractsDB.create(entry_id, text_id)
+
+    task_id = str(uuid.uuid4())
+    TaskDB.create({
+        'id': task_id,
+        'corpus_id': corpus_id,
+        'text_id': text_id,
+        'task_type': 'spacy_annotation',
+        'status': 'pending',
+        'message': "SpaCy annotation for abstract...",
+    })
+    create_progress_queue(task_id)
+    background_tasks.add_task(
+        process_text_spacy_sync, task_id, text_id, str(save_path), str(files_dir), language, None
+    )
+    return {"entry_id": entry_id, "text_id": text_id, "task_id": task_id}
+
+
+@router.post("/libraries/{library_id}/upload-paper-pdf")
+async def upload_paper_pdf(
+    library_id: str,
+    background_tasks: BackgroundTasks,
+    file: UploadFile = File(...),
+):
+    """
+    Import a paper from its original PDF (no Refworks data). Extracts metadata via Crossref,
+    creates a new entry with the PDF attached (and a first-page thumbnail), and — if Crossref
+    returns an abstract — runs the same SpaCy/USAS/MIPVU pipeline as Refworks abstracts.
+    """
+    library = BiblioLibraryDB.get_by_id(library_id)
+    if not library:
+        raise HTTPException(status_code=404, detail="Library not found")
+    if not file.filename or not file.filename.lower().endswith(".pdf"):
+        raise HTTPException(status_code=400, detail="File must be a PDF")
+
+    corpus_id = library.get("corpus_id")
+    corpus = CorpusDB.get_by_id(corpus_id) if corpus_id else None
+    if not corpus_id or not corpus:
+        raise HTTPException(status_code=500, detail="Library shadow corpus not found")
+
+    content = await file.read()
+    if not content:
+        raise HTTPException(status_code=400, detail="Empty PDF file")
+
+    # Build entry (Crossref enrichment, robust fallback to PDF-derived fields)
+    from services.biblio.crossref_service import build_entry_from_pdf
+    fallback_title = Path(file.filename).stem
+    try:
+        entry = build_entry_from_pdf(content, library_id, fallback_title=fallback_title)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to process PDF metadata: {e}")
+
+    entry.setdefault("language", library.get("language"))
+    created = BiblioEntryDB.create(entry)
+    if not created:
+        raise HTTPException(status_code=500, detail="Failed to create entry")
+    entry_id = entry["id"]
+    BiblioLibraryDB.update_entry_count(library_id)
+
+    # Save PDF + first-page thumbnail (same layout as manual per-entry PDF upload)
+    _, _, pdf_path, thumb_path = _biblio_pdf_dirs(library_id, entry_id)
+    pdf_path.parent.mkdir(parents=True, exist_ok=True)
+    thumb_path.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        pdf_path.write_bytes(content)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to save PDF: {e}")
+    thumb_ok = render_first_page_thumbnail(pdf_path, thumb_path)
+    rel_pdf = str(Path("biblio") / library_id / "pdfs" / f"{entry_id}.pdf")
+    rel_thumb = str(Path("biblio") / library_id / "thumbnails" / f"{entry_id}.png") if thumb_ok else None
+    BiblioEntryDB.update(entry_id, {"pdf_path": rel_pdf, "pdf_thumbnail_path": rel_thumb})
+
+    # Queue abstract annotation if Crossref returned an abstract
+    entry_tasks = []
+    abstract = entry.get("abstract")
+    if abstract and abstract.strip():
+        corpus_dir = CORPORA_DIR / corpus["name"]
+        files_dir = corpus_dir / "files"
+        files_dir.mkdir(parents=True, exist_ok=True)
+        language = library.get("language") or "english"
+        task = _queue_abstract_annotation(entry_id, abstract, corpus_id, files_dir, language, background_tasks)
+        if task:
+            entry_tasks.append(task)
+
+    return {
+        "success": True,
+        "entry_id": entry_id,
+        "matched_via": (entry.get("raw_data") or {}).get("matched_via", "none"),
+        "pdf_path": rel_pdf,
+        "thumbnail_path": rel_thumb,
+        "entry_tasks": entry_tasks,
+    }
 
 
 @router.get("/entries/{entry_id}/thumbnail")

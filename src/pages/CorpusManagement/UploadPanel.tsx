@@ -1281,7 +1281,7 @@ export default function UploadPanel({
                 {t('corpus.clickOrDrag', '点击或拖拽文件')}
               </Typography>
               <Typography variant="caption" color="text.secondary" display="block">
-                {t('corpus.supportedFormats', '文本: .txt | 音频: .mp3, .wav | 视频: .mp4')}
+                {t('corpus.supportedFormats', '文本: .txt, .pdf | 音频: .mp3, .wav | 视频: .mp4')}
               </Typography>
             </Box>
 

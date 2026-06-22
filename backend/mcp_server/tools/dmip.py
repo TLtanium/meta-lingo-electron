@@ -84,7 +84,7 @@ FOUR COROLLARIES that produce these five configs:
 
 DECISION SHORTCUT (drive every MRW through this):
   1. L+ (a genuine metaphor signal is present)?  → DM. Stop. (config ① or ②)
-  2. C+ (dictionary-confirmed novel)?            → DM. Stop. (config ④, or ① if also L+)
+  2. C+ (novel for the producer's context)?      → DM. Stop. (config ④, or ① if also L+)
   3. Otherwise (L− AND C−): structurally ambiguous → run the REFERENTIAL TEST only
      here. Reawakened by a discourse cue → [R+]→[D+] (config ③);
      else → [R−]→[D−] (config ⑤, the default).
@@ -93,8 +93,8 @@ GUARDRAILS (so the hard entailments do not over-generate DM):
   • L+ counts ONLY when the signal genuinely marks a CROSS-DOMAIN comparison.
     Quotation marks for citation/irony/emphasis, or capitalization for proper
     nouns, are NOT metaphor signals → not L+.
-  • C+ counts ONLY when dictionary_lookup confirms the contextual sense is absent
-    (see Dimension 2). Never assert novelty from memory.
+  • C+ counts ONLY when the mapping is a genuine fresh coinage for the producer's
+    context (see Dimension 2) — not merely a vivid but conventional word choice.
 
 FOUR-DIMENSION ANALYSIS MODEL:
 
@@ -116,28 +116,37 @@ DIMENSION 1 – LINGUISTIC  [L+ / L−]
   By Corollary 4: a confirmed [L+] entails [R+] and [D+].
 
 DIMENSION 2 – CONCEPTUAL  [C+ / C−]
-  Is the cross-domain mapping NOVEL or CONVENTIONAL? This judgment is FULLY
-  STANDARDIZED through the built-in dictionaries — never decided from memory.
+  Is the cross-domain mapping NOVEL or CONVENTIONAL? Judge this with YOUR OWN
+  linguistic knowledge, FROM THE PRODUCER'S PERSPECTIVE — not from whether a
+  single present-day dictionary happens to list the sense.
 
-  STANDARDIZED LOOKUP FLOW (call dictionary_lookup for EVERY MRW you code on C):
-    1. dictionary_lookup(word)  → 麦克米伦 (Macmillan, primary).
-       Does a listed sense match the word's CONTEXTUAL (figurative) meaning here?
-         YES → [C−] CONVENTIONAL. Quote the matching sense in Evidence.
-    2. If 麦克米伦 has no entry / no matching contextual sense →
-       dictionary_lookup(word, ["朗文搭配"])  (Longman Collocations, fallback;
-       a collocation dictionary used here only for existence/coverage backup).
-         Matching sense or established collocation found → [C−] CONVENTIONAL.
-    3. NOT found in EITHER dictionary (no entry matching the contextual sense) →
-       [C+] NOVEL — the reader must construct the cross-domain mapping fresh.
-  Rule of thumb: FOUND (contextual sense listed) → conventional;
-                 NOT FOUND in either dictionary → novel.
+  STEP A — BUILD A PRODUCER CONTEXT MODEL. Infer, from EVERY available cue (the
+  text content itself, the FILENAME, the text TITLE, and any metadata: language,
+  date, author, source, genre), the producer's:
+    • genre & register (news, annual report, poetry, academic, speech, ad, …)
+    • intended audience and discourse community
+    • TIME PERIOD / era — novelty is HISTORICALLY RELATIVE: a mapping that is
+      fully lexicalized today may have been a fresh coinage when the text was
+      written (and vice-versa). Judge novelty as of the moment of production.
+    • domain and communicative purpose
 
-  ⚠ A skillful writer's CHOICE of a vivid conventional word does NOT make the
-    mapping novel. Novelty is purely a lexicon question, not a "this feels
-    evocative" judgment.
-  ⚠ NEVER claim a dictionary entry or sense number from memory. If you have not
-    actually called dictionary_lookup() for a word, you may not assign [C+]/[C−];
-    write "lookup pending" instead.
+  STEP B — Ask: for THIS producer addressing THIS audience in THIS context, is
+  the cross-domain mapping a ready-made, conventionalized expression already
+  available in the language/register, or a fresh extension the producer COINS
+  for the occasion?
+    [C−] CONVENTIONAL — an established, lexicalized/idiomatic sense that the
+      producer and audience would access automatically (a "dead"/"sleeping"
+      metaphor for this community). A skillful writer's CHOICE of a vivid
+      conventional word does NOT make the mapping novel.
+    [C+] NOVEL — a creative, non-lexicalized extension with no ready-made
+      conventional sense for this audience; the reader must construct it fresh.
+
+  OPTIONAL DICTIONARY CHECK: you MAY call dictionary_lookup(word) (Macmillan, then
+  Longman Collocations) to corroborate whether a figurative sense is lexicalized. Treat it as
+  SUPPORTING EVIDENCE, not the verdict — it does NOT override producer-perspective
+  reasoning (a sense listed today may still have been novel in a much earlier
+  text; an expression may be conventional in the producer's community yet absent
+  from the dictionary). The dictionary is no longer mandatory for coding C.
   By Corollary 2: a confirmed [C+] entails [R+] and [D+].
 
 DIMENSION 3 – REFERENTIAL (CORE DMIP CRITERION)  [R+ / R−]
@@ -243,9 +252,10 @@ DECISION PROCEDURE:
          textually adjacent). Note for Step 5 verification.
     0-C  Flag discourse cues: typography, domain adjective, metadiscourse,
          wordplay, topic-trigger, main-predicate position.
-    0-D  CONVENTIONALITY LOOKUPS — call dictionary_lookup(word) (Macmillan, then
-         朗文搭配 fallback) for EVERY distinct MRW you will code on C. Record
-         result; cite when you reach that MRW in Step 3.
+    0-D  BUILD PRODUCER CONTEXT MODEL — from the text content + filename + title +
+         metadata, infer genre, register, audience, and ERA for the C judgment
+         (Dimension 2). Optionally spot-check borderline MRWs with
+         dictionary_lookup(word) as supporting evidence (not required).
 
   Step 1: Read the FULL TEXT → context model (speaker, audience, genre, purpose).
 
@@ -253,7 +263,7 @@ DECISION PROCEDURE:
 
   Step 3: ENTAILMENT ROUTING (apply the DECISION SHORTCUT per MRW):
     (a) [L+]? (genuine signal — see Guardrails) → [R+]/[D+], config ① or ②. Done.
-    (b) [C+]? (dictionary-confirmed novel) → [R+]/[D+], config ④ (or ① if L+). Done.
+    (b) [C+]? (novel for the producer's context) → [R+]/[D+], config ④ (or ① if L+). Done.
     (c) Else (L− and C−): structurally ambiguous → go to Step 4.
     ⚠ State per MRW which branch (a/b/c) applied. Never batch-dismiss.
 
@@ -295,7 +305,7 @@ OUTPUT FORMAT (for each MRW):
   Position: Sentence {n}
   Code: [L±/C±/R±/D±]   Config: [① / ② / ③ / ④ / ⑤]
   Linguistic [L±]: [signaled/not] — [signal type, or "none"]
-  Conceptual [C±]: [novel/conventional] — [cite Macmillan/朗文 sense, or "not found → novel"]
+  Conceptual [C±]: [novel/conventional] — [producer-context reasoning (genre/era/audience); optional dictionary note]
   Referential [R±]: [direct/indirect/WIDLII] — [one sentence: why]
   Communicative [D±]: [deliberate/non-deliberate]  (= R by Corollary 1)
   Discourse cue: [extended / high-level / low-level / embedded / wordplay /
@@ -375,6 +385,61 @@ def _count_mrw_types(sentences: list) -> dict:
                 counts["indirect"] += 1
                 counts["total"] += 1
     return counts
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Archive ID resolution (tolerant of truncated / prefix IDs)
+# ─────────────────────────────────────────────────────────────────────────────
+
+async def _resolve_archive_id(
+    client: "MetaLingoClient",
+    corpus_name: str,
+    text_id: str,
+    partial_id: str,
+) -> str:
+    """Resolve a possibly-truncated annotation archive ID to its full UUID.
+
+    The model frequently abbreviates the 36-char archive UUID to its first
+    segment (e.g. ``b17d0568`` instead of
+    ``b17d0568-78d9-439d-a2a6-d14f0b2be4d8``). The load endpoint requires the
+    EXACT id, so an abbreviated id 404s even though the archive exists.
+
+    Strategy: fetch the archive list for this corpus and:
+      • return the id that matches ``partial_id`` exactly, else
+      • return the unique id that STARTS WITH ``partial_id`` (prefix match), else
+      • return ``partial_id`` unchanged (let the caller surface the error).
+
+    Never raises — on any failure it returns ``partial_id`` so the existing
+    load + error handling stays in control.
+    """
+    if not corpus_name or not partial_id:
+        return partial_id
+
+    try:
+        ann_result = await client.get(
+            f"/api/annotation/list/{corpus_name}",
+            params={"type": "text", "text_id": text_id},
+        )
+        raw = ann_result.get("data", ann_result)
+        archives = raw.get("archives", raw) if isinstance(raw, dict) else raw
+        if not isinstance(archives, list):
+            return partial_id
+
+        ids = [a.get("id", "") for a in archives if isinstance(a, dict) and a.get("id")]
+    except Exception:
+        return partial_id
+
+    # Exact match wins
+    if partial_id in ids:
+        return partial_id
+
+    # Unique prefix match
+    prefix_matches = [aid for aid in ids if aid.startswith(partial_id)]
+    if len(prefix_matches) == 1:
+        return prefix_matches[0]
+
+    # Ambiguous or no match → leave unchanged for the caller's error path
+    return partial_id
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -527,18 +592,21 @@ def register(mcp: FastMCP, client: MetaLingoClient):
 
           B) CORPUS MIPVU METADATA — the MIPVU annotation already embedded in
              the corpus as sidecar metadata (`.mipvu.json`). This is read via
-             the corpus API; no annotation is re-run. Pass
-             use_automatic_mipvu=True to use this source, or omit both
-             parameters when no archives exist (falls back automatically).
+             the corpus API; no annotation is re-run. Select this source with
+             annotation_archive_id='auto' (after the user confirms), or simply
+             omit both parameters when NO archive exists (it is then the only
+             source and the tool uses it directly).
 
         WORKFLOW:
-          1. The tool first checks annotation history for MIPVU archives on this
-             text (lists them with coder names and timestamps).
-          2. If archives exist and no source is specified, the tool returns the
-             list and asks you to consult the user about which source to use.
-          3. If annotation_archive_id is given → source A.
-          4. If use_automatic_mipvu=True or no archives exist → source B
-             (corpus metadata, no re-annotation).
+          1. The tool first checks annotation history for Metaphor (MIPVU) archives
+             on this text — matching both the new framework name "Metaphor" and the
+             legacy "MIPVU" (lists them with coder names and timestamps).
+          2. If archive(s) EXIST and no source is specified, the tool returns the
+             list and STOPS, asking you to consult the user about which source.
+          3. If NO archive exists, the tool proceeds directly with the corpus's
+             automatic MIPVU metadata (source B) — no prompt needed.
+          4. If annotation_archive_id is a real archive ID → source A.
+             If annotation_archive_id='auto' (user confirmed automatic) → source B.
 
         When to use: When asked to identify DELIBERATELY used metaphors in a text,
         or to apply DMIP / Deliberate Metaphor Theory (DMT) analysis. This tool
@@ -630,15 +698,20 @@ def register(mcp: FastMCP, client: MetaLingoClient):
                 except Exception:
                     mipvu_archives = []
 
-        # ── 3. If archives exist and user hasn't chosen yet → STOP ────────────
-        # This fires even if use_automatic_mipvu=True was passed — that flag does
-        # NOT count as user confirmation; only annotation_archive_id='auto' does.
+        # ── 3. If Metaphor (MIPVU) archives exist and user hasn't chosen → STOP ─
+        # Fires ONLY when saved Metaphor/MIPVU archive(s) exist for this text.
+        # When there are NO archives, the tool proceeds with the corpus's automatic
+        # MIPVU metadata without prompting (original design). The archive list above
+        # matches both the new framework name ("Metaphor") and the legacy "MIPVU".
+        # use_automatic_mipvu=True does NOT count as user confirmation; only
+        # annotation_archive_id='auto' (or a real archive ID) bypasses this STOP.
         if mipvu_archives and not real_archive_chosen and not confirmed_automatic:
             lines = [
-                f"=== MIPVU ANNOTATION ARCHIVES FOUND ===\n",
+                "=== METAPHOR (MIPVU) ANNOTATION ARCHIVES FOUND ===\n",
                 f"Text: {filename}",
                 f"Corpus: {corpus_name}\n",
-                f"Found {len(mipvu_archives)} MIPVU annotation archive(s) for this text.",
+                f"Found {len(mipvu_archives)} Metaphor (MIPVU) annotation archive(s) for "
+                "this text, IN ADDITION to the corpus's automatic MIPVU metadata.",
                 "You MUST ask the user which data source to use before proceeding.\n",
             ]
             for i, arch in enumerate(mipvu_archives, 1):
@@ -661,7 +734,6 @@ def register(mcp: FastMCP, client: MetaLingoClient):
                 ]
 
             lines += [
-                "",
                 "─" * 80,
                 "⚠ STOP — DO NOT call dmip_analysis again until the user answers.",
                 "Present the archive list above to the user and ask which source to use.",
@@ -670,13 +742,13 @@ def register(mcp: FastMCP, client: MetaLingoClient):
                 "After the user replies, make the next call as follows:",
                 "  A) User chose a specific archive:",
                 "       dmip_analysis(corpus_id=..., text_id=...,",
-                f"                    annotation_archive_id='<archive_id_from_list>')",
+                "                    annotation_archive_id='<archive_id_from_list>')",
                 "  B) User chose automatic MIPVU (corpus metadata, no re-annotation):",
                 "       dmip_analysis(corpus_id=..., text_id=...,",
                 "                    annotation_archive_id='auto')",
                 "     ← pass the literal string 'auto' as annotation_archive_id.",
-                "       Do NOT pass use_automatic_mipvu=True on a first or re-call",
-                "       without this 'auto' sentinel — it will trigger this STOP again.",
+                "       Do NOT pass use_automatic_mipvu=True without this 'auto'",
+                "       sentinel — it will trigger this STOP again.",
                 "",
                 "Wait for the user's answer. Do NOT proceed autonomously.",
             ]
@@ -698,13 +770,24 @@ def register(mcp: FastMCP, client: MetaLingoClient):
             if not corpus_name:
                 return f"ERROR: Cannot resolve corpus name for corpus_id={corpus_id}. Cannot load archive."
 
+            # The model often passes a truncated id (first UUID segment). Resolve
+            # it to the full archive id so the exact-match load endpoint succeeds.
+            resolved_id = await _resolve_archive_id(
+                client, corpus_name, text_id, annotation_archive_id
+            )
+            annotation_archive_id = resolved_id
+
             try:
                 archive_result = await client.get(
                     f"/api/annotation/load/{corpus_name}/{annotation_archive_id}"
                 )
                 archive_data = archive_result.get("data", archive_result)
             except Exception as exc:
-                return f"ERROR: Failed to load archive {annotation_archive_id}: {exc}"
+                return (
+                    f"ERROR: Failed to load archive {annotation_archive_id}: {exc}\n"
+                    "Verify the archive ID with list_annotations(corpus_name=...) and "
+                    "pass the FULL archive ID (36-char UUID), not an abbreviated prefix."
+                )
 
             if not archive_data:
                 return f"ERROR: Archive not found: {annotation_archive_id}"

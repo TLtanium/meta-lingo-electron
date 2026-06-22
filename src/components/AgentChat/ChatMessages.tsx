@@ -8,6 +8,29 @@ import {
 import { useTranslation } from 'react-i18next'
 import type { ChatMessage } from '../../stores/chatStore'
 import MessageBubble from './MessageBubble'
+import ToolCallGroup from './ToolCallGroup'
+
+type RenderUnit =
+  | { type: 'msg'; msg: ChatMessage }
+  | { type: 'tools'; key: string; msgs: ChatMessage[] }
+
+/** Collapse consecutive tool_call / tool_result messages into one chain unit. */
+function buildRenderUnits(messages: ChatMessage[]): RenderUnit[] {
+  const units: RenderUnit[] = []
+  for (const m of messages) {
+    if (m.role === 'tool_call' || m.role === 'tool_result') {
+      const last = units[units.length - 1]
+      if (last && last.type === 'tools') {
+        last.msgs.push(m)
+      } else {
+        units.push({ type: 'tools', key: m.id, msgs: [m] })
+      }
+    } else {
+      units.push({ type: 'msg', msg: m })
+    }
+  }
+  return units
+}
 
 interface ChatMessagesProps {
   messages: ChatMessage[]
@@ -44,6 +67,15 @@ export default function ChatMessages({
 
   // Only render visible messages (skip hidden compact summaries)
   const visibleMessages = messages.filter((m) => !m.hidden && !m.isCompactIndicator)
+  const renderUnits = buildRenderUnits(visibleMessages)
+  const lastVisible = visibleMessages.at(-1)
+
+  // Hide the bottom "thinking" indicator while a tool is actively running
+  // (the tool-call group header already shows the live tool) — show it only
+  // when the model is between steps (last message is not the assistant, and not
+  // an in-flight tool call).
+  const lastIsActiveTool = lastVisible?.role === 'tool_call' && !lastVisible.content
+  const showThinking = isStreaming && lastVisible?.role !== 'assistant' && !lastIsActiveTool
 
   return (
     <Box
@@ -59,16 +91,22 @@ export default function ChatMessages({
         gap: 2,
       }}
     >
-      {visibleMessages.map((msg, idx, arr) => (
-        <Box key={msg.id} sx={{ flexShrink: 0 }}>
-          <MessageBubble
-            message={msg}
-            isStreaming={isStreaming && idx === arr.length - 1 && msg.role === 'assistant'}
-          />
-        </Box>
-      ))}
+      {renderUnits.map((unit) =>
+        unit.type === 'tools' ? (
+          <Box key={unit.key} sx={{ flexShrink: 0 }}>
+            <ToolCallGroup messages={unit.msgs} streaming={isStreaming} />
+          </Box>
+        ) : (
+          <Box key={unit.msg.id} sx={{ flexShrink: 0 }}>
+            <MessageBubble
+              message={unit.msg}
+              isStreaming={isStreaming && unit.msg === lastVisible && unit.msg.role === 'assistant'}
+            />
+          </Box>
+        )
+      )}
 
-      {isStreaming && visibleMessages.at(-1)?.role !== 'assistant' && (
+      {showThinking && (
         <Stack direction="row" spacing={1} alignItems="center" sx={{ pl: 5.5, flexShrink: 0 }}>
           <CircularProgress size={14} thickness={4} />
           <Typography

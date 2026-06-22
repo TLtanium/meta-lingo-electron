@@ -393,10 +393,20 @@ class CorpusService:
                 return {"success": False, "error": "Text not found"}
             
             # Delete files
-            for path_key in ['content_path', 'transcript_path', 'transcript_json_path', 
+            for path_key in ['content_path', 'transcript_path', 'transcript_json_path',
                            'audio_path', 'yolo_annotation_path']:
                 if text.get(path_key) and os.path.exists(text[path_key]):
                     os.remove(text[path_key])
+
+            # Remove the original PDF sidecar (files/<stem>.source.pdf) for PDF-sourced texts
+            content_path = text.get('content_path')
+            if content_path:
+                try:
+                    pdf_sidecar = Path(content_path).with_suffix(".source.pdf")
+                    if pdf_sidecar.exists():
+                        pdf_sidecar.unlink()
+                except Exception as e:
+                    logger.warning(f"Failed to remove PDF sidecar for text {text_id}: {e}")
             
             # Delete associated annotation archives
             from routers.annotation import delete_archives_by_text_id
@@ -450,7 +460,14 @@ class CorpusService:
             # Generate unique filename
             safe_filename = self._sanitize_filename(filename)
             text_id = str(uuid.uuid4())
-            
+
+            # PDF text uploads: convert to .txt for the normal text pipeline and keep the
+            # original PDF as a sidecar (so it can be re-rendered / deleted alongside the text).
+            is_pdf_text = media_type == MediaType.TEXT and bool(filename) and filename.lower().endswith(".pdf")
+            pdf_original_bytes = file_content if is_pdf_text else None
+            if is_pdf_text:
+                safe_filename = str(Path(safe_filename).with_suffix(".txt"))
+
             # Determine save path based on media type
             if media_type == MediaType.TEXT:
                 save_dir = corpus_dir / "files"
@@ -473,17 +490,37 @@ class CorpusService:
             # For text files: detect encoding and normalise to UTF-8 before saving.
             # This makes all downstream reads safe to use encoding='utf-8'.
             if media_type == MediaType.TEXT:
-                from services.encoding_utils import detect_and_decode
-                content_for_save, detected_enc = detect_and_decode(file_content)
-                if detected_enc not in ("utf-8", "utf-8-bom"):
-                    logger.info(f"[save_uploaded_file] Re-encoding {filename}: {detected_enc} → utf-8")
-                file_bytes_to_write = content_for_save.encode("utf-8")
+                if is_pdf_text:
+                    from services.pdf_text_service import extract_text_from_pdf_bytes
+                    content_for_save = extract_text_from_pdf_bytes(pdf_original_bytes)
+                    if not content_for_save.strip():
+                        return {
+                            "success": False,
+                            "error": "Could not extract any text from the PDF. It may be scanned/image-only.",
+                        }
+                    file_bytes_to_write = content_for_save.encode("utf-8")
+                else:
+                    from services.encoding_utils import detect_and_decode
+                    content_for_save, detected_enc = detect_and_decode(file_content)
+                    if detected_enc not in ("utf-8", "utf-8-bom"):
+                        logger.info(f"[save_uploaded_file] Re-encoding {filename}: {detected_enc} → utf-8")
+                    file_bytes_to_write = content_for_save.encode("utf-8")
             else:
                 file_bytes_to_write = file_content
 
             # Write file (text files saved as UTF-8, binary files unchanged)
             with open(save_path, 'wb') as f:
                 f.write(file_bytes_to_write)
+
+            # Keep the original PDF next to the extracted text (e.g. files/<stem>.source.pdf)
+            if is_pdf_text and pdf_original_bytes:
+                try:
+                    pdf_sidecar = save_path.with_suffix(".source.pdf")
+                    with open(pdf_sidecar, 'wb') as pf:
+                        pf.write(pdf_original_bytes)
+                    logger.info(f"Saved original PDF sidecar: {pdf_sidecar}")
+                except Exception as e:
+                    logger.warning(f"Failed to save original PDF sidecar for {filename}: {e}")
 
             logger.info(f"Saved file: {save_path}")
 

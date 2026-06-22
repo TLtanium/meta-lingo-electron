@@ -171,8 +171,11 @@ export default function LibraryDetail({ library, onBack, onUpload }: LibraryDeta
     loadStatistics()
   }, [loadStatistics])
 
-  // Poll task status for entries with pending/processing
+  // Poll task status for entries with pending/processing.
+  // No client-side timeout: a long batch import (many entries / large abstracts) is allowed
+  // to run as long as it needs, and is reported as complete when its tasks finish.
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const hadActiveRef = useRef(false)
   useEffect(() => {
     const hasActive = entries.some(
       e => e.task_id && (e.task_status === 'pending' || e.task_status === 'processing')
@@ -182,8 +185,16 @@ export default function LibraryDetail({ library, onBack, onUpload }: LibraryDeta
         clearInterval(pollingRef.current)
         pollingRef.current = null
       }
+      // Edge: tasks on this page just finished → refresh entries + stats + global
+      // processing count so the "completed" state and banner are reported correctly.
+      if (hadActiveRef.current) {
+        hadActiveRef.current = false
+        loadEntries()
+        loadStatistics()
+      }
       return
     }
+    hadActiveRef.current = true
     pollingRef.current = setInterval(async () => {
       for (const entry of entries) {
         if (!entry.task_id || (entry.task_status !== 'pending' && entry.task_status !== 'processing')) continue
@@ -207,7 +218,7 @@ export default function LibraryDetail({ library, onBack, onUpload }: LibraryDeta
     return () => {
       if (pollingRef.current) clearInterval(pollingRef.current)
     }
-  }, [entries])
+  }, [entries, loadEntries, loadStatistics])
 
   const handlePageChange = (_: unknown, newPage: number) => setPage(newPage)
   const handlePageSizeChange = (event: React.ChangeEvent<HTMLInputElement>) => {

@@ -74,6 +74,79 @@ export async function uploadRefworksFile(
   )
 }
 
+/** Export selected libraries as a portable .zip migration bundle (download). */
+export async function exportLibraryBundle(
+  libraryIds: string[]
+): Promise<{ success: boolean; blob?: Blob; filename?: string; message?: string }> {
+  try {
+    const response = await fetch(`${API_BASE_URL}${BASE_URL}/export-bundle`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ library_ids: libraryIds }),
+    })
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({ detail: response.statusText }))
+      return { success: false, message: err.detail || 'Export failed' }
+    }
+    const disposition = response.headers.get('Content-Disposition') || ''
+    const filenameMatch = disposition.match(/filename\s*=\s*"?([^";\r\n]+)"?/i)
+    const filename = filenameMatch ? filenameMatch[1].trim() : 'metalingo_biblio.zip'
+    const blob = await response.blob()
+    return { success: true, blob, filename }
+  } catch (error) {
+    return { success: false, message: String(error) }
+  }
+}
+
+/** Import a library migration bundle (.zip); recreates each library in the list. */
+export async function importLibraryBundle(
+  file: File
+): Promise<{ success: boolean; imported_libraries?: { name: string; id: string }[]; message?: string }> {
+  try {
+    const formData = new FormData()
+    formData.append('file', file)
+    const response = await fetch(`${API_BASE_URL}${BASE_URL}/import-bundle`, {
+      method: 'POST',
+      body: formData,
+    })
+    const data = await response.json().catch(() => ({}))
+    if (!response.ok) {
+      return { success: false, message: data.detail || 'Import failed' }
+    }
+    return { success: true, imported_libraries: data.imported_libraries || [] }
+  } catch (error) {
+    return { success: false, message: String(error) }
+  }
+}
+
+/** Result of importing a paper from its original PDF (Crossref-enriched entry). */
+export interface PaperPdfUploadResult {
+  success: boolean
+  entry_id: string
+  matched_via: 'doi' | 'title' | 'none'
+  pdf_path?: string
+  thumbnail_path?: string | null
+  entry_tasks?: { entry_id: string; text_id: string; task_id: string }[]
+}
+
+/**
+ * Import a paper from its original PDF. The backend extracts metadata via Crossref, creates
+ * a new entry with the PDF + thumbnail attached, and queues abstract annotation if available.
+ */
+export async function uploadPaperPdf(
+  libraryId: string,
+  file: File,
+  onProgress?: (progress: number) => void
+): Promise<ApiResponse<PaperPdfUploadResult>> {
+  const formData = new FormData()
+  formData.append('file', file)
+  return api.upload<PaperPdfUploadResult>(
+    `${BASE_URL}/libraries/${libraryId}/upload-paper-pdf`,
+    formData,
+    onProgress
+  )
+}
+
 // ==================== Entry Management ====================
 
 export type BiblioEntrySortColumn = 'title' | 'year' | 'journal' | 'citation_count' | 'relevance'

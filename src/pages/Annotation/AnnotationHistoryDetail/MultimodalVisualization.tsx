@@ -25,23 +25,44 @@ import {
   IconButton,
   Tooltip,
   Divider,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Checkbox,
+  ListItemText,
+  OutlinedInput,
+  FormControlLabel,
+  Switch,
   useTheme
 } from '@mui/material'
+import type { SelectChangeEvent } from '@mui/material'
 import WbSunnyIcon from '@mui/icons-material/WbSunny'
 import ShowChartIcon from '@mui/icons-material/ShowChart'
 import GridOnIcon from '@mui/icons-material/GridOn'
+import CloudOutlinedIcon from '@mui/icons-material/CloudOutlined'
+import HubIcon from '@mui/icons-material/Hub'
 import SaveAltIcon from '@mui/icons-material/SaveAlt'
 import ImageIcon from '@mui/icons-material/Image'
+import CenterFocusStrongIcon from '@mui/icons-material/CenterFocusStrong'
 import { useTranslation } from 'react-i18next'
 import * as d3 from 'd3'
 import html2canvas from 'html2canvas'
 import type { Annotation, YoloTrack, VideoBox, ClipAnnotationData } from '../../../types'
+import AnnotationWordCloud, { type LabelInfo, type AnnotationWordCloudHandle } from './AnnotationWordCloud'
+import AnnotationNetwork, { type ArchiveListItem, type AnnotationNetworkHandle } from './AnnotationNetwork'
+import { NumberInput } from '../../../components/common'
 
 interface MultimodalVisualizationProps {
   annotations: Annotation[]
   yoloAnnotations: YoloTrack[]
   manualTracks: VideoBox[]
   clipAnnotations?: ClipAnnotationData | null
+  /** 网络图所需的存档元信息 */
+  corpusName?: string
+  archiveId?: string
+  archiveName?: string
+  framework?: string
 }
 
 // 颜色配置
@@ -63,13 +84,17 @@ const MANUAL_PALETTE = ['#fca5a5', '#f87171', '#ef4444', '#dc2626', '#b91c1c', '
 const TEXT_COLOR = '#10b981'
 const TEXT_PALETTE = ['#6ee7b7', '#34d399', '#10b981', '#059669', '#047857', '#065f46']
 
-type ChartType = 'scatter' | 'sunburst' | 'heatmap'
+type ChartType = 'scatter' | 'sunburst' | 'heatmap' | 'wordcloud' | 'network'
 
-export default function MultimodalVisualization({ 
-  annotations, 
-  yoloAnnotations, 
+export default function MultimodalVisualization({
+  annotations,
+  yoloAnnotations,
   manualTracks,
-  clipAnnotations 
+  clipAnnotations,
+  corpusName = '',
+  archiveId = '',
+  archiveName = '',
+  framework = ''
 }: MultimodalVisualizationProps) {
   const { t } = useTranslation()
   const theme = useTheme()
@@ -94,6 +119,59 @@ export default function MultimodalVisualization({
   const svgRef = useRef<SVGSVGElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const tooltipRef = useRef<HTMLDivElement>(null)
+
+  // --- Word Cloud lifted state (text annotations only) ---
+  const wcAnnotations = useMemo(() => annotations.filter(a => a.type !== 'video' && a.type !== 'audio'), [annotations])
+  const wcLabelInfo = useMemo<LabelInfo[]>(() => {
+    const map = new Map<string, { color: string; count: number }>()
+    wcAnnotations.forEach(ann => {
+      if (!ann.label) return
+      const e = map.get(ann.label)
+      if (e) e.count++
+      else map.set(ann.label, { color: ann.color || '#5470c6', count: 1 })
+    })
+    return Array.from(map.entries()).map(([label, info]) => ({ label, ...info })).sort((a, b) => b.count - a.count)
+  }, [wcAnnotations])
+  const [wcSelectedLabels, setWcSelectedLabels] = useState<Set<string>>(new Set())
+  const [wcMaxWords, setWcMaxWords] = useState(100)
+  const wcRef = useRef<AnnotationWordCloudHandle>(null)
+  useEffect(() => { setWcSelectedLabels(new Set(wcLabelInfo.map(l => l.label))) }, [wcLabelInfo])
+
+  const WC_ALL = '__WC_ALL__'
+  const handleWcLabelChange = (e: SelectChangeEvent<string[]>) => {
+    const value = e.target.value as string[]
+    if (value.includes(WC_ALL)) {
+      setWcSelectedLabels(prev => prev.size === wcLabelInfo.length ? new Set() : new Set(wcLabelInfo.map(l => l.label)))
+      return
+    }
+    setWcSelectedLabels(new Set(value))
+  }
+
+  // --- Network lifted state ---
+  const [netAvailable, setNetAvailable] = useState<ArchiveListItem[]>([])
+  const [netSelectedExtraIds, setNetSelectedExtraIds] = useState<string[]>([])
+  const [netLabelInfo, setNetLabelInfo] = useState<LabelInfo[]>([])
+  const [netSelectedLabels, setNetSelectedLabels] = useState<Set<string>>(new Set())
+  const [netMaxWords, setNetMaxWords] = useState(50)
+  const [netOnlyShared, setNetOnlyShared] = useState(true)
+  const netRef = useRef<AnnotationNetworkHandle>(null)
+  useEffect(() => { setNetSelectedLabels(new Set(netLabelInfo.map(l => l.label))) }, [netLabelInfo])
+
+  const handleNetAvailableChange = useCallback((list: ArchiveListItem[]) => { setNetAvailable(list) }, [])
+  const handleNetLabelInfoChange = useCallback((info: LabelInfo[]) => { setNetLabelInfo(info) }, [])
+
+  const handleNetArchiveChange = (e: SelectChangeEvent<string[]>) => {
+    setNetSelectedExtraIds(e.target.value as string[])
+  }
+  const NET_LABEL_ALL = '__NET_LABEL_ALL__'
+  const handleNetLabelChange = (e: SelectChangeEvent<string[]>) => {
+    const value = e.target.value as string[]
+    if (value.includes(NET_LABEL_ALL)) {
+      setNetSelectedLabels(prev => prev.size === netLabelInfo.length ? new Set() : new Set(netLabelInfo.map(l => l.label)))
+      return
+    }
+    setNetSelectedLabels(new Set(value))
+  }
   
   // CLIP 标签可见性状态
   const [clipLabelVisibility, setClipLabelVisibility] = useState<Record<string, boolean>>({})
@@ -1508,7 +1586,7 @@ export default function MultimodalVisualization({
       />
       
       {/* 工具栏 */}
-      <Stack direction="row" spacing={2} sx={{ mb: 2 }} alignItems="center" justifyContent="space-between">
+      <Stack direction="row" spacing={1.5} sx={{ mb: 2 }} alignItems="center" flexWrap="wrap" useFlexGap>
         <ToggleButtonGroup
           value={chartType}
           exclusive
@@ -1527,29 +1605,186 @@ export default function MultimodalVisualization({
             <GridOnIcon sx={{ mr: 0.5 }} fontSize="small" />
             {t('annotation.heatmap', '热图')}
           </ToggleButton>
+          <ToggleButton value="wordcloud">
+            <CloudOutlinedIcon sx={{ mr: 0.5 }} fontSize="small" />
+            {t('annotation.wordCloud', '词云图')}
+          </ToggleButton>
+          <ToggleButton value="network">
+            <HubIcon sx={{ mr: 0.5 }} fontSize="small" />
+            {t('annotation.networkGraph', '网络图')}
+          </ToggleButton>
         </ToggleButtonGroup>
-        
-        <Stack direction="row" spacing={0.5} alignItems="center">
-          <Divider orientation="vertical" flexItem sx={{ mx: 1 }} />
-          <Tooltip title={t('annotation.exportSvg', '导出 SVG')}>
-            <IconButton size="small" onClick={handleExportSvg}>
-              <SaveAltIcon fontSize="small" />
+
+        {/* 词云图参数 */}
+        {chartType === 'wordcloud' && (
+          <>
+            <FormControl size="small" sx={{ width: 160 }}>
+              <InputLabel>{t('annotation.wordCloudSelectLabels', '选择标签')}</InputLabel>
+              <Select
+                multiple
+                value={Array.from(wcSelectedLabels)}
+                onChange={handleWcLabelChange}
+                input={<OutlinedInput label={t('annotation.wordCloudSelectLabels', '选择标签')} />}
+                renderValue={() => wcSelectedLabels.size === wcLabelInfo.length
+                  ? t('common.all', '全部') : `${wcSelectedLabels.size} / ${wcLabelInfo.length}`}
+                MenuProps={{ PaperProps: { style: { maxHeight: 340 } } }}
+              >
+                <MenuItem value={WC_ALL} dense>
+                  <Checkbox size="small" checked={wcSelectedLabels.size === wcLabelInfo.length}
+                    indeterminate={wcSelectedLabels.size > 0 && wcSelectedLabels.size < wcLabelInfo.length} />
+                  <ListItemText
+                    primary={wcSelectedLabels.size === wcLabelInfo.length
+                      ? t('common.deselectAll', '取消全选') : t('common.selectAll', '全选')}
+                    primaryTypographyProps={{ fontSize: 13 }} />
+                </MenuItem>
+                {wcLabelInfo.map(({ label, color, count }) => (
+                  <MenuItem key={label} value={label} dense>
+                    <Checkbox size="small" checked={wcSelectedLabels.has(label)}
+                      sx={{ color, '&.Mui-checked': { color } }} />
+                    <ListItemText primary={label} secondary={String(count)}
+                      primaryTypographyProps={{ fontSize: 13 }} secondaryTypographyProps={{ fontSize: 11 }} />
+                    <Box sx={{ width: 10, height: 10, borderRadius: '2px', bgcolor: color, ml: 0.5, flexShrink: 0 }} />
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <NumberInput label={t('annotation.wordCloudMaxWords', '显示词数')} size="small"
+              value={wcMaxWords} onChange={setWcMaxWords} min={10} max={500} step={25} integer defaultValue={100} sx={{ width: 150 }} />
+          </>
+        )}
+
+        {/* 网络图参数 */}
+        {chartType === 'network' && (
+          <>
+            <FormControl size="small" sx={{ width: 200 }}>
+              <InputLabel>{t('annotation.networkLinkArchives', '关联其它标注存档')}</InputLabel>
+              <Select
+                multiple
+                value={netSelectedExtraIds}
+                onChange={handleNetArchiveChange}
+                input={<OutlinedInput label={t('annotation.networkLinkArchives', '关联其它标注存档')} />}
+                renderValue={(sel) => (sel as string[]).length === 0
+                  ? t('annotation.networkSingleArchive', '仅当前存档')
+                  : `${(sel as string[]).length} ${t('common.items', '项')}`}
+                MenuProps={{ PaperProps: { style: { maxHeight: 400 } } }}
+              >
+                {netAvailable.length === 0 && (
+                  <MenuItem disabled dense>{t('annotation.networkNoOtherArchives', '无其它可用存档')}</MenuItem>
+                )}
+                {netAvailable.map(a => (
+                  <MenuItem key={a.id} value={a.id} dense>
+                    <Checkbox size="small" checked={netSelectedExtraIds.includes(a.id)} />
+                    <ListItemText
+                      primary={a.textName || a.resourceName || a.id}
+                      secondary={`${a.framework} · ${a.corpusName}`}
+                      primaryTypographyProps={{ fontSize: 13 }}
+                      secondaryTypographyProps={{ fontSize: 11 }} />
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <FormControl size="small" sx={{ width: 160 }}>
+              <InputLabel>{t('annotation.wordCloudSelectLabels', '选择标签')}</InputLabel>
+              <Select
+                multiple
+                value={Array.from(netSelectedLabels)}
+                onChange={handleNetLabelChange}
+                input={<OutlinedInput label={t('annotation.wordCloudSelectLabels', '选择标签')} />}
+                renderValue={() => netSelectedLabels.size === netLabelInfo.length
+                  ? t('common.all', '全部') : `${netSelectedLabels.size} / ${netLabelInfo.length}`}
+                MenuProps={{ PaperProps: { style: { maxHeight: 340 } } }}
+              >
+                <MenuItem value={NET_LABEL_ALL} dense>
+                  <Checkbox size="small" checked={netSelectedLabels.size === netLabelInfo.length}
+                    indeterminate={netSelectedLabels.size > 0 && netSelectedLabels.size < netLabelInfo.length} />
+                  <ListItemText
+                    primary={netSelectedLabels.size === netLabelInfo.length
+                      ? t('common.deselectAll', '取消全选') : t('common.selectAll', '全选')}
+                    primaryTypographyProps={{ fontSize: 13 }} />
+                </MenuItem>
+                {netLabelInfo.map(({ label, color, count }) => (
+                  <MenuItem key={label} value={label} dense>
+                    <Checkbox size="small" checked={netSelectedLabels.has(label)}
+                      sx={{ color, '&.Mui-checked': { color } }} />
+                    <ListItemText primary={label} secondary={String(count)}
+                      primaryTypographyProps={{ fontSize: 13 }} secondaryTypographyProps={{ fontSize: 11 }} />
+                    <Box sx={{ width: 10, height: 10, borderRadius: '2px', bgcolor: color, ml: 0.5, flexShrink: 0 }} />
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <NumberInput label={t('annotation.wordCloudMaxWords', '显示词数')} size="small"
+              value={netMaxWords} onChange={setNetMaxWords} min={10} max={200} step={25} integer defaultValue={50} sx={{ width: 150 }} />
+            {netSelectedExtraIds.length > 0 && (
+              <FormControlLabel
+                control={<Switch size="small" checked={netOnlyShared} onChange={e => setNetOnlyShared(e.target.checked)} />}
+                label={<Typography variant="caption">{t('annotation.networkOnlyShared', '仅显示共享词')}</Typography>}
+              />
+            )}
+          </>
+        )}
+
+        <Box sx={{ flex: 1 }} />
+
+        {chartType === 'network' && (
+          <Tooltip title={t('annotation.networkResetView', '重置视图')}>
+            <IconButton size="small" onClick={() => netRef.current?.resetZoom()}>
+              <CenterFocusStrongIcon fontSize="small" />
             </IconButton>
           </Tooltip>
-          <Tooltip title={t('annotation.exportPng', '导出 PNG')}>
-            <IconButton size="small" onClick={handleExportPng}>
-              <ImageIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
-        </Stack>
+        )}
+        <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
+        <Tooltip title={t('annotation.exportSvg', '导出 SVG')}>
+          <IconButton size="small" onClick={() => {
+            if (chartType === 'wordcloud') wcRef.current?.exportSvg()
+            else if (chartType === 'network') netRef.current?.exportSvg()
+            else handleExportSvg()
+          }}>
+            <SaveAltIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
+        <Tooltip title={t('annotation.exportPng', '导出 PNG')}>
+          <IconButton size="small" onClick={() => {
+            if (chartType === 'wordcloud') wcRef.current?.exportPng()
+            else if (chartType === 'network') netRef.current?.exportPng()
+            else handleExportPng()
+          }}>
+            <ImageIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
       </Stack>
       
-      {/* 图表容器 */}
-      <Box 
-        ref={containerRef} 
-        sx={{ 
-          border: 1, 
-          borderColor: 'divider', 
+      {/* 词云图分支：转录/文本标注词构成 */}
+      {chartType === 'wordcloud' ? (
+        <AnnotationWordCloud
+          ref={wcRef}
+          annotations={wcAnnotations}
+          labelInfo={wcLabelInfo}
+          selectedLabels={wcSelectedLabels}
+          maxWords={wcMaxWords}
+        />
+      ) : chartType === 'network' ? (
+        <AnnotationNetwork
+          ref={netRef}
+          corpusName={corpusName}
+          archiveId={archiveId}
+          archiveName={archiveName}
+          framework={framework}
+          annotations={annotations}
+          maxWords={netMaxWords}
+          selectedLabels={netSelectedLabels}
+          selectedExtraIds={netSelectedExtraIds}
+          onlyShared={netOnlyShared}
+          onAvailableChange={handleNetAvailableChange}
+          onLabelInfoChange={handleNetLabelInfoChange}
+        />
+      ) : (
+      /* 图表容器 */
+      <Box
+        ref={containerRef}
+        sx={{
+          border: 1,
+          borderColor: 'divider',
           borderRadius: 2,
           maxHeight: 500,
           overflow: 'auto'
@@ -1572,15 +1807,16 @@ export default function MultimodalVisualization({
         <Box sx={{ p: 2, width: '100%', display: 'flex', justifyContent: 'center' }}>
           <svg
             ref={svgRef}
-            style={{ 
-              width: '100%', 
+            style={{
+              width: '100%',
               maxWidth: chartType === 'scatter' ? 900 : chartType === 'sunburst' ? 700 : 800,
-              height: chartHeight 
+              height: chartHeight
             }}
           />
         </Box>
       </Box>
-      
+      )}
+
       {/* 统计摘要 */}
       <Box sx={{ mt: 2 }}>
         <Stack direction="row" spacing={3} flexWrap="wrap" alignItems="center">

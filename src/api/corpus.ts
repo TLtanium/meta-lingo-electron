@@ -890,6 +890,51 @@ export const corpusApi = {
     }
   },
 
+  /** Export selected corpora as a portable .zip migration bundle (download). */
+  exportBundle: async (
+    corpusIds: string[]
+  ): Promise<{ success: boolean; blob?: Blob; filename?: string; message?: string }> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}${API_BASE}/export-bundle`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ corpus_ids: corpusIds }),
+      })
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({ detail: response.statusText }))
+        return { success: false, message: err.detail || 'Export failed' }
+      }
+      const disposition = response.headers.get('Content-Disposition') || ''
+      const filenameMatch = disposition.match(/filename\s*=\s*"?([^";\r\n]+)"?/i)
+      const filename = filenameMatch ? filenameMatch[1].trim() : 'metalingo_corpus.zip'
+      const blob = await response.blob()
+      return { success: true, blob, filename }
+    } catch (error) {
+      return { success: false, message: String(error) }
+    }
+  },
+
+  /** Import a corpus migration bundle (.zip); recreates each corpus in the list. */
+  importBundle: async (
+    file: File
+  ): Promise<{ success: boolean; imported_corpora?: { name: string; id: string }[]; message?: string }> => {
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      const response = await fetch(`${API_BASE_URL}${API_BASE}/import-bundle`, {
+        method: 'POST',
+        body: formData,
+      })
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok) {
+        return { success: false, message: data.detail || 'Import failed' }
+      }
+      return { success: true, imported_corpora: data.imported_corpora || [] }
+    } catch (error) {
+      return { success: false, message: String(error) }
+    }
+  },
+
   reAnnotateNrc: async (corpusId: string, textId: string): Promise<{ success: boolean; message?: string }> => {
     try {
       const response = await api.post<{ success: boolean; message?: string; error?: string }>(

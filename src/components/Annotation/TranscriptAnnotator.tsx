@@ -528,33 +528,30 @@ const TranscriptAnnotator = forwardRef<TranscriptAnnotatorRef, TranscriptAnnotat
     return m
   }, [annotationsBySegment, transcriptSegments])
 
-  // 需要预留底部连线通道的段落集合：取关联两端中较上方（段落序号较小）的段落，
-  // 使横线落在第一个标签正下方、第二个标签位于横线下方。
+  // 需要预留底部连线通道的段落集合（关联与词组的横线一律落在底部通道，使所有连线
+  // 都从标签下方出发）：取关联两端/词组成员中较下方（段落序号较大）的段落，使横线
+  // 落在最下方标签正下方，竖线从各标签底部垂下。
   const bottomLaneSegSet = useMemo(() => {
     const set = new Set<string>()
     for (const rel of relations) {
       const s = annToSegOrder.get(rel.sourceId)
       const tg = annToSegOrder.get(rel.targetId)
       if (!s || !tg) continue
-      set.add(s.order <= tg.order ? s.segId : tg.segId)
+      set.add(s.order >= tg.order ? s.segId : tg.segId)
     }
-    return set
-  }, [relations, annToSegOrder])
-
-  // 需要预留顶部连线通道的段落集合：取词组成员中最上方（段落序号较小）的段落，
-  // 词组括号横线落在该段落标签上方的空通道内。
-  const topLaneSegSet = useMemo(() => {
-    const set = new Set<string>()
     for (const grp of groups) {
       const orders = grp.annotationIds
         .map(id => annToSegOrder.get(id))
         .filter((x): x is { segId: string; order: number } => !!x)
       if (orders.length < 2) continue
-      const top = orders.reduce((a, b) => (b.order < a.order ? b : a))
-      set.add(top.segId)
+      const bottom = orders.reduce((a, b) => (b.order > a.order ? b : a))
+      set.add(bottom.segId)
     }
     return set
-  }, [groups, annToSegOrder])
+  }, [relations, groups, annToSegOrder])
+
+  // 顶部连线通道已不再使用（词组括号亦改为底部通道），保留空集合以兼容渲染逻辑。
+  const topLaneSegSet = useMemo(() => new Set<string>(), [])
 
   // Measure label block positions after render
   useEffect(() => {
@@ -830,8 +827,53 @@ const TranscriptAnnotator = forwardRef<TranscriptAnnotatorRef, TranscriptAnnotat
           }
         </Typography>
         
-        {/* 导出 + 句法结构 + 自动标注按钮 */}
+        {/* 关联/词组按钮置于最左 + 导出 + 句法结构 + 自动标注按钮 */}
         <Stack direction="row" spacing={0.5} alignItems="center">
+          {canLink && (
+            <Tooltip title={linkMode ? t('annotation.linkModeOff', '退出关联模式') : t('annotation.linkModeOn', '标签关联模式')}>
+              <IconButton
+                size="small"
+                onClick={toggleLinkMode}
+                sx={{
+                  bgcolor: linkMode ? 'warning.main' : 'action.hover',
+                  color: linkMode ? 'warning.contrastText' : 'inherit',
+                  '&:hover': { bgcolor: linkMode ? 'warning.dark' : 'warning.light', color: 'white' }
+                }}
+              >
+                {linkMode ? <LinkOffIcon fontSize="small" /> : <LinkIcon fontSize="small" />}
+              </IconButton>
+            </Tooltip>
+          )}
+          {canGroup && groupMode && groupPendingIds.length >= 2 && (
+            <Tooltip title={t('annotation.groupConfirm', '确认词组 ({{count}})', { count: groupPendingIds.length })}>
+              <Box
+                component="span"
+                onClick={handleConfirmGroup}
+                sx={{
+                  display: 'inline-flex', alignItems: 'center', cursor: 'pointer',
+                  px: 1, height: 30, borderRadius: 1, bgcolor: 'secondary.main', color: 'white',
+                  fontSize: 12, fontWeight: 600, '&:hover': { opacity: 0.85 },
+                }}
+              >
+                {t('annotation.groupConfirm', '确认词组 ({{count}})', { count: groupPendingIds.length })}
+              </Box>
+            </Tooltip>
+          )}
+          {canGroup && (
+            <Tooltip title={groupMode ? t('annotation.groupModeOff', '退出词组模式') : t('annotation.groupModeOn', '非连续词组模式（无方向性，计为整体）')}>
+              <IconButton
+                size="small"
+                onClick={toggleGroupMode}
+                sx={{
+                  bgcolor: groupMode ? 'secondary.main' : 'action.hover',
+                  color: groupMode ? 'white' : 'inherit',
+                  '&:hover': { bgcolor: groupMode ? 'secondary.dark' : 'secondary.light', color: 'white' }
+                }}
+              >
+                <JoinInnerIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          )}
           <Tooltip title={t('annotation.exportPngTooltip')}>
             <span>
               <IconButton 
@@ -912,51 +954,6 @@ const TranscriptAnnotator = forwardRef<TranscriptAnnotatorRef, TranscriptAnnotat
                   {autoAnnotating ? <CircularProgress size={16} color="inherit" /> : <AutoFixHighIcon fontSize="small" />}
                 </IconButton>
               </span>
-            </Tooltip>
-          )}
-          {canLink && (
-            <Tooltip title={linkMode ? t('annotation.linkModeOff', '退出关联模式') : t('annotation.linkModeOn', '标签关联模式')}>
-              <IconButton
-                size="small"
-                onClick={toggleLinkMode}
-                sx={{
-                  bgcolor: linkMode ? 'warning.main' : 'action.hover',
-                  color: linkMode ? 'warning.contrastText' : 'inherit',
-                  '&:hover': { bgcolor: linkMode ? 'warning.dark' : 'warning.light', color: 'white' }
-                }}
-              >
-                {linkMode ? <LinkOffIcon fontSize="small" /> : <LinkIcon fontSize="small" />}
-              </IconButton>
-            </Tooltip>
-          )}
-          {canGroup && groupMode && groupPendingIds.length >= 2 && (
-            <Tooltip title={t('annotation.groupConfirm', '确认词组 ({{count}})', { count: groupPendingIds.length })}>
-              <Box
-                component="span"
-                onClick={handleConfirmGroup}
-                sx={{
-                  display: 'inline-flex', alignItems: 'center', cursor: 'pointer',
-                  px: 1, height: 30, borderRadius: 1, bgcolor: 'secondary.main', color: 'white',
-                  fontSize: 12, fontWeight: 600, '&:hover': { opacity: 0.85 },
-                }}
-              >
-                {t('annotation.groupConfirm', '确认词组 ({{count}})', { count: groupPendingIds.length })}
-              </Box>
-            </Tooltip>
-          )}
-          {canGroup && (
-            <Tooltip title={groupMode ? t('annotation.groupModeOff', '退出词组模式') : t('annotation.groupModeOn', '非连续词组模式（无方向性，计为整体）')}>
-              <IconButton
-                size="small"
-                onClick={toggleGroupMode}
-                sx={{
-                  bgcolor: groupMode ? 'secondary.main' : 'action.hover',
-                  color: groupMode ? 'white' : 'inherit',
-                  '&:hover': { bgcolor: groupMode ? 'secondary.dark' : 'secondary.light', color: 'white' }
-                }}
-              >
-                <JoinInnerIcon fontSize="small" />
-              </IconButton>
             </Tooltip>
           )}
         </Stack>

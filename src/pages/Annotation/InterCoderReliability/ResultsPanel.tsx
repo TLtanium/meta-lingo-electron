@@ -222,6 +222,18 @@ export default function ResultsPanel({
               </Typography>
             </Grid>
           </Grid>
+          {(summaryData.unit || summaryData.distance) && (
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1.5 }}>
+              {t('reliability.unitLabel', '分析单位')}: <b>{summaryData.unit}</b>
+              {' · '}{t('reliability.distanceLabel', '集合距离')}: <b>{summaryData.distance}</b>
+              {summaryData.token_source && ` · ${t('reliability.tokenSource', 'token 来源')}: ${summaryData.token_source}`}
+              {summaryData.n_cases != null && summaryData.n_units_total != null &&
+                ` · ${summaryData.n_cases}/${summaryData.n_units_total} ${t('reliability.candidateUnits', '候选单位')}`}
+            </Typography>
+          )}
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5, fontStyle: 'italic' }}>
+            {t('reliability.gradedNote', 'α 按集合距离给渐进部分功劳；Cohen/Fleiss κ 为二元集合相等')}
+          </Typography>
         </Box>
       )}
       

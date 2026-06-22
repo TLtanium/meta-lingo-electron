@@ -127,7 +127,7 @@ Meta-Lingo supports various file formats:
 
 | Type | Supported Formats |
 |------|-------------------|
-| Text | .txt |
+| Text | .txt, .pdf (PDFs are auto-extracted to text, then processed like plain text; the original PDF is kept and removed together with the text) |
 | Audio | .mp3, .wav, .m4a, .flac, .ogg |
 | Video | .mp4, .avi, .mkv, .mov, .webm |
 
@@ -137,6 +137,14 @@ Meta-Lingo supports various file formats:
 - **Click to Upload**: Click the upload area to select files from file manager
 
 Batch upload of multiple files is supported.
+
+### Corpus Export / Import (Migration & Backup)
+
+The corpus list page provides **Export** and **Import** buttons for migrating data between machines, or for backup and restore.
+
+- **Export**: Click **Export**, tick one or more corpora in the dialog (all selected by default; select-all supported), then click **Export selected**. The chosen corpora are packaged into a single `.zip` bundle and downloaded. The bundle contains every text, its automatic annotations (SpaCy/USAS/MIPVU/NRC sidecar files), audio/video files, and annotation archives.
+- **Import**: Click **Import** and choose a previously exported `.zip` bundle; the whole corpus is **recreated** in your list. Import always assigns fresh internal ids and appends an "(imported)" suffix if the name already exists, so re-importing or importing on the same machine is safe.
+- The Bibliographic Visualization module offers library Export/Import with exactly the same workflow.
 
 ### Processing Options
 
@@ -3513,7 +3521,7 @@ DMIP analyzes each MRW across four dimensions:
 | Dimension | Key Question | Deliberateness Signal |
 |-----------|-------------|----------------------|
 | **Linguistic** | Direct metaphor (with MFlag) or indirect? | MFlag (like/as/as if) = strongest surface signal |
-| **Conceptual** | Novel mapping or conventional? | Novel = strong; conventional can be deliberate if reactivated |
+| **Conceptual** | Novel mapping or conventional? | Judged from the **producer's perspective** — the AI infers genre, register, audience and era from the text, filename, title and metadata, then decides whether the mapping was a fresh coinage (novel = strong) or a ready-made conventional expression for that producer/audience. Novelty is historically relative; a dictionary check is optional supporting evidence. Conventional can still be deliberate if reactivated. |
 | **Referential** *(core)* | Does the source domain enter the reader's **situation model**? | DR (Direct Reference) = required for deliberateness |
 | **Communicative** | Is there evidence of deliberate speaker intent? | Genre, purpose, extended metaphor context |
 
@@ -3542,7 +3550,7 @@ The central test of DMIP is **referential**:
 1. Switch to **Agent Mode** (toggle in the top bar).
 2. Ensure your corpus has completed **MIPVU annotation** (check Metaphor Analysis page).
 3. Ask the AI: *"Perform DMIP analysis on [text name] in [corpus name]"* or *"Identify deliberately used metaphors in this CEO letter."*
-4. The AI will call `dmip_analysis(corpus_id, text_id)` which retrieves:
+4. The AI calls `dmip_analysis(corpus_id, text_id)`. If saved **Metaphor (MIPVU) annotation archives** exist for the text (human or AI coder), it **pauses to ask which MRW data source to use** — one of those archives or the corpus's automatic MIPVU metadata; reply with your choice. If no archive exists, it proceeds directly with the automatic MIPVU metadata. It then retrieves:
    - The full text with inline MIPVU markers: `[MET:word]` `[DIR:word]` `[MFLAG:word]` `[IMPL:word]`
    - A structured list of all MRWs with lemma and POS
    - The complete DMIP four-dimension analysis procedure
@@ -4714,6 +4722,10 @@ Create a new library in the "Upload" tab:
 - Source type cannot be changed after creation; ensure correct selection
 - A library can only contain literature from one source type
 
+### Library Export / Import (Migration & Backup)
+
+The library list header provides **Export** and **Import** buttons, identical in design to Corpus Management. **Export** packs the selected libraries — entries, per-entry PDFs and thumbnails, and the shadow corpus (abstracts plus their SpaCy/USAS/MIPVU/NRC annotations) — into one `.zip` bundle. **Import** recreates each library in your list from such a bundle (with fresh ids and an "(imported)" suffix on name clashes). Use it to move libraries between machines or to back them up.
+
 ### Viewing Library List
 
 In the "Libraries" tab:
@@ -4774,19 +4786,17 @@ In library detail you can set, for each entry:
 ### Upload Process
 
 1. **Select Library**: In the "Upload" tab, ensure a library is selected or created
-2. **Select File**:
-   - Drag and drop file to upload area, or
-   - Click upload area to select file
-3. **File Requirements**:
-   - File format: Refworks (.txt)
-   - File size: Recommended not exceeding 50MB
-4. **Upload**: Click "Upload" button to start upload
-5. **View Results**: After upload completes, displays:
-   - Number of successfully added entries
-   - Number of skipped entries (if any)
-   - Parse errors (if any)
+2. **Select Data Source**: The upload area offers two import modes (toggle):
+   - **Refworks file**: Upload a Refworks (.txt) exported from WOS/CNKI
+   - **Paper PDF**: Upload a paper's PDF — each PDF becomes one entry with the PDF and a first-page thumbnail attached. Title, authors, DOI, journal, year and other metadata are resolved automatically via **Crossref** (matched by the DOI found in the PDF, otherwise by a title search). **Abstract and keywords** are taken from Crossref when available, and otherwise extracted from the PDF body itself (detecting the "Abstract" paragraph and the "Keywords" line). The extracted abstract is fed into the same full annotation pipeline as WOS/CNKI abstracts (SpaCy → USAS → MIPVU → NRC). If no match is found, some fields may be empty and can be filled in from the entry detail dialog.
+3. **Select File**: Drag and drop to the upload area, or click to choose a file
+4. **File Requirements**:
+   - Refworks mode: .txt; Paper PDF mode: .pdf
+   - No cap on entries per import: large imports run their abstract annotation in the background — a long-running annotation is not mis-flagged as a timeout and is reported as complete when it finishes
+5. **Upload**: Click "Upload" to start
+6. **View Results**: After upload, shows the number added/skipped and any parse errors
 
-**Abstract annotation pipeline**: Each entry with an abstract is written to the shadow corpus and runs the same pipeline as Corpus Management: SpaCy → USAS → MIPVU → NRC. MIPVU uses metalingo-indirect-metaphor for full-coverage metaphor annotation (English only); NRC emotion annotation uses NRC-EmoLex and supports all 11 languages, providing data for the Sentiment Analysis module. (Bibliography libraries continue to support English and Chinese only for library creation.)
+**Abstract annotation pipeline**: Each entry with an abstract (including Paper-PDF entries whose abstract was resolved via Crossref) is written to the shadow corpus and runs the same pipeline as Corpus Management: SpaCy → USAS → MIPVU → NRC. MIPVU uses metalingo-indirect-metaphor for full-coverage metaphor annotation (English only); NRC emotion annotation uses NRC-EmoLex and supports all 11 languages, providing data for the Sentiment Analysis module. (Bibliography libraries continue to support English and Chinese only for library creation.)
 
 ### File Formats
 

@@ -878,10 +878,11 @@ const TextAnnotator = forwardRef<TextAnnotatorRef, TextAnnotatorProps>(({
     return m
   }, [annotationsBySentence])
 
-  // 需要预留连线通道的句子集合：
-  // - bottomLaneSet：含关联箭头横线的句子（取关联两端中较上方的句子，使横线落在
-  //   第一个标签正下方，第二个标签位于横线下方，而非竖线贯穿到下一行标签下方）
-  // - topLaneSet：含词组括号横线的句子（取词组成员中最上方的句子）
+  // 需要预留连线通道的句子集合（关联与词组的横线一律落在底部通道，使所有连线都从
+  // 标签下方出发）：
+  // - bottomLaneSet：含关联箭头/词组括号横线的句子，取两端/成员中较下方的句子
+  //   （较大句子序号），使横线落在最下方标签的正下方，竖线从各标签底部垂下。
+  // - topLaneSet：保留以兼容 SentenceRow 接口，现已不再使用（恒为空）。
   const { topLaneSet, bottomLaneSet } = useMemo(() => {
     const top = new Set<number>()
     const bottom = new Set<number>()
@@ -889,13 +890,13 @@ const TextAnnotator = forwardRef<TextAnnotatorRef, TextAnnotatorProps>(({
       const s = annToSent.get(rel.sourceId)
       const tg = annToSent.get(rel.targetId)
       if (s === undefined || tg === undefined) continue
-      bottom.add(Math.min(s, tg))
+      bottom.add(Math.max(s, tg))
     }
     for (const grp of groups) {
       const idxs = grp.annotationIds
         .map(id => annToSent.get(id))
         .filter((x): x is number => x !== undefined)
-      if (idxs.length >= 2) top.add(Math.min(...idxs))
+      if (idxs.length >= 2) bottom.add(Math.max(...idxs))
     }
     return { topLaneSet: top, bottomLaneSet: bottom }
   }, [relations, groups, annToSent])

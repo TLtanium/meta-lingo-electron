@@ -997,6 +997,56 @@ async def export_annotated(corpus_id: str, data: dict):
     )
 
 
+class ExportBundleRequest(BaseModel):
+    """Request body for exporting one or more corpora as a migration bundle."""
+    corpus_ids: List[str]
+
+
+@router.post("/export-bundle")
+async def export_corpus_bundle(request: ExportBundleRequest):
+    """Export the selected corpora (DB rows + files + annotations) as a single .zip bundle."""
+    from services import migration_service
+    if not request.corpus_ids:
+        raise HTTPException(status_code=400, detail="No corpora selected")
+    try:
+        data = migration_service.export_corpora(request.corpus_ids)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Corpus bundle export failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Export failed: {e}")
+    filename = migration_service.export_filename("corpus")
+    return StreamingResponse(
+        io.BytesIO(data),
+        media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.post("/import-bundle")
+async def import_corpus_bundle(file: UploadFile = File(...)):
+    """Import a corpus migration bundle (.zip), recreating each corpus in the list."""
+    from services import migration_service
+    if not file.filename or not file.filename.lower().endswith(".zip"):
+        raise HTTPException(status_code=400, detail="File must be a .zip bundle")
+    content = await file.read()
+    try:
+        result = migration_service.import_bundle(content, expect_kind="corpus")
+    except ValueError as e:
+        msg = str(e)
+        if msg == "INVALID_BUNDLE":
+            raise HTTPException(status_code=400, detail="INVALID_BUNDLE")
+        if msg.startswith("BUNDLE_KIND_MISMATCH"):
+            raise HTTPException(status_code=400, detail="BUNDLE_KIND_MISMATCH_CORPUS")
+        raise HTTPException(status_code=400, detail=msg)
+    except Exception as e:
+        logger.error(f"Corpus bundle import failed: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Import failed: {e}")
+    return result
+
+
 @router.post("/factory-reset")
 async def factory_reset(data: dict):
     """

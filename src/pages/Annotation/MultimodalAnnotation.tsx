@@ -1023,8 +1023,8 @@ export default function MultimodalAnnotation() {
           pitchData: pitchDataArchive,
           acousticData: acousticDataArchive,
           audioVisualizationSvg,
-          relations: relations.length > 0 ? relations : undefined,
-          groups: groups.length > 0 ? groups : undefined
+          relations,  // 空数组也写入，以覆盖旧存档中已删除的关联
+          groups      // 空数组也写入，以覆盖旧存档中已删除的词组
         }
       )
 
@@ -1217,8 +1217,10 @@ export default function MultimodalAnnotation() {
 
   // Get video and audio texts
   // All audio (including Chinese) now supported with waveform + pitch + spectrogram visualization
-  const videoTexts = currentCorpus?.texts.filter(t => t.mediaType === 'video') || []
-  const audioTexts = currentCorpus?.texts.filter(t => t.mediaType === 'audio') || []
+  const sortByFilename = (a: CorpusText, b: CorpusText) =>
+    (a.filename || '').localeCompare(b.filename || '', undefined, { numeric: true, sensitivity: 'base' })
+  const videoTexts = (currentCorpus?.texts.filter(t => t.mediaType === 'video') || []).slice().sort(sortByFilename)
+  const audioTexts = (currentCorpus?.texts.filter(t => t.mediaType === 'audio') || []).slice().sort(sortByFilename)
 
   // Flatten frameworks for select
   const allFrameworks = frameworks.flatMap(cat => 

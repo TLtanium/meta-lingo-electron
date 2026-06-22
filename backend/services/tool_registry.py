@@ -74,6 +74,7 @@ TOOL_MODULES_META: list[dict[str, Any]] = [
         "display_zh": "参考数据",
         "tools": [
             "get_pos_tags", "get_usas_categories", "get_metaphor_sources",
+            "dictionary_lookup",
             "list_reference_corpora", "validate_cql",
             "list_annotation_frameworks", "get_annotation_framework",
             "create_annotation_framework",
@@ -554,6 +555,22 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
     _tool("get_metaphor_sources",
           "Get all MIPVU metaphor source domain categories.",
           {}, []),
+    _tool("dictionary_lookup",
+          "Look up a word in the built-in Macmillan + Longman dictionaries: listed "
+          "senses (incl. figurative/extended), POS/grammar, and typical collocations. "
+          "General-purpose on-demand reference for any analysis (lexical, concordance, "
+          "metaphor, annotation, usage checks). Optional supporting evidence for "
+          "conventional-vs-novel judgments — not a mandatory verdict.",
+          {
+              "word": _str("Word or lemma to look up (case-insensitive)"),
+              "dictionaries": _arr(
+                  _str(),
+                  "Dictionaries to query (case-insensitive): 'Macmillan' (default) "
+                  "and/or 'Longman Collocations'. Default ['Macmillan'].",
+                  default=["Macmillan"],
+              ),
+              "max_chars": _int("Max chars per entry before truncation (default 5000)", default=5000),
+          }, ["word"]),
     _tool("list_reference_corpora",
           "List built-in reference corpora (BNC, OANC) available for keyness comparison. "
           "Use search= to filter by name/ID. Paginated (20 per page); use offset= for next pages.",

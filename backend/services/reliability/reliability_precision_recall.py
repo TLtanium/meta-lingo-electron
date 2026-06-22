@@ -14,22 +14,106 @@ from typing import Dict, List, Tuple, Optional, Any, Set
 import numpy as np
 
 
+def _spans_overlap_match(coder_ann: Dict, gold_ann: Dict, coverage: str = 'majority') -> bool:
+    """判断两条标注是否"重叠匹配"：标签相等 且 字符 span 重叠达到阈值。
+
+    'majority'：重叠 ≥ 50%（取较短 span 为基准）；'any'：任意重叠即可。
+    与 token 主口径一致，给边界略偏的标注部分功劳。
+    """
+    cs, ce, cl = _ann_to_span(coder_ann)
+    gs, ge, gl = _ann_to_span(gold_ann)
+    if cs is None or gs is None or cl != gl or not cl:
+        return False
+    overlap = min(ce, ge) - max(cs, gs)
+    if overlap <= 0:
+        return False
+    if coverage == 'any':
+        return True
+    shorter = min(ce - cs, ge - gs)
+    if shorter <= 0:
+        return False
+    return overlap >= 0.5 * shorter
+
+
+def _ann_to_span(ann: Dict):
+    """取 (start, end, label)，兼容多种字段名。"""
+    start = ann.get('position')
+    if start is None:
+        start = ann.get('startPosition')
+    if start is None:
+        start = ann.get('start_position')
+    text = ann.get('text', '') or ''
+    label = ann.get('label', '') or ''
+    end = ann.get('end_position')
+    if end is None:
+        end = ann.get('endPosition')
+    if end is None and start is not None:
+        end = start + len(text)
+    if start is None or end is None:
+        return None, None, label
+    return int(start), int(end), label
+
+
+def _overlap_counts(coder_anns: List[Dict], gold_anns: List[Dict], coverage: str):
+    """贪心 1:1 重叠匹配，返回 (tp, fp, fn, matched_coder_idx_set, matched_gold_idx_set)。"""
+    valid_coder = [a for a in coder_anns if _ann_to_span(a)[2]]
+    valid_gold = [a for a in gold_anns if _ann_to_span(a)[2]]
+    used_gold = set()
+    tp = 0
+    matched_coder = set()
+    for ci, ca in enumerate(valid_coder):
+        for gi, ga in enumerate(valid_gold):
+            if gi in used_gold:
+                continue
+            if _spans_overlap_match(ca, ga, coverage):
+                used_gold.add(gi)
+                matched_coder.add(ci)
+                tp += 1
+                break
+    fp = len(valid_coder) - tp
+    fn = len(valid_gold) - len(used_gold)
+    return tp, fp, fn, valid_coder, valid_gold, matched_coder, used_gold
+
+
+def _filter_annotations_by_label(annotation_data: List[Dict], included: Optional[Set[str]]) -> List[Dict]:
+    """按 included 标签集过滤各编码者的标注（None=不过滤）。"""
+    if not included:
+        return annotation_data
+    out = []
+    for coder in annotation_data:
+        kept = [a for a in coder.get('annotations', []) if a.get('label', '') in included]
+        nc = dict(coder)
+        nc['annotations'] = kept
+        out.append(nc)
+    return out
+
+
 def calculate_precision_recall(
     annotation_data: List[Dict],
     gold_standard_index: int,
-    text_length: int
+    text_length: int,
+    pr_matching: str = 'overlap',
+    coverage: str = 'majority',
+    included_labels: Optional[List[str]] = None
 ) -> Dict[str, Any]:
     """
     计算召回率和精确率
-    
+
     Args:
         annotation_data: 所有编码者的标注数据列表
         gold_standard_index: 标准答案的编码者索引
         text_length: 文本长度
-        
+        pr_matching: 'overlap'(默认，与 token 口径对齐) | 'exact'(精确 span 元组)
+        coverage: overlap 匹配的覆盖阈值 'majority' | 'any'
+        included_labels: 仅考虑这些标签（None=全部）
+
     Returns:
         包含召回率、精确率、F1分数等指标的字典
     """
+    # 标签过滤（与系数计算口径一致）
+    annotation_data = _filter_annotations_by_label(
+        annotation_data, set(included_labels) if included_labels else None
+    )
     if gold_standard_index < 0 or gold_standard_index >= len(annotation_data):
         return {
             'calculated': False,
@@ -92,50 +176,68 @@ def calculate_precision_recall(
         
         coder_id = coder_data.get('coder_id', f'Coder_{i+1}')
         coder_annotations = coder_data.get('annotations', [])
-        coder_set = _annotations_to_set(coder_annotations)
-        
-        # 计算 TP, FP, FN
-        true_positives = len(gold_set & coder_set)
-        false_positives = len(coder_set - gold_set)
-        false_negatives = len(gold_set - coder_set)
-        
+
+        if pr_matching == 'exact':
+            # 精确 (start,end,label) 元组匹配
+            coder_set = _annotations_to_set(coder_annotations)
+            true_positives = len(gold_set & coder_set)
+            false_positives = len(coder_set - gold_set)
+            false_negatives = len(gold_set - coder_set)
+            gold_total = len(gold_set)
+            coder_total = len(coder_set)
+            # 按标签统计
+            for ann in coder_annotations:
+                label = ann.get('label', '')
+                if not label or label not in by_label:
+                    continue
+                if _annotation_to_key(ann) in gold_set:
+                    by_label[label]['true_positives'] += 1
+                else:
+                    by_label[label]['false_positives'] += 1
+            for gold_ann in gold_annotations:
+                label = gold_ann.get('label', '')
+                if not label or label not in by_label:
+                    continue
+                if _annotation_to_key(gold_ann) not in coder_set:
+                    by_label[label]['false_negatives'] += 1
+        else:
+            # 重叠匹配（与 token 主口径对齐）
+            (true_positives, false_positives, false_negatives,
+             valid_coder, valid_gold, matched_coder, used_gold) = _overlap_counts(
+                coder_annotations, gold_annotations, coverage
+            )
+            gold_total = len(valid_gold)
+            coder_total = len(valid_coder)
+            for ci2, ca in enumerate(valid_coder):
+                label = _ann_to_span(ca)[2]
+                if label not in by_label:
+                    continue
+                if ci2 in matched_coder:
+                    by_label[label]['true_positives'] += 1
+                else:
+                    by_label[label]['false_positives'] += 1
+            for gi2, ga in enumerate(valid_gold):
+                label = _ann_to_span(ga)[2]
+                if label not in by_label:
+                    continue
+                if gi2 not in used_gold:
+                    by_label[label]['false_negatives'] += 1
+
         # 计算该编码者的召回率和精确率
-        recall = true_positives / len(gold_set) if len(gold_set) > 0 else 0.0
-        precision = true_positives / len(coder_set) if len(coder_set) > 0 else 0.0
+        recall = true_positives / gold_total if gold_total > 0 else 0.0
+        precision = true_positives / coder_total if coder_total > 0 else 0.0
         f1 = 2 * (precision * recall) / (precision + recall) if (precision + recall) > 0 else 0.0
-        
+
         coder_details[coder_id] = {
             'recall': round(recall, 4),
             'precision': round(precision, 4),
             'f1_score': round(f1, 4)
         }
-        
+
         total_recall += recall
         total_precision += precision
         total_f1 += f1
         num_coders += 1
-        
-        # 按标签统计
-        for ann in coder_annotations:
-            label = ann.get('label', '')
-            if not label or label not in by_label:
-                continue
-            
-            ann_key = _annotation_to_key(ann)
-            if ann_key in gold_set:
-                by_label[label]['true_positives'] += 1
-            else:
-                by_label[label]['false_positives'] += 1
-        
-        # 统计 FN（标准答案有但编码者没有的）
-        for gold_ann in gold_annotations:
-            label = gold_ann.get('label', '')
-            if not label or label not in by_label:
-                continue
-            
-            gold_key = _annotation_to_key(gold_ann)
-            if gold_key not in coder_set:
-                by_label[label]['false_negatives'] += 1
     
     # 计算每个标签的召回率和精确率
     by_label_metrics: Dict[str, Dict[str, Any]] = {}

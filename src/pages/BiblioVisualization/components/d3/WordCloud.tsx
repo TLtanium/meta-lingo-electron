@@ -152,13 +152,14 @@ export default function WordCloud({
                 ${t('wordFrequency.table.percentage')}: ${(payload.percentage ?? 0).toFixed(2)}%<br/>
                 ${t('wordFrequency.table.rank')}: ${payload.rank ?? 'N/A'}
               `)
-              .style('left', `${event.pageX + 10}px`)
-              .style('top', `${event.pageY - 10}px`)
+            const [mx, my] = d3.pointer(event, containerRef.current)
+            tip.style('left', `${mx + 12}px`).style('top', `${my + 12}px`)
           })
           .on('mousemove', function (event) {
+            const [mx, my] = d3.pointer(event, containerRef.current)
             d3.select(containerRef.current).select('.biblio-wc-tooltip')
-              .style('left', `${event.pageX + 10}px`)
-              .style('top', `${event.pageY - 10}px`)
+              .style('left', `${mx + 12}px`)
+              .style('top', `${my + 12}px`)
           })
           .on('mouseout', function (_, d) {
             d3.select(this).transition().duration(200).style('font-size', `${d.size}px`)
@@ -185,7 +186,8 @@ export default function WordCloud({
         height: '100%',
         display: 'flex',
         flexDirection: 'column',
-        overflow: 'hidden'
+        overflow: 'hidden',
+        position: 'relative'
       }}
     >
       {error && (

@@ -215,6 +215,12 @@ class SaveAnnotationRequest(BaseModel):
     appendMode: Optional[bool] = False  # True = MCP incremental append; False (default) = UI full replace
 
 
+class ImportAnnotationRequest(BaseModel):
+    """Import an exported annotation archive (verbatim JSON)."""
+    archive: Dict[str, Any]
+    overwrite: bool = False  # 覆盖同 ID 的现有存档（用户确认后传 True）
+
+
 class AnnotationArchiveListItem(BaseModel):
     id: str
     filename: str
@@ -542,6 +548,140 @@ async def save_annotation(data: SaveAnnotationRequest):
             'path': saved_path
         },
         'message': f'Saved {len(data.annotations)} annotations'
+    }
+
+
+def _validate_import_archive(archive: Dict) -> Dict[str, Any]:
+    """Validate an exported annotation archive against current frameworks and corpus texts.
+
+    Returns a dict with:
+      - errors: list[str] of hard validation failures (block import)
+      - resolved: {corpusName, textId, textName, framework} when matched
+    The import is only allowed when errors is empty.
+    """
+    errors: List[str] = []
+    resolved: Dict[str, Any] = {}
+
+    # 1) 结构校验
+    if not isinstance(archive, dict):
+        return {'errors': ['invalid_format'], 'resolved': resolved}
+
+    arch_type = archive.get('type')
+    if arch_type not in ('text', 'multimodal'):
+        errors.append('invalid_type')
+
+    framework_name = archive.get('framework')
+    if not framework_name:
+        errors.append('missing_framework')
+
+    if not isinstance(archive.get('annotations'), list):
+        errors.append('missing_annotations')
+
+    corpus_name = archive.get('corpusName')
+    if not corpus_name:
+        errors.append('missing_corpus')
+
+    # 结构性错误时直接返回，后续依赖这些字段
+    if errors:
+        return {'errors': errors, 'resolved': resolved}
+
+    # 2) 框架存在性（按 name 或 id 匹配，兼容框架改名场景）
+    try:
+        from routers.framework import list_all_frameworks
+        frameworks = list_all_frameworks()
+    except Exception as e:  # pragma: no cover - 防御性
+        logger.error(f"Import: failed to list frameworks: {e}")
+        frameworks = []
+    fw_match = any(
+        f.get('name') == framework_name or f.get('id') == framework_name
+        for f in frameworks
+    )
+    if not fw_match:
+        errors.append('framework_not_found')
+
+    # 3) 语料库存在性
+    corpus = None
+    try:
+        from services.corpus_service import get_corpus_service
+        service = get_corpus_service()
+        corpus = service.get_corpus_by_name(corpus_name)
+    except Exception as e:  # pragma: no cover
+        logger.error(f"Import: failed to look up corpus '{corpus_name}': {e}")
+    if not corpus:
+        errors.append('corpus_not_found')
+
+    # 4) 文本/媒体存在性（优先 textId，回退到文件名）
+    if corpus:
+        try:
+            texts = service.list_texts(corpus['id'])
+        except Exception as e:  # pragma: no cover
+            logger.error(f"Import: failed to list texts for corpus '{corpus_name}': {e}")
+            texts = []
+        text_id = archive.get('textId')
+        text_name = archive.get('textName') or archive.get('resourceName')
+        matched = None
+        if text_id:
+            matched = next((t for t in texts if t.get('id') == text_id), None)
+        if not matched and text_name:
+            matched = next((t for t in texts if t.get('filename') == text_name), None)
+        if not matched:
+            errors.append('text_not_found')
+        else:
+            resolved = {
+                'corpusName': corpus_name,
+                'textId': matched.get('id'),
+                'textName': matched.get('filename'),
+                'framework': framework_name,
+            }
+
+    return {'errors': errors, 'resolved': resolved}
+
+
+@router.post("/import")
+async def import_annotation(data: ImportAnnotationRequest):
+    """Import an exported annotation archive.
+
+    校验存档是否与现有框架、语料库及其文本吻合；只有全部通过才允许导入。
+    导入后的存档与用户导出（保存）时完全一致（逐字保存，保留原 ID）。
+    """
+    archive = data.archive
+
+    validation = _validate_import_archive(archive)
+    errors = validation['errors']
+    if errors:
+        return {
+            'success': False,
+            'valid': False,
+            'errors': errors,
+            'message': 'Archive does not match current frameworks/corpus/texts'
+        }
+
+    corpus_name = archive['corpusName']
+    archive_id = archive.get('id') or str(uuid.uuid4())
+    archive['id'] = archive_id
+
+    # ID 冲突：需用户确认覆盖
+    existing = load_archive(corpus_name, archive_id)
+    if existing and not data.overwrite:
+        return {
+            'success': False,
+            'valid': True,
+            'errors': ['already_exists'],
+            'message': 'An archive with the same ID already exists'
+        }
+
+    # 逐字保存，保持与导出时一致
+    saved_path = save_archive(corpus_name, archive)
+
+    return {
+        'success': True,
+        'valid': True,
+        'data': {
+            'id': archive_id,
+            'corpusName': corpus_name,
+            'path': saved_path
+        },
+        'message': 'Annotation archive imported successfully'
     }
 
 

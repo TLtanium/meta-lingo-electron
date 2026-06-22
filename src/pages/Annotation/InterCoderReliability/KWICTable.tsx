@@ -52,6 +52,7 @@ import { reliabilityApi } from '../../../api/reliability'
 interface KWICTableProps {
   files: ArchiveFile[]
   dataSummary?: ValidationSummary | null
+  includedLabels?: string[] | null
 }
 
 // 提取上下文中心词的辅助函数
@@ -103,18 +104,20 @@ function getRowColor(annotationRate: number, labelAgreement: boolean, isDark: bo
 }
 
 // 详情行组件
-function DetailRow({ 
-  item, 
-  files, 
-  open, 
+function DetailRow({
+  item,
+  files,
+  open,
   onToggle,
-  onShowFullContext
-}: { 
+  onShowFullContext,
+  includedLabels
+}: {
   item: KWICItem
   files: ArchiveFile[]
   open: boolean
   onToggle: () => void
   onShowFullContext: (item: KWICItem) => void
+  includedLabels?: string[] | null
 }) {
   const { t } = useTranslation()
   const theme = useTheme()
@@ -137,7 +140,7 @@ function DetailRow({
   useEffect(() => {
     if (open && !details) {
       setLoading(true)
-      reliabilityApi.getPositionDetails(files, item.start_position, item.end_position)
+      reliabilityApi.getPositionDetails(files, item.start_position, item.end_position, includedLabels)
         .then(response => {
           if (response.success && response.data) {
             setDetails(response.data)
@@ -146,7 +149,7 @@ function DetailRow({
         .catch(console.error)
         .finally(() => setLoading(false))
     }
-  }, [open, details, files, item])
+  }, [open, details, files, item, includedLabels])
   
   // 获取非空标签用于显示
   const displayLabels = item.all_labels.filter(l => l)
@@ -330,7 +333,16 @@ function DetailRow({
                                   />
                                 )}
                               </TableCell>
-                              <TableCell>{detail.label || '-'}</TableCell>
+                              <TableCell>
+                                {detail.labels && detail.labels.length > 0 ? (
+                                  <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
+                                    {detail.labels.map((lab, li) => (
+                                      <Chip key={li} label={lab} size="small"
+                                        sx={{ fontSize: '0.7rem', height: 20 }} />
+                                    ))}
+                                  </Stack>
+                                ) : (detail.label || '-')}
+                              </TableCell>
                               <TableCell>{detail.annotation_text || '-'}</TableCell>
                             </TableRow>
                           ))}
@@ -492,7 +504,7 @@ function csvEsc(s: string): string {
   return str
 }
 
-export default function KWICTable({ files, dataSummary }: KWICTableProps) {
+export default function KWICTable({ files, dataSummary, includedLabels }: KWICTableProps) {
   const { t } = useTranslation()
 
   const [kwicItems, setKwicItems] = useState<KWICItem[]>([])
@@ -699,7 +711,7 @@ export default function KWICTable({ files, dataSummary }: KWICTableProps) {
       setLoading(true)
       setError(null)
       
-      reliabilityApi.generateKWIC(files, 50) // 获取更多上下文
+      reliabilityApi.generateKWIC(files, 50, includedLabels) // 获取更多上下文，按标签筛选
         .then(response => {
           if (response.success && response.data) {
             setKwicItems(response.data)
@@ -713,7 +725,7 @@ export default function KWICTable({ files, dataSummary }: KWICTableProps) {
         })
         .finally(() => setLoading(false))
     }
-  }, [files, t])
+  }, [files, t, includedLabels])
   
   // 处理行展开
   const handleRowToggle = (rowId: number) => {
@@ -809,6 +821,7 @@ export default function KWICTable({ files, dataSummary }: KWICTableProps) {
                 open={openRowId === item.row_number}
                 onToggle={() => handleRowToggle(item.row_number)}
                 onShowFullContext={handleShowFullContext}
+                includedLabels={includedLabels}
               />
             ))}
           </TableBody>

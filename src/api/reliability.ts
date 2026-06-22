@@ -21,11 +21,19 @@ export interface CoefficientOptions {
 }
 
 export interface ReliabilityParams {
-  method: '完全匹配' | '位置容错' | '模糊匹配'
-  tolerance: number
+  // 集合-单位版核心参数
+  unit: 'token' | 'char'
+  distance: 'nominal' | 'masi' | 'jaccard'
+  coverage: 'majority' | 'any'
+  include_empty: boolean
+  pr_matching: 'overlap' | 'exact'
   coefficients: CoefficientOptions
-  level_of_measurement: 'nominal' | 'ordinal' | 'interval' | 'ratio'
   gold_standard_index?: number  // 标准答案的索引（可选）
+  included_labels?: string[] | null  // 仅考虑这些标签（null/省略=全部）
+  // 向后兼容（已弃用）
+  method?: '完全匹配' | '位置容错' | '模糊匹配'
+  tolerance?: number
+  level_of_measurement?: 'nominal' | 'ordinal' | 'interval' | 'ratio'
 }
 
 export interface CoefficientResult {
@@ -40,6 +48,9 @@ export interface CoefficientResult {
   // 新增字段 - 配对详情
   pairwise_details?: Record<string, number>
   unit?: string
+  // 集合-单位版元信息
+  distance?: string
+  measure_unit?: string
   // Fleiss' Kappa 特有字段
   observed_agreement?: number
   expected_agreement?: number
@@ -73,6 +84,12 @@ export interface DataSummary {
   n_decisions: number
   n_labels: number
   labels: string[]
+  unit?: string
+  distance?: string
+  coverage?: string
+  include_empty?: boolean
+  token_source?: string
+  n_units_total?: number
 }
 
 export interface ValidationSummary {
@@ -81,6 +98,9 @@ export interface ValidationSummary {
   total_annotations: number
   framework: string
   text_length: number
+  token_count?: number
+  token_source?: string
+  labels?: string[]  // 检测到的所有被标注标签
 }
 
 export interface KWICItem {
@@ -96,6 +116,7 @@ export interface KWICItem {
   annotation_rate: number
   label_agreement: boolean
   all_labels: string[]
+  all_label_sets?: string[][]  // 每个编码者一份标签列表（保留多标签）
 }
 
 export interface AnnotationDetail {
@@ -106,6 +127,8 @@ export interface AnnotationDetail {
   annotation_text?: string
   label_path?: string
   remark?: string
+  labels?: string[]       // 该编码者在此单元的全部标签
+  label_paths?: string[]
 }
 
 export interface PositionDetails {
@@ -224,11 +247,13 @@ export async function generateReport(
  */
 export async function generateKWIC(
   files: ArchiveFile[],
-  contextLength: number = 30
+  contextLength: number = 30,
+  includedLabels?: string[] | null
 ): Promise<KWICResponse> {
   const response = await api.post<KWICResponse>('/api/reliability/kwic', {
     files,
-    context_length: contextLength
+    context_length: contextLength,
+    included_labels: includedLabels ?? null
   })
   return response.data as KWICResponse
 }
@@ -239,12 +264,14 @@ export async function generateKWIC(
 export async function getPositionDetails(
   files: ArchiveFile[],
   startPosition: number,
-  endPosition: number
+  endPosition: number,
+  includedLabels?: string[] | null
 ): Promise<DetailResponse> {
   const response = await api.post<DetailResponse>('/api/reliability/detail', {
     files,
     start_position: startPosition,
-    end_position: endPosition
+    end_position: endPosition,
+    included_labels: includedLabels ?? null
   })
   return response.data as DetailResponse
 }
@@ -282,16 +309,18 @@ export async function loadArchivesContent(
  */
 export function createDefaultParams(): ReliabilityParams {
   return {
-    method: '完全匹配',
-    tolerance: 0.8,
+    unit: 'token',
+    distance: 'masi',
+    coverage: 'majority',
+    include_empty: false,
+    pr_matching: 'overlap',
     coefficients: {
       percent_agreement: true,
-      scotts_pi: true,
+      scotts_pi: false,
       cohens_kappa: true,
       fleiss_kappa: true,
       krippendorff_alpha: true
-    },
-    level_of_measurement: 'nominal'
+    }
   }
 }
 

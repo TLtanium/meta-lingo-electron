@@ -43,9 +43,12 @@ import RefreshIcon from '@mui/icons-material/Refresh'
 import SearchIcon from '@mui/icons-material/Search'
 import ViewListIcon from '@mui/icons-material/ViewList'
 import ViewModuleIcon from '@mui/icons-material/ViewModule'
+import ArchiveIcon from '@mui/icons-material/Archive'
 import { useTranslation } from 'react-i18next'
 import type { BiblioLibrary } from '../../types/biblio'
 import * as biblioApi from '../../api/biblio'
+import ExportBundleDialog from '../../components/Migration/ExportBundleDialog'
+import ImportBundleButton from '../../components/Migration/ImportBundleButton'
 
 interface LibraryListProps {
   onSelectLibrary: (library: BiblioLibrary) => void
@@ -60,6 +63,7 @@ export default function LibraryList({ onSelectLibrary, onCreateNew }: LibraryLis
   const [error, setError] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [viewMode, setViewMode] = useState<'card' | 'list'>('card')
+  const [exportOpen, setExportOpen] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [libraryToDelete, setLibraryToDelete] = useState<BiblioLibrary | null>(null)
   const [deleting, setDeleting] = useState(false)
@@ -163,6 +167,15 @@ export default function LibraryList({ onSelectLibrary, onCreateNew }: LibraryLis
           <IconButton onClick={loadLibraries} title={t('common.refresh')}>
             <RefreshIcon />
           </IconButton>
+          <ImportBundleButton onImport={biblioApi.importLibraryBundle} onImported={loadLibraries} />
+          <Button
+            variant="outlined"
+            startIcon={<ArchiveIcon />}
+            onClick={() => setExportOpen(true)}
+            disabled={libraries.length === 0}
+          >
+            {t('migration.export')}
+          </Button>
           <Button
             variant="contained"
             startIcon={<AddIcon />}
@@ -172,6 +185,14 @@ export default function LibraryList({ onSelectLibrary, onCreateNew }: LibraryLis
           </Button>
         </Stack>
       </Box>
+
+      <ExportBundleDialog
+        open={exportOpen}
+        onClose={() => setExportOpen(false)}
+        title={t('migration.exportLibrariesTitle')}
+        items={libraries.map(l => ({ id: l.id, name: l.name, subtitle: l.source_type }))}
+        onExport={biblioApi.exportLibraryBundle}
+      />
 
       <TextField
         size="small"

@@ -423,16 +423,28 @@ export default function EntryDetailDialog({ entry, open, onClose, existingTags =
 
       const wrap = document.createElement('div')
       const width = 794
+      const scale = 3
       wrap.style.cssText = `position:fixed;left:-9999px;top:0;width:${width}px;min-height:100px;background:#fff;overflow:visible`
       wrap.innerHTML = htmlContent
       document.body.appendChild(wrap)
-      const bodyEl = wrap.querySelector('body') ?? wrap.querySelector('html') ?? wrap
+      const bodyEl = (wrap.querySelector('body') ?? wrap.querySelector('html') ?? wrap) as HTMLElement
       await new Promise(r => requestAnimationFrame(() => setTimeout(r, 150)))
       const fullHeight = Math.max(bodyEl.scrollHeight, bodyEl.offsetHeight, 800)
 
+      // Measure breakable block boundaries (in CSS px, relative to the captured root) so page
+      // breaks land between blocks instead of slicing through a line of text.
+      const rootTop = bodyEl.getBoundingClientRect().top
+      const blocks = Array.from(bodyEl.querySelectorAll('.header-band, .content > *'))
+        .map(el => {
+          const r = (el as HTMLElement).getBoundingClientRect()
+          return { top: r.top - rootTop, bottom: r.bottom - rootTop }
+        })
+        .filter(b => b.bottom > b.top)
+        .sort((a, b) => a.top - b.top)
+
       const html2canvas = (await import('html2canvas')).default
       const canvas = await html2canvas(bodyEl, {
-        scale: 3,
+        scale,
         useCORS: true,
         logging: false,
         width,
@@ -448,14 +460,64 @@ export default function EntryDetailDialog({ entry, open, onClose, existingTags =
       const pdf = new jsPDF('p', 'mm', 'a4')
       const pageW = pdf.internal.pageSize.getWidth()
       const pageH = pdf.internal.pageSize.getHeight()
-      const imgW = pageW
-      const imgH = (canvas.height / canvas.width) * pageW
-      const totalPages = Math.ceil(imgH / pageH) || 1
-      const imgData = canvas.toDataURL('image/png')
+      // Vertical margins (mm). Page 1 keeps its full-bleed blue header (no top margin); every
+      // later page gets a top margin, and all pages keep a bottom margin.
+      const marginTop = 12
+      const marginBottom = 12
+      const topMarginFor = (idx: number) => (idx === 0 ? 0 : marginTop)
+      // Usable content height of a page, in the CSS-px units used to measure blocks.
+      const usableCssFor = (idx: number) =>
+        ((pageH - topMarginFor(idx) - marginBottom) * width) / pageW
 
-      for (let p = 0; p < totalPages; p++) {
+      // Build [startCss, endCss] page ranges, breaking before any block that would overflow
+      // the current page. A block taller than a full page is split (unavoidable fallback).
+      const pages: { start: number; end: number }[] = []
+      let curStart = 0
+      let pageIdx = 0
+      let cap = usableCssFor(0)
+      for (const b of blocks) {
+        if (b.bottom - curStart > cap + 1) {
+          if (b.top > curStart + 1) {
+            pages.push({ start: curStart, end: b.top })
+            curStart = b.top
+            pageIdx++
+            cap = usableCssFor(pageIdx)
+          }
+          while (b.bottom - curStart > cap + 1) {
+            pages.push({ start: curStart, end: curStart + cap })
+            curStart += cap
+            pageIdx++
+            cap = usableCssFor(pageIdx)
+          }
+        }
+      }
+      pages.push({ start: curStart, end: fullHeight })
+
+      const effectivePages = pages.length > 0
+        ? pages
+        : [{ start: 0, end: fullHeight }]
+
+      for (let p = 0; p < effectivePages.length; p++) {
+        const { start, end } = effectivePages[p]
+        const sliceTop = Math.max(0, Math.round(start * scale))
+        const sliceBottom = Math.min(canvas.height, Math.round(end * scale))
+        const sliceH = sliceBottom - sliceTop
+        if (sliceH <= 0) continue
+
+        const tmp = document.createElement('canvas')
+        tmp.width = canvas.width
+        tmp.height = sliceH
+        const ctx = tmp.getContext('2d')
+        if (!ctx) continue
+        ctx.fillStyle = '#ffffff'
+        ctx.fillRect(0, 0, tmp.width, tmp.height)
+        ctx.drawImage(canvas, 0, sliceTop, canvas.width, sliceH, 0, 0, canvas.width, sliceH)
+
+        const imgData = tmp.toDataURL('image/png')
+        const sliceHmm = (sliceH * pageW) / canvas.width
         if (p > 0) pdf.addPage()
-        pdf.addImage(imgData, 'PNG', 0, -p * pageH, imgW, imgH, undefined, 'FAST')
+        // Page 1: y=0 (full-bleed header). Later pages: start below the top margin.
+        pdf.addImage(imgData, 'PNG', 0, topMarginFor(p), pageW, sliceHmm, undefined, 'FAST')
       }
       pdf.save(defaultFilename)
     } catch (e) {

@@ -24,16 +24,27 @@ from .reliability_models import (
 )
 from .reliability_utils import (
     normalize_text,
-    find_fuzzy_matches,
-    get_sample_positions,
-    get_label_at_position,
-    build_label_mapping,
     collect_unique_annotation_units,
     extract_context
 )
+from .reliability_tokenization import acquire_tokens
+from .reliability_distances import resolve_distance_name
 from .reliability_coefficients import ReliabilityCoefficients
 from .reliability_report import generate_detailed_report, generate_csv_report
 from .reliability_precision_recall import calculate_precision_recall
+
+
+def _ann_bounds(ann: Dict) -> tuple:
+    """从一条标注取 (start, end)，兼容多种字段名。"""
+    start = ann.get('startPosition', ann.get('position', ann.get('start_position', 0)))
+    text = ann.get('text', '') or ''
+    end = ann.get('endPosition', ann.get('end_position', start + len(text)))
+    return int(start), int(end)
+
+
+def _spans_overlap(a_start: int, a_end: int, b_start: int, b_end: int) -> bool:
+    """两个字符区间是否有任意重叠。"""
+    return a_start < b_end and b_start < a_end
 
 
 class ReliabilityService:
@@ -63,9 +74,12 @@ class ReliabilityService:
                 )
             
             annotation_data = []
-            common_text = None
+            common_text = None        # 原始文本（offset 基准）
+            common_text_norm = None   # 归一化文本（仅用于跨文件相等性校验）
             framework_name = None
-            
+            parsed_contents = []      # 各编码者完整 archive 内容（供 token 获取）
+            archive_language = None
+
             for i, file_data in enumerate(files_data):
                 try:
                     # 解析 JSON 内容
@@ -95,15 +109,20 @@ class ReliabilityService:
                             error=f'文件 {file_data.get("name", i)} 的标注框架与其他文件不一致'
                         )
                     
-                    # 验证文本一致性
-                    current_text = normalize_text(file_content['text'])
-                    if common_text is None:
-                        common_text = current_text
-                    elif common_text != current_text:
+                    # 验证文本一致性（用归一化文本比较，但存储原始文本作为 offset 基准）
+                    raw_text = (file_content['text'] or '').replace('\r\n', '\n').replace('\r', '\n')
+                    current_norm = normalize_text(raw_text)
+                    if common_text_norm is None:
+                        common_text_norm = current_norm
+                        common_text = raw_text  # 第一个文件的原始文本作为基准
+                    elif common_text_norm != current_norm:
                         return ValidationResult(
                             success=False,
                             error=f'文件 {file_data.get("name", i)} 的文本内容与其他文件不一致'
                         )
+                    parsed_contents.append(file_content)
+                    if archive_language is None:
+                        archive_language = file_content.get('language') or file_content.get('corpusLanguage')
                     
                     # 转换标注项
                     annotations = []
@@ -145,17 +164,31 @@ class ReliabilityService:
                         error=f'处理文件 {file_data.get("name", i)} 时出错: {str(e)}'
                     )
             
+            # 获取共享 token 链（原始文本 offset 空间）
+            raw_common = common_text or ''
+            tokens, token_source = acquire_tokens(parsed_contents, raw_common, archive_language)
+
             # 构建数据摘要
             total_annotations = sum(len(data.annotations) for data in annotation_data)
-            
+
+            # 检测所有被标注过的标签（供前端"选择标签"弹窗）
+            detected_labels = set()
+            for coder in annotation_data:
+                for ann in coder.annotations:
+                    if ann.label:
+                        detected_labels.add(ann.label)
+
             summary = {
                 'coder_count': len(annotation_data),
                 'common_text_count': 1,
                 'total_annotations': total_annotations,
                 'framework': framework_name,
-                'text_length': len(common_text) if common_text else 0
+                'text_length': len(raw_common),
+                'token_count': len(tokens),
+                'token_source': token_source,
+                'labels': sorted(detected_labels)
             }
-            
+
             # 构建 AnnotationData
             result_data = AnnotationData(
                 annotation_data=[
@@ -167,18 +200,22 @@ class ReliabilityService:
                     }
                     for coder in annotation_data
                 ],
-                common_text=common_text or '',
+                common_text=raw_common,
                 framework=framework_name or '',
-                text_length=len(common_text) if common_text else 0
+                text_length=len(raw_common),
+                tokens=tokens,
+                token_source=token_source
             )
-            
+
             # 存储到实例变量
             self.loaded_data = {
                 'annotation_data': result_data.annotation_data,
                 'common_text': result_data.common_text,
-                'framework': result_data.framework
+                'framework': result_data.framework,
+                'tokens': tokens,
+                'token_source': token_source
             }
-            
+
             return ValidationResult(
                 success=True,
                 data=result_data,
@@ -238,10 +275,35 @@ class ReliabilityService:
         try:
             annotation_data = data.get('annotation_data', [])
             num_coders = len(annotation_data)
-            
-            # 设置数据到计算器（会自动构建矩阵）
-            self.coefficients_calculator.set_data(data)
-            
+
+            # 解析集合距离（兼容旧 level_of_measurement）
+            distance_name = resolve_distance_name(
+                getattr(params, 'distance', None),
+                getattr(params, 'level_of_measurement', None)
+            )
+
+            # 获取 token：优先用验证阶段存好的；缺失则即时兜底
+            tokens = data.get('tokens') or []
+            token_source = data.get('token_source', '')
+            unit = getattr(params, 'unit', 'token')
+            if unit == 'token' and not tokens:
+                tokens, token_source = acquire_tokens([], data.get('common_text', ''))
+
+            # 标签过滤（None/空 = 全部考虑）
+            included_labels = getattr(params, 'included_labels', None) or None
+
+            # 设置数据到计算器（构建"单位 → 标签集合"）
+            self.coefficients_calculator.set_data(
+                data,
+                unit=unit,
+                distance=distance_name,
+                coverage=getattr(params, 'coverage', 'majority'),
+                include_empty=getattr(params, 'include_empty', False),
+                tokens=tokens,
+                token_source=token_source,
+                included_labels=included_labels,
+            )
+
             # 获取数据摘要
             data_summary = self.coefficients_calculator.get_data_summary()
             
@@ -285,7 +347,10 @@ class ReliabilityService:
                 precision_recall_result = calculate_precision_recall(
                     annotation_data,
                     params.gold_standard_index,
-                    text_length
+                    text_length,
+                    pr_matching=getattr(params, 'pr_matching', 'overlap'),
+                    coverage=getattr(params, 'coverage', 'majority'),
+                    included_labels=included_labels
                 )
                 results['precision_recall'] = precision_recall_result
             
@@ -302,105 +367,6 @@ class ReliabilityService:
                 success=False,
                 error=f'计算可靠性系数时出错: {str(e)}'
             )
-    
-    def _build_agreement_matrix(
-        self,
-        annotation_data: List[Dict],
-        text: str,
-        method: str,
-        tolerance: float
-    ) -> np.ndarray:
-        """
-        构建一致性矩阵
-        使用与 get_label_at_position 一致的逻辑（选择最具体的标注）
-        
-        Args:
-            annotation_data: 标注数据列表
-            text: 共同文本
-            method: 计算方法
-            tolerance: 容错阈值
-            
-        Returns:
-            一致性矩阵
-        """
-        text_length = len(text)
-        
-        # 构建标签映射
-        self.label_mapping, no_annotation_idx = build_label_mapping(annotation_data)
-        num_labels = len(self.label_mapping)
-        
-        # 创建标注矩阵：[编码者数量, 文本位置数量]
-        num_coders = len(annotation_data)
-        
-        # 为每个位置存储 (label_idx, span_size)，以便选择最具体的标注
-        annotation_info = [[None for _ in range(text_length)] for _ in range(num_coders)]
-        
-        # 填充标注信息
-        for coder_idx, data in enumerate(annotation_data):
-            for ann in data.get('annotations', []):
-                start_pos = ann.get('position', 0)
-                ann_text = ann.get('text', '')
-                end_pos = ann.get('end_position', start_pos + len(ann_text))
-                label = ann.get('label', '')
-                
-                if label not in self.label_mapping:
-                    continue
-                
-                label_idx = self.label_mapping[label]
-                span_size = end_pos - start_pos
-                
-                positions_to_mark = []
-                
-                if method == "完全匹配":
-                    positions_to_mark = list(range(start_pos, min(end_pos, text_length)))
-                        
-                elif method == "位置容错":
-                    tolerance_range = int(len(ann_text) * (1 - tolerance))
-                    adj_start = max(0, start_pos - tolerance_range)
-                    adj_end = min(text_length, end_pos + tolerance_range)
-                    positions_to_mark = list(range(adj_start, adj_end))
-                        
-                elif method == "模糊匹配":
-                    fuzzy_matches = find_fuzzy_matches(
-                        ann_text, text, start_pos, tolerance
-                    )
-                    for match_start, match_end in fuzzy_matches:
-                        positions_to_mark.extend(range(match_start, min(match_end, text_length)))
-                
-                # 标记位置，优先保留更具体（范围更小）的标注
-                for pos in positions_to_mark:
-                    current = annotation_info[coder_idx][pos]
-                    if current is None or span_size < current[1]:
-                        annotation_info[coder_idx][pos] = (label_idx, span_size)
-        
-        # 构建最终的标注矩阵
-        annotation_matrix = np.full((num_coders, text_length), no_annotation_idx, dtype=int)
-        for coder_idx in range(num_coders):
-            for pos in range(text_length):
-                if annotation_info[coder_idx][pos] is not None:
-                    annotation_matrix[coder_idx, pos] = annotation_info[coder_idx][pos][0]
-        
-        # 只收集有至少一个编码者标注的位置（排除所有人都是NO_ANNOTATION的位置）
-        annotated_positions = []
-        for pos in range(text_length):
-            labels_at_pos = annotation_matrix[:, pos]
-            # 如果至少有一个编码者在该位置有标注
-            if any(label != no_annotation_idx for label in labels_at_pos):
-                annotated_positions.append(pos)
-        
-        # 转换为一致性矩阵（混淆矩阵）
-        agreement_matrix = np.zeros((num_labels, num_labels))
-        
-        # 只在有标注的位置计算成对一致性
-        for pos in annotated_positions:
-            labels_at_pos = annotation_matrix[:, pos]
-            for i in range(num_coders):
-                for j in range(i + 1, num_coders):
-                    label_i, label_j = labels_at_pos[i], labels_at_pos[j]
-                    agreement_matrix[label_i, label_j] += 1
-                    agreement_matrix[label_j, label_i] += 1
-        
-        return agreement_matrix
     
     def generate_report(
         self,
@@ -427,30 +393,38 @@ class ReliabilityService:
     def generate_kwic_index(
         self,
         files_data: List[Dict],
-        context_length: int = 30
+        context_length: int = 30,
+        included_labels: Optional[List[str]] = None
     ) -> List[KWICItem]:
         """
         生成 KWIC 索引
-        
+
         Args:
             files_data: 文件数据列表
             context_length: 上下文长度
-            
+            included_labels: 仅展示这些标签（None=全部），与计算口径保持一致
+
         Returns:
             KWICItem 列表
         """
-        # 解析文件数据
+        inc_set = set(included_labels) if included_labels else None
+
+        # 解析文件数据（按标签筛选）
         parsed_files = []
         for file_data in files_data:
             if isinstance(file_data.get('content'), str):
                 content = json.loads(file_data['content'])
             else:
                 content = file_data.get('content', {})
-            
+
+            anns = content.get('annotations', [])
+            if inc_set is not None:
+                anns = [a for a in anns if a.get('label', '') in inc_set]
+
             parsed_files.append({
                 'filename': file_data.get('name', ''),
                 'text': content.get('text', ''),
-                'annotations': content.get('annotations', [])
+                'annotations': anns
             })
         
         # 收集唯一标注单元
@@ -464,30 +438,33 @@ class ReliabilityService:
             start_pos = unit['start_position']
             end_pos = unit['end_position']
             
-            # 收集每个编码者在该位置的标注
-            all_labels = []
+            # 收集每个编码者在该单元的【全部】重叠标注（不再精确匹配 + break）
+            all_label_sets = []  # 每个编码者一份标签列表（保留多标签）
             for file_data in parsed_files:
-                annotations = file_data.get('annotations', [])
-                found_label = None
-                for ann in annotations:
-                    ann_start = ann.get('startPosition', ann.get('position', ann.get('start_position', 0)))
-                    ann_text = ann.get('text', '')
-                    ann_end = ann.get('endPosition', ann.get('end_position', ann_start + len(ann_text)))
-                    
-                    if ann_start == start_pos and ann_end == end_pos:
-                        found_label = ann.get('label', '')
-                        break
-                
-                all_labels.append(found_label if found_label else '')
-            
-            # 计算标注率
-            annotated_count = sum(1 for label in all_labels if label)
+                coder_labels = []
+                for ann in file_data.get('annotations', []):
+                    a_s, a_e = _ann_bounds(ann)
+                    if _spans_overlap(a_s, a_e, start_pos, end_pos):
+                        lab = ann.get('label', '')
+                        if lab and lab not in coder_labels:
+                            coder_labels.append(lab)
+                all_label_sets.append(coder_labels)
+
+            # 扁平去重（兼容旧 all_labels 字段）
+            all_labels = []
+            for labs in all_label_sets:
+                for lab in labs:
+                    if lab and lab not in all_labels:
+                        all_labels.append(lab)
+
+            # 标注率：有≥1标签的编码者占比
+            annotated_count = sum(1 for labs in all_label_sets if labs)
             annotation_rate = annotated_count / total_coders if total_coders > 0 else 0
-            
-            # 计算标签一致性
-            non_empty_labels = [label for label in all_labels if label]
-            label_agreement = len(set(non_empty_labels)) <= 1 if non_empty_labels else False
-            
+
+            # 标签一致性：所有标注了的编码者拥有相同的标签【集合】
+            annotated_sets = [frozenset(labs) for labs in all_label_sets if labs]
+            label_agreement = len(set(annotated_sets)) <= 1 if annotated_sets else False
+
             kwic_items.append(KWICItem(
                 row_number=idx + 1,
                 label=unit['label'],
@@ -499,7 +476,8 @@ class ReliabilityService:
                 color=unit.get('color', '#FFD700'),
                 annotation_rate=annotation_rate,
                 label_agreement=label_agreement,
-                all_labels=all_labels
+                all_labels=all_labels,
+                all_label_sets=all_label_sets
             ))
         
         return kwic_items
@@ -508,32 +486,37 @@ class ReliabilityService:
         self,
         files_data: List[Dict],
         start_position: int,
-        end_position: int
+        end_position: int,
+        included_labels: Optional[List[str]] = None
     ) -> PositionDetails:
         """
         获取特定位置的所有编码者标注详情
-        
+
         Args:
             files_data: 文件数据列表
             start_position: 起始位置
             end_position: 结束位置
-            
+            included_labels: 仅展示这些标签（None=全部）
+
         Returns:
             PositionDetails
         """
+        inc_set = set(included_labels) if included_labels else None
         details = []
         annotation_unit = ''
         left_context = ''
         right_context = ''
-        
+
         for file_idx, file_data in enumerate(files_data):
             if isinstance(file_data.get('content'), str):
                 content = json.loads(file_data['content'])
             else:
                 content = file_data.get('content', {})
-            
+
             text = content.get('text', '')
             annotations = content.get('annotations', [])
+            if inc_set is not None:
+                annotations = [a for a in annotations if a.get('label', '') in inc_set]
             filename = file_data.get('name', f'file_{file_idx}')
             
             # 获取编码者名称，如果没有则使用默认名称
@@ -546,41 +529,50 @@ class ReliabilityService:
                     text, start_position, end_position, 30
                 )
             
-            # 查找该位置的标注
-            found = False
+            # 收集该编码者【全部】与目标单元重叠的标注（多标签全部保留）
+            c_labels = []
+            c_paths = []
+            c_texts = []
+            c_remarks = []
             for ann in annotations:
-                # 兼容多种字段名
-                ann_start = ann.get('startPosition', ann.get('position', ann.get('start_position', 0)))
-                ann_text = ann.get('text', '')
-                ann_end = ann.get('endPosition', ann.get('end_position', ann_start + len(ann_text)))
-                
-                if ann_start == start_position and ann_end == end_position:
-                    details.append(AnnotationDetail(
-                        filename=filename,
-                        coder_id=coder_name,
-                        annotated=True,
-                        label=ann.get('label'),
-                        annotation_text=ann_text,
-                        label_path=ann.get('full_path', ann.get('path', ann.get('labelPath', ''))),
-                        remark=ann.get('remark')
-                    ))
-                    found = True
-                    break
-            
-            if not found:
+                a_s, a_e = _ann_bounds(ann)
+                if _spans_overlap(a_s, a_e, start_position, end_position):
+                    lab = ann.get('label', '')
+                    if not lab:
+                        continue
+                    c_labels.append(lab)
+                    c_paths.append(ann.get('full_path', ann.get('path', ann.get('labelPath', ''))) or '')
+                    c_texts.append(ann.get('text', '') or '')
+                    if ann.get('remark'):
+                        c_remarks.append(ann.get('remark'))
+
+            if c_labels:
+                details.append(AnnotationDetail(
+                    filename=filename,
+                    coder_id=coder_name,
+                    annotated=True,
+                    label=c_labels[0],
+                    annotation_text=c_texts[0] if c_texts else None,
+                    label_path=c_paths[0] if c_paths else '',
+                    remark='; '.join(c_remarks) if c_remarks else None,
+                    labels=c_labels,
+                    label_paths=c_paths
+                ))
+            else:
                 details.append(AnnotationDetail(
                     filename=filename,
                     coder_id=coder_name,
                     annotated=False
                 ))
-        
+
         # 计算一致性
         annotated_count = sum(1 for d in details if d.annotated)
         total_count = len(details)
         agreement_rate = annotated_count / total_count if total_count > 0 else 0
-        
-        labels = [d.label for d in details if d.annotated and d.label]
-        label_agreement = len(set(labels)) == 1 if labels else False
+
+        # 标签一致性：所有标注了的编码者拥有相同标签【集合】
+        annotated_sets = [frozenset(d.labels) for d in details if d.annotated and d.labels]
+        label_agreement = len(set(annotated_sets)) == 1 if annotated_sets else False
         
         return PositionDetails(
             position_key=f'{start_position}_{end_position}',

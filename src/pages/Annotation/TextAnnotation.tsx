@@ -606,8 +606,8 @@ export default function TextAnnotation() {
         coderName || undefined,
         spacyAnnotation || undefined,  // 保存 SpaCy 标注数据
         selectedText?.id || undefined,  // 传递 textId 用于精确关联
-        relations.length > 0 ? relations : undefined,  // 保存标注关联
-        groups.length > 0 ? groups : undefined          // 保存非连续词组
+        relations,  // 保存标注关联（空数组也写入，以覆盖旧存档中已删除的关联）
+        groups      // 保存非连续词组（空数组也写入，以覆盖旧存档中已删除的词组）
       )
 
       const response = await annotationApi.save(request)
@@ -1002,9 +1002,11 @@ export default function TextAnnotation() {
     }
   }
 
-  const availableTexts = currentCorpus?.texts?.filter(
+  const availableTexts = (currentCorpus?.texts?.filter(
     t => t.mediaType === 'text' || t.transcriptPath
-  ) || []
+  ) || []).slice().sort((a, b) =>
+    (a.filename || '').localeCompare(b.filename || '', undefined, { numeric: true, sensitivity: 'base' })
+  )
 
   const allFrameworks = frameworks.flatMap(cat => 
     cat.frameworks.map(fw => ({ ...fw, categoryName: cat.name }))

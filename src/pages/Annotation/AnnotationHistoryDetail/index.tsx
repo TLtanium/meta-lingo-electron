@@ -311,10 +311,10 @@ export default function AnnotationHistoryDetail({ archive, onBack }: AnnotationH
               label={isAudio ? t('annotation.audioAnnotationList', '音频标注列表') : t('annotation.videoAnnotationList', '视频标注列表')} 
             />
           )}
-          <Tab 
-            icon={<BarChartIcon />} 
-            iconPosition="start" 
-            label={t('annotation.visualization', '数据可视化')} 
+          <Tab
+            icon={<BarChartIcon />}
+            iconPosition="start"
+            label={t('annotation.visualization', '数据可视化')}
           />
         </Tabs>
         
@@ -357,7 +357,7 @@ export default function AnnotationHistoryDetail({ archive, onBack }: AnnotationH
           </TabPanel>
         )}
         
-        {/* 数据可视化 */}
+        {/* 数据可视化（含柱状/饼/词云/网络图） */}
         <TabPanel value={tabValue} index={(isVideo || isAudio) ? 2 : 1}>
           {isAudio ? (
             // 音频标注可视化 - 波形 + 网格 + 音高 + 画框
@@ -370,16 +370,31 @@ export default function AnnotationHistoryDetail({ archive, onBack }: AnnotationH
               pitchData={pitchData}
               acousticData={acousticData}
               audioVisualizationSvg={audioVisualizationSvg}
+              corpusName={archive.corpus}
+              archiveId={archive.id}
+              archiveName={archive.textName || archive.resourceName || archive.id}
+              framework={archiveData.framework}
             />
           ) : isVideo ? (
-            <MultimodalVisualization 
+            <MultimodalVisualization
               annotations={annotations}
               yoloAnnotations={yoloAnnotations}
               manualTracks={manualTracks}
               clipAnnotations={clipAnnotations}
+              corpusName={archive.corpus}
+              archiveId={archive.id}
+              archiveName={archive.textName || archive.resourceName || archive.id}
+              framework={archiveData.framework}
             />
           ) : (
-            <AnnotationVisualization annotations={annotations} groups={(archiveData as { groups?: import('../../../types').AnnotationGroup[] }).groups} />
+            <AnnotationVisualization
+              annotations={annotations}
+              groups={(archiveData as { groups?: import('../../../types').AnnotationGroup[] }).groups}
+              corpusName={archive.corpus}
+              archiveId={archive.id}
+              archiveName={archive.textName || archive.resourceName || archive.id}
+              framework={archiveData.framework}
+            />
           )}
         </TabPanel>
       </Paper>

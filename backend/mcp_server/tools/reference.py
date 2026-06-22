@@ -11,6 +11,46 @@ from mcp.server.fastmcp import FastMCP
 from mcp_server.api_client import MetaLingoClient
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Dictionary name aliases
+# ─────────────────────────────────────────────────────────────────────────────
+# The dictionaries are stored on disk under Chinese filenames (麦克米伦.json,
+# 朗文搭配.json), which the backend uses as lookup keys. The MCP tool, however,
+# exposes ENGLISH names ("Macmillan", "Longman Collocations") so the interface
+# stays consistent with every other tool. These maps translate the user/model
+# facing English names → backend filename keys, and back for display.
+_DICT_FILE_MACMILLAN = "麦克米伦"
+_DICT_FILE_LONGMAN = "朗文搭配"
+
+# Accepted (case-insensitive) name → backend filename key. Chinese names are
+# kept for backward compatibility.
+_DICT_ALIASES: dict[str, str] = {
+    "macmillan": _DICT_FILE_MACMILLAN,
+    "macmillan english dictionary": _DICT_FILE_MACMILLAN,
+    "麦克米伦": _DICT_FILE_MACMILLAN,
+    "longman": _DICT_FILE_LONGMAN,
+    "longman collocations": _DICT_FILE_LONGMAN,
+    "longman collocations dictionary": _DICT_FILE_LONGMAN,
+    "朗文搭配": _DICT_FILE_LONGMAN,
+    "朗文": _DICT_FILE_LONGMAN,
+}
+
+# Backend filename key → English display name (used in tool output headers).
+_DICT_DISPLAY: dict[str, str] = {
+    _DICT_FILE_MACMILLAN: "Macmillan",
+    _DICT_FILE_LONGMAN: "Longman Collocations",
+}
+
+
+def _resolve_dict_name(name: str) -> str:
+    """Map an English (or legacy Chinese) dictionary name to its backend key.
+
+    Unknown names pass through unchanged so the backend can surface a clear
+    'not found' error rather than silently dropping the request.
+    """
+    return _DICT_ALIASES.get(name.strip().lower(), name.strip())
+
+
 def register(mcp: FastMCP, client: MetaLingoClient):
 
     @mcp.tool()
@@ -99,59 +139,62 @@ def register(mcp: FastMCP, client: MetaLingoClient):
     async def dictionary_lookup(
         word: str, dictionaries: list[str] | None = None, max_chars: int = 5000
     ) -> str:
-        """Look up a word in Meta-Lingo's built-in dictionaries.
+        """Look up a word in Meta-Lingo's built-in dictionaries (Macmillan + Longman).
 
-        When to use: For DMIP Dimension 2 (CONVENTIONAL vs NOVEL) judgments — this
-        is the STANDARDIZED, mandatory way to decide [C±]; never decide it from
-        memory. Check whether a sense matching the word's contextual/figurative
-        meaning is listed:
-          - FOUND (contextual sense listed as a numbered sense or established
-            collocation) → CONVENTIONAL [C−], even if the word feels well-chosen
-            or evocative. A skillful writer's CHOICE of a conventional word is not
-            the same as the word's mapping being NOVEL.
-          - NOT FOUND in EITHER dictionary (no entry / no matching contextual
-            sense) → NOVEL [C+]: the reader must construct the mapping fresh.
+        A GENERAL-PURPOSE, on-demand reference tool. Call it whenever you want an
+        authoritative check on a word's listed senses, part-of-speech / grammar, or
+        typical collocations during ANY research task — lexical analysis, concordance
+        or KWIC interpretation, semantic / metaphor work, annotation, translation or
+        usage checks, etc. Use it freely on user request or whenever a definition
+        or collocation would sharpen your analysis.
 
-        STANDARDIZED LOOKUP FLOW for conventionality:
-          1. dictionary_lookup(word)  → query 麦克米伦 (Macmillan, primary).
-          2. If 麦克米伦 has no entry / no matching contextual sense →
-             dictionary_lookup(word, ["朗文搭配"]) as fallback coverage.
-          3. Not found in either → NOVEL [C+]; otherwise → CONVENTIONAL [C−].
+        Typical uses:
+          - Confirm whether a figurative / extended sense of a word is lexicalized
+            (e.g. as SUPPORTING evidence for a conventional-vs-novel judgment — note
+            this is optional support, not a mandatory verdict).
+          - Check a word's senses, register, or grammatical pattern.
+          - Find typical collocates (adjectives / verbs / prepositions) for a headword.
 
         Available dictionaries:
-          麦克米伦 (Macmillan English Dictionary) — full numbered sense entries,
-            including figurative/extended senses, plus phrase/collocation lists
-            (~66,700 headwords). This is the default and primary resource.
-          朗文搭配 (Longman Collocations Dictionary) — collocational patterns
-            (typical adjectives/verbs/prepositions for a headword), ~4,200
-            headwords, 99% of which are also in 麦克米伦. Used as the existence/
-            coverage FALLBACK when 麦克米伦 reports "(not found)" for a word.
+          Macmillan (Macmillan English Dictionary) — full numbered sense entries,
+            including figurative / extended senses, plus phrase / collocation lists
+            (~66,700 headwords). Default and primary resource.
+          Longman Collocations (Longman Collocations Dictionary) — collocational
+            patterns (typical adjectives / verbs / prepositions for a headword),
+            ~4,200 headwords. Good as an existence / coverage fallback, or for
+            collocation questions. Query it via dictionaries=["Longman Collocations"].
 
-        Output is filtered to the parts relevant for these judgments — sense
-        definitions, part-of-speech/grammar codes, and collocation patterns
-        (with their parenthetical glosses). Example sentences, audio links,
-        pronunciation, and thesaurus/synonym cross-references are stripped out.
+        Output is filtered to the useful parts — sense definitions,
+        part-of-speech / grammar codes, and collocation patterns (with their
+        parenthetical glosses). Example sentences, audio links, pronunciation,
+        and thesaurus / synonym cross-references are stripped out.
 
         Args:
             word: Word or lemma to look up (case-insensitive).
-            dictionaries: Dictionary names to query. Default: ["麦克米伦"].
+            dictionaries: Dictionary names to query. Default: ["Macmillan"].
+                Pass ["Longman Collocations"] for collocations, or both names for
+                both. Names are case-insensitive ("macmillan", "longman" also work).
             max_chars: Max characters per dictionary entry before truncation
                 (default 5000). A handful of extremely polysemous words (e.g.
                 "make", "set", "run") and Macmillan topic/study pages can still
                 exceed this — if truncated, call again with a higher max_chars
                 to see the remaining senses.
         """
-        dict_names = dictionaries or ["麦克米伦"]
+        requested = dictionaries or ["Macmillan"]
+        # Map English (or legacy Chinese) names → backend filename keys.
+        resolved = [_resolve_dict_name(name) for name in requested]
         result = await client.get(
             "/api/dictionary/lookup",
-            params={"word": word, "dictionaries": ",".join(dict_names)},
+            params={"word": word, "dictionaries": ",".join(resolved)},
         )
         results = result.get("results", {})
 
         lines = [f'Dictionary lookup: "{word}"']
-        for dict_name in dict_names:
-            entry = results.get(dict_name, {})
-            lines.append(f"\n━━━ {dict_name} ━━━")
+        for key in resolved:
+            entry = results.get(key, {})
+            # Show the English display name in the output header.
+            display = _DICT_DISPLAY.get(key, key)
+            lines.append(f"\n━━━ {display} ━━━")
             if not entry.get("found"):
                 lines.append("(not found)")
                 continue

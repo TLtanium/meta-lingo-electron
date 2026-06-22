@@ -36,9 +36,11 @@ class CoderAnnotation(BaseModel):
 class AnnotationData(BaseModel):
     """验证后的标注数据集"""
     annotation_data: List[CoderAnnotation] = Field(..., description="所有编码者的标注")
-    common_text: str = Field(..., description="共同标注的文本")
+    common_text: str = Field(..., description="共同标注的文本（原始，未归一化）")
     framework: str = Field(..., description="使用的标注框架")
     text_length: int = Field(0, description="文本长度")
+    tokens: List[Dict[str, Any]] = Field(default_factory=list, description="共享 token 链 {text,start,end}")
+    token_source: str = Field("", description="token 来源 embedded/sidecar/spacy/regex")
 
 
 # ==================== 计算参数模型 ====================
@@ -54,27 +56,40 @@ class CoefficientOptions(BaseModel):
 
 class ReliabilityParams(BaseModel):
     """信度计算参数"""
-    method: Literal["完全匹配", "位置容错", "模糊匹配"] = Field(
-        "完全匹配", 
-        description="计算方法"
+    # --- 集合-单位版核心参数 ---
+    unit: Literal["token", "char"] = Field(
+        "token", description="分析单位：token(每词一票，默认) | char(字符 IoU 视图)"
     )
-    tolerance: float = Field(
-        0.8, 
-        ge=0.1, 
-        le=1.0, 
-        description="容错阈值 (0.1-1.0)"
+    distance: Literal["nominal", "masi", "jaccard"] = Field(
+        "masi", description="集合距离：masi(默认) | jaccard | nominal"
+    )
+    coverage: Literal["any", "majority"] = Field(
+        "majority", description="token 覆盖规则：majority(≥50%，默认) | any(任意重叠)"
+    )
+    include_empty: bool = Field(
+        True, description="是否把未标注的词作为负类纳入(默认 True，'只标正例'型稀疏标注的标准口径)"
+    )
+    pr_matching: Literal["overlap", "exact"] = Field(
+        "overlap", description="精确率/召回率匹配：overlap(重叠，默认) | exact(精确 span)"
+    )
+    included_labels: Optional[List[str]] = Field(
+        None, description="仅考虑这些标签（None=全部）；用于忽略部分标签"
     )
     coefficients: CoefficientOptions = Field(
         default_factory=CoefficientOptions,
         description="要计算的系数"
     )
-    level_of_measurement: Literal["nominal", "ordinal", "interval", "ratio"] = Field(
-        "nominal",
-        description="Krippendorff's Alpha 测量层次"
-    )
     gold_standard_index: Optional[int] = Field(
         None,
         description="标准答案的编码者索引（可选，用于计算召回率和精确率）"
+    )
+    # --- 向后兼容（已弃用，由服务层映射） ---
+    method: Literal["完全匹配", "位置容错", "模糊匹配"] = Field(
+        "完全匹配", description="[弃用] 旧计算方法，已无效果"
+    )
+    tolerance: float = Field(0.8, ge=0.1, le=1.0, description="[弃用] 旧容错阈值")
+    level_of_measurement: Optional[Literal["nominal", "ordinal", "interval", "ratio"]] = Field(
+        None, description="[弃用] 旧测量层次，自动映射到 distance"
     )
 
 
@@ -111,6 +126,10 @@ class CoefficientResult(BaseModel):
     # 新增字段 - 配对详情
     pairwise_details: Optional[Dict[str, float]] = Field(None, description="每对编码者的详细分数")
     unit: Optional[str] = Field(None, description="数值单位（如 %）")
+
+    # 集合-单位版元信息
+    distance: Optional[str] = Field(None, description="使用的集合距离 nominal/masi/jaccard")
+    measure_unit: Optional[str] = Field(None, description="分析单位 token/char")
     
     # Fleiss' Kappa 特有字段
     observed_agreement: Optional[float] = Field(None, description="观察一致性")
@@ -152,7 +171,11 @@ class KWICItem(BaseModel):
     # 新增字段
     annotation_rate: float = Field(0.0, description="标注率 (0-1)")
     label_agreement: bool = Field(False, description="标签是否一致")
-    all_labels: List[str] = Field(default_factory=list, description="所有编码者的标签")
+    all_labels: List[str] = Field(default_factory=list, description="所有编码者的标签（扁平去重，兼容）")
+    all_label_sets: List[List[str]] = Field(
+        default_factory=list,
+        description="每个编码者在该单元的标签集合（保留多标签，与编码者顺序对齐）"
+    )
 
 
 class AnnotationDetail(BaseModel):
@@ -160,10 +183,12 @@ class AnnotationDetail(BaseModel):
     filename: str = Field(..., description="文件名")
     coder_id: str = Field(..., description="编码者ID")
     annotated: bool = Field(..., description="是否已标注")
-    label: Optional[str] = Field(None, description="标签")
+    label: Optional[str] = Field(None, description="标签（首个，兼容旧字段）")
     annotation_text: Optional[str] = Field(None, description="标注文本")
-    label_path: Optional[str] = Field(None, description="标签路径")
+    label_path: Optional[str] = Field(None, description="标签路径（首个，兼容旧字段）")
     remark: Optional[str] = Field(None, description="备注")
+    labels: List[str] = Field(default_factory=list, description="该编码者在此单元的全部标签")
+    label_paths: List[str] = Field(default_factory=list, description="对应的全部标签路径")
 
 
 class PositionDetails(BaseModel):

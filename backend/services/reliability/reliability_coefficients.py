@@ -1,279 +1,234 @@
 """
 Reliability Coefficients
-信度系数计算模块（重构版）
+信度系数计算模块（集合-单位版）
 
-基于字符索引-标签矩阵实现各种编码者间信度系数的计算：
-- Average Pairwise Percent Agreement
-- Fleiss' Kappa
-- Average Pairwise Cohen's Kappa  
-- Krippendorff's Alpha
+统一以"单位 → 标签集合"为基础计算编码者间信度：
+- 单位可为 token（默认，"每词一票"）或 char（IoU 风格视图）
+- 每个 (编码者, 单位) 是一个标签集合（frozenset），支持多标签与重叠
+- 候选口径：默认只统计"≥1 编码者非空"的单位（去掉空-空虚高）；
+  include_empty=True 时保留全部单位（含 O 类别）
+- 集合距离 δ（nominal/jaccard/masi）决定部分功劳
 
-计算逻辑：
-- 文本按字符索引排列，每个字符一行
-- 每个编码者生成一个 索引 x 标签 的二值矩阵（1=该标签覆盖该索引，0=不覆盖）
-- 支持重叠标注（同一索引多个标签为1）
+系数：Average Pairwise Percent Agreement、Average Pairwise Cohen's Kappa、
+Fleiss' Kappa、Krippendorff's Alpha。
 """
 
-import numpy as np
-from typing import Dict, List, Tuple, Optional, Any
+from typing import Dict, List, Optional, Any, FrozenSet
 
-from .reliability_utils import (
-    build_all_coder_matrices,
-    calculate_all_pairwise_agreements,
-    calculate_all_pairwise_kappas,
-    calculate_fleiss_kappa_from_matrices,
-    calculate_krippendorff_alpha_from_matrices,
-    generate_coder_pair_label,
-    interpret_coefficient
+from .reliability_distances import get_distance, resolve_distance_name
+from .reliability_tokenization import build_token_label_sets, build_char_label_sets
+from .reliability_setbased import (
+    set_percent_agreement,
+    set_cohens_kappa,
+    set_fleiss_kappa,
+    set_krippendorff_alpha,
+    count_non_empty_decisions,
 )
+from .reliability_utils import generate_coder_pair_label, interpret_coefficient
 
-# Krippendorff's Alpha 现在使用手动实现，不再依赖 krippendorff 库
 KRIPPENDORFF_AVAILABLE = True
 
 
 class ReliabilityCoefficients:
-    """信度系数计算器（基于字符索引-标签矩阵）"""
-    
+    """信度系数计算器（集合-单位版）"""
+
     def __init__(self):
         self.loaded_data: Optional[Dict] = None
-        self.matrices: Optional[List[np.ndarray]] = None
-        self.all_labels: Optional[List[str]] = None
-        self.stats: Optional[Dict[str, Any]] = None
-        
-    def set_data(self, data: Dict) -> None:
-        """
-        设置计算数据并构建矩阵
-        
+        self.label_sets: List[List[FrozenSet[str]]] = []
+        self.cand: List[int] = []
+        self.all_labels: List[str] = []
+        self.unit: str = "token"
+        self.distance_name: str = "masi"
+        self.distance_fn = get_distance("masi")
+        self.stats: Dict[str, Any] = {}
+
+    def set_data(
+        self,
+        data: Dict,
+        unit: str = "token",
+        distance: str = "masi",
+        coverage: str = "majority",
+        include_empty: bool = True,
+        tokens: Optional[List[Dict[str, Any]]] = None,
+        token_source: str = "",
+        included_labels: Optional[List[str]] = None,
+    ) -> None:
+        """设置计算数据并构建"单位 → 标签集合"。
+
         Args:
-            data: 包含 annotation_data, common_text, framework 的字典
+            data: 含 annotation_data, common_text(原始文本)
+            unit: 'token'(默认) | 'char'
+            distance: 'masi'(默认) | 'jaccard' | 'nominal'
+            coverage: token 覆盖规则 'majority' | 'any'
+            include_empty: 是否把空-空单位也纳入候选
+            tokens: unit='token' 时由服务层获取并传入的共享 token 链
+            token_source: token 来源标记（embedded/sidecar/spacy/regex）
         """
         self.loaded_data = data
-        
-        # 获取文本长度
-        common_text = data.get('common_text', '')
-        text_length = len(common_text)
-        
-        # 获取标注数据
-        annotation_data = data.get('annotation_data', [])
-        
-        # 构建所有编码者的矩阵
-        if text_length > 0 and annotation_data:
-            self.matrices, self.all_labels, self.stats = build_all_coder_matrices(
-                annotation_data, text_length
+        self.unit = unit if unit in ("token", "char") else "token"
+        self.distance_name = distance
+        self.distance_fn = get_distance(distance)
+
+        common_text = data.get("common_text", "") or ""
+        annotation_data = data.get("annotation_data", [])
+
+        # 收集所有标签（用于检测/展示）
+        detected_labels = set()
+        for coder in annotation_data:
+            for ann in coder.get("annotations", []):
+                lab = ann.get("label")
+                if lab:
+                    detected_labels.add(lab)
+
+        # 标签过滤：None/空 = 全部考虑
+        inc_set = set(included_labels) if included_labels else None
+        # 实际参与分析的标签 = 检测到的 ∩ 选中的
+        considered = detected_labels if inc_set is None else (detected_labels & inc_set)
+        self.all_labels = sorted(considered)
+
+        if not annotation_data:
+            self.label_sets, self.cand = [], []
+            n_units_total = 0
+        elif self.unit == "token" and tokens:
+            self.label_sets, self.cand = build_token_label_sets(
+                tokens, annotation_data, coverage=coverage,
+                include_empty=include_empty, included_labels=inc_set
             )
+            n_units_total = len(tokens)
         else:
-            self.matrices = []
-            self.all_labels = []
-            self.stats = {
-                'n_coders': 0,
-                'n_cases': 0,
-                'n_decisions': 0,
-                'n_labels': 0,
-                'labels': []
-            }
-    
-    def get_data_summary(self) -> Dict[str, Any]:
-        """
-        获取数据摘要统计
-            
-        Returns:
-            包含编码者数、案例数、决策数等的字典
-        """
-        if self.stats:
-            return self.stats
-            return {
-            'n_coders': 0,
-            'n_cases': 0,
-            'n_decisions': 0,
-            'n_labels': 0,
-            'labels': []
-        }
-    
-    def calculate_percent_agreement(self, matrix: np.ndarray = None) -> Dict[str, Any]:
-        """
-        计算 Average Pairwise Percent Agreement
-            
-        Returns:
-            计算结果字典，包含平均值和每对明细
-        """
-        try:
-            if not self.matrices or len(self.matrices) < 2:
-                return {
-                    'calculated': False,
-                    'display_name': 'Average Pairwise Percent Agreement',
-                    'error': '需要至少2个编码者'
-                }
-            
-            avg_agreement, pairwise_agreements = calculate_all_pairwise_agreements(self.matrices)
-            
-            # 格式化配对结果
-            pairwise_details = {}
-            for (i, j), agreement in pairwise_agreements.items():
-                label = generate_coder_pair_label(i, j)
-                pairwise_details[label] = round(agreement * 100, 3)  # 转为百分比
-            
-            interpretation = interpret_coefficient(avg_agreement, "percent_agreement")
-            
-            return {
-                'calculated': True,
-                'value': round(avg_agreement * 100, 3),  # 转为百分比
-                'display_name': 'Average Pairwise Percent Agreement',
-                'interpretation': interpretation,
-                'pairwise_details': pairwise_details,
-                'unit': '%'
-            }
-        except Exception as e:
-            return {
-                'calculated': False,
-                'display_name': 'Average Pairwise Percent Agreement',
-                'error': f'计算出错: {str(e)}'
-            }
-    
-    def calculate_scotts_pi(self, matrix: np.ndarray = None) -> Dict[str, Any]:
-        """
-        Scott's Pi 已被 Average Pairwise Percent Agreement 替代
-        保留此方法以保持向后兼容
-        """
-        return {
-            'calculated': False,
-            'display_name': "Scott's Pi",
-            'error': "Scott's Pi 已被 Average Pairwise Percent Agreement 替代"
-            }
-    
-    def calculate_cohens_kappa(self, matrix: np.ndarray = None) -> Dict[str, Any]:
-        """
-        计算 Average Pairwise Cohen's Kappa
-            
-        Returns:
-            计算结果字典，包含平均值和每对明细
-        """
-        try:
-            if not self.matrices or len(self.matrices) < 2:
-                return {
-                    'calculated': False,
-                    'display_name': "Average Pairwise Cohen's Kappa",
-                    'error': '需要至少2个编码者'
-                }
-            
-            avg_kappa, pairwise_kappas = calculate_all_pairwise_kappas(self.matrices)
-            
-            # 格式化配对结果
-            pairwise_details = {}
-            for (i, j), (kappa, po, pe) in pairwise_kappas.items():
-                label = generate_coder_pair_label(i, j)
-                pairwise_details[label] = round(kappa, 4)
-            
-            interpretation = interpret_coefficient(avg_kappa, "cohens_kappa")
-            
-            return {
-                'calculated': True,
-                'value': round(avg_kappa, 4),
-                'display_name': "Average Pairwise Cohen's Kappa",
-                'interpretation': interpretation,
-                'pairwise_details': pairwise_details
-            }
-        except Exception as e:
-            return {
-                'calculated': False,
-                'display_name': "Average Pairwise Cohen's Kappa",
-                'error': f'计算出错: {str(e)}'
-            }
-    
-    def calculate_fleiss_kappa(self, matrix: np.ndarray = None) -> Dict[str, Any]:
-        """
-        计算 Fleiss' Kappa（多编码者）
-            
-        Returns:
-            计算结果字典，包含 Kappa、观察一致性、期望一致性
-        """
-        try:
-            if not self.matrices or len(self.matrices) < 2:
-                return {
-                    'calculated': False,
-                    'display_name': "Fleiss' Kappa",
-                    'error': '需要至少2个编码者'
-                }
-            
-            kappa, observed, expected = calculate_fleiss_kappa_from_matrices(self.matrices)
-            
-            interpretation = interpret_coefficient(kappa, "fleiss_kappa")
-            
-            return {
-                'calculated': True,
-                'value': round(kappa, 4),
-                'display_name': "Fleiss' Kappa",
-                'interpretation': interpretation,
-                'observed_agreement': round(observed, 4),
-                'expected_agreement': round(expected, 4)
-            }
-        except Exception as e:
-            return {
-                'calculated': False,
-                'display_name': "Fleiss' Kappa",
-                'error': f'计算出错: {str(e)}'
-            }
-    
-    def calculate_krippendorff_alpha(
-        self, 
-        matrix: np.ndarray = None,
-        level_of_measurement: str = 'nominal'
-    ) -> Dict[str, Any]:
-        """
-        计算 Krippendorff's Alpha
-        
-        Args:
-            matrix: 忽略（保持向后兼容）
-            level_of_measurement: 测量层次 (nominal/ordinal/interval/ratio)
-            
-        Returns:
-            计算结果字典
-        """
-        try:
-            if not KRIPPENDORFF_AVAILABLE:
-                return {
-                    'calculated': False,
-                    'display_name': f"Krippendorff's Alpha ({level_of_measurement})",
-                    'error': '缺少krippendorff库，请安装: pip install krippendorff'
-                }
-            
-            if not self.matrices or len(self.matrices) < 2:
-                return {
-                    'calculated': False,
-                    'display_name': f"Krippendorff's Alpha ({level_of_measurement})",
-                    'error': '需要至少2个编码者'
-                }
-            
-            alpha, n_decisions, sigma_c_o_cc, sigma_c_nc_nc_minus_1 = calculate_krippendorff_alpha_from_matrices(
-                self.matrices, level_of_measurement
+            # char 路径（或 token 获取失败时退回 char）
+            if self.unit == "token":
+                self.unit = "char"
+            self.label_sets, self.cand = build_char_label_sets(
+                annotation_data, len(common_text),
+                include_empty=include_empty, included_labels=inc_set
             )
-            
-            interpretation = interpret_coefficient(alpha, "krippendorff_alpha")
-            
-            # 获取统计信息
-            stats = self.get_data_summary()
-            
+            n_units_total = len(common_text)
+
+        n_decisions = count_non_empty_decisions(self.label_sets, self.cand) if self.cand else 0
+        self.stats = {
+            "n_coders": len(annotation_data),
+            "n_cases": len(self.cand),          # 候选单位数（不再是全文长度）
+            "n_decisions": n_decisions,
+            "n_labels": len(self.all_labels),
+            "labels": self.all_labels,
+            "unit": self.unit,
+            "distance": self.distance_name,
+            "coverage": coverage,
+            "include_empty": include_empty,
+            "token_source": token_source,
+            "n_units_total": n_units_total,
+            "all_detected_labels": sorted(detected_labels),
+            "included_labels": sorted(considered) if inc_set is not None else None,
+        }
+
+    def get_data_summary(self) -> Dict[str, Any]:
+        return self.stats or {
+            "n_coders": 0, "n_cases": 0, "n_decisions": 0,
+            "n_labels": 0, "labels": [], "unit": self.unit,
+        }
+
+    def _need_coders_error(self, name: str) -> Dict[str, Any]:
+        return {"calculated": False, "display_name": name, "error": "需要至少2个编码者"}
+
+    def _has_data(self) -> bool:
+        return len(self.label_sets) >= 2 and len(self.cand) > 0
+
+    # ---------- Average Pairwise Percent Agreement ----------
+    def calculate_percent_agreement(self, matrix=None) -> Dict[str, Any]:
+        name = "Average Pairwise Percent Agreement"
+        try:
+            if not self._has_data():
+                return self._need_coders_error(name)
+            avg, pairwise = set_percent_agreement(self.label_sets, self.cand, self.distance_fn)
+            pairwise_details = {
+                generate_coder_pair_label(i, j): round(v * 100, 3)
+                for (i, j), v in pairwise.items()
+            }
             return {
-                'calculated': True,
-                'value': round(alpha, 4),
-                'display_name': f"Krippendorff's Alpha ({level_of_measurement})",
-                'interpretation': interpretation,
-                'level_of_measurement': level_of_measurement,
-                'n_decisions': stats.get('n_decisions', n_decisions),
-                'sigma_c_o_cc': round(sigma_c_o_cc, 6),  # coincidence matrix 对角线和（观察一致性）
-                'sigma_c_nc_nc_minus_1': round(sigma_c_nc_nc_minus_1, 6)  # 边缘频率期望值
+                "calculated": True,
+                "value": round(avg * 100, 3),
+                "display_name": name,
+                "interpretation": interpret_coefficient(avg, "percent_agreement"),
+                "pairwise_details": pairwise_details,
+                "unit": "%",
+                "distance": self.distance_name,
+                "measure_unit": self.unit,
             }
         except Exception as e:
-            return {
-                'calculated': False,
-                'display_name': f"Krippendorff's Alpha ({level_of_measurement})",
-                'error': f'计算出错: {str(e)}'
+            return {"calculated": False, "display_name": name, "error": f"计算出错: {str(e)}"}
+
+    def calculate_scotts_pi(self, matrix=None) -> Dict[str, Any]:
+        return {
+            "calculated": False,
+            "display_name": "Scott's Pi",
+            "error": "Scott's Pi 已被 Average Pairwise Percent Agreement 替代",
+        }
+
+    # ---------- Average Pairwise Cohen's Kappa ----------
+    def calculate_cohens_kappa(self, matrix=None) -> Dict[str, Any]:
+        name = "Average Pairwise Cohen's Kappa"
+        try:
+            if not self._has_data():
+                return self._need_coders_error(name)
+            avg, pairwise = set_cohens_kappa(self.label_sets, self.cand)
+            pairwise_details = {
+                generate_coder_pair_label(i, j): round(k, 4)
+                for (i, j), (k, _po, _pe) in pairwise.items()
             }
-    
-    # 保留旧方法的兼容性（内部使用）
-    def _convert_matrix_to_label_sequences(self) -> Tuple[Optional[List], Optional[List]]:
-        """向后兼容：已不再使用"""
-        return None, None
-    
-    def _convert_matrix_to_reliability_data(self) -> Optional[List[List]]:
-        """向后兼容：已不再使用"""
-        return None
+            return {
+                "calculated": True,
+                "value": round(avg, 4),
+                "display_name": name,
+                "interpretation": interpret_coefficient(avg, "cohens_kappa"),
+                "pairwise_details": pairwise_details,
+                "measure_unit": self.unit,
+            }
+        except Exception as e:
+            return {"calculated": False, "display_name": name, "error": f"计算出错: {str(e)}"}
+
+    # ---------- Fleiss' Kappa ----------
+    def calculate_fleiss_kappa(self, matrix=None) -> Dict[str, Any]:
+        name = "Fleiss' Kappa"
+        try:
+            if not self._has_data():
+                return self._need_coders_error(name)
+            kappa, observed, expected = set_fleiss_kappa(self.label_sets, self.cand)
+            return {
+                "calculated": True,
+                "value": round(kappa, 4),
+                "display_name": name,
+                "interpretation": interpret_coefficient(kappa, "fleiss_kappa"),
+                "observed_agreement": round(observed, 4),
+                "expected_agreement": round(expected, 4),
+                "measure_unit": self.unit,
+            }
+        except Exception as e:
+            return {"calculated": False, "display_name": name, "error": f"计算出错: {str(e)}"}
+
+    # ---------- Krippendorff's Alpha ----------
+    def calculate_krippendorff_alpha(self, matrix=None, level_of_measurement: str = None) -> Dict[str, Any]:
+        # level_of_measurement 为旧参数，映射到集合距离
+        dist_name = self.distance_name
+        name = f"Krippendorff's Alpha ({dist_name})"
+        try:
+            if not self._has_data():
+                return self._need_coders_error(name)
+            alpha, n_decisions, do_scaled, de_scaled = set_krippendorff_alpha(
+                self.label_sets, self.cand, self.distance_fn
+            )
+            stats = self.get_data_summary()
+            return {
+                "calculated": True,
+                "value": round(alpha, 4),
+                "display_name": name,
+                "interpretation": interpret_coefficient(alpha, "krippendorff_alpha"),
+                "level_of_measurement": dist_name,
+                "distance": dist_name,
+                "measure_unit": self.unit,
+                "n_decisions": stats.get("n_decisions", n_decisions),
+                "sigma_c_o_cc": round(do_scaled, 6),
+                "sigma_c_nc_nc_minus_1": round(de_scaled, 6),
+            }
+        except Exception as e:
+            return {"calculated": False, "display_name": name, "error": f"计算出错: {str(e)}"}

@@ -22,12 +22,15 @@ import {
   ListItemText,
   ListItemSecondaryAction,
   IconButton,
-  Divider
+  Divider,
+  ToggleButton,
+  ToggleButtonGroup
 } from '@mui/material'
 import CloudUploadIcon from '@mui/icons-material/CloudUpload'
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import ErrorIcon from '@mui/icons-material/Error'
 import DescriptionIcon from '@mui/icons-material/Description'
+import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf'
 import DeleteIcon from '@mui/icons-material/Delete'
 import { useTranslation } from 'react-i18next'
 import { useDropzone } from 'react-dropzone'
@@ -69,10 +72,19 @@ export default function UploadPanel({
   const [createError, setCreateError] = useState<string | null>(null)
 
   // Upload state: multiple files (corpus-style)
+  const [uploadMode, setUploadMode] = useState<'refworks' | 'pdf'>('refworks')
   const [files, setFiles] = useState<RefworksFile[]>([])
   const [uploading, setUploading] = useState(false)
   const [uploadError, setUploadError] = useState<string | null>(null)
   const [uploadSuccess, setUploadSuccess] = useState<string | null>(null)
+
+  const handleModeChange = (_: unknown, mode: 'refworks' | 'pdf' | null) => {
+    if (!mode || mode === uploadMode) return
+    setUploadMode(mode)
+    setFiles([])
+    setUploadError(null)
+    setUploadSuccess(null)
+  }
 
   const handleCreateLibrary = async () => {
     if (!libraryName.trim()) {
@@ -114,7 +126,9 @@ export default function UploadPanel({
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
-    accept: { 'text/plain': ['.txt'] },
+    accept: uploadMode === 'pdf'
+      ? { 'application/pdf': ['.pdf'] }
+      : { 'text/plain': ['.txt'] },
     multiple: true,
     disabled: !selectedLibrary || uploading
   })
@@ -141,20 +155,33 @@ export default function UploadPanel({
         )
       )
 
-      const response = await biblioApi.uploadRefworksFile(
-        selectedLibrary.id,
-        files[i].file,
-        p => {
-          setFiles(prev =>
-            prev.map((f, idx) => (idx === i ? { ...f, progress: p } : f))
-          )
-        }
-      )
+      const onProgress = (p: number) => {
+        setFiles(prev =>
+          prev.map((f, idx) => (idx === i ? { ...f, progress: p } : f))
+        )
+      }
 
-      const entryTasks = (response.data as UploadResult & { entry_tasks?: { entry_id: string; text_id: string; task_id: string }[] })?.entry_tasks ?? []
+      let response: { success: boolean; data?: unknown; error?: string }
+      let entryTasks: { entry_id: string; text_id: string; task_id: string }[] = []
+      let added = 0
+
+      if (uploadMode === 'pdf') {
+        const pdfRes = await biblioApi.uploadPaperPdf(selectedLibrary.id, files[i].file, onProgress)
+        response = pdfRes
+        if (pdfRes.success && pdfRes.data) {
+          added = 1
+          entryTasks = pdfRes.data.entry_tasks ?? []
+        }
+      } else {
+        const rwRes = await biblioApi.uploadRefworksFile(selectedLibrary.id, files[i].file, onProgress)
+        response = rwRes
+        if (rwRes.success && rwRes.data) {
+          added = rwRes.data.entries_added ?? 0
+          entryTasks = (rwRes.data as UploadResult & { entry_tasks?: { entry_id: string; text_id: string; task_id: string }[] })?.entry_tasks ?? []
+        }
+      }
 
       if (response.success && response.data) {
-        const added = response.data.entries_added ?? 0
         totalAdded += added
         setFiles(prev =>
           prev.map((f, idx) =>
@@ -283,6 +310,24 @@ export default function UploadPanel({
               {t('biblio.uploadingTo')}: <strong>{selectedLibrary.name}</strong> ({selectedLibrary.source_type}). {t('biblio.uploadProcessingHint')}
             </Alert>
 
+            <ToggleButtonGroup
+              value={uploadMode}
+              exclusive
+              size="small"
+              onChange={handleModeChange}
+              disabled={uploading}
+              aria-label={t('biblio.dataSource')}
+            >
+              <ToggleButton value="refworks">
+                <DescriptionIcon fontSize="small" sx={{ mr: 0.5 }} />
+                {t('biblio.sourceRefworks')}
+              </ToggleButton>
+              <ToggleButton value="pdf">
+                <PictureAsPdfIcon fontSize="small" sx={{ mr: 0.5 }} />
+                {t('biblio.sourcePaperPdf')}
+              </ToggleButton>
+            </ToggleButtonGroup>
+
             <Box
               {...getRootProps()}
               sx={{
@@ -302,7 +347,9 @@ export default function UploadPanel({
                 {isDragActive ? t('biblio.dropHere') : t('biblio.dragOrClick')}
               </Typography>
               <Typography variant="caption" color="text.secondary">
-                {t('biblio.supportedFormat')}: Refworks (.txt). {t('biblio.maxEntriesHint')}
+                {uploadMode === 'pdf'
+                  ? `${t('biblio.supportedFormat')}: PDF (.pdf)`
+                  : `${t('biblio.supportedFormat')}: Refworks (.txt)`}
               </Typography>
             </Box>
 

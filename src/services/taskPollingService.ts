@@ -12,8 +12,10 @@ class TaskPollingService {
   private hadActiveTasks: Map<string, boolean> = new Map()
   private lastProgressUpdate: Map<string, { progress: number; time: number }> = new Map()
   
-  // If no progress update for 30 seconds, consider task stale
-  private readonly STALE_TIMEOUT_MS = 30000
+  // If an actively-processing task makes no progress for this long, consider it stale.
+  // Generous window so long single-text annotation (large PDFs / batch biblio imports)
+  // is never mis-flagged as a timeout. Queued ("pending") tasks are exempt entirely.
+  private readonly STALE_TIMEOUT_MS = 300000
   
   /**
    * Start polling for a corpus's tasks
@@ -114,8 +116,10 @@ class TaskPollingService {
           const taskKey = `${corpusId}:${task.textId}`
           const lastUpdate = this.lastProgressUpdate.get(taskKey)
           
-          // Check if task is stale (no progress change for too long)
-          if (lastUpdate && lastUpdate.progress === task.progress) {
+          // Check if task is stale (no progress change for too long).
+          // Only applies to tasks that have actually started processing — a task still
+          // "pending" in the queue (waiting behind a long batch) is expected to sit at 0%.
+          if (task.status === 'processing' && lastUpdate && lastUpdate.progress === task.progress) {
             const elapsed = now - lastUpdate.time
             if (elapsed > this.STALE_TIMEOUT_MS) {
               console.log('[TaskPolling] Task appears stale, marking as failed:', task.id)

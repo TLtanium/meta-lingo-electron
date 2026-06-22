@@ -55,6 +55,7 @@ class KWICRequest(BaseModel):
     """KWIC 索引请求"""
     files: List[ArchiveFile] = Field(..., description="标注文件列表")
     context_length: int = Field(30, description="上下文长度")
+    included_labels: Optional[List[str]] = Field(None, description="仅展示这些标签（None=全部）")
 
 
 class DetailRequest(BaseModel):
@@ -62,6 +63,7 @@ class DetailRequest(BaseModel):
     files: List[ArchiveFile] = Field(..., description="标注文件列表")
     start_position: int = Field(..., description="起始位置")
     end_position: int = Field(..., description="结束位置")
+    included_labels: Optional[List[str]] = Field(None, description="仅展示这些标签（None=全部）")
 
 
 # ==================== API 端点 ====================
@@ -169,7 +171,8 @@ async def generate_kwic_index(request: KWICRequest):
     
     kwic_items = reliability_service.generate_kwic_index(
         files_data,
-        request.context_length
+        request.context_length,
+        request.included_labels
     )
     
     return {
@@ -194,7 +197,8 @@ async def get_position_details(request: DetailRequest):
     details = reliability_service.get_position_details(
         files_data,
         request.start_position,
-        request.end_position
+        request.end_position,
+        request.included_labels
     )
     
     return {

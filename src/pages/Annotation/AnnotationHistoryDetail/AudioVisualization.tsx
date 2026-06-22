@@ -19,8 +19,18 @@ import {
   Chip,
   ToggleButton,
   ToggleButtonGroup,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Checkbox,
+  ListItemText,
+  OutlinedInput,
+  FormControlLabel,
+  Switch,
   useTheme
 } from '@mui/material'
+import type { SelectChangeEvent } from '@mui/material'
 import SaveAltIcon from '@mui/icons-material/SaveAlt'
 import ImageIcon from '@mui/icons-material/Image'
 import ZoomInIcon from '@mui/icons-material/ZoomIn'
@@ -28,9 +38,16 @@ import ZoomOutIcon from '@mui/icons-material/ZoomOut'
 import BarChartIcon from '@mui/icons-material/BarChart'
 import DonutLargeIcon from '@mui/icons-material/DonutLarge'
 import TimelineIcon from '@mui/icons-material/Timeline'
+import CloudOutlinedIcon from '@mui/icons-material/CloudOutlined'
+import HubIcon from '@mui/icons-material/Hub'
+import CenterFocusStrongIcon from '@mui/icons-material/CenterFocusStrong'
 import { useTranslation } from 'react-i18next'
 import * as d3 from 'd3'
 import type { Annotation, TranscriptSegment, AudioBox, PitchDataArchive, AcousticDataArchive } from '../../../types'
+import AnnotationWordCloud, { type LabelInfo, type AnnotationWordCloudHandle } from './AnnotationWordCloud'
+import AnnotationNetwork, { type ArchiveListItem, type AnnotationNetworkHandle } from './AnnotationNetwork'
+import LabelStatChips from './LabelStatChips'
+import { NumberInput } from '../../../components/common'
 import {
   renderSpectrogram,
   renderFormantTracks,
@@ -46,6 +63,11 @@ interface AudioVisualizationProps {
   pitchData?: PitchDataArchive
   acousticData?: AcousticDataArchive
   audioVisualizationSvg?: string  // 保存时生成的 SVG
+  /** 网络图所需的存档元信息 */
+  corpusName?: string
+  archiveId?: string
+  archiveName?: string
+  framework?: string
 }
 
 // 美观的颜色调色板
@@ -61,7 +83,7 @@ const TEXT_ANN_COLOR = '#f97316'
 const AUDIO_PALETTE = ['#93c5fd', '#60a5fa', '#3b82f6', '#2563eb', '#1d4ed8', '#1e40af', '#1e3a8a']
 const TEXT_PALETTE = ['#fed7aa', '#fdba74', '#fb923c', '#f97316', '#ea580c', '#c2410c', '#9a3412']
 
-type ChartType = 'waveform' | 'bar' | 'sunburst'
+type ChartType = 'waveform' | 'bar' | 'sunburst' | 'wordcloud' | 'network'
 
 export default function AudioVisualization({
   annotations,
@@ -70,7 +92,11 @@ export default function AudioVisualization({
   audioBoxes = [],
   pitchData,
   acousticData,
-  audioVisualizationSvg
+  audioVisualizationSvg,
+  corpusName = '',
+  archiveId = '',
+  archiveName = '',
+  framework = ''
 }: AudioVisualizationProps) {
   const { t } = useTranslation()
   const theme = useTheme()
@@ -100,9 +126,61 @@ export default function AudioVisualization({
   // 频谱图是否有数据
   const hasSpectrogram = !!(acousticData?.enabled && acousticData.spectrogram)
   const hasFormants = !!(acousticData?.enabled && acousticData.formants)
-  
+
   // 过滤出文本标注（排除视频和音频画框类型）
   const textAnnotations = annotations.filter(a => a.type !== 'video' && a.type !== 'audio')
+
+  // --- Word Cloud lifted state ---
+  const wcLabelInfo = useMemo<LabelInfo[]>(() => {
+    const map = new Map<string, { color: string; count: number }>()
+    textAnnotations.forEach(ann => {
+      if (!ann.label) return
+      const e = map.get(ann.label)
+      if (e) e.count++
+      else map.set(ann.label, { color: ann.color || '#5470c6', count: 1 })
+    })
+    return Array.from(map.entries()).map(([label, info]) => ({ label, ...info })).sort((a, b) => b.count - a.count)
+  }, [textAnnotations])
+  const [wcSelectedLabels, setWcSelectedLabels] = useState<Set<string>>(new Set())
+  const [wcMaxWords, setWcMaxWords] = useState(100)
+  const wcRef = useRef<AnnotationWordCloudHandle>(null)
+  useEffect(() => { setWcSelectedLabels(new Set(wcLabelInfo.map(l => l.label))) }, [wcLabelInfo])
+
+  const WC_ALL = '__WC_ALL__'
+  const handleWcLabelChange = (e: SelectChangeEvent<string[]>) => {
+    const value = e.target.value as string[]
+    if (value.includes(WC_ALL)) {
+      setWcSelectedLabels(prev => prev.size === wcLabelInfo.length ? new Set() : new Set(wcLabelInfo.map(l => l.label)))
+      return
+    }
+    setWcSelectedLabels(new Set(value))
+  }
+
+  // --- Network lifted state ---
+  const [netAvailable, setNetAvailable] = useState<ArchiveListItem[]>([])
+  const [netSelectedExtraIds, setNetSelectedExtraIds] = useState<string[]>([])
+  const [netLabelInfo, setNetLabelInfo] = useState<LabelInfo[]>([])
+  const [netSelectedLabels, setNetSelectedLabels] = useState<Set<string>>(new Set())
+  const [netMaxWords, setNetMaxWords] = useState(50)
+  const [netOnlyShared, setNetOnlyShared] = useState(true)
+  const netRef = useRef<AnnotationNetworkHandle>(null)
+  useEffect(() => { setNetSelectedLabels(new Set(netLabelInfo.map(l => l.label))) }, [netLabelInfo])
+
+  const handleNetAvailableChange = useCallback((list: ArchiveListItem[]) => { setNetAvailable(list) }, [])
+  const handleNetLabelInfoChange = useCallback((info: LabelInfo[]) => { setNetLabelInfo(info) }, [])
+
+  const handleNetArchiveChange = (e: SelectChangeEvent<string[]>) => {
+    setNetSelectedExtraIds(e.target.value as string[])
+  }
+  const NET_LABEL_ALL = '__NET_LABEL_ALL__'
+  const handleNetLabelChange = (e: SelectChangeEvent<string[]>) => {
+    const value = e.target.value as string[]
+    if (value.includes(NET_LABEL_ALL)) {
+      setNetSelectedLabels(prev => prev.size === netLabelInfo.length ? new Set() : new Set(netLabelInfo.map(l => l.label)))
+      return
+    }
+    setNetSelectedLabels(new Set(value))
+  }
   
   // 统计标签数量（基于 audioBoxes）
   const labelStats = useMemo(() => {
@@ -856,77 +934,205 @@ export default function AudioVisualization({
       />
       
       {/* 工具栏 */}
-      <Stack 
-        direction="row" 
-        spacing={2}
-        alignItems="center" 
-        justifyContent="space-between"
-        sx={{ mb: 2 }}
-      >
-        <Stack direction="row" spacing={2} alignItems="center">
-          <ToggleButtonGroup
-            value={chartType}
-            exclusive
-            onChange={(_, value) => value && setChartType(value)}
-            size="small"
-          >
-            <ToggleButton value="waveform" disabled={!hasSvg && !hasSpectrogram}>
-              <TimelineIcon sx={{ mr: 0.5 }} fontSize="small" />
-              {t('annotation.waveform', '波形图')}
-            </ToggleButton>
-            <ToggleButton value="bar" disabled={audioBoxes.length === 0 && textAnnotations.length === 0}>
-              <BarChartIcon sx={{ mr: 0.5 }} fontSize="small" />
-              {t('annotation.barChart', '柱状图')}
-            </ToggleButton>
-            <ToggleButton value="sunburst" disabled={audioBoxes.length === 0 && textAnnotations.length === 0}>
-              <DonutLargeIcon sx={{ mr: 0.5 }} fontSize="small" />
-              {t('annotation.sunburstChart', '太阳图')}
-            </ToggleButton>
-          </ToggleButtonGroup>
-        </Stack>
-        
-        <Stack direction="row" spacing={0.5} alignItems="center">
-          {/* 缩放控制（仅波形视图） */}
-          {chartType === 'waveform' && (
-            <>
-              <Tooltip title={t('annotation.zoomOut', '缩小')}>
-                <IconButton size="small" onClick={handleZoomOut} disabled={zoom <= minZoom}>
-                  <ZoomOutIcon fontSize="small" />
-                </IconButton>
-              </Tooltip>
-              <Typography variant="body2" color="text.secondary" sx={{ minWidth: 45, textAlign: 'center' }}>
-                {zoom}%
-              </Typography>
-              <Tooltip title={t('annotation.zoomIn', '放大')}>
-                <IconButton size="small" onClick={handleZoomIn} disabled={zoom >= 400}>
-                  <ZoomInIcon fontSize="small" />
-                </IconButton>
-              </Tooltip>
-            </>
-          )}
-          
-          <Divider orientation="vertical" flexItem sx={{ mx: 1 }} />
-          
-          {/* 导出按钮 */}
-          <Tooltip title={t('annotation.exportSvg', '导出 SVG')}>
+      <Stack direction="row" spacing={1.5} sx={{ mb: 2 }} alignItems="center" flexWrap="wrap" useFlexGap>
+        <ToggleButtonGroup
+          value={chartType}
+          exclusive
+          onChange={(_, value) => value && setChartType(value)}
+          size="small"
+        >
+          <ToggleButton value="waveform" disabled={!hasSvg && !hasSpectrogram}>
+            <TimelineIcon sx={{ mr: 0.5 }} fontSize="small" />
+            {t('annotation.waveform', '波形图')}
+          </ToggleButton>
+          <ToggleButton value="bar" disabled={audioBoxes.length === 0 && textAnnotations.length === 0}>
+            <BarChartIcon sx={{ mr: 0.5 }} fontSize="small" />
+            {t('annotation.barChart', '柱状图')}
+          </ToggleButton>
+          <ToggleButton value="sunburst" disabled={audioBoxes.length === 0 && textAnnotations.length === 0}>
+            <DonutLargeIcon sx={{ mr: 0.5 }} fontSize="small" />
+            {t('annotation.sunburstChart', '太阳图')}
+          </ToggleButton>
+          <ToggleButton value="wordcloud" disabled={textAnnotations.length === 0}>
+            <CloudOutlinedIcon sx={{ mr: 0.5 }} fontSize="small" />
+            {t('annotation.wordCloud', '词云图')}
+          </ToggleButton>
+          <ToggleButton value="network" disabled={textAnnotations.length === 0}>
+            <HubIcon sx={{ mr: 0.5 }} fontSize="small" />
+            {t('annotation.networkGraph', '网络图')}
+          </ToggleButton>
+        </ToggleButtonGroup>
+
+        {/* 词云图参数 */}
+        {chartType === 'wordcloud' && (
+          <>
+            <FormControl size="small" sx={{ width: 160 }}>
+              <InputLabel>{t('annotation.wordCloudSelectLabels', '选择标签')}</InputLabel>
+              <Select
+                multiple
+                value={Array.from(wcSelectedLabels)}
+                onChange={handleWcLabelChange}
+                input={<OutlinedInput label={t('annotation.wordCloudSelectLabels', '选择标签')} />}
+                renderValue={() => wcSelectedLabels.size === wcLabelInfo.length
+                  ? t('common.all', '全部') : `${wcSelectedLabels.size} / ${wcLabelInfo.length}`}
+                MenuProps={{ PaperProps: { style: { maxHeight: 340 } } }}
+              >
+                <MenuItem value={WC_ALL} dense>
+                  <Checkbox size="small" checked={wcSelectedLabels.size === wcLabelInfo.length}
+                    indeterminate={wcSelectedLabels.size > 0 && wcSelectedLabels.size < wcLabelInfo.length} />
+                  <ListItemText
+                    primary={wcSelectedLabels.size === wcLabelInfo.length
+                      ? t('common.deselectAll', '取消全选') : t('common.selectAll', '全选')}
+                    primaryTypographyProps={{ fontSize: 13 }} />
+                </MenuItem>
+                {wcLabelInfo.map(({ label, color, count }) => (
+                  <MenuItem key={label} value={label} dense>
+                    <Checkbox size="small" checked={wcSelectedLabels.has(label)}
+                      sx={{ color, '&.Mui-checked': { color } }} />
+                    <ListItemText primary={label} secondary={String(count)}
+                      primaryTypographyProps={{ fontSize: 13 }} secondaryTypographyProps={{ fontSize: 11 }} />
+                    <Box sx={{ width: 10, height: 10, borderRadius: '2px', bgcolor: color, ml: 0.5, flexShrink: 0 }} />
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <NumberInput label={t('annotation.wordCloudMaxWords', '显示词数')} size="small"
+              value={wcMaxWords} onChange={setWcMaxWords} min={10} max={500} step={25} integer defaultValue={100} sx={{ width: 150 }} />
+          </>
+        )}
+
+        {/* 网络图参数 */}
+        {chartType === 'network' && (
+          <>
+            <FormControl size="small" sx={{ width: 200 }}>
+              <InputLabel>{t('annotation.networkLinkArchives', '关联其它标注存档')}</InputLabel>
+              <Select
+                multiple
+                value={netSelectedExtraIds}
+                onChange={handleNetArchiveChange}
+                input={<OutlinedInput label={t('annotation.networkLinkArchives', '关联其它标注存档')} />}
+                renderValue={(sel) => (sel as string[]).length === 0
+                  ? t('annotation.networkSingleArchive', '仅当前存档')
+                  : `${(sel as string[]).length} ${t('common.items', '项')}`}
+                MenuProps={{ PaperProps: { style: { maxHeight: 400 } } }}
+              >
+                {netAvailable.length === 0 && (
+                  <MenuItem disabled dense>{t('annotation.networkNoOtherArchives', '无其它可用存档')}</MenuItem>
+                )}
+                {netAvailable.map(a => (
+                  <MenuItem key={a.id} value={a.id} dense>
+                    <Checkbox size="small" checked={netSelectedExtraIds.includes(a.id)} />
+                    <ListItemText
+                      primary={a.textName || a.resourceName || a.id}
+                      secondary={`${a.framework} · ${a.corpusName}`}
+                      primaryTypographyProps={{ fontSize: 13 }}
+                      secondaryTypographyProps={{ fontSize: 11 }} />
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <FormControl size="small" sx={{ width: 160 }}>
+              <InputLabel>{t('annotation.wordCloudSelectLabels', '选择标签')}</InputLabel>
+              <Select
+                multiple
+                value={Array.from(netSelectedLabels)}
+                onChange={handleNetLabelChange}
+                input={<OutlinedInput label={t('annotation.wordCloudSelectLabels', '选择标签')} />}
+                renderValue={() => netSelectedLabels.size === netLabelInfo.length
+                  ? t('common.all', '全部') : `${netSelectedLabels.size} / ${netLabelInfo.length}`}
+                MenuProps={{ PaperProps: { style: { maxHeight: 340 } } }}
+              >
+                <MenuItem value={NET_LABEL_ALL} dense>
+                  <Checkbox size="small" checked={netSelectedLabels.size === netLabelInfo.length}
+                    indeterminate={netSelectedLabels.size > 0 && netSelectedLabels.size < netLabelInfo.length} />
+                  <ListItemText
+                    primary={netSelectedLabels.size === netLabelInfo.length
+                      ? t('common.deselectAll', '取消全选') : t('common.selectAll', '全选')}
+                    primaryTypographyProps={{ fontSize: 13 }} />
+                </MenuItem>
+                {netLabelInfo.map(({ label, color, count }) => (
+                  <MenuItem key={label} value={label} dense>
+                    <Checkbox size="small" checked={netSelectedLabels.has(label)}
+                      sx={{ color, '&.Mui-checked': { color } }} />
+                    <ListItemText primary={label} secondary={String(count)}
+                      primaryTypographyProps={{ fontSize: 13 }} secondaryTypographyProps={{ fontSize: 11 }} />
+                    <Box sx={{ width: 10, height: 10, borderRadius: '2px', bgcolor: color, ml: 0.5, flexShrink: 0 }} />
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <NumberInput label={t('annotation.wordCloudMaxWords', '显示词数')} size="small"
+              value={netMaxWords} onChange={setNetMaxWords} min={10} max={200} step={25} integer defaultValue={50} sx={{ width: 150 }} />
+            {netSelectedExtraIds.length > 0 && (
+              <FormControlLabel
+                control={<Switch size="small" checked={netOnlyShared} onChange={e => setNetOnlyShared(e.target.checked)} />}
+                label={<Typography variant="caption">{t('annotation.networkOnlyShared', '仅显示共享词')}</Typography>}
+              />
+            )}
+          </>
+        )}
+
+        <Box sx={{ flex: 1 }} />
+
+        {/* 缩放控制（仅波形视图） */}
+        {chartType === 'waveform' && (
+          <>
+            <Tooltip title={t('annotation.zoomOut', '缩小')}>
+              <IconButton size="small" onClick={handleZoomOut} disabled={zoom <= minZoom}>
+                <ZoomOutIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+            <Typography variant="body2" color="text.secondary" sx={{ minWidth: 45, textAlign: 'center' }}>
+              {zoom}%
+            </Typography>
+            <Tooltip title={t('annotation.zoomIn', '放大')}>
+              <IconButton size="small" onClick={handleZoomIn} disabled={zoom >= 400}>
+                <ZoomInIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          </>
+        )}
+
+        {chartType === 'network' && (
+          <Tooltip title={t('annotation.networkResetView', '重置视图')}>
+            <IconButton size="small" onClick={() => netRef.current?.resetZoom()}>
+              <CenterFocusStrongIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        )}
+        <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
+        <Tooltip title={t('annotation.exportSvg', '导出 SVG')}>
+          <span>
             <IconButton
               size="small"
-              onClick={chartType === 'waveform' ? handleExportWaveformSVG : handleExportChartSVG}
               disabled={chartType === 'waveform' && !hasSvg && !hasSpectrogram}
+              onClick={() => {
+                if (chartType === 'wordcloud') wcRef.current?.exportSvg()
+                else if (chartType === 'network') netRef.current?.exportSvg()
+                else if (chartType === 'waveform') handleExportWaveformSVG()
+                else handleExportChartSVG()
+              }}
             >
               <SaveAltIcon fontSize="small" />
             </IconButton>
-          </Tooltip>
-          <Tooltip title={t('annotation.exportPng', '导出 PNG')}>
+          </span>
+        </Tooltip>
+        <Tooltip title={t('annotation.exportPng', '导出 PNG')}>
+          <span>
             <IconButton
               size="small"
-              onClick={chartType === 'waveform' ? handleExportWaveformPNG : handleExportChartPNG}
               disabled={chartType === 'waveform' && !hasSvg && !hasSpectrogram}
+              onClick={() => {
+                if (chartType === 'wordcloud') wcRef.current?.exportPng()
+                else if (chartType === 'network') netRef.current?.exportPng()
+                else if (chartType === 'waveform') handleExportWaveformPNG()
+                else handleExportChartPNG()
+              }}
             >
               <ImageIcon fontSize="small" />
             </IconButton>
-          </Tooltip>
-        </Stack>
+          </span>
+        </Tooltip>
       </Stack>
       
       {/* 波形视图 */}
@@ -1037,7 +1243,40 @@ export default function AudioVisualization({
           )}
         </>
       )}
-      
+
+      {/* 词云图视图 */}
+      {chartType === 'wordcloud' && (
+        <Box sx={{ mt: 2 }}>
+          <AnnotationWordCloud
+            ref={wcRef}
+            annotations={textAnnotations}
+            labelInfo={wcLabelInfo}
+            selectedLabels={wcSelectedLabels}
+            maxWords={wcMaxWords}
+          />
+        </Box>
+      )}
+
+      {/* 网络图视图：标签 ↔ 标注词，可跨存档关联 */}
+      {chartType === 'network' && (
+        <Box sx={{ mt: 2 }}>
+          <AnnotationNetwork
+            ref={netRef}
+            corpusName={corpusName}
+            archiveId={archiveId}
+            archiveName={archiveName}
+            framework={framework}
+            annotations={annotations}
+            maxWords={netMaxWords}
+            selectedLabels={netSelectedLabels}
+            selectedExtraIds={netSelectedExtraIds}
+            onlyShared={netOnlyShared}
+            onAvailableChange={handleNetAvailableChange}
+            onLabelInfoChange={handleNetLabelInfoChange}
+          />
+        </Box>
+      )}
+
       {/* 声学特征标量统计 (Jitter/Shimmer) */}
       {acousticData?.enabled && (acousticData.jitter || acousticData.shimmer) && (
         <Box sx={{ mt: 2, p: 1.5, border: '1px solid', borderColor: 'divider', borderRadius: 1, bgcolor: themeColors.cardBg }}>
@@ -1071,42 +1310,7 @@ export default function AudioVisualization({
           )}
         </Typography>
         
-        {labelStats.length > 0 && (
-          <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-            {labelStats.slice(0, 10).map((stat) => (
-              <Box
-                key={stat.name}
-                sx={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  px: 1,
-                  py: 0.5,
-                  borderRadius: 1,
-                  bgcolor: `${stat.color}15`,
-                  border: `1px solid ${stat.color}30`
-                }}
-              >
-                <Box
-                  sx={{
-                    width: 8,
-                    height: 8,
-                    borderRadius: '50%',
-                    bgcolor: stat.color,
-                    mr: 0.5
-                  }}
-                />
-                <Typography variant="caption" sx={{ color: stat.color, fontWeight: 500 }}>
-                  {stat.name}: {stat.value}
-                </Typography>
-              </Box>
-            ))}
-            {labelStats.length > 10 && (
-              <Typography variant="caption" color="text.secondary">
-                +{labelStats.length - 10} more
-              </Typography>
-            )}
-          </Stack>
-        )}
+        <LabelStatChips stats={labelStats} />
       </Box>
     </Box>
   )

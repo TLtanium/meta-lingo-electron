@@ -19,22 +19,44 @@ import {
   IconButton,
   Tooltip,
   Divider,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Checkbox,
+  ListItemText,
+  OutlinedInput,
+  FormControlLabel,
+  Switch,
   useTheme
 } from '@mui/material'
+import type { SelectChangeEvent } from '@mui/material'
 import BarChartIcon from '@mui/icons-material/BarChart'
 import PieChartOutlineIcon from '@mui/icons-material/PieChartOutline'
+import CloudOutlinedIcon from '@mui/icons-material/CloudOutlined'
+import HubIcon from '@mui/icons-material/Hub'
 import SaveAltIcon from '@mui/icons-material/SaveAlt'
 import ImageIcon from '@mui/icons-material/Image'
+import CenterFocusStrongIcon from '@mui/icons-material/CenterFocusStrong'
 import { useTranslation } from 'react-i18next'
 import * as d3 from 'd3'
 import html2canvas from 'html2canvas'
 import type { Annotation, AnnotationGroup } from '../../../types'
 import { getAbsorbedMemberIds } from '../../../utils/annotationGroups'
+import AnnotationWordCloud, { type LabelInfo, type AnnotationWordCloudHandle } from './AnnotationWordCloud'
+import AnnotationNetwork, { type ArchiveListItem, type AnnotationNetworkHandle } from './AnnotationNetwork'
+import LabelStatChips from './LabelStatChips'
+import { NumberInput } from '../../../components/common'
 
 interface AnnotationVisualizationProps {
   annotations: Annotation[]
   /** 非连续词组：统计时每个词组计为一个单位（仅保留首个成员） */
   groups?: AnnotationGroup[]
+  /** 网络图所需的存档元信息 */
+  corpusName?: string
+  archiveId?: string
+  archiveName?: string
+  framework?: string
 }
 
 // 美观的颜色调色板 - 更鲜艳的渐变色
@@ -44,9 +66,9 @@ const COLORS = [
   '#6f5ef9', '#89ca7e', '#f5a623', '#d0648a', '#22c3aa'
 ]
 
-type ChartType = 'bar' | 'pie'
+type ChartType = 'bar' | 'pie' | 'wordcloud' | 'network'
 
-export default function AnnotationVisualization({ annotations, groups = [] }: AnnotationVisualizationProps) {
+export default function AnnotationVisualization({ annotations, groups = [], corpusName = '', archiveId = '', archiveName = '', framework = '' }: AnnotationVisualizationProps) {
   const { t } = useTranslation()
   const theme = useTheme()
   const isDarkMode = theme.palette.mode === 'dark'
@@ -66,6 +88,61 @@ export default function AnnotationVisualization({ annotations, groups = [] }: An
   const svgRef = useRef<SVGSVGElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const tooltipRef = useRef<HTMLDivElement>(null)
+
+  // --- Word Cloud lifted state ---
+  const wcLabelInfo = useMemo<LabelInfo[]>(() => {
+    const map = new Map<string, { color: string; count: number }>()
+    annotations.forEach(ann => {
+      if (!ann.label) return
+      const e = map.get(ann.label)
+      if (e) e.count++
+      else map.set(ann.label, { color: ann.color || COLORS[map.size % COLORS.length], count: 1 })
+    })
+    return Array.from(map.entries()).map(([label, info]) => ({ label, ...info })).sort((a, b) => b.count - a.count)
+  }, [annotations])
+  const [wcSelectedLabels, setWcSelectedLabels] = useState<Set<string>>(new Set())
+  const [wcMaxWords, setWcMaxWords] = useState(100)
+  const wcRef = useRef<AnnotationWordCloudHandle>(null)
+  useEffect(() => { setWcSelectedLabels(new Set(wcLabelInfo.map(l => l.label))) }, [wcLabelInfo])
+
+  const WC_ALL = '__WC_ALL__'
+  const handleWcLabelChange = (e: SelectChangeEvent<string[]>) => {
+    const value = e.target.value as string[]
+    if (value.includes(WC_ALL)) {
+      setWcSelectedLabels(prev => prev.size === wcLabelInfo.length ? new Set() : new Set(wcLabelInfo.map(l => l.label)))
+      return
+    }
+    setWcSelectedLabels(new Set(value))
+  }
+
+  // --- Network lifted state ---
+  const [netAvailable, setNetAvailable] = useState<ArchiveListItem[]>([])
+  const [netSelectedExtraIds, setNetSelectedExtraIds] = useState<string[]>([])
+  const [netLabelInfo, setNetLabelInfo] = useState<LabelInfo[]>([])
+  const [netSelectedLabels, setNetSelectedLabels] = useState<Set<string>>(new Set())
+  const [netMaxWords, setNetMaxWords] = useState(50)
+  const [netOnlyShared, setNetOnlyShared] = useState(true)
+  const netRef = useRef<AnnotationNetworkHandle>(null)
+  useEffect(() => { setNetSelectedLabels(new Set(netLabelInfo.map(l => l.label))) }, [netLabelInfo])
+
+  const handleNetAvailableChange = useCallback((list: ArchiveListItem[]) => { setNetAvailable(list) }, [])
+  const handleNetLabelInfoChange = useCallback((info: LabelInfo[]) => { setNetLabelInfo(info) }, [])
+
+  const NET_ARCHIVE_ALL = '__NET_ARCHIVE_ALL__'
+  const handleNetArchiveChange = (e: SelectChangeEvent<string[]>) => {
+    const value = e.target.value as string[]
+    if (value.includes(NET_ARCHIVE_ALL)) return
+    setNetSelectedExtraIds(value)
+  }
+  const NET_LABEL_ALL = '__NET_LABEL_ALL__'
+  const handleNetLabelChange = (e: SelectChangeEvent<string[]>) => {
+    const value = e.target.value as string[]
+    if (value.includes(NET_LABEL_ALL)) {
+      setNetSelectedLabels(prev => prev.size === netLabelInfo.length ? new Set() : new Set(netLabelInfo.map(l => l.label)))
+      return
+    }
+    setNetSelectedLabels(new Set(value))
+  }
   
   // 词组计为一个单位：剔除每个词组中除首个成员外的其余成员后再统计
   const countedAnnotations = useMemo(() => {
@@ -598,67 +675,222 @@ export default function AnnotationVisualization({ annotations, groups = [] }: An
       />
       
       {/* 工具栏 */}
-      <Stack direction="row" spacing={2} sx={{ mb: 2 }} alignItems="center" justifyContent="space-between">
-        <Stack direction="row" spacing={2} alignItems="center">
-          <Typography variant="subtitle2" color="text.secondary">
-            {t('annotation.labelStatistics', '标签统计')}
-          </Typography>
-          
-          <ToggleButtonGroup
-            value={chartType}
-            exclusive
-            onChange={(_, value) => value && setChartType(value)}
-            size="small"
-          >
-            <ToggleButton value="bar">
-              <BarChartIcon sx={{ mr: 0.5 }} fontSize="small" />
-              {t('annotation.barChart', '柱状图')}
-            </ToggleButton>
-            <ToggleButton value="pie">
-              <PieChartOutlineIcon sx={{ mr: 0.5 }} fontSize="small" />
-              {t('annotation.pieChart', '饼图')}
-            </ToggleButton>
-          </ToggleButtonGroup>
-        </Stack>
-        
-        <Stack direction="row" spacing={0.5} alignItems="center">
-          <Divider orientation="vertical" flexItem sx={{ mx: 1 }} />
-          <Tooltip title={t('annotation.exportSvg', '导出 SVG')}>
-            <IconButton size="small" onClick={handleExportSvg}>
-              <SaveAltIcon fontSize="small" />
+      <Stack direction="row" spacing={1.5} sx={{ mb: 2 }} alignItems="center" flexWrap="wrap" useFlexGap>
+        <Typography variant="subtitle2" color="text.secondary">
+          {t('annotation.labelStatistics', '标签统计')}
+        </Typography>
+
+        <ToggleButtonGroup
+          value={chartType}
+          exclusive
+          onChange={(_, value) => value && setChartType(value)}
+          size="small"
+        >
+          <ToggleButton value="bar">
+            <BarChartIcon sx={{ mr: 0.5 }} fontSize="small" />
+            {t('annotation.barChart', '柱状图')}
+          </ToggleButton>
+          <ToggleButton value="pie">
+            <PieChartOutlineIcon sx={{ mr: 0.5 }} fontSize="small" />
+            {t('annotation.pieChart', '饼图')}
+          </ToggleButton>
+          <ToggleButton value="wordcloud">
+            <CloudOutlinedIcon sx={{ mr: 0.5 }} fontSize="small" />
+            {t('annotation.wordCloud', '词云图')}
+          </ToggleButton>
+          <ToggleButton value="network">
+            <HubIcon sx={{ mr: 0.5 }} fontSize="small" />
+            {t('annotation.networkGraph', '网络图')}
+          </ToggleButton>
+        </ToggleButtonGroup>
+
+        {/* 词云图参数 */}
+        {chartType === 'wordcloud' && (
+          <>
+            <FormControl size="small" sx={{ width: 160 }}>
+              <InputLabel>{t('annotation.wordCloudSelectLabels', '选择标签')}</InputLabel>
+              <Select
+                multiple
+                value={Array.from(wcSelectedLabels)}
+                onChange={handleWcLabelChange}
+                input={<OutlinedInput label={t('annotation.wordCloudSelectLabels', '选择标签')} />}
+                renderValue={() => wcSelectedLabels.size === wcLabelInfo.length
+                  ? t('common.all', '全部') : `${wcSelectedLabels.size} / ${wcLabelInfo.length}`}
+                MenuProps={{ PaperProps: { style: { maxHeight: 340 } } }}
+              >
+                <MenuItem value={WC_ALL} dense>
+                  <Checkbox size="small" checked={wcSelectedLabels.size === wcLabelInfo.length}
+                    indeterminate={wcSelectedLabels.size > 0 && wcSelectedLabels.size < wcLabelInfo.length} />
+                  <ListItemText
+                    primary={wcSelectedLabels.size === wcLabelInfo.length
+                      ? t('common.deselectAll', '取消全选') : t('common.selectAll', '全选')}
+                    primaryTypographyProps={{ fontSize: 13 }} />
+                </MenuItem>
+                {wcLabelInfo.map(({ label, color, count }) => (
+                  <MenuItem key={label} value={label} dense>
+                    <Checkbox size="small" checked={wcSelectedLabels.has(label)}
+                      sx={{ color, '&.Mui-checked': { color } }} />
+                    <ListItemText primary={label} secondary={String(count)}
+                      primaryTypographyProps={{ fontSize: 13 }} secondaryTypographyProps={{ fontSize: 11 }} />
+                    <Box sx={{ width: 10, height: 10, borderRadius: '2px', bgcolor: color, ml: 0.5, flexShrink: 0 }} />
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <NumberInput label={t('annotation.wordCloudMaxWords', '显示词数')} size="small"
+              value={wcMaxWords} onChange={setWcMaxWords} min={10} max={500} step={25} integer defaultValue={100} sx={{ width: 150 }} />
+          </>
+        )}
+
+        {/* 网络图参数 */}
+        {chartType === 'network' && (
+          <>
+            <FormControl size="small" sx={{ width: 200 }}>
+              <InputLabel>{t('annotation.networkLinkArchives', '关联其它标注存档')}</InputLabel>
+              <Select
+                multiple
+                value={netSelectedExtraIds}
+                onChange={handleNetArchiveChange}
+                input={<OutlinedInput label={t('annotation.networkLinkArchives', '关联其它标注存档')} />}
+                renderValue={(sel) => (sel as string[]).length === 0
+                  ? t('annotation.networkSingleArchive', '仅当前存档')
+                  : `${(sel as string[]).length} ${t('common.items', '项')}`}
+                MenuProps={{ PaperProps: { style: { maxHeight: 400 } } }}
+              >
+                {netAvailable.length === 0 && (
+                  <MenuItem disabled dense>{t('annotation.networkNoOtherArchives', '无其它可用存档')}</MenuItem>
+                )}
+                {netAvailable.map(a => (
+                  <MenuItem key={a.id} value={a.id} dense>
+                    <Checkbox size="small" checked={netSelectedExtraIds.includes(a.id)} />
+                    <ListItemText
+                      primary={a.textName || a.resourceName || a.id}
+                      secondary={`${a.framework} · ${a.corpusName}`}
+                      primaryTypographyProps={{ fontSize: 13 }}
+                      secondaryTypographyProps={{ fontSize: 11 }} />
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <FormControl size="small" sx={{ width: 160 }}>
+              <InputLabel>{t('annotation.wordCloudSelectLabels', '选择标签')}</InputLabel>
+              <Select
+                multiple
+                value={Array.from(netSelectedLabels)}
+                onChange={handleNetLabelChange}
+                input={<OutlinedInput label={t('annotation.wordCloudSelectLabels', '选择标签')} />}
+                renderValue={() => netSelectedLabels.size === netLabelInfo.length
+                  ? t('common.all', '全部') : `${netSelectedLabels.size} / ${netLabelInfo.length}`}
+                MenuProps={{ PaperProps: { style: { maxHeight: 340 } } }}
+              >
+                <MenuItem value={NET_LABEL_ALL} dense>
+                  <Checkbox size="small" checked={netSelectedLabels.size === netLabelInfo.length}
+                    indeterminate={netSelectedLabels.size > 0 && netSelectedLabels.size < netLabelInfo.length} />
+                  <ListItemText
+                    primary={netSelectedLabels.size === netLabelInfo.length
+                      ? t('common.deselectAll', '取消全选') : t('common.selectAll', '全选')}
+                    primaryTypographyProps={{ fontSize: 13 }} />
+                </MenuItem>
+                {netLabelInfo.map(({ label, color, count }) => (
+                  <MenuItem key={label} value={label} dense>
+                    <Checkbox size="small" checked={netSelectedLabels.has(label)}
+                      sx={{ color, '&.Mui-checked': { color } }} />
+                    <ListItemText primary={label} secondary={String(count)}
+                      primaryTypographyProps={{ fontSize: 13 }} secondaryTypographyProps={{ fontSize: 11 }} />
+                    <Box sx={{ width: 10, height: 10, borderRadius: '2px', bgcolor: color, ml: 0.5, flexShrink: 0 }} />
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <NumberInput label={t('annotation.wordCloudMaxWords', '显示词数')} size="small"
+              value={netMaxWords} onChange={setNetMaxWords} min={10} max={200} step={25} integer defaultValue={50} sx={{ width: 150 }} />
+            {netSelectedExtraIds.length > 0 && (
+              <FormControlLabel
+                control={<Switch size="small" checked={netOnlyShared} onChange={e => setNetOnlyShared(e.target.checked)} />}
+                label={<Typography variant="caption">{t('annotation.networkOnlyShared', '仅显示共享词')}</Typography>}
+              />
+            )}
+          </>
+        )}
+
+        <Box sx={{ flex: 1 }} />
+
+        {chartType === 'network' && (
+          <Tooltip title={t('annotation.networkResetView', '重置视图')}>
+            <IconButton size="small" onClick={() => netRef.current?.resetZoom()}>
+              <CenterFocusStrongIcon fontSize="small" />
             </IconButton>
           </Tooltip>
-          <Tooltip title={t('annotation.exportPng', '导出 PNG')}>
-            <IconButton size="small" onClick={handleExportPng}>
-              <ImageIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
-        </Stack>
+        )}
+        <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
+        <Tooltip title={t('annotation.exportSvg', '导出 SVG')}>
+          <IconButton size="small" onClick={() => {
+            if (chartType === 'wordcloud') wcRef.current?.exportSvg()
+            else if (chartType === 'network') netRef.current?.exportSvg()
+            else handleExportSvg()
+          }}>
+            <SaveAltIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
+        <Tooltip title={t('annotation.exportPng', '导出 PNG')}>
+          <IconButton size="small" onClick={() => {
+            if (chartType === 'wordcloud') wcRef.current?.exportPng()
+            else if (chartType === 'network') netRef.current?.exportPng()
+            else handleExportPng()
+          }}>
+            <ImageIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
       </Stack>
       
-      {/* 图表容器 */}
-      <Box 
-        ref={containerRef} 
-        sx={{ 
-          border: 1, 
-          borderColor: 'divider', 
-          borderRadius: 2,
-          maxHeight: 500,
-          overflow: 'auto'
-        }}
-      >
-        <Box sx={{ p: 2, width: '100%', display: 'flex', justifyContent: 'center' }}>
-          <svg
-            ref={svgRef}
-            style={{ 
-              width: '100%', 
-              maxWidth: 700,
-              height: chartType === 'bar' ? 400 : 450
-            }}
-          />
+      {/* 词云图分支 */}
+      {chartType === 'wordcloud' ? (
+        <AnnotationWordCloud
+          ref={wcRef}
+          annotations={annotations}
+          labelInfo={wcLabelInfo}
+          selectedLabels={wcSelectedLabels}
+          maxWords={wcMaxWords}
+        />
+      ) : chartType === 'network' ? (
+        <AnnotationNetwork
+          ref={netRef}
+          corpusName={corpusName}
+          archiveId={archiveId}
+          archiveName={archiveName}
+          framework={framework}
+          annotations={annotations}
+          maxWords={netMaxWords}
+          selectedLabels={netSelectedLabels}
+          selectedExtraIds={netSelectedExtraIds}
+          onlyShared={netOnlyShared}
+          onAvailableChange={handleNetAvailableChange}
+          onLabelInfoChange={handleNetLabelInfoChange}
+        />
+      ) : (
+        <Box
+          ref={containerRef}
+          sx={{
+            border: 1,
+            borderColor: 'divider',
+            borderRadius: 2,
+            maxHeight: 500,
+            overflow: 'auto'
+          }}
+        >
+          <Box sx={{ p: 2, width: '100%', display: 'flex', justifyContent: 'center' }}>
+            <svg
+              ref={svgRef}
+              style={{
+                width: '100%',
+                maxWidth: 700,
+                height: chartType === 'bar' ? 400 : 450
+              }}
+            />
+          </Box>
         </Box>
-      </Box>
-      
+      )}
+
       {/* 统计摘要 */}
       <Box sx={{ mt: 2 }}>
         <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
@@ -666,40 +898,7 @@ export default function AnnotationVisualization({ annotations, groups = [] }: An
           {' '}{labelStats.length} {t('annotation.labelTypes', '种标签')}
         </Typography>
         
-        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-          {labelStats.slice(0, 10).map((stat) => (
-            <Box
-              key={stat.name}
-              sx={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                px: 1,
-                py: 0.5,
-                borderRadius: 1,
-                bgcolor: `${stat.color}15`,
-                border: `1px solid ${stat.color}30`
-              }}
-            >
-              <Box
-                sx={{
-                  width: 8,
-                  height: 8,
-                  borderRadius: '50%',
-                  bgcolor: stat.color,
-                  mr: 0.5
-                }}
-              />
-              <Typography variant="caption" sx={{ color: stat.color, fontWeight: 500 }}>
-                {stat.name}: {stat.value}
-              </Typography>
-            </Box>
-          ))}
-          {labelStats.length > 10 && (
-            <Typography variant="caption" color="text.secondary">
-              +{labelStats.length - 10} more
-            </Typography>
-          )}
-        </Stack>
+        <LabelStatChips stats={labelStats} />
       </Box>
     </Box>
   )

@@ -53,9 +53,12 @@ import TextSnippetIcon from '@mui/icons-material/TextSnippet'
 import AudioFileIcon from '@mui/icons-material/AudioFile'
 import VideoFileIcon from '@mui/icons-material/VideoFile'
 import LabelIcon from '@mui/icons-material/Label'
+import ArchiveIcon from '@mui/icons-material/Archive'
 import { useTranslation } from 'react-i18next'
 import { corpusApi } from '../../api'
 import type { Corpus, CorpusFilters } from '../../types'
+import ExportBundleDialog from '../../components/Migration/ExportBundleDialog'
+import ImportBundleButton from '../../components/Migration/ImportBundleButton'
 
 interface CorpusListProps {
   onSelectCorpus: (corpus: Corpus) => void
@@ -134,6 +137,7 @@ export default function CorpusList({ onSelectCorpus, onCreateNew, onCorpusUpdate
   
   // UI state
   const [viewMode, setViewMode] = useState<'list' | 'card'>('card')
+  const [exportOpen, setExportOpen] = useState(false)
   const [page, setPage] = useState(0)
   const [rowsPerPage, setRowsPerPage] = useState(12)
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null)
@@ -751,6 +755,15 @@ export default function CorpusList({ onSelectCorpus, onCreateNew, onCorpusUpdate
           <IconButton onClick={loadCorpora}>
             <RefreshIcon />
           </IconButton>
+          <ImportBundleButton onImport={corpusApi.importBundle} onImported={loadCorpora} />
+          <Button
+            variant="outlined"
+            startIcon={<ArchiveIcon />}
+            onClick={() => setExportOpen(true)}
+            disabled={corpora.length === 0}
+          >
+            {t('migration.export')}
+          </Button>
           {onCreateNew && (
             <Button
               variant="contained"
@@ -762,6 +775,14 @@ export default function CorpusList({ onSelectCorpus, onCreateNew, onCorpusUpdate
           )}
         </Stack>
       </Box>
+
+      <ExportBundleDialog
+        open={exportOpen}
+        onClose={() => setExportOpen(false)}
+        title={t('migration.exportCorporaTitle')}
+        items={corpora.map(c => ({ id: c.id, name: c.name, subtitle: c.language || undefined }))}
+        onExport={corpusApi.exportBundle}
+      />
 
       {/* Filters */}
       <Paper sx={{ p: 2, mb: 3 }}>

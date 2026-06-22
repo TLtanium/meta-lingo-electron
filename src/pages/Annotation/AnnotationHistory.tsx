@@ -10,7 +10,7 @@
  * - 搜索和筛选
  */
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import {
   Box,
   Typography,
@@ -39,6 +39,7 @@ import {
   Tooltip,
   Divider,
   Checkbox,
+  Snackbar,
   useTheme
 } from '@mui/material'
 import HistoryIcon from '@mui/icons-material/History'
@@ -50,6 +51,7 @@ import VideoFileIcon from '@mui/icons-material/VideoFile'
 import AudioFileIcon from '@mui/icons-material/AudioFile'
 import FolderIcon from '@mui/icons-material/Folder'
 import RefreshIcon from '@mui/icons-material/Refresh'
+import UploadFileIcon from '@mui/icons-material/UploadFile'
 import { useTranslation } from 'react-i18next'
 import { useCorpusStore } from '../../stores/corpusStore'
 import { api } from '../../api/client'
@@ -115,6 +117,13 @@ export default function AnnotationHistory() {
   
   // 导出状态
   const [exporting, setExporting] = useState<string | null>(null)
+
+  // 导入状态
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [importing, setImporting] = useState(false)
+  const [importFeedback, setImportFeedback] = useState<{ severity: 'success' | 'error'; message: string } | null>(null)
+  // 等待用户确认覆盖的存档（同 ID 已存在）
+  const [overwriteCandidate, setOverwriteCandidate] = useState<any | null>(null)
   
   // 加载语料库列表
   const loadCorpora = useCallback(async () => {
@@ -335,6 +344,79 @@ export default function AnnotationHistory() {
     setSelectedIds([])
   }
   
+  // 将后端校验错误码映射为本地化提示
+  const importErrorMessage = (errors: string[]): string => {
+    if (errors.includes('framework_not_found')) {
+      return t('annotation.importFrameworkNotFound', '存档使用的框架在当前框架列表中不存在')
+    }
+    if (errors.includes('corpus_not_found')) {
+      return t('annotation.importCorpusNotFound', '存档对应的语料库不存在')
+    }
+    if (errors.includes('text_not_found')) {
+      return t('annotation.importTextNotFound', '在语料库中找不到对应的文本/媒体')
+    }
+    return t('annotation.importInvalidFormat', '存档格式无效')
+  }
+
+  // 执行导入（overwrite=true 时覆盖同 ID 存档）
+  const doImport = async (archive: any, overwrite: boolean) => {
+    setImporting(true)
+    try {
+      const response = await api.post('/api/annotation/import', { archive, overwrite })
+      const result = response.data as { success: boolean; valid: boolean; errors?: string[] }
+
+      if (result.success) {
+        setImportFeedback({ severity: 'success', message: t('annotation.importSuccess', '存档导入成功') })
+        setOverwriteCandidate(null)
+        await handleRefresh()
+        return
+      }
+
+      // 校验通过但同 ID 已存在 → 询问覆盖
+      if (result.errors?.includes('already_exists')) {
+        setOverwriteCandidate(archive)
+        return
+      }
+
+      // 校验失败
+      setOverwriteCandidate(null)
+      setImportFeedback({ severity: 'error', message: importErrorMessage(result.errors || []) })
+    } catch (error) {
+      console.error('Failed to import archive:', error)
+      setOverwriteCandidate(null)
+      setImportFeedback({
+        severity: 'error',
+        message: t('annotation.importValidationFailed', '导入被拒绝：存档与当前框架、语料库或文本不吻合')
+      })
+    } finally {
+      setImporting(false)
+    }
+  }
+
+  // 选择文件后解析并导入
+  const handleFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    // 允许重复选择同一文件
+    e.target.value = ''
+    if (!file) return
+
+    let archive: any
+    try {
+      const text = await file.text()
+      archive = JSON.parse(text)
+    } catch {
+      setImportFeedback({ severity: 'error', message: t('annotation.importParseError', '无法解析文件：不是有效的标注存档 JSON') })
+      return
+    }
+
+    if (!archive || typeof archive !== 'object' || Array.isArray(archive)) {
+      setImportFeedback({ severity: 'error', message: t('annotation.importParseError', '无法解析文件：不是有效的标注存档 JSON') })
+      return
+    }
+
+    await doImport(archive, false)
+  }
+
   // 点击卡片进入详情页面
   const handleCardClick = (archive: ArchiveInfo) => {
     setSelectedArchive(archive)
@@ -402,13 +484,32 @@ export default function AnnotationHistory() {
             {t('annotation.history', '标注历史')}
           </Typography>
         </Box>
-        <IconButton 
-          onClick={handleRefresh} 
-          disabled={loading}
-          title={t('common.refresh', '刷新')}
-        >
-          <RefreshIcon />
-        </IconButton>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="application/json,.json"
+            style={{ display: 'none' }}
+            onChange={handleFileSelected}
+          />
+          <Button
+            variant="outlined"
+            size="small"
+            startIcon={importing ? <CircularProgress size={16} /> : <UploadFileIcon />}
+            disabled={importing}
+            onClick={() => fileInputRef.current?.click()}
+            title={t('annotation.importTooltip', '导入已导出的标注存档（.json）')}
+          >
+            {importing ? t('annotation.importing', '导入中...') : t('annotation.import', '导入')}
+          </Button>
+          <IconButton
+            onClick={handleRefresh}
+            disabled={loading}
+            title={t('common.refresh', '刷新')}
+          >
+            <RefreshIcon />
+          </IconButton>
+        </Box>
       </Box>
       
       <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
@@ -768,6 +869,50 @@ export default function AnnotationHistory() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* 导入覆盖确认对话框 */}
+      <Dialog
+        open={!!overwriteCandidate}
+        onClose={() => setOverwriteCandidate(null)}
+      >
+        <DialogTitle>{t('annotation.importOverwriteTitle', '存档已存在')}</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            {t('annotation.importOverwriteConfirm', '已存在相同 ID 的存档，是否覆盖？')}
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOverwriteCandidate(null)} disabled={importing}>
+            {t('common.cancel', '取消')}
+          </Button>
+          <Button
+            onClick={() => overwriteCandidate && doImport(overwriteCandidate, true)}
+            color="primary"
+            disabled={importing}
+          >
+            {t('common.confirm', '确定')}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* 导入结果提示 */}
+      <Snackbar
+        open={!!importFeedback}
+        autoHideDuration={5000}
+        onClose={() => setImportFeedback(null)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        {importFeedback ? (
+          <Alert
+            severity={importFeedback.severity}
+            onClose={() => setImportFeedback(null)}
+            variant="filled"
+            sx={{ width: '100%' }}
+          >
+            {importFeedback.message}
+          </Alert>
+        ) : undefined}
+      </Snackbar>
     </Box>
   )
 }

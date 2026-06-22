@@ -44,6 +44,9 @@ export default function InterCoderReliability() {
   
   // 标准答案索引
   const [goldStandardIndex, setGoldStandardIndex] = useState<number | undefined>(undefined)
+
+  // 标签筛选（null = 全部）；在计算面板与 KWIC 间共享，保证口径一致
+  const [includedLabels, setIncludedLabels] = useState<string[] | null>(null)
   
   // 计算结果
   const [results, setResults] = useState<Record<string, CoefficientResult> | null>(null)
@@ -64,6 +67,7 @@ export default function InterCoderReliability() {
     setDataSummary(summary)
     setLoadedFiles(files)
     setGoldStandardIndex(goldIndex)
+    setIncludedLabels(null) // 重置标签筛选为全部
     setResults(null) // 重置结果
   }, [])
   
@@ -125,6 +129,7 @@ export default function InterCoderReliability() {
                 validatedData={validatedData}
                 dataSummary={dataSummary}
                 goldStandardIndex={goldStandardIndex}
+                onIncludedLabelsChange={setIncludedLabels}
                 onCalculationComplete={handleCalculationComplete}
                 onError={handleError}
               />
@@ -152,7 +157,7 @@ export default function InterCoderReliability() {
                 </Typography>
               </AccordionSummary>
               <AccordionDetails sx={{ pt: 0 }}>
-                <KWICTable files={loadedFiles} dataSummary={dataSummary} />
+                <KWICTable files={loadedFiles} dataSummary={dataSummary} includedLabels={includedLabels} />
               </AccordionDetails>
             </Accordion>
           )}
