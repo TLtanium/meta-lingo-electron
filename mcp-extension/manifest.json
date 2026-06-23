@@ -254,6 +254,42 @@
     {
       "name": "biblio_wordcloud",
       "description": "Generate bibliography word cloud"
+    },
+    {
+      "name": "update_corpus_metadata",
+      "description": "Update metadata for an existing corpus"
+    },
+    {
+      "name": "update_text_metadata",
+      "description": "Update metadata for an individual text in a corpus"
+    },
+    {
+      "name": "dictionary_lookup",
+      "description": "Look up a word in Meta-Lingo's built-in dictionaries (Macmillan + Longman)"
+    },
+    {
+      "name": "dmip_analysis",
+      "description": "Prepare a full DMIP (Deliberate Metaphor Identification Procedure) analysis"
+    },
+    {
+      "name": "plan_analysis_task",
+      "description": "Create a structured analysis plan and start a multi-text task"
+    },
+    {
+      "name": "start_analysis_task",
+      "description": "Start a multi-text analysis task (simple, no plan structure)"
+    },
+    {
+      "name": "save_text_result",
+      "description": "Save one text's analysis result to temporary file storage"
+    },
+    {
+      "name": "read_task_results",
+      "description": "Read saved results from a multi-text task"
+    },
+    {
+      "name": "get_task_status",
+      "description": "Get the current progress of a multi-text analysis task"
     }
   ],
   "user_config": {

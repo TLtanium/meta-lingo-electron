@@ -4,7 +4,7 @@
 
 import os
 import sys
-from PyInstaller.utils.hooks import collect_all
+from PyInstaller.utils.hooks import collect_all, collect_submodules
 
 block_cipher = None
 
@@ -12,6 +12,12 @@ PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(SPEC)))
 BACKEND_PATH = os.path.join(PROJECT_ROOT, 'backend')
 
 hiddenimports = [
+    # Meta-Lingo MCP server + ALL tool modules (server.py imports the 12 tool modules
+    # statically, but list them explicitly so no tool is ever dropped from the bundle).
+    'mcp_server',
+    'mcp_server.server',
+    'mcp_server.api_client',
+
     # MCP SDK
     'mcp',
     'mcp.server',
@@ -67,6 +73,10 @@ hiddenimports = [
     'plotly.io',
     'kaleido',
 ]
+
+# Pull in every mcp_server.tools.* submodule (all 12 tool modules / 62 tools) explicitly,
+# so adding a tool never silently fails to package.
+hiddenimports += collect_submodules('mcp_server.tools')
 
 datas = []
 binaries = []

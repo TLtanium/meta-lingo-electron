@@ -1107,23 +1107,26 @@ export default function LibraryDetail({ library, onBack, onUpload }: LibraryDeta
               )}
             </TableBody>
           </Table>
-          
-          <TablePagination
-            component="div"
-            count={total}
-            page={page}
-            onPageChange={handlePageChange}
-            rowsPerPage={pageSize}
-            onRowsPerPageChange={handlePageSizeChange}
-            rowsPerPageOptions={[10, 25, 50, 100]}
-            sx={{
-              borderTop: '1px solid',
-              borderColor: 'divider'
-            }}
-          />
         </TableContainer>
       </Box>
-      
+
+      {/* Pagination pinned to the bottom (outside the scrolling content area) */}
+      <TablePagination
+        component="div"
+        count={total}
+        page={page}
+        onPageChange={handlePageChange}
+        rowsPerPage={pageSize}
+        onRowsPerPageChange={handlePageSizeChange}
+        rowsPerPageOptions={[10, 25, 50, 100]}
+        sx={{
+          flexShrink: 0,
+          borderTop: '1px solid',
+          borderColor: 'divider',
+          bgcolor: 'background.paper'
+        }}
+      />
+
       {/* Batch AI language choice */}
       <Dialog open={batchAiLanguageOpen} onClose={() => setBatchAiLanguageOpen(false)} maxWidth="xs" fullWidth>
         <DialogTitle>{t('biblio.generateLanguage')}</DialogTitle>
