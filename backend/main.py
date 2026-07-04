@@ -118,6 +118,15 @@ def _copy_built_in_models_to_user_dir():
     except Exception as e:
         pass
 
+    # Reconcile on-disk corpus/biblio directories against the DB: a force-quit or
+    # killed process mid-delete never runs the normal cleanup code, so a directory
+    # can survive with no DB row referencing it. Best-effort, never blocks startup.
+    try:
+        from services.startup_reconciliation import reconcile_orphaned_data
+        reconcile_orphaned_data()
+    except Exception as e:
+        pass
+
 
 @app.get("/")
 async def root():

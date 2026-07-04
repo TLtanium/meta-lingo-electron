@@ -260,7 +260,7 @@ export interface TimelineNode {
 }
 
 /** Metric used to rank/filter node labels in one label group */
-export type NodeLabelMetric = 'frequency' | 'degree' | 'centrality' | 'eigen' | 'sigma' | 'cluster' | 'burstness' | 'hide'
+export type NodeLabelMetric = 'citation' | 'frequency' | 'degree' | 'centrality' | 'eigen' | 'sigma' | 'cluster' | 'burstness' | 'hide'
 
 /** One of the two independent label groups (term layer = diamonds, reference layer = circles) */
 export interface NodeLabelGroup {

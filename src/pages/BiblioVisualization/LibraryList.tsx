@@ -33,6 +33,7 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  TablePagination,
   Paper
 } from '@mui/material'
 import DeleteIcon from '@mui/icons-material/Delete'
@@ -63,6 +64,8 @@ export default function LibraryList({ onSelectLibrary, onCreateNew }: LibraryLis
   const [error, setError] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [viewMode, setViewMode] = useState<'card' | 'list'>('card')
+  const [page, setPage] = useState(0)
+  const [rowsPerPage, setRowsPerPage] = useState(12)
   const [exportOpen, setExportOpen] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [libraryToDelete, setLibraryToDelete] = useState<BiblioLibrary | null>(null)
@@ -252,7 +255,9 @@ export default function LibraryList({ onSelectLibrary, onCreateNew }: LibraryLis
               </TableRow>
             </TableHead>
             <TableBody>
-              {filteredLibraries.map(lib => (
+              {filteredLibraries
+                .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+                .map(lib => (
                 <TableRow key={lib.id} hover sx={{ cursor: 'pointer' }} onClick={() => onSelectLibrary(lib)}>
                   <TableCell>
                     <Typography fontWeight={500}>{lib.name}</Typography>
@@ -277,7 +282,9 @@ export default function LibraryList({ onSelectLibrary, onCreateNew }: LibraryLis
         </TableContainer>
       ) : (
         <Grid container spacing={3}>
-          {filteredLibraries.map((library) => (
+          {filteredLibraries
+            .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+            .map((library) => (
             <Grid item xs={12} sm={6} md={4} key={library.id}>
               <Card 
                 sx={{ 
@@ -491,7 +498,25 @@ export default function LibraryList({ onSelectLibrary, onCreateNew }: LibraryLis
           ))}
         </Grid>
       )}
-      
+
+      {/* Hide the pagination bar entirely when everything fits on one
+          minimum-size page (matches corpus management's list/card thresholds) */}
+      {filteredLibraries.length > (viewMode === 'card' ? 6 : 5) && (
+        <TablePagination
+          component="div"
+          count={filteredLibraries.length}
+          page={page}
+          onPageChange={(_, newPage) => setPage(newPage)}
+          rowsPerPage={rowsPerPage}
+          onRowsPerPageChange={(e) => {
+            setRowsPerPage(parseInt(e.target.value, 10))
+            setPage(0)
+          }}
+          rowsPerPageOptions={viewMode === 'card' ? [6, 12, 24] : [5, 10, 25]}
+          sx={{ mt: 2 }}
+        />
+      )}
+
       {/* Delete confirmation dialog */}
       <Dialog open={deleteDialogOpen} onClose={handleDeleteCancel}>
         <DialogTitle>{t('biblio.deleteLibrary')}</DialogTitle>

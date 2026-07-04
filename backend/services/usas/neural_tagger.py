@@ -6,7 +6,7 @@ Neural network based tagging using PyMUSAS-Neural-Multilingual-Base-BEM model
 import sys
 import logging
 from pathlib import Path
-from typing import Dict, List, Any, Optional, Tuple
+from typing import Callable, Dict, List, Any, Optional, Tuple
 
 from model_paths import get_user_models_dir, resolve_model_path
 
@@ -200,15 +200,25 @@ class NeuralUSASTagger:
             logger.error(f"Neural tagging error: {e}")
             return [['Z99'] for _ in tokens]
     
-    def tag_text(self, text: str, language: str = 'english', top_n: int = 1) -> Dict[str, Any]:
+    def tag_text(
+        self,
+        text: str,
+        language: str = 'english',
+        top_n: int = 1,
+        should_stop: Optional[Callable[[], bool]] = None
+    ) -> Dict[str, Any]:
         """
         Tag text with USAS semantic domains using neural model.
         Processes text sentence by sentence to preserve context and handle long texts.
-        
+
         Args:
             text: Text to tag
             language: Language code (used for tokenization)
-            
+            should_stop: Optional zero-arg callable polled between sentences; a long
+                document can take far longer to tag than the single call this method
+                makes, so cooperative cancellation only works if something checks in
+                periodically *during* that call, not just before/after it.
+
         Returns:
             Dictionary containing:
             - tokens: List of token info with USAS tags
@@ -220,7 +230,7 @@ class NeuralUSASTagger:
             'tokens': [],
             'error': None
         }
-        
+
         if not self.load_model():
             result['error'] = 'Neural model not available'
             return result
@@ -252,6 +262,13 @@ class NeuralUSASTagger:
             # Process sentence by sentence for better context handling
             all_predictions = []
             for sent in doc.sents:
+                # Poll for cancellation between sentences — on a long document this
+                # loop can run for minutes; without this, a delete mid-document would
+                # only be noticed after the *entire* document finishes tagging.
+                if should_stop is not None and should_stop():
+                    result['error'] = 'cancelled'
+                    return result
+
                 sent_tokens = [token.text for token in sent]
                 if sent_tokens:
                     # Tag each sentence with full context

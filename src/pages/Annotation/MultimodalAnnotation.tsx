@@ -899,7 +899,8 @@ export default function MultimodalAnnotation() {
               handleMediaSelect(selectedMedia)
               setSaveMessage({ type: 'success', text: t('annotation.alignmentComplete', 'Alignment processing complete') })
               setTimeout(() => setSaveMessage(null), 3000)
-            } else if (statusResponse.data?.status === 'failed') {
+            } else if (statusResponse.data?.status === 'failed' || statusResponse.data?.status === 'cancelled') {
+              // 'cancelled' is a terminal status too (owning corpus/text deleted mid-annotation)
               clearInterval(pollInterval)
               setAlignmentProcessing(false)
               setSaveMessage({ type: 'error', text: statusResponse.data?.message || 'Alignment failed' })

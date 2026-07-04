@@ -242,7 +242,7 @@ export const useCorpusStore = create<CorpusStore>((set, get) => ({
   clearCompletedTasks: () => {
     const tasks = new Map(get().processingTasks)
     for (const [textId, task] of tasks) {
-      if (task.status === 'completed' || task.status === 'failed') {
+      if (task.status === 'completed' || task.status === 'failed' || task.status === 'cancelled') {
         tasks.delete(textId)
       }
     }

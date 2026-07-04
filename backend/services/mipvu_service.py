@@ -168,17 +168,20 @@ class MIPVUService:
         content: str,
         language: str,
         spacy_data: Dict[str, Any],
-        progress_callback: Optional[Callable[[int, str], None]] = None
+        progress_callback: Optional[Callable[[int, str], None]] = None,
+        should_stop: Optional[Callable[[], bool]] = None
     ) -> Dict[str, Any]:
         """
         Annotate text for metaphors using SpaCy data.
-        
+
         Args:
             content: Original text content (for reference)
             language: Language code
             spacy_data: SpaCy annotation data with 'tokens' and 'sentences'
             progress_callback: Optional callback(progress, message)
-            
+            should_stop: Optional zero-arg callable polled between sentences during
+                annotation (see MIPVUAnnotator.annotate_text)
+
         Returns:
             Dictionary containing:
                 - success: bool
@@ -236,7 +239,7 @@ class MIPVUService:
                     mapped_progress = 15 + int(progress * 0.80)
                     progress_callback(mapped_progress, message)
             
-            result = self._annotator.annotate_text(restructured_data, wrapped_callback)
+            result = self._annotator.annotate_text(restructured_data, wrapped_callback, should_stop=should_stop)
             
             if progress_callback:
                 progress_callback(100, "MIPVU annotation complete")

@@ -185,7 +185,8 @@ class MIPVUAnnotator:
     def annotate_text(
         self,
         spacy_data: Dict[str, Any],
-        progress_callback: Optional[Callable[[int, str], None]] = None
+        progress_callback: Optional[Callable[[int, str], None]] = None,
+        should_stop: Optional[Callable[[], bool]] = None
     ) -> Dict[str, Any]:
         """
         Annotate a full text using SpaCy annotation data.
@@ -193,6 +194,10 @@ class MIPVUAnnotator:
         Args:
             spacy_data: SpaCy annotation result containing 'sentences' list
             progress_callback: Optional callback(progress, message)
+            should_stop: Optional zero-arg callable polled between sentences — this
+                pipeline runs one or more transformer models per sentence, so a long
+                document can take minutes; without a mid-loop check, cancellation would
+                only be noticed once the entire document finishes annotating.
 
         Returns:
             Dictionary containing:
@@ -276,6 +281,14 @@ class MIPVUAnnotator:
 
         total_sentences = len(sentences)
         for sent_idx, sentence in enumerate(sentences):
+            if should_stop is not None and should_stop():
+                return {
+                    'success': False,
+                    'error': 'cancelled',
+                    'sentences': annotated_sentences,
+                    'statistics': {}
+                }
+
             tokens = sentence.get('tokens', [])
             if not tokens:
                 annotated_sentences.append({

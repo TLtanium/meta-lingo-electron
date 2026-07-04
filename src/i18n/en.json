@@ -1696,15 +1696,18 @@
       "rowCluster": "Cluster",
       "rowDisplay": "Display",
       "rowLayers": "Layers",
-      "termLayerMetric": "Term layer (diamond) metric",
-      "refLayerMetric": "Reference layer (circle) metric",
+      "termLayerMetric": "Keyword / Term / Overlay Labels",
+      "refLayerMetric": "Node Labels (Cited References)",
       "metric": {
         "degree": "By Degree",
-        "frequency": "By Freq / Citation",
+        "frequency": "By Freq",
         "centrality": "By Centrality",
         "eigen": "By Eigen. Centrality",
         "sigma": "By Sigma (Σ)",
-        "hide": "Hide Labels"
+        "hide": "Hide Labels",
+        "cluster": "By Cluster",
+        "citation": "By Citation",
+        "burstness": "By Burstness"
       },
       "burstGamma": "Burst rate γ",
       "burstMinFreq": "Min frequency",

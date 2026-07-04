@@ -19,6 +19,9 @@ import { Box, Typography, CircularProgress, useTheme } from '@mui/material'
 import { useTranslation } from 'react-i18next'
 import type { TimelineVisualizationData, TimelineNode } from '../../../../types/biblio'
 import { addTagBackgrounds } from './shared/labelTags'
+import {
+  metricValue, clusterRepresentatives, isReferenceNode, type LabelMetric,
+} from './shared/labelMetrics'
 
 /* ---------- color palettes for year-based shading ---------- */
 
@@ -114,33 +117,14 @@ interface TimelineViewProps {
   /** Circle (reference-layer) node radius multiplier — independent of diamonds. */
   citationNodeScale?: number
   /** Ranking metric for the TERM (diamond) label layer. 'hide' disables the layer's labels. */
-  termLabelMetric?: 'degree' | 'frequency' | 'centrality' | 'eigen' | 'sigma' | 'hide'
+  termLabelMetric?: LabelMetric
   /** Ranking metric for the REFERENCE (circle) label layer. */
-  refLabelMetric?: 'degree' | 'frequency' | 'centrality' | 'eigen' | 'sigma' | 'hide'
+  refLabelMetric?: LabelMetric
 }
 
 /** Rotated-square path for term-layer (diamond) nodes. */
 function diamondPath(r: number): string {
   return `M0,${-r} L${r},0 L0,${r} L${-r},0 Z`
-}
-
-type LabelMetricName = 'degree' | 'frequency' | 'centrality' | 'eigen' | 'sigma' | 'hide'
-
-function metricOf(n: TimelineNode, metric: LabelMetricName, freqFallback: number): number {
-  switch (metric) {
-    case 'degree': return n.degree ?? freqFallback
-    case 'centrality': return n.centrality ?? 0
-    case 'eigen': return n.eigen_centrality ?? 0
-    case 'sigma': return n.sigma ?? 0
-    case 'hide': return -Infinity
-    default: return freqFallback
-  }
-}
-
-/** reference-layer nodes render as circles; every other node type as diamonds */
-function isReferenceNode(n: TimelineNode): boolean {
-  const t = (n.term_type || '').toLowerCase()
-  return t === 'reference' || t === 'co-citation'
 }
 
 export default function TimelineView({
@@ -164,7 +148,7 @@ export default function TimelineView({
   showFrequency = false,
   citationNodeScale = 1,
   termLabelMetric = 'degree',
-  refLabelMetric = 'frequency',
+  refLabelMetric = 'citation',
 }: TimelineViewProps) {
   const { t } = useTranslation()
   const theme = useTheme()
@@ -219,6 +203,12 @@ export default function TimelineView({
       ? data.nodes.filter(n => !hiddenNodeIds.has(n.id))
       : data.nodes
     const vizNodeIds = new Set(vizNodes.map(n => n.id))
+
+    // Per-node label ranking (shared CiteSpace metrics). "By Cluster" needs the
+    // representative-per-cluster set; timeline nodes carry their own degree value.
+    const clusterReps = clusterRepresentatives(vizNodes)
+    const metricOf = (n: TimelineNode, metric: LabelMetric, freqFallback: number): number =>
+      metricValue(n, metric, freqFallback, { clusterReps })
 
     const { width: containerW } = dimensions
     const margin = { top: 30, right: 180, bottom: 45, left: 180 }

@@ -211,6 +211,46 @@ async def get_services_status():
         raise
 
 
+@router.get("/debug/thread-dump")
+async def debug_thread_dump():
+    """
+    Diagnostic-only: dump the current call stack of every live thread.
+
+    Purpose: cooperative cancellation (task_cancellation.py) can only unstick a
+    background annotation task if it's actively looping and checking should_abort/
+    should_stop. If a single model call genuinely hangs (never returns), no amount
+    of checkpointing helps, and the thread sits forever holding a slot in the shared
+    background-task thread pool — new uploads then queue behind it indefinitely
+    ("endless polling" with no Progress/cancelled log lines ever appearing).
+
+    Hitting this endpoint BEFORE restarting the backend captures exactly which
+    function each thread is stuck in, rather than losing that evidence to a restart.
+    No auth/rate-limiting: this app runs locally for a single user, not exposed
+    to the network.
+    """
+    import sys
+    import traceback
+
+    frames = sys._current_frames()
+    thread_names = {t.ident: t.name for t in threading.enumerate()}
+
+    threads = []
+    for thread_id, frame in frames.items():
+        threads.append({
+            "thread_id": thread_id,
+            "thread_name": thread_names.get(thread_id, f"unknown-{thread_id}"),
+            "stack": traceback.format_stack(frame)
+        })
+
+    return {
+        "success": True,
+        "data": {
+            "thread_count": len(threads),
+            "threads": threads
+        }
+    }
+
+
 @router.get("/tags/all")
 async def get_all_tags():
     """Get all tags across all corpora"""
@@ -394,41 +434,59 @@ async def batch_spacy_annotate(corpus_id: str, data: dict = None, background_tas
     
     # Run batch annotation in background
     def run_batch_annotation():
+        from services.task_cancellation import should_abort as _batch_should_abort, clear as _batch_clear_cancel
+
+        def _batch_aborted() -> bool:
+            if _batch_should_abort(task_id, None, corpus_id):
+                logger.info(f"Batch annotation task {task_id} aborted (corpus deleted/cancelled)")
+                send_progress_sync(task_id, "cancelled", 0,
+                                   "Batch annotation cancelled (corpus deleted)",
+                                   status="cancelled")
+                _batch_clear_cancel(task_id)
+                return True
+            return False
+
         try:
+            if _batch_aborted():
+                return
+
             send_progress_sync(task_id, "initializing", 5, "Loading SpaCy model...")
-            
+
             service = get_corpus_service()
             texts = TextDB.list_by_corpus(corpus_id)
-            
+
             if not texts:
-                send_progress_sync(task_id, "completed", 100, "No texts to annotate", 
+                send_progress_sync(task_id, "completed", 100, "No texts to annotate",
                                   status="completed", result={"annotated": 0, "total": 0})
                 return
-            
+
             # Filter to text-type entries only
             text_entries = [t for t in texts if t.get('media_type') == 'text']
             total = len(text_entries)
-            
+
             if total == 0:
-                send_progress_sync(task_id, "completed", 100, "No text files to annotate", 
+                send_progress_sync(task_id, "completed", 100, "No text files to annotate",
                                   status="completed", result={"annotated": 0, "total": 0})
                 return
-            
+
             send_progress_sync(task_id, "spacy", 10, f"Processing {total} texts...")
-            
+
             annotated = 0
             skipped = 0
             failed = 0
-            
+
             for i, text in enumerate(text_entries):
+                if _batch_aborted():
+                    return
+
                 text_id = text.get('id')
                 filename = text.get('filename', 'unknown')
-                
+
                 progress = 10 + int((i / total) * 85)
                 send_progress_sync(task_id, "spacy", progress, f"Annotating {filename} ({i+1}/{total})...")
-                
+
                 result = service.annotate_single_text(corpus_id, text_id, force=force)
-                
+
                 if result.get("success"):
                     if result.get("data", {}).get("status") == "skipped":
                         skipped += 1
@@ -437,12 +495,12 @@ async def batch_spacy_annotate(corpus_id: str, data: dict = None, background_tas
                 else:
                     failed += 1
                     logger.warning(f"Failed to annotate {filename}: {result.get('error')}")
-            
-            send_progress_sync(task_id, "completed", 100, 
+
+            send_progress_sync(task_id, "completed", 100,
                               f"Batch annotation completed: {annotated} annotated, {skipped} skipped, {failed} failed",
                               status="completed",
                               result={"annotated": annotated, "skipped": skipped, "failed": failed, "total": total})
-            
+
         except Exception as e:
             logger.error(f"SpaCy batch annotation error: {e}")
             import traceback
@@ -533,18 +591,45 @@ async def reannotate_spacy(
     
     # Run SpaCy annotation in background
     def run_spacy_annotation():
+        from services.task_cancellation import should_abort as _reann_should_abort, clear as _reann_clear_cancel
+
+        def _cleanup_reann_paths(*paths: Optional[str]) -> None:
+            for p in paths:
+                if not p:
+                    continue
+                try:
+                    pp = Path(p)
+                    if pp.exists():
+                        pp.unlink()
+                except Exception:
+                    pass
+
+        def _reann_aborted(stage: str, *cleanup_paths: Optional[str]) -> bool:
+            if _reann_should_abort(task_id, text_id, corpus_id):
+                logger.info(f"SpaCy re-annotation task {task_id} aborted before '{stage}' (deleted/cancelled)")
+                _cleanup_reann_paths(*cleanup_paths)
+                send_progress_sync(task_id, "cancelled", 0,
+                                   "Annotation cancelled (corpus/text deleted)",
+                                   status="cancelled")
+                _reann_clear_cancel(task_id)
+                return True
+            return False
+
         try:
+            if _reann_aborted("start"):
+                return
+
             send_progress_sync(task_id, "spacy", 10, "Loading SpaCy service...")
-            
+
             from services.spacy_service import get_spacy_service
             from services.usas_service import get_usas_service
-            
+
             spacy_svc = get_spacy_service()
-            
+
             if not spacy_svc.is_available(language):
                 send_progress_sync(task_id, "error", 0, f"SpaCy model not available for {language}", status="failed")
                 return
-            
+
             if media_type == 'text':
                 # Text file - re-annotate the content (resolve like semantic analysis / packaged cwd)
                 raw_cp = text.get('content_path')
@@ -564,34 +649,46 @@ async def reannotate_spacy(
                 # Process entire document (chunking disabled to avoid hanging issues)
                 send_progress_sync(task_id, "spacy", 30, f"Running SpaCy annotation ({total_chars:,} chars)...")
                 result = spacy_svc.annotate_text(content, language)
-                
+
+                if _reann_aborted("save_spacy"):
+                    return
+
                 if result.get("success"):
                     send_progress_sync(task_id, "spacy", 45, "Saving SpaCy annotation...")
-                    
+
                     # Save SpaCy annotation
                     base_name = Path(content_path).stem
                     output_dir = Path(content_path).parent
                     spacy_path = output_dir / f"{base_name}.spacy.json"
-                    
+
                     with open(spacy_path, 'w', encoding='utf-8') as f:
                         json.dump(result, f, ensure_ascii=False, indent=2)
-                    
+
+                    if _reann_aborted("usas", spacy_path):
+                        return
+
                     # Also run USAS annotation (50-80%)
                     send_progress_sync(task_id, "usas", 50, "Starting USAS annotation...")
-                    
+
+                    usas_path = output_dir / f"{base_name}.usas.json"
                     usas_svc = get_usas_service()
                     if usas_svc.is_available(language):
                         text_type = corpus.get('text_type')
-                        
+
                         # Progress callback for USAS (50-80%)
                         def usas_progress_callback(progress, message):
                             overall_progress = 50 + int(progress * 0.30)
                             send_progress_sync(task_id, "usas", overall_progress, message)
-                        
-                        usas_result = usas_svc.annotate_text(content, language, text_type, usas_progress_callback)
+
+                        usas_result = usas_svc.annotate_text(
+                            content, language, text_type, usas_progress_callback,
+                            should_stop=lambda: _reann_should_abort(task_id, text_id, corpus_id)
+                        )
+
+                        if _reann_aborted("save_usas", spacy_path):
+                            return
 
                         if usas_result.get("success"):
-                            usas_path = output_dir / f"{base_name}.usas.json"
                             with open(usas_path, 'w', encoding='utf-8') as f:
                                 json.dump(usas_result, f, ensure_ascii=False, indent=2)
                             send_progress_sync(task_id, "usas", 80, "USAS annotation completed")
@@ -601,20 +698,29 @@ async def reannotate_spacy(
                             send_progress_sync(task_id, "usas", 80, f"USAS annotation failed: {usas_err}")
                     else:
                         send_progress_sync(task_id, "usas", 80, "USAS not available for this language, skipping...")
-                    
+
+                    if _reann_aborted("mipvu", spacy_path, usas_path):
+                        return
+
                     # Also run MIPVU annotation (80-100%, only for English)
                     send_progress_sync(task_id, "mipvu", 85, "Starting MIPVU annotation...")
-                    
+
                     from services.mipvu_service import get_mipvu_service
                     from model_paths import resolve_model_path
                     mipvu_svc = get_mipvu_service()
                     mipvu_model_ready = bool(resolve_model_path("metaphor_identification/metalingo-indirect-metaphor"))
-                    
+                    mipvu_path = output_dir / f"{base_name}.mipvu.json"
+
                     if mipvu_svc.is_available(language) and mipvu_model_ready:
-                        mipvu_result = mipvu_svc.annotate_text(content, language, result)
-                        
+                        mipvu_result = mipvu_svc.annotate_text(
+                            content, language, result,
+                            should_stop=lambda: _reann_should_abort(task_id, text_id, corpus_id)
+                        )
+
+                        if _reann_aborted("save_mipvu", spacy_path, usas_path):
+                            return
+
                         if mipvu_result.get("success"):
-                            mipvu_path = output_dir / f"{base_name}.mipvu.json"
                             with open(mipvu_path, 'w', encoding='utf-8') as f:
                                 json.dump(mipvu_result, f, ensure_ascii=False, indent=2)
                             send_progress_sync(task_id, "mipvu", 95, "MIPVU annotation completed")
@@ -625,7 +731,10 @@ async def reannotate_spacy(
                             send_progress_sync(task_id, "mipvu", 95, f"MIPVU failed: {mipvu_error}")
                     else:
                         send_progress_sync(task_id, "mipvu", 95, "MIPVU not available for this language, skipping...")
-                    
+
+                    if _reann_aborted("nrc", spacy_path, usas_path, mipvu_path):
+                        return
+
                     # NRC emotion annotation after MIPVU (text file)
                     try:
                         corpus_svc = get_corpus_service()
@@ -677,10 +786,13 @@ async def reannotate_spacy(
                     
                     # Update transcript with SpaCy annotations
                     transcript_data['spacy_annotations'] = spacy_result
-                    
+
+                    if _reann_aborted("usas"):
+                        return
+
                     # USAS annotation (45-70%, only for Chinese and English)
                     send_progress_sync(task_id, "usas", 45, "Starting USAS annotation...")
-                    
+
                     usas_svc = get_usas_service()
                     if usas_svc.is_available(language):
                         text_type = corpus.get('text_type') if corpus else None
@@ -691,15 +803,18 @@ async def reannotate_spacy(
                             send_progress_sync(task_id, "usas", 70, "USAS annotation completed")
                     else:
                         send_progress_sync(task_id, "usas", 70, "USAS not available for this language, skipping...")
-                    
+
+                    if _reann_aborted("mipvu"):
+                        return
+
                     # MIPVU annotation (70-95%, only for English)
                     send_progress_sync(task_id, "mipvu", 70, "Starting MIPVU annotation...")
-                    
+
                     from services.mipvu_service import get_mipvu_service
                     from model_paths import resolve_model_path
                     mipvu_svc = get_mipvu_service()
                     mipvu_model_ready = bool(resolve_model_path("metaphor_identification/metalingo-indirect-metaphor"))
-                    
+
                     if mipvu_svc.is_available(language) and mipvu_model_ready:
                         def media_mipvu_progress_callback(progress, message):
                             overall_progress = 70 + int(progress * 0.25)
@@ -741,6 +856,9 @@ async def reannotate_spacy(
                     else:
                         send_progress_sync(task_id, "mipvu", 95, "MIPVU not available for this language, skipping...")
                     
+                    if _reann_aborted("nrc"):
+                        return
+
                     # NRC emotion annotation after MIPVU (media: build segments with spacy_data from spacy_result)
                     try:
                         corpus_svc = get_corpus_service()
@@ -756,11 +874,14 @@ async def reannotate_spacy(
                             transcript_data["nrc_annotations"] = {"success": True, "segments": nrc_result}
                     except Exception as nrc_err:
                         logger.warning(f"NRC annotation failed: {nrc_err}")
-                    
+
+                    if _reann_aborted("save"):
+                        return
+
                     # Save all annotations to transcript JSON
                     with open(transcript_path, 'w', encoding='utf-8') as f:
                         json.dump(transcript_data, f, ensure_ascii=False, indent=2)
-                    
+
                     token_count = spacy_result.get("total_tokens", 0)
                     send_progress_sync(task_id, "completed", 100, 
                                       f"Full annotation completed: {token_count} tokens",
@@ -841,9 +962,24 @@ async def reannotate_alignment(
     create_progress_queue(task_id)
     
     def run_alignment():
+        from services.task_cancellation import should_abort as _align_should_abort, clear as _align_clear_cancel
+
+        def _align_aborted(stage: str) -> bool:
+            if _align_should_abort(task_id, text_id, corpus_id):
+                logger.info(f"Alignment re-annotation task {task_id} aborted before '{stage}' (deleted/cancelled)")
+                send_progress_sync(task_id, "cancelled", 0,
+                                   "Alignment cancelled (corpus/text deleted)",
+                                   status="cancelled")
+                _align_clear_cancel(task_id)
+                return True
+            return False
+
         try:
+            if _align_aborted("start"):
+                return
+
             send_progress_sync(task_id, "alignment", 5, "Loading transcript...")
-            
+
             # Load transcript
             with open(transcript_json_path, 'r', encoding='utf-8') as f:
                 transcript_data = json.load(f)
@@ -888,6 +1024,9 @@ async def reannotate_alignment(
                 logger.warning(f"Alignment failed: {alignment_result.get('error')}")
                 send_progress_sync(task_id, "alignment", 50, f"Alignment failed: {alignment_result.get('error')}")
             
+            if _align_aborted("pitch"):
+                return
+
             # Run TorchCrepe pitch extraction
             send_progress_sync(task_id, "pitch", 55, "Loading TorchCrepe model...")
             
@@ -920,10 +1059,13 @@ async def reannotate_alignment(
                 logger.warning(f"Pitch extraction failed: {pitch_result.get('error')}")
                 send_progress_sync(task_id, "pitch", 95, f"Pitch extraction failed: {pitch_result.get('error')}")
             
+            if _align_aborted("save"):
+                return
+
             # Save updated transcript
             with open(transcript_json_path, 'w', encoding='utf-8') as f:
                 json.dump(transcript_data, f, ensure_ascii=False, indent=2)
-            
+
             # Only mark as completed if alignment succeeded
             if alignment_success:
                 send_progress_sync(task_id, "completed", 100, "Alignment and pitch extraction completed", status="completed")
@@ -2175,28 +2317,55 @@ async def reannotate_clip(
     
     # Run CLIP annotation in background
     def run_clip_annotation():
+        from services.task_cancellation import should_abort as _clip_should_abort, clear as _clip_clear_cancel
+
+        def _clip_aborted(stage: str, *cleanup_paths: Optional[str]) -> bool:
+            if _clip_should_abort(task_id, text_id, corpus_id):
+                logger.info(f"CLIP re-annotation task {task_id} aborted before '{stage}' (deleted/cancelled)")
+                for p in cleanup_paths:
+                    if not p:
+                        continue
+                    try:
+                        pp = Path(p)
+                        if pp.exists():
+                            pp.unlink()
+                    except Exception:
+                        pass
+                send_progress_sync(task_id, "cancelled", 0,
+                                   "CLIP annotation cancelled (corpus/text deleted)",
+                                   status="cancelled")
+                _clip_clear_cancel(task_id)
+                return True
+            return False
+
         try:
+            if _clip_aborted("start"):
+                return
+
             from services.clip_service import get_clip_service
-            
+
             send_progress_sync(task_id, "clip", 5, "Loading CLIP model...")
-            
+
             clip = get_clip_service()
             if not clip.is_available():
                 send_progress_sync(task_id, "error", 0, "CLIP model not available", status="failed")
                 return
-            
+
             send_progress_sync(task_id, "clip", 10, "Initializing CLIP model...")
-            
+
             if not clip.initialize():
                 send_progress_sync(task_id, "error", 0, "CLIP model initialization failed", status="failed")
                 return
-            
+
+            if _clip_aborted("process_video"):
+                return
+
             video_dir = Path(video_path).parent
-            
+
             def clip_progress(current, total, msg):
                 pct = 15 + int((current / max(total, 1)) * 80)
                 send_progress_sync(task_id, "clip", pct, msg)
-            
+
             result = clip.process_video(
                 video_path,
                 output_dir=str(video_dir),
@@ -2204,19 +2373,22 @@ async def reannotate_clip(
                 frame_interval=request.frame_interval,
                 progress_callback=clip_progress
             )
-            
+
+            if _clip_aborted("database", result.get('json_path')):
+                return
+
             if result.get("success"):
                 TextDB.update(text_id, {
                     'clip_annotation_path': result.get('json_path')
                 })
                 frame_count = len(result.get('data', {}).get('frame_results', []))
-                send_progress_sync(task_id, "completed", 100, 
+                send_progress_sync(task_id, "completed", 100,
                                   f"CLIP annotation completed: {frame_count} frames",
                                   status="completed",
                                   result={"clip_frames": frame_count})
             else:
-                send_progress_sync(task_id, "error", 0, 
-                                  f"CLIP annotation failed: {result.get('error')}", 
+                send_progress_sync(task_id, "error", 0,
+                                  f"CLIP annotation failed: {result.get('error')}",
                                   status="failed")
         except Exception as e:
             logger.error(f"CLIP re-annotation error: {e}")
@@ -2293,47 +2465,77 @@ async def reannotate_yolo(
     
     # Run YOLO annotation in background
     def run_yolo_annotation():
+        from services.task_cancellation import should_abort as _yolo_should_abort, clear as _yolo_clear_cancel
+
+        def _yolo_aborted(stage: str, *cleanup_paths: Optional[str]) -> bool:
+            if _yolo_should_abort(task_id, text_id, corpus_id):
+                logger.info(f"YOLO re-annotation task {task_id} aborted before '{stage}' (deleted/cancelled)")
+                for p in cleanup_paths:
+                    if not p:
+                        continue
+                    try:
+                        pp = Path(p)
+                        if pp.exists():
+                            pp.unlink()
+                    except Exception:
+                        pass
+                send_progress_sync(task_id, "cancelled", 0,
+                                   "YOLO annotation cancelled (corpus/text deleted)",
+                                   status="cancelled")
+                _yolo_clear_cancel(task_id)
+                return True
+            return False
+
         try:
+            if _yolo_aborted("start"):
+                return
+
             from services.yolo_service import get_yolo_service
-            
+
             send_progress_sync(task_id, "yolo", 5, "Loading YOLO model...")
-            
+
             yolo = get_yolo_service()
             if not yolo.is_available():
                 send_progress_sync(task_id, "error", 0, "YOLO model not available", status="failed")
                 return
-            
+
             send_progress_sync(task_id, "yolo", 10, "Initializing YOLO model...")
-            
+
             if not yolo.initialize():
                 send_progress_sync(task_id, "error", 0, "YOLO model initialization failed", status="failed")
                 return
-            
+
+            if _yolo_aborted("process_video"):
+                return
+
             video_dir = Path(video_path).parent
-            
+
             def yolo_progress(current, total, msg):
                 pct = 15 + int((current / max(total, 1)) * 80)
                 send_progress_sync(task_id, "yolo", pct, msg)
-            
+
             result = yolo.process_video(
                 video_path,
                 output_dir=str(video_dir),
                 extract_frames=True,
                 progress_callback=yolo_progress
             )
-            
+
+            if _yolo_aborted("database", result.get('json_path')):
+                return
+
             if result.get("success"):
                 TextDB.update(text_id, {
                     'yolo_annotation_path': result.get('json_path')
                 })
                 track_count = result.get('data', {}).get('total_tracks', 0)
-                send_progress_sync(task_id, "completed", 100, 
+                send_progress_sync(task_id, "completed", 100,
                                   f"YOLO annotation completed: {track_count} tracks",
                                   status="completed",
                                   result={"yolo_tracks": track_count})
             else:
-                send_progress_sync(task_id, "error", 0, 
-                                  f"YOLO annotation failed: {result.get('error')}", 
+                send_progress_sync(task_id, "error", 0,
+                                  f"YOLO annotation failed: {result.get('error')}",
                                   status="failed")
         except Exception as e:
             logger.error(f"YOLO re-annotation error: {e}")
@@ -2390,9 +2592,24 @@ async def reannotate_usas(
     
     # Run USAS annotation in background
     def run_usas_annotation():
+        from services.task_cancellation import should_abort as _usas_should_abort, clear as _usas_clear_cancel
+
+        def _usas_aborted(stage: str) -> bool:
+            if _usas_should_abort(task_id, text_id, corpus_id):
+                logger.info(f"USAS re-annotation task {task_id} aborted before '{stage}' (deleted/cancelled)")
+                send_progress_sync(task_id, "cancelled", 0,
+                                   "USAS annotation cancelled (corpus/text deleted)",
+                                   status="cancelled")
+                _usas_clear_cancel(task_id)
+                return True
+            return False
+
         try:
+            if _usas_aborted("start"):
+                return
+
             send_progress_sync(task_id, "usas", 10, "Loading USAS service...")
-            
+
             if media_type == 'text':
                 # Text file - re-annotate the content (resolve like semantic analysis)
                 raw_cp = text.get('content_path')
@@ -2412,11 +2629,17 @@ async def reannotate_usas(
                 
                 send_progress_sync(task_id, "usas", 30, f"Running USAS annotation ({len(content)} chars)...")
                 
-                result = usas_svc.annotate_text(content, language, text_type)
-                
+                result = usas_svc.annotate_text(
+                    content, language, text_type,
+                    should_stop=lambda: _usas_should_abort(task_id, text_id, corpus_id)
+                )
+
+                if _usas_aborted("save"):
+                    return
+
                 if result.get("success"):
                     send_progress_sync(task_id, "usas", 80, "Saving annotation...")
-                    
+
                     # Save USAS annotation
                     base_name = Path(content_path).stem
                     output_dir = Path(content_path).parent
@@ -2455,10 +2678,13 @@ async def reannotate_usas(
                 send_progress_sync(task_id, "usas", 30, f"Running USAS annotation ({len(segments)} segments)...")
                 
                 result = usas_svc.annotate_segments(segments, language)
-                
+
+                if _usas_aborted("save"):
+                    return
+
                 if result.get("success"):
                     send_progress_sync(task_id, "usas", 80, "Saving annotation...")
-                    
+
                     # Update transcript with USAS annotations
                     transcript_data['usas_annotations'] = result
                     
@@ -2644,9 +2870,33 @@ async def reannotate_mipvu(
     
     # Run MIPVU annotation in background
     def run_mipvu_annotation():
+        from services.task_cancellation import should_abort as _mipvu_should_abort, clear as _mipvu_clear_cancel
+
+        def _mipvu_aborted(stage: str, *cleanup_paths: Optional[str]) -> bool:
+            if _mipvu_should_abort(task_id, text_id, corpus_id):
+                logger.info(f"MIPVU re-annotation task {task_id} aborted before '{stage}' (deleted/cancelled)")
+                for p in cleanup_paths:
+                    if not p:
+                        continue
+                    try:
+                        pp = Path(p)
+                        if pp.exists():
+                            pp.unlink()
+                    except Exception:
+                        pass
+                send_progress_sync(task_id, "cancelled", 0,
+                                   "MIPVU annotation cancelled (corpus/text deleted)",
+                                   status="cancelled")
+                _mipvu_clear_cancel(task_id)
+                return True
+            return False
+
         try:
+            if _mipvu_aborted("start"):
+                return
+
             send_progress_sync(task_id, "mipvu", 5, "Loading MIPVU service...")
-            
+
             if media_type == 'text':
                 # Text file - need SpaCy data first
                 content_path = text.get('content_path')
@@ -2675,19 +2925,28 @@ async def reannotate_mipvu(
                     overall_progress = 15 + int(progress * 0.75)
                     send_progress_sync(task_id, "mipvu", overall_progress, message)
                 
-                result = mipvu_svc.annotate_text(content, language, spacy_data, mipvu_progress_callback)
-                
+                result = mipvu_svc.annotate_text(
+                    content, language, spacy_data, mipvu_progress_callback,
+                    should_stop=lambda: _mipvu_should_abort(task_id, text_id, corpus_id)
+                )
+
+                if _mipvu_aborted("save"):
+                    return
+
                 if result.get("success"):
                     send_progress_sync(task_id, "mipvu", 92, "Saving annotation...")
-                    
+
                     # Save MIPVU annotation
                     base_name = Path(content_path).stem
                     output_dir = Path(content_path).parent
                     mipvu_path = output_dir / f"{base_name}.mipvu.json"
-                    
+
                     with open(mipvu_path, 'w', encoding='utf-8') as f:
                         json.dump(result, f, ensure_ascii=False, indent=2)
-                    
+
+                    if _mipvu_aborted("nrc", mipvu_path):
+                        return
+
                     # NRC emotion annotation after MIPVU (text file)
                     try:
                         corpus_svc = get_corpus_service()
@@ -2766,16 +3025,19 @@ async def reannotate_mipvu(
                     segments_with_spacy.append({**seg, 'spacy_data': spacy_data})
 
                 result = mipvu_svc.annotate_segments(segments_with_spacy, language, mipvu_progress_callback)
-                
+
+                if _mipvu_aborted("save"):
+                    return
+
                 if result:
                     send_progress_sync(task_id, "mipvu", 92, "Saving annotation...")
-                    
+
                     # Update transcript with MIPVU annotations
                     transcript_data['mipvu_annotations'] = {
                         "success": True,
                         "segments": result
                     }
-                    
+
                     # NRC emotion annotation after MIPVU (media)
                     try:
                         corpus_svc = get_corpus_service()
@@ -2790,10 +3052,13 @@ async def reannotate_mipvu(
                             transcript_data["nrc_annotations"] = {"success": True, "segments": nrc_result}
                     except Exception as nrc_err:
                         logger.warning(f"NRC annotation failed: {nrc_err}")
-                    
+
+                    if _mipvu_aborted("write_transcript"):
+                        return
+
                     with open(transcript_path, 'w', encoding='utf-8') as f:
                         json.dump(transcript_data, f, ensure_ascii=False, indent=2)
-                    
+
                     send_progress_sync(task_id, "completed", 100,
                                       f"MIPVU annotation completed: {len(result)} segments",
                                       status="completed",
@@ -3146,14 +3411,19 @@ def process_text_spacy_sync(
             progress_thread.join(timeout=1)
         
         if result.get("success"):
+            # Re-check right after the (potentially long) SpaCy call returns, not just
+            # before it started — a delete can land anywhere during the compute window.
+            if _aborted("save_spacy"):
+                return
+
             chunk_info = result.get("chunk_info", {})
             if chunk_info:
                 chunk_msg = f" ({chunk_info.get('successful_chunks', 0)}/{chunk_info.get('total_chunks', 0)} chunks)"
             else:
                 chunk_msg = ""
-            
+
             send_progress_sync(task_id, "spacy", 70, f"Saving SpaCy annotation{chunk_msg}...")
-            
+
             # Save annotation to JSON file
             spacy_path = output_dir / f"{base_name}.spacy.json"
             with open(spacy_path, 'w', encoding='utf-8') as f:
@@ -3184,8 +3454,16 @@ def process_text_spacy_sync(
                     overall_progress = 80 + int(progress * 0.15)
                     send_progress_sync(task_id, "usas", overall_progress, message)
                 
-                usas_result = usas_svc.annotate_text(content, language, text_type, usas_progress_callback)
-                
+                usas_result = usas_svc.annotate_text(
+                    content, language, text_type, usas_progress_callback,
+                    should_stop=lambda: should_abort(task_id, text_id)
+                )
+
+                # USAS (neural tagging) can run for many seconds — re-check right after
+                # it returns, before writing, instead of only before it started.
+                if _aborted("save_usas"):
+                    return
+
                 if usas_result.get("success"):
                     usas_path = output_dir / f"{base_name}.usas.json"
                     with open(usas_path, 'w', encoding='utf-8') as f:
@@ -3220,13 +3498,19 @@ def process_text_spacy_sync(
                     overall_progress = 95 + int(progress * 0.04)
                     send_progress_sync(task_id, "mipvu", overall_progress, message)
                 
-                mipvu_result = mipvu_svc.annotate_text(content, language, result, mipvu_progress_callback)
-                
+                mipvu_result = mipvu_svc.annotate_text(
+                    content, language, result, mipvu_progress_callback,
+                    should_stop=lambda: should_abort(task_id, text_id)
+                )
+
+                if _aborted("save_mipvu"):
+                    return
+
                 if mipvu_result.get("success"):
                     mipvu_path = output_dir / f"{base_name}.mipvu.json"
                     with open(mipvu_path, 'w', encoding='utf-8') as f:
                         json.dump(mipvu_result, f, ensure_ascii=False, indent=2)
-                    
+
                     logger.info(f"Saved MIPVU annotation: {mipvu_path}")
                     stats = mipvu_result.get("statistics", {})
                     mipvu_info = {
@@ -3240,7 +3524,7 @@ def process_text_spacy_sync(
                     mipvu_error = mipvu_result.get("error", "Unknown error")
                     logger.warning(f"MIPVU annotation failed: {mipvu_error}")
                     logger.warning(f"MIPVU result: {mipvu_result}")
-            
+
             # NRC emotion annotation after MIPVU (uses SpaCy result)
             if _aborted("nrc"):
                 return
@@ -3306,7 +3590,35 @@ def process_media_file_sync(
     """
     logger.info(f"=== Starting background processing for task {task_id} ===")
     service = get_corpus_service()
-    
+
+    # Cooperative cancellation: mirrors process_text_spacy_sync. Audio/video pipelines
+    # can run for minutes (Whisper/YOLO/CLIP); if the owning corpus/text is deleted
+    # mid-run, bail out at the next checkpoint instead of writing into a directory
+    # that delete_corpus/delete_text already removed.
+    from services.task_cancellation import should_abort as _media_should_abort, clear as _media_clear_cancel
+
+    def _cleanup_media_paths(*paths: Optional[str]) -> None:
+        for p in paths:
+            if not p:
+                continue
+            try:
+                pp = Path(p)
+                if pp.exists():
+                    pp.unlink()
+            except Exception:
+                pass
+
+    def _media_aborted(stage: str, *cleanup_paths: Optional[str]) -> bool:
+        if _media_should_abort(task_id, text_id):
+            logger.info(f"Media processing task {task_id} aborted before '{stage}' (deleted/cancelled)")
+            _cleanup_media_paths(*cleanup_paths)
+            send_progress_sync(task_id, "cancelled", 0,
+                               "Processing cancelled (corpus/text deleted)",
+                               status="cancelled")
+            _media_clear_cancel(task_id)
+            return True
+        return False
+
     # Get corpus info for text_type (used by USAS)
     from models.database import TextDB, CorpusDB
     text = TextDB.get_by_id(text_id)
@@ -3315,8 +3627,11 @@ def process_media_file_sync(
         corpus_id = text.get('corpus_id')
         if corpus_id:
             corpus = CorpusDB.get_by_id(corpus_id)
-    
+
     try:
+        if _media_aborted("start"):
+            return
+
         if media_type == MediaType.AUDIO:
             # Process audio with progress
             send_progress_sync(task_id, "initializing", 5, "Loading Whisper model...")
@@ -3345,11 +3660,14 @@ def process_media_file_sync(
             )
             
             if not result.get("success"):
-                send_progress_sync(task_id, "error", 0, 
-                                  f"Transcription failed: {result.get('error')}", 
+                send_progress_sync(task_id, "error", 0,
+                                  f"Transcription failed: {result.get('error')}",
                                   status="failed")
                 return
-            
+
+            if _media_aborted("spacy", result.get('txt_path'), result.get('json_path')):
+                return
+
             # Report acoustic analysis completion if it ran
             json_path_check = result.get('json_path')
             if json_path_check and os.path.exists(json_path_check):
@@ -3381,9 +3699,12 @@ def process_media_file_sync(
                             transcript_data['spacy_annotations'] = spacy_result
                             send_progress_sync(task_id, "spacy", 60, "SpaCy annotation completed")
             
+            if _media_aborted("usas", result.get('txt_path'), result.get('json_path')):
+                return
+
             # USAS annotation (60-80%, only for Chinese and English)
             send_progress_sync(task_id, "usas", 60, "Starting USAS annotation...")
-            
+
             from services.usas_service import get_usas_service
             usas_svc = get_usas_service()
             
@@ -3397,9 +3718,12 @@ def process_media_file_sync(
             else:
                 send_progress_sync(task_id, "usas", 80, "USAS not available for this language, skipping...")
             
+            if _media_aborted("mipvu", result.get('txt_path'), result.get('json_path')):
+                return
+
             # MIPVU annotation (80-95%, only for English)
             send_progress_sync(task_id, "mipvu", 80, "Starting MIPVU annotation...")
-            
+
             from services.mipvu_service import get_mipvu_service
             from model_paths import resolve_model_path
             mipvu_svc = get_mipvu_service()
@@ -3443,13 +3767,16 @@ def process_media_file_sync(
             else:
                 send_progress_sync(task_id, "mipvu", 95, "MIPVU not available for this language, skipping...")
             
+            if _media_aborted("database", result.get('txt_path'), result.get('json_path')):
+                return
+
             # Save all annotations to transcript JSON
             if transcript_data and json_path:
                 with open(json_path, 'w', encoding='utf-8') as f:
                     json.dump(transcript_data, f, ensure_ascii=False, indent=2)
-            
+
             send_progress_sync(task_id, "database", 95, "Updating database...")
-            
+
             # Update database
             update_data = {
                 'content_path': result.get('txt_path'),
@@ -3547,8 +3874,11 @@ def process_media_file_sync(
                             skip_alignment_pitch=True  # Video files skip Wav2Vec2 alignment and pitch extraction
                         )
                         results["transcript"] = transcript_result
-                        
+
                         if transcript_result.get("success"):
+                            if _media_aborted("spacy", extracted, transcript_result.get('txt_path'), transcript_result.get('json_path')):
+                                return
+
                             # Calculate progress ranges for annotation stages
                             # If YOLO/CLIP selected, annotations get smaller ranges
                             has_additional_tasks = yolo_annotation or clip_annotation
@@ -3585,9 +3915,12 @@ def process_media_file_sync(
                                         if spacy_result.get("success"):
                                             transcript_data['spacy_annotations'] = spacy_result
                             
+                            if _media_aborted("usas", extracted, transcript_result.get('txt_path'), json_path):
+                                return
+
                             # USAS annotation (only for Chinese and English)
                             send_progress_sync(task_id, "usas", usas_start, "Running USAS annotation...")
-                            
+
                             from services.usas_service import get_usas_service
                             usas_svc = get_usas_service()
                             
@@ -3599,9 +3932,12 @@ def process_media_file_sync(
                                     transcript_data['usas_annotations'] = usas_result
                                     results["usas"] = usas_result
                             
+                            if _media_aborted("mipvu", extracted, transcript_result.get('txt_path'), json_path):
+                                return
+
                             # MIPVU annotation (only for English)
                             send_progress_sync(task_id, "mipvu", mipvu_start, "Running MIPVU annotation...")
-                            
+
                             from services.mipvu_service import get_mipvu_service
                             from model_paths import resolve_model_path
                             mipvu_svc = get_mipvu_service()
@@ -3672,6 +4008,9 @@ def process_media_file_sync(
                 else:
                     send_progress_sync(task_id, "warning", 60, "Failed to extract audio from video")
             
+            if _media_aborted("yolo"):
+                return
+
             # YOLO detection
             if yolo_annotation:
                 logger.info(f"=== YOLO annotation requested for task {task_id} ===")
@@ -3704,7 +4043,10 @@ def process_media_file_sync(
                         )
                         results["yolo"] = yolo_result
                         logger.info(f"YOLO processing result: success={yolo_result.get('success')}, tracks={yolo_result.get('data', {}).get('total_tracks', 0)}")
-                        
+
+                        if _media_aborted("yolo_database", yolo_result.get('json_path')):
+                            return
+
                         if yolo_result.get("success"):
                             TextDB.update(text_id, {
                                 'yolo_annotation_path': yolo_result.get('json_path')
@@ -3722,6 +4064,9 @@ def process_media_file_sync(
             else:
                 logger.info(f"YOLO annotation not requested for task {task_id}")
             
+            if _media_aborted("clip"):
+                return
+
             # CLIP classification
             if clip_annotation:
                 logger.info(f"=== CLIP annotation requested for task {task_id} ===")
@@ -3757,7 +4102,10 @@ def process_media_file_sync(
                         )
                         results["clip"] = clip_result
                         logger.info(f"CLIP processing result: success={clip_result.get('success')}, frames={len(clip_result.get('data', {}).get('frame_results', []))}")
-                        
+
+                        if _media_aborted("clip_database", clip_result.get('json_path')):
+                            return
+
                         if clip_result.get("success"):
                             TextDB.update(text_id, {
                                 'clip_annotation_path': clip_result.get('json_path')
@@ -3776,10 +4124,13 @@ def process_media_file_sync(
             else:
                 logger.info(f"CLIP annotation not requested for task {task_id}")
             
+            if _media_aborted("database"):
+                return
+
             # Send database stage
             if yolo_annotation or clip_annotation:
                 send_progress_sync(task_id, "database", 95, "Saving to database...")
-            
+
             # Build final result
             final_result = {
                 "word_count": 0,

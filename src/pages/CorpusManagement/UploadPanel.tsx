@@ -596,35 +596,37 @@ export default function UploadPanel({
                   completionMsg = `Completed: ${parts.join(', ')}`
                 }
               }
-              return { 
-                ...f, 
-                status: 'completed' as const, 
-                message: completionMsg, 
+              return {
+                ...f,
+                status: 'completed' as const,
+                message: completionMsg,
                 progress: 100,
                 stage: 'completed',
                 result: task.result
               }
-            } else if (task.status === 'failed') {
-              return { 
-                ...f, 
-                status: 'error' as const, 
-                message: task.error || task.message || 'Processing failed',
+            } else if (task.status === 'failed' || task.status === 'cancelled') {
+              return {
+                ...f,
+                status: 'error' as const,
+                message: task.error || task.message || (task.status === 'cancelled' ? 'Cancelled' : 'Processing failed'),
                 stage: 'error'
               }
             } else {
               // Still processing
-              return { 
-                ...f, 
-                message: message || 'Processing...', 
+              return {
+                ...f,
+                message: message || 'Processing...',
                 progress: task.progress || 0,
                 stage: stage,
                 status: 'processing' as const
               }
             }
           }))
-          
-          // Continue polling if not finished
-          if (task.status !== 'completed' && task.status !== 'failed') {
+
+          // Continue polling if not finished. 'cancelled' is a terminal status too
+          // (owning corpus/text was deleted mid-annotation) — without it here, this
+          // loop would poll a resolved task forever every 1.5s.
+          if (task.status !== 'completed' && task.status !== 'failed' && task.status !== 'cancelled') {
             setTimeout(poll, 1500) // Poll every 1.5 seconds
           } else {
             // Cleanup and notify

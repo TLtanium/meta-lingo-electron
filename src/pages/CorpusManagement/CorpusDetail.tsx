@@ -515,7 +515,9 @@ export default function CorpusDetail({ corpus, onBack, onUpload, onCorpusUpdated
             if (task.status === 'completed') {
               removeTask(textId)
               resolve(true)
-            } else if (task.status === 'failed') {
+            } else if (task.status === 'failed' || task.status === 'cancelled') {
+              // 'cancelled' is a terminal status too (owning corpus/text was deleted
+              // mid-annotation) — without this branch the poll below never stops.
               removeTask(textId)
               resolve(false)
             } else {

@@ -18,6 +18,9 @@ import type {
   NetworkNode
 } from '../../../../types/biblio'
 import { addTagBackgrounds } from './shared/labelTags'
+import {
+  metricValue, clusterRepresentatives, isReferenceNode, type LabelMetric,
+} from './shared/labelMetrics'
 
 const COLOR_PALETTES: Record<string, string[]> = {
   blue: [
@@ -63,9 +66,11 @@ interface ClusterViewProps {
   colorScheme?: string
   showHulls?: boolean
   hullThreshold?: number
-  /** CiteSpace "Node Labels": a node gets a tag label only if this metric clears the
-      threshold below. The node itself always renders. */
-  labelMetric?: 'frequency' | 'centrality' | 'degree'
+  /** CiteSpace label metrics: a node gets a tag label only if its layer's metric clears
+      the threshold below. Term (diamond) nodes use `termLabelMetric`, reference (circle)
+      nodes use `refLabelMetric`. The node itself always renders. */
+  termLabelMetric?: LabelMetric
+  refLabelMetric?: LabelMetric
   /** Only nodes whose chosen metric ≥ this value get a tag label (nodes still render). */
   labelThreshold?: number
   /** Append the frequency count to each tag label (CiteSpace "Show Frequency"). */
@@ -147,7 +152,8 @@ export default function ClusterView({
   colorScheme = 'blue',
   showHulls = true,
   hullThreshold = 2,
-  labelMetric = 'frequency',
+  termLabelMetric = 'degree',
+  refLabelMetric = 'citation',
   labelThreshold = 0,
   showFrequency = false,
   nodeScale = 1,
@@ -294,10 +300,14 @@ export default function ClusterView({
       degree.set(s, (degree.get(s) || 0) + 1)
       degree.set(tg, (degree.get(tg) || 0) + 1)
     })
-    const metricVal = (d: SimNode): number =>
-      labelMetric === 'centrality' ? (d.centrality || 0)
-      : labelMetric === 'degree' ? (degree.get(d.id) || 0)
-      : d.frequency  // frequency (also used for "citation")
+    // Two independent CiteSpace label dropdowns: reference (circle) nodes rank by
+    // `refLabelMetric`, all other (diamond) nodes by `termLabelMetric`.
+    const clusterReps = clusterRepresentatives(nodes)
+    const metricVal = (d: SimNode): number => {
+      const metric = isReferenceNode(d) ? refLabelMetric : termLabelMetric
+      return metricValue(d, metric, d.frequency,
+        { degree: degree.get(d.id) || 0, clusterReps })
+    }
     // A node is labelled only if its metric clears the threshold. To avoid clutter when
     // the threshold is 0, also auto-cap to the top ~40 nodes by the chosen metric.
     const metricsDesc = nodes.map(metricVal).sort((a, b) => b - a)
@@ -596,7 +606,7 @@ export default function ClusterView({
     svg.call(zoom.transform, d3.zoomIdentity.translate(w * 0.05, h * 0.05).scale(0.9))
 
     return () => { simulation.stop() }
-  }, [data, dimensions, colorScheme, isDark, t, showTooltip, showHulls, hullThreshold, labelMetric, labelThreshold, showFrequency, nodeScale, fontScaleMul, hiddenNodeIds, layoutMode, showLinkLabels, showLinkStrengths, clusterLabelFontSize, clusterLabelMaxLength])
+  }, [data, dimensions, colorScheme, isDark, t, showTooltip, showHulls, hullThreshold, termLabelMetric, refLabelMetric, labelThreshold, showFrequency, nodeScale, fontScaleMul, hiddenNodeIds, layoutMode, showLinkLabels, showLinkStrengths, clusterLabelFontSize, clusterLabelMaxLength])
 
   // Apply focus opacity
   useEffect(() => {

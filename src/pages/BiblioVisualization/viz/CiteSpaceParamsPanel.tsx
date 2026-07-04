@@ -16,12 +16,11 @@ import { useTranslation } from 'react-i18next'
 import { NumberInput } from '../../../components/common'
 import type { CiteSpaceParams } from '../../../types/biblio'
 import { ParamRow, SliderParam } from './ParamComponents'
+import { TERM_METRICS, REF_METRICS, type LabelMetric } from '../components/d3/shared/labelMetrics'
 
 interface Props {
   params: CiteSpaceParams
   onChange: (patch: Partial<CiteSpaceParams>) => void
-  labelMetric: 'frequency' | 'centrality' | 'degree'
-  onLabelMetricChange: (v: 'frequency' | 'centrality' | 'degree') => void
   labelThreshold: number
   onLabelThresholdChange: (v: number) => void
   showFrequency: boolean
@@ -34,21 +33,18 @@ interface Props {
   onShowLinkLabelsChange: (v: boolean) => void
   showLinkStrengths: boolean
   onShowLinkStrengthsChange: (v: boolean) => void
-  /** Ranking metric for the term/diamond label layer */
-  termLabelMetric: 'degree' | 'frequency' | 'centrality' | 'eigen' | 'sigma' | 'hide'
-  onTermLabelMetricChange: (v: 'degree' | 'frequency' | 'centrality' | 'eigen' | 'sigma' | 'hide') => void
-  /** Ranking metric for the reference/circle label layer */
-  refLabelMetric: 'degree' | 'frequency' | 'centrality' | 'eigen' | 'sigma' | 'hide'
-  onRefLabelMetricChange: (v: 'degree' | 'frequency' | 'centrality' | 'eigen' | 'sigma' | 'hide') => void
+  /** Ranking metric for the term/diamond label layer (CiteSpace "Keyword/Term/Overlay Labels") */
+  termLabelMetric: LabelMetric
+  onTermLabelMetricChange: (v: LabelMetric) => void
+  /** Ranking metric for the reference/circle label layer (CiteSpace "Node Labels") */
+  refLabelMetric: LabelMetric
+  onRefLabelMetricChange: (v: LabelMetric) => void
 }
-
-const METRIC_OPTIONS = ['degree', 'frequency', 'centrality', 'eigen', 'sigma', 'hide'] as const
 
 const SWITCH_SX = { '& .MuiFormControlLabel-label': { fontSize: '0.75rem' } }
 
 export default function CiteSpaceParamsPanel({
   params, onChange,
-  labelMetric, onLabelMetricChange,
   labelThreshold, onLabelThresholdChange,
   showFrequency, onShowFrequencyChange,
   clusterLabelFontSize, onClusterLabelFontSizeChange,
@@ -174,18 +170,9 @@ export default function CiteSpaceParamsPanel({
           </Stack>
         </ParamRow>
 
-        {/* ── 节点标签：Select + 2滑块同行3列 ─────────────────── */}
+        {/* ── 标签阈值 + 最大节点数：2滑块全宽 ─────────────────── */}
         <ParamRow label={t('biblio.cs.rowNodeLabel')}>
-          <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0 12px', alignItems: 'center' }}>
-            <FormControl size="small">
-              <InputLabel>{t('biblio.cs.nodeLabels')}</InputLabel>
-              <Select value={labelMetric} label={t('biblio.cs.nodeLabels')}
-                onChange={(e) => onLabelMetricChange(e.target.value as 'frequency' | 'centrality' | 'degree')}>
-                <MenuItem value="frequency">{t('biblio.cs.byFrequency')}</MenuItem>
-                <MenuItem value="centrality">{t('biblio.cs.byCentrality')}</MenuItem>
-                <MenuItem value="degree">{t('biblio.cs.byDegree')}</MenuItem>
-              </Select>
-            </FormControl>
+          <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1.5 }}>
             <SliderParam
               label={t('biblio.cs.labelThreshold')} value={labelThreshold}
               min={0} max={50} step={1} onChange={onLabelThresholdChange} />
@@ -195,14 +182,16 @@ export default function CiteSpaceParamsPanel({
           </Box>
         </ParamRow>
 
-        {/* ── 双标签层：词项(菱形) / 引用(圆形) 指标选择 ───────── */}
+        {/* ── 双标签层（CiteSpace 两组标签下拉）───────────────────
+             • 关键词/术语/覆盖标签 → 菱形层，默认 By Degree（短列表）
+             • 节点标签(参考文献)   → 圆形层，默认 By Citation（长列表）  */}
         <ParamRow label={t('biblio.cs.rowLayers')}>
           <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1.5 }}>
             <FormControl size="small">
               <InputLabel>{t('biblio.cs.termLayerMetric')}</InputLabel>
               <Select value={termLabelMetric} label={t('biblio.cs.termLayerMetric')}
-                onChange={(e) => onTermLabelMetricChange(e.target.value as typeof termLabelMetric)}>
-                {METRIC_OPTIONS.map(m => (
+                onChange={(e) => onTermLabelMetricChange(e.target.value as LabelMetric)}>
+                {TERM_METRICS.map(m => (
                   <MenuItem key={m} value={m}>{t(`biblio.cs.metric.${m}`)}</MenuItem>
                 ))}
               </Select>
@@ -210,8 +199,8 @@ export default function CiteSpaceParamsPanel({
             <FormControl size="small">
               <InputLabel>{t('biblio.cs.refLayerMetric')}</InputLabel>
               <Select value={refLabelMetric} label={t('biblio.cs.refLayerMetric')}
-                onChange={(e) => onRefLabelMetricChange(e.target.value as typeof refLabelMetric)}>
-                {METRIC_OPTIONS.map(m => (
+                onChange={(e) => onRefLabelMetricChange(e.target.value as LabelMetric)}>
+                {REF_METRICS.map(m => (
                   <MenuItem key={m} value={m}>{t(`biblio.cs.metric.${m}`)}</MenuItem>
                 ))}
               </Select>

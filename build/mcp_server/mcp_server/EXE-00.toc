@@ -68,7 +68,7 @@
  [],
  False,
  False,
- 1783161489,
+ 1783192424,
  [('run',
    '/opt/anaconda3/envs/meta-lingo-electron/lib/python3.12/site-packages/PyInstaller/bootloader/Darwin-64bit/run',
    'EXECUTABLE')],

@@ -96,7 +96,7 @@ class TaskPollingService {
         task => task.status === 'pending' || task.status === 'processing'
       )
       const completedTasks = allTasks.filter(
-        task => task.status === 'completed' || task.status === 'failed'
+        task => task.status === 'completed' || task.status === 'failed' || task.status === 'cancelled'
       )
       
       console.log('[TaskPolling] Poll result:', {
@@ -176,9 +176,9 @@ class TaskPollingService {
           if (existing && existing.corpusId === corpusId && existing.taskId === task.id) {
             store.setTask(task.textId, {
               ...existing,
-              progress: 100,
-              stage: task.status === 'completed' ? 'completed' : 'failed',
-              message: task.message || (task.status === 'completed' ? 'Completed' : 'Failed'),
+              progress: task.status === 'completed' ? 100 : existing.progress,
+              stage: task.status,
+              message: task.message || (task.status === 'completed' ? 'Completed' : task.status === 'cancelled' ? 'Cancelled' : 'Failed'),
               status: task.status
             })
           }

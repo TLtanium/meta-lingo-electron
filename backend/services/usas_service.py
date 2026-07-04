@@ -12,7 +12,7 @@ import os
 import json
 import logging
 from pathlib import Path
-from typing import Dict, List, Any, Optional, Literal
+from typing import Callable, Dict, List, Any, Optional, Literal
 
 from .usas import (
     USASTagger,
@@ -217,23 +217,27 @@ class USASService:
         language: str = 'english',
         text_type: Optional[str] = None,
         progress_callback: Optional[callable] = None,
-        mode_override: Optional[TaggingMode] = None
+        mode_override: Optional[TaggingMode] = None,
+        should_stop: Optional[Callable[[], bool]] = None
     ) -> Dict[str, Any]:
         """
         Annotate text with USAS semantic domains
-        
+
         Supports three tagging modes:
         - rule_based: PyMUSAS rule-based tagger with custom disambiguation
         - neural: Neural network tagger (no disambiguation, direct prediction)
         - hybrid: Rule-based first, neural for unknown (Z99) words, then disambiguate
-        
+
         Args:
             text: Text to annotate
             language: Language code (english or chinese)
             text_type: Optional text type for priority disambiguation
             progress_callback: Optional callback(progress, message) for large texts
             mode_override: Override the configured tagging mode for this call
-            
+            should_stop: Optional zero-arg callable polled between sentences during
+                neural tagging, so a caller's cancellation can take effect mid-document
+                instead of only being noticed once the whole call returns
+
         Returns:
             Dictionary with annotated tokens and metadata
         """
@@ -279,7 +283,7 @@ class USASService:
 
         try:
             if mode == 'neural':
-                return self._annotate_text_neural(text, language, progress_callback)
+                return self._annotate_text_neural(text, language, progress_callback, should_stop)
             elif mode == 'hybrid':
                 return self._annotate_text_hybrid(text, language, text_type, progress_callback)
             else:
@@ -399,7 +403,8 @@ class USASService:
         self,
         text: str,
         language: str,
-        progress_callback: Optional[callable]
+        progress_callback: Optional[callable],
+        should_stop: Optional[Callable[[], bool]] = None
     ) -> Dict[str, Any]:
         """
         Annotate text using neural mode (no disambiguation)
@@ -424,7 +429,7 @@ class USASService:
                 progress_callback(10, f"USAS tagging (neural, top_n={top_n})...")
 
             neural = self._get_neural_tagger()
-            tag_result = neural.tag_text(text, language, top_n=top_n)
+            tag_result = neural.tag_text(text, language, top_n=top_n, should_stop=should_stop)
 
             if not tag_result['success']:
                 result['error'] = tag_result.get('error', 'Neural tagging failed')

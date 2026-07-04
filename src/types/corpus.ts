@@ -2,7 +2,7 @@
 
 export type MediaType = 'text' | 'audio' | 'video'
 
-export type TaskStatus = 'pending' | 'processing' | 'completed' | 'failed'
+export type TaskStatus = 'pending' | 'processing' | 'completed' | 'failed' | 'cancelled'
 
 export type TaskType = 'upload' | 'transcribe' | 'yolo' | 'preprocess'
 
@@ -339,7 +339,7 @@ export interface ProgressEvent {
   stage: string
   progress: number
   message: string
-  status: 'pending' | 'processing' | 'completed' | 'failed'
+  status: 'pending' | 'processing' | 'completed' | 'failed' | 'cancelled'
   result?: {
     word_count?: number
     duration?: number

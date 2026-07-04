@@ -642,41 +642,56 @@ class CorpusService:
             return {"success": False, "error": str(e)}
     
     def _annotate_text_with_spacy(
-        self, 
-        content: str, 
+        self,
+        content: str,
         language: str,
         output_dir: Path,
-        base_name: str
+        base_name: str,
+        text_id: Optional[str] = None,
+        corpus_id: Optional[str] = None
     ) -> Optional[Dict[str, Any]]:
         """
         Perform SpaCy annotation on text content
-        
+
         Args:
             content: Text content
             language: Language code
             output_dir: Directory to save annotation
             base_name: Base filename for output
-            
+            text_id: Optional text id — when given (batch annotation), re-checked
+                after the SpaCy call returns and before writing, since the caller's
+                own owning text/corpus may have been deleted during the (possibly
+                long) compute. Omitted by the synchronous request-scoped callers
+                (update_text_content, save_uploaded_file), where there is no
+                meaningful cross-request deletion window to guard against.
+            corpus_id: Optional corpus id, same purpose as text_id above.
+
         Returns:
             SpaCy annotation result or None
         """
         try:
             from services.spacy_service import get_spacy_service
-            
+
             spacy_svc = get_spacy_service()
             if not spacy_svc.is_available(language):
                 logger.warning(f"SpaCy not available for {language}")
                 return None
-            
+
             # Annotate text
             result = spacy_svc.annotate_text(content, language)
-            
+
+            if (text_id or corpus_id):
+                from services.task_cancellation import should_abort
+                if should_abort(None, text_id, corpus_id):
+                    logger.info("SpaCy annotation aborted after compute, before write (corpus/text deleted)")
+                    return None
+
             if result.get("success"):
                 # Save annotation to JSON file
                 spacy_path = output_dir / f"{base_name}.spacy.json"
                 with open(spacy_path, 'w', encoding='utf-8') as f:
                     json.dump(result, f, ensure_ascii=False, indent=2)
-                
+
                 logger.info(f"Saved SpaCy annotation: {spacy_path}")
                 return {
                     "path": str(spacy_path),
@@ -684,7 +699,7 @@ class CorpusService:
                     "entities": len(result.get("entities", [])),
                     "sentences": len(result.get("sentences", []))
                 }
-            
+
             return None
             
         except Exception as e:
@@ -1524,15 +1539,27 @@ class CorpusService:
             # Read text content
             with open(content_path, 'r', encoding='utf-8') as f:
                 content = f.read()
-            
-            # Perform SpaCy annotation
+
+            # Last-moment guard: run_batch_annotation only re-checks between texts, so a
+            # delete landing exactly here (after the content read, before the SpaCy call)
+            # would otherwise still attempt to write into an already-removed directory.
+            from services.task_cancellation import should_abort as _single_should_abort
+            if _single_should_abort(None, text_id, corpus_id):
+                return {"success": False, "error": "Cancelled (corpus/text deleted)"}
+
+            # Perform SpaCy annotation. Passing text_id/corpus_id lets the shared helper
+            # re-check should_abort right after the (possibly long) SpaCy call returns
+            # and before it writes — closing the same race the batch loop's own
+            # between-texts check above can't cover on its own.
             spacy_result = self._annotate_text_with_spacy(
                 content,
                 corpus_language,
                 output_dir,
-                base_name
+                base_name,
+                text_id=text_id,
+                corpus_id=corpus_id
             )
-            
+
             if spacy_result:
                 return {
                     "success": True,

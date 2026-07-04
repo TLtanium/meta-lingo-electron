@@ -1699,15 +1699,18 @@
       "rowCluster": "簇标签",
       "rowDisplay": "显示",
       "rowLayers": "标签层",
-      "termLayerMetric": "词项层（菱形）指标",
-      "refLayerMetric": "引用层（圆形）指标",
+      "termLayerMetric": "关键词/术语标签（菱形层）",
+      "refLayerMetric": "节点标签·参考文献（圆形层）",
       "metric": {
         "degree": "按度 (By Degree)",
-        "frequency": "按频次/引用 (By Freq/Citation)",
+        "frequency": "按频次 (By Freq)",
         "centrality": "按中介中心性 (By Centrality)",
         "eigen": "按特征向量中心性 (By Eigen.)",
         "sigma": "按 Sigma (Σ)",
-        "hide": "隐藏标签 (Hide Labels)"
+        "hide": "隐藏标签 (Hide Labels)",
+        "cluster": "按簇 (By Cluster)",
+        "citation": "按引用 (By Citation)",
+        "burstness": "按突增 (By Burstness)"
       },
       "burstGamma": "突发率 γ",
       "burstMinFreq": "最小频次",

@@ -26,8 +26,7 @@ import {
   FormControlLabel,
   Checkbox,
   ListItemText,
-  OutlinedInput,
-  Slider
+  OutlinedInput
 } from '@mui/material'
 import BubbleChartIcon from '@mui/icons-material/BubbleChart'
 import ViewTimelineIcon from '@mui/icons-material/ViewTimeline'
@@ -42,7 +41,6 @@ import GradientIcon from '@mui/icons-material/Gradient'
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome'
 import { useTranslation } from 'react-i18next'
 import { useSettingsStore } from '../../stores/settingsStore'
-import { NumberInput } from '../../components/common'
 import type {
   BiblioLibrary,
   BiblioFilter,
@@ -60,6 +58,7 @@ import FilterPanel from './FilterPanel'
 import CiteSpaceParamsPanel from './viz/CiteSpaceParamsPanel'
 import { SliderParam, SliderGrid, DrawerSubLabel } from './viz/ParamComponents'
 import DataTableDock, { type DataTableRow } from './viz/DataTableDock'
+import type { LabelMetric } from './components/d3/shared/labelMetrics'
 import NetworkGraph from './components/d3/NetworkGraph'
 import TimezoneView from './components/d3/TimezoneView'
 import BurstChart from './components/d3/BurstChart'
@@ -148,19 +147,17 @@ export default function VisualizationPanel({ library }: VisualizationPanelProps)
   const [heatmapLabelThreshold, setHeatmapLabelThreshold] = useState(0)
   const [clusterShowHulls, setClusterShowHulls] = useState(true)
   const [clusterHullThreshold, setClusterHullThreshold] = useState(2)
-  // CiteSpace "Node Labels": which metric + threshold decides which nodes show a tag.
-  const [labelMetric, setLabelMetric] = useState<'frequency' | 'centrality' | 'degree'>('frequency')
-  // Dual label groups (CiteSpace panel): term/diamond layer + reference/circle layer metrics
-  const [termLabelMetric, setTermLabelMetric] = useState<'degree' | 'frequency' | 'centrality' | 'eigen' | 'sigma' | 'hide'>('degree')
-  const [refLabelMetric, setRefLabelMetric] = useState<'degree' | 'frequency' | 'centrality' | 'eigen' | 'sigma' | 'hide'>('frequency')
+  // Dual label groups (CiteSpace panel): term/diamond layer (default By Degree) +
+  // reference/circle layer (default By Citation). These are the two independent
+  // CiteSpace label dropdowns and now drive both cluster and timeline views.
+  const [termLabelMetric, setTermLabelMetric] = useState<LabelMetric>('degree')
+  const [refLabelMetric, setRefLabelMetric] = useState<LabelMetric>('citation')
   const [showFrequency, setShowFrequency] = useState(false)
   // CiteSpace "Node Size" / "Font Size" sliders (apply to network / cluster / timeline / heatmap).
   const [nodeSizeScale, setNodeSizeScale] = useState(1)
   const [labelFontScale, setLabelFontScale] = useState(1)
   const [xAxisScale, setXAxisScale] = useState(2)
   const [weightPrecision, setWeightPrecision] = useState(4)
-  // Cluster layout: force (default) / ring (empty center) / ring-center (central core)
-  const [clusterLayoutMode, setClusterLayoutMode] = useState<'force' | 'ring' | 'ring-center'>('force')
   // Timeline node shape (circle/diamond).
   // Timeline: By Citation layer controls
   const [tlCitationThreshold, setTlCitationThreshold] = useState(0)
@@ -693,7 +690,7 @@ export default function VisualizationPanel({ library }: VisualizationPanelProps)
       case 'cluster':
         return (
           <Box sx={{ height: '100%', display: 'flex' }}>
-            <ClusterView data={clusterData} colorScheme={colorScheme} showHulls={clusterShowHulls} hullThreshold={clusterHullThreshold} labelMetric={labelMetric} labelThreshold={labelThreshold} showFrequency={showFrequency} nodeScale={nodeSizeScale} fontScaleMul={labelFontScale} hiddenNodeIds={hiddenNodeIds} layoutMode={clusterLayoutMode} showLinkLabels={showLinkLabels} showLinkStrengths={showLinkStrengths} clusterLabelFontSize={clusterLabelFontSize} clusterLabelMaxLength={clusterLabelMaxLength} />
+            <ClusterView data={clusterData} colorScheme={colorScheme} showHulls={clusterShowHulls} hullThreshold={clusterHullThreshold} termLabelMetric={termLabelMetric} refLabelMetric={refLabelMetric} labelThreshold={labelThreshold} showFrequency={showFrequency} nodeScale={nodeSizeScale} fontScaleMul={labelFontScale} hiddenNodeIds={hiddenNodeIds} showLinkLabels={showLinkLabels} showLinkStrengths={showLinkStrengths} clusterLabelFontSize={clusterLabelFontSize} clusterLabelMaxLength={clusterLabelMaxLength} />
           </Box>
         )
 
@@ -774,47 +771,68 @@ export default function VisualizationPanel({ library }: VisualizationPanelProps)
       <Stack spacing={3}>
         {chartCategory === 'network' && (
           <Box>
-            <Typography variant="overline" color="text.secondary">{t('biblio.cs.section')}</Typography>
-            <Stack direction="row" spacing={1.5} sx={{ mt: 1 }} flexWrap="wrap" useFlexGap>
-              <NumberInput label={t('biblio.minWeight')} size="small" value={minWeight} onChange={setMinWeight}
-                min={1} max={10} step={1} integer defaultValue={1} sx={{ width: 130 }} />
-              <NumberInput label={t('biblio.maxNodes')} size="small" value={maxNodes} onChange={setMaxNodes}
-                min={10} max={300} step={10} integer defaultValue={100} sx={{ width: 130 }} />
-            </Stack>
+            <DrawerSubLabel>{t('biblio.cs.section')}</DrawerSubLabel>
+            <SliderGrid>
+              <SliderParam label={t('biblio.minWeight')} value={minWeight}
+                min={1} max={10} step={1} onChange={setMinWeight} />
+              <SliderParam label={t('biblio.maxNodes')} value={maxNodes}
+                min={10} max={300} step={10} onChange={setMaxNodes} />
+              <SliderParam label={t('biblio.cs.nodeSize')} value={nodeSizeScale}
+                min={0.3} max={3} step={0.1} format={v => v.toFixed(1)} onChange={setNodeSizeScale} />
+              <SliderParam label={t('biblio.cs.fontSize')} value={labelFontScale}
+                min={0.5} max={3} step={0.1} format={v => v.toFixed(1)} onChange={setLabelFontScale} />
+            </SliderGrid>
           </Box>
         )}
 
         {chartCategory === 'wordcloud' && (
-          <NumberInput label={t('wordFrequency.viz.maxWords')} size="small" value={wordCloudMaxItems}
-            onChange={setWordCloudMaxItems} min={5} max={500} step={10} integer defaultValue={100} sx={{ width: 180 }} />
+          <SliderParam label={t('wordFrequency.viz.maxWords')} value={wordCloudMaxItems}
+            min={5} max={500} step={10} onChange={setWordCloudMaxItems} />
         )}
 
         {chartCategory === 'heatmap' && (
           <Box>
-            <Typography variant="overline" color="text.secondary">{t('biblio.vizType.heatmap')}</Typography>
-            <Stack direction="row" spacing={2} sx={{ mt: 0.5 }} flexWrap="wrap" useFlexGap alignItems="center">
-              <Box sx={{ width: 160 }}>
-                <Typography variant="caption" color="text.secondary">{t('biblio.heatmapBandwidth')} {heatmapBandwidth.toFixed(2)}</Typography>
-                <Slider size="small" value={heatmapBandwidth} onChange={(_, v) => setHeatmapBandwidth(v as number)}
-                  min={0.05} max={2.0} step={0.05} />
-              </Box>
-              <Box sx={{ width: 140 }}>
-                <Typography variant="caption" color="text.secondary">{t('biblio.cs.nodeSize')} {nodeSizeScale.toFixed(1)}</Typography>
-                <Slider size="small" value={nodeSizeScale} onChange={(_, v) => setNodeSizeScale(v as number)}
-                  min={0.3} max={3} step={0.1} />
-              </Box>
-              <Box sx={{ width: 160 }}>
-                <Typography variant="caption" color="text.secondary">{t('biblio.heatmapLabelThreshold')} {heatmapLabelThreshold}</Typography>
-                <Slider size="small" value={heatmapLabelThreshold} onChange={(_, v) => setHeatmapLabelThreshold(v as number)}
-                  min={0} max={20} step={1} />
-              </Box>
+            <DrawerSubLabel>{t('biblio.vizType.heatmap')}</DrawerSubLabel>
+            <SliderGrid>
+              <SliderParam label={t('biblio.heatmapBandwidth')} value={heatmapBandwidth}
+                min={0.05} max={2.0} step={0.05} format={v => v.toFixed(2)} onChange={setHeatmapBandwidth} />
+              <SliderParam label={t('biblio.cs.nodeSize')} value={nodeSizeScale}
+                min={0.3} max={3} step={0.1} format={v => v.toFixed(1)} onChange={setNodeSizeScale} />
+              <SliderParam label={t('biblio.heatmapLabelThreshold')} value={heatmapLabelThreshold}
+                min={0} max={20} step={1} onChange={setHeatmapLabelThreshold} />
+            </SliderGrid>
+          </Box>
+        )}
+
+        {chartCategory === 'burst' && (
+          <Box>
+            <DrawerSubLabel>{t('biblio.vizType.burst')}</DrawerSubLabel>
+            <Stack spacing={2}>
+              <SliderGrid>
+                <SliderParam label={t('biblio.cs.burstAlpha')} value={burstAlpha}
+                  min={0.1} max={3.0} step={0.1} format={v => v.toFixed(1)} onChange={setBurstAlpha} />
+                <SliderParam label={t('biblio.cs.burstGamma')} value={burstGamma}
+                  min={0.2} max={5.0} step={0.1} format={v => v.toFixed(1)} onChange={setBurstGamma} />
+                <SliderParam label={t('biblio.cs.burstMinFreq')} value={burstMinFreq}
+                  min={1} max={50} step={1} onChange={setBurstMinFreq} />
+                <SliderParam label={t('biblio.cs.burstTopN')} value={burstTopN}
+                  min={5} max={100} step={5} onChange={setBurstTopN} />
+              </SliderGrid>
+              <FormControl size="small" fullWidth>
+                <InputLabel>{t('biblio.cs.burstSortBy')}</InputLabel>
+                <Select value={burstSortBy} label={t('biblio.cs.burstSortBy')}
+                  onChange={(e) => setBurstSortBy(e.target.value as 'strength' | 'begin')}>
+                  <MenuItem value="strength">{t('biblio.cs.sortByStrength')}</MenuItem>
+                  <MenuItem value="begin">{t('biblio.cs.sortByBegin')}</MenuItem>
+                </Select>
+              </FormControl>
             </Stack>
           </Box>
         )}
 
         {chartCategory === 'timezone' && (
-          <NumberInput label={t('biblio.topNItems')} size="small" value={topN} onChange={setTopN}
-            min={5} max={50} step={5} integer defaultValue={10} sx={{ width: 130 }} />
+          <SliderParam label={t('biblio.topNItems')} value={topN}
+            min={5} max={50} step={5} onChange={setTopN} />
         )}
 
         {/* CiteSpace-derived network/cluster params (cluster + timeline) */}
@@ -822,8 +840,6 @@ export default function VisualizationPanel({ library }: VisualizationPanelProps)
           <CiteSpaceParamsPanel
             params={citespace}
             onChange={updateCitespace}
-            labelMetric={labelMetric}
-            onLabelMetricChange={setLabelMetric}
             labelThreshold={labelThreshold}
             onLabelThresholdChange={setLabelThreshold}
             showFrequency={showFrequency}
@@ -852,28 +868,18 @@ export default function VisualizationPanel({ library }: VisualizationPanelProps)
               <SliderParam label={t('biblio.cs.fontSize')} value={labelFontScale}
                 min={0.5} max={3} step={0.1} format={v => v.toFixed(1)} onChange={setLabelFontScale} />
             </SliderGrid>
-            <Stack direction="row" spacing={1} alignItems="flex-end" flexWrap="wrap" useFlexGap>
+            <Stack spacing={1}>
               <FormControlLabel
                 control={<Switch size="small" checked={clusterShowHulls} onChange={(e) => setClusterShowHulls(e.target.checked)} />}
                 label={t('biblio.showHulls')}
                 sx={{ ml: 0.25, '& .MuiFormControlLabel-label': { fontSize: '0.8125rem' } }}
               />
               {clusterShowHulls && (
-                <NumberInput label={t('biblio.hullThreshold')} size="small" value={clusterHullThreshold}
-                  onChange={setClusterHullThreshold} min={1} max={10} step={1} integer defaultValue={2} sx={{ width: 120 }} />
+                <SliderParam label={t('biblio.hullThreshold')} value={clusterHullThreshold}
+                  min={1} max={10} step={1} onChange={setClusterHullThreshold} />
               )}
             </Stack>
           </Stack>
-        )}
-
-        {/* Network: node/font size sliders */}
-        {chartCategory === 'network' && (
-          <SliderGrid>
-            <SliderParam label={t('biblio.cs.nodeSize')} value={nodeSizeScale}
-              min={0.3} max={3} step={0.1} format={v => v.toFixed(1)} onChange={setNodeSizeScale} />
-            <SliderParam label={t('biblio.cs.fontSize')} value={labelFontScale}
-              min={0.5} max={3} step={0.1} format={v => v.toFixed(1)} onChange={setLabelFontScale} />
-          </SliderGrid>
         )}
 
         {/* Timeline: layout params + citation/degree layers */}
@@ -979,37 +985,20 @@ export default function VisualizationPanel({ library }: VisualizationPanelProps)
             </FormControl>
           )}
 
-          {/* Burst Type Selector + Alpha (meta) */}
+          {/* Burst Type Selector (meta — defines what is analyzed). All numeric
+              params + sort live in the "参数设置" drawer, consistent with timeline. */}
           {chartCategory === 'burst' && (
-            <>
-              <FormControl size="small" sx={{ minWidth: 150 }}>
-                <InputLabel>{t('biblio.burstType')}</InputLabel>
-                <Select
-                  value={burstType}
-                  label={t('biblio.burstType')}
-                  onChange={(e) => setBurstType(e.target.value as 'keyword' | 'author')}
-                >
-                  <MenuItem value="keyword">{t('biblio.keyword')}</MenuItem>
-                  <MenuItem value="author">{t('biblio.author')}</MenuItem>
-                </Select>
-              </FormControl>
-              <NumberInput label={t('biblio.cs.burstAlpha')} size="small" value={burstAlpha}
-                onChange={setBurstAlpha} min={0.1} max={3.0} step={0.1} defaultValue={1.0} sx={{ width: 130 }} />
-              <NumberInput label={t('biblio.cs.burstGamma')} size="small" value={burstGamma}
-                onChange={setBurstGamma} min={0.2} max={5.0} step={0.1} defaultValue={1.0} sx={{ width: 130 }} />
-              <NumberInput label={t('biblio.cs.burstMinFreq')} size="small" value={burstMinFreq}
-                onChange={setBurstMinFreq} min={1} max={50} step={1} integer defaultValue={2} sx={{ width: 130 }} />
-              <NumberInput label={t('biblio.cs.burstTopN')} size="small" value={burstTopN}
-                onChange={setBurstTopN} min={5} max={100} step={5} integer defaultValue={30} sx={{ width: 120 }} />
-              <FormControl size="small" sx={{ minWidth: 140 }}>
-                <InputLabel>{t('biblio.cs.burstSortBy')}</InputLabel>
-                <Select value={burstSortBy} label={t('biblio.cs.burstSortBy')}
-                  onChange={(e) => setBurstSortBy(e.target.value as 'strength' | 'begin')}>
-                  <MenuItem value="strength">{t('biblio.cs.sortByStrength')}</MenuItem>
-                  <MenuItem value="begin">{t('biblio.cs.sortByBegin')}</MenuItem>
-                </Select>
-              </FormControl>
-            </>
+            <FormControl size="small" sx={{ minWidth: 150 }}>
+              <InputLabel>{t('biblio.burstType')}</InputLabel>
+              <Select
+                value={burstType}
+                label={t('biblio.burstType')}
+                onChange={(e) => setBurstType(e.target.value as 'keyword' | 'author')}
+              >
+                <MenuItem value="keyword">{t('biblio.keyword')}</MenuItem>
+                <MenuItem value="author">{t('biblio.author')}</MenuItem>
+              </Select>
+            </FormControl>
           )}
 
           {/* Word Cloud data source (meta) */}
@@ -1042,22 +1031,6 @@ export default function VisualizationPanel({ library }: VisualizationPanelProps)
                 </IconButton>
               </span>
             </Tooltip>
-          )}
-
-          {/* Cluster layout selector (three CiteSpace-style arrangements) */}
-          {chartCategory === 'cluster' && (
-            <FormControl size="small" sx={{ minWidth: 140 }}>
-              <InputLabel>{t('biblio.layout')}</InputLabel>
-              <Select
-                value={clusterLayoutMode}
-                label={t('biblio.layout')}
-                onChange={(e) => setClusterLayoutMode(e.target.value as typeof clusterLayoutMode)}
-              >
-                <MenuItem value="force">{t('biblio.layoutForce')}</MenuItem>
-                <MenuItem value="ring">{t('biblio.layoutCircular')}</MenuItem>
-                <MenuItem value="ring-center">{t('biblio.layoutRadial')}</MenuItem>
-              </Select>
-            </FormControl>
           )}
 
           {/* Node types meta-param: MULTI-select, shared by cluster + timeline.

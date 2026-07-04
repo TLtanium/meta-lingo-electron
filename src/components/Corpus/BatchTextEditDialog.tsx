@@ -408,7 +408,8 @@ export default function BatchTextEditDialog({
             
             if (task.status === 'completed') {
               resolve(true)
-            } else if (task.status === 'failed') {
+            } else if (task.status === 'failed' || task.status === 'cancelled') {
+              // 'cancelled' 同样是终态（所属语料库/文本被中途删除），否则下面会永远轮询下去
               resolve(false)
             } else {
               // 继续轮询
