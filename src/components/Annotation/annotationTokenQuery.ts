@@ -101,30 +101,20 @@ function tryMatchSequence(
   const pat = patterns[0]
   const rest = patterns.slice(1)
 
-  if (pat.isAny) {
-    const lo = pat.minCount
-    const hi = Math.min(pat.maxCount, tokens.length - start)
-    // 后面还有 pattern → 非贪婪（少→多）；否则贪婪（多→少）
-    const order: number[] = []
-    if (rest.length > 0) for (let n = lo; n <= hi; n++) order.push(n)
-    else for (let n = hi; n >= lo; n--) order.push(n)
-    for (const n of order) {
-      if (start + n > tokens.length) continue
-      const take = tokens.slice(start, start + n)
-      const sub = tryMatchSequence(tokens, rest, start + n)
-      if (sub) return [start, sub[1], [...take, ...sub[2]]]
-    }
-    return null
-  }
-
-  // 具名 pattern：当前位置必须匹配（minCount=maxCount=1，optional 允许跳过）
-  if (start < tokens.length && matchPattern(tokens[start], pat)) {
-    const sub = tryMatchSequence(tokens, rest, start + 1)
-    if (sub) return [start, sub[1], [tokens[start], ...sub[2]]]
-  }
-  if (pat.optional || pat.minCount === 0) {
-    const sub = tryMatchSequence(tokens, rest, start)
-    if (sub) return sub
+  // 统一回溯：任意 [] 与具名 pattern 都遵守各自的 {min,max} / ? / * / + 量词
+  // （与后端 cql_engine 序列语义一致：[pos="ADJ"]{2}[pos="NOUN"] = 连续两个形容词）
+  const lo = pat.minCount
+  const hi = Math.min(pat.maxCount, tokens.length - start)
+  if (lo > hi) return null
+  // 后面还有 pattern → 非贪婪（少→多）；否则贪婪（多→少）
+  const order: number[] = []
+  if (rest.length > 0) for (let n = lo; n <= hi; n++) order.push(n)
+  else for (let n = hi; n >= lo; n--) order.push(n)
+  for (const n of order) {
+    const take = tokens.slice(start, start + n)
+    if (!pat.isAny && !take.every(t => matchPattern(t, pat))) continue
+    const sub = tryMatchSequence(tokens, rest, start + n)
+    if (sub) return [start, sub[1], [...take, ...sub[2]]]
   }
   return null
 }

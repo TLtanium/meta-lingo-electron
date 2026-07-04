@@ -258,11 +258,11 @@ export default function SemanticDomainAnalysis({ crossLinkParams }: SemanticDoma
       }}>
         <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
           <Typography variant="h6">
-            {t('semantic.title')}
+            {t('semantic.domainTitle')}
           </Typography>
           <AnalysisAIAssistant
             enabled={ollamaConnected || openaiApiEnabled}
-            moduleLabel={t('semantic.title')}
+            moduleLabel={t('semantic.domainTitle')}
             getContext={() => buildSemanticDomainAIContext({
               t,
               corpusSelection,
@@ -437,10 +437,10 @@ export default function SemanticDomainAnalysis({ crossLinkParams }: SemanticDoma
               }}>
                 <CategoryIcon sx={{ fontSize: 80, color: 'text.disabled' }} />
                 <Typography variant="h6" color="text.secondary">
-                  {t('semantic.title')}
+                  {t('semantic.domainTitle')}
                 </Typography>
                 <Typography variant="body2" color="text.secondary" textAlign="center">
-                  {t('semantic.description')}
+                  {t('semantic.domainDescription')}
                 </Typography>
               </Box>
             )}

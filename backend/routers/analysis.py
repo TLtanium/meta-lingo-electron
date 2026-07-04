@@ -1157,3 +1157,37 @@ async def generate_wordcloud(request: WordCloudGenerateRequest):
             error=error_msg
         )
 
+
+
+# ==================== Multidimensional Analysis (MDA) Endpoints ====================
+
+class MDARequest(BaseModel):
+    """Multidimensional analysis (Biber 1988 / MAT) request"""
+    corpus_id: str
+    text_ids: List[str] | str = "all"
+    ttr_tokens: int = 400
+    z_correction: bool = False
+    excluded_features: List[str] = []
+    top_words: int = 20
+
+
+@router.post("/mda")
+async def multidimensional_analysis(request: MDARequest):
+    """
+    Biber (1988) multidimensional analysis over stored SpaCy annotations.
+
+    Returns per-text and corpus-level feature frequencies (per 100 tokens),
+    z-scores against Biber's norms, the six dimension scores, closest genre
+    per dimension and closest Biber (1989) text type.
+    """
+    from services.mda.mda_service import get_mda_service
+
+    service = get_mda_service()
+    return service.analyze(
+        corpus_id=request.corpus_id,
+        text_ids=request.text_ids,
+        ttr_tokens=request.ttr_tokens,
+        z_correction=request.z_correction,
+        excluded_features=request.excluded_features,
+        top_words=request.top_words,
+    )

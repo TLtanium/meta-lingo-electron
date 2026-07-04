@@ -1,6 +1,6 @@
 {
   "name": "meta-lingo",
-  "version": "3.9.65",
+  "version": "3.9.71",
   "description": "A modern multimodal corpus research software",
   "main": "dist-electron/main.js",
   "scripts": {

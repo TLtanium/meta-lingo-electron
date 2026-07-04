@@ -41,6 +41,7 @@ import type {
   MetaphorWordsResponse,
   MetaphorSourceInfo
 } from '../types/metaphorAnalysis'
+import type { MDARequest, MDAResponse } from '../types/mdaAnalysis'
 import type {
   POSFilterConfig,
   SingleDocAlgorithm,
@@ -259,6 +260,12 @@ export const analysisApi = {
   // Get metaphor detection sources
   getMetaphorSources: () =>
     api.get<MetaphorSourceInfo[]>('/api/analysis/metaphor-analysis/sources'),
+
+  // ==================== Multidimensional Analysis (MDA) ====================
+
+  // Biber (1988) multidimensional analysis from stored SpaCy annotations
+  mdaAnalysis: (request: MDARequest) =>
+    api.post<MDAResponse>('/api/analysis/mda', request),
 
   // ==================== Word Cloud Generation ====================
 

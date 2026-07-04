@@ -6,6 +6,7 @@ as well as visualization data generation.
 """
 
 import io
+import re
 import uuid
 from pathlib import Path
 from typing import Optional, List, Literal
@@ -108,12 +109,44 @@ async def update_library(library_id: str, request: BiblioLibraryUpdate):
 
 @router.delete("/libraries/{library_id}")
 async def delete_library(library_id: str):
-    """Delete a bibliographic library and all its entries"""
+    """Delete a bibliographic library, its entries, its shadow corpus and ALL
+    on-disk data (PDFs/thumbnails under data/biblio/<id>, shadow corpus files,
+    annotations). In-flight/queued abstract annotation is cancelled first."""
     library = BiblioLibraryDB.get_by_id(library_id)
     if not library:
         raise HTTPException(status_code=404, detail="Library not found")
-    
+
+    # 1. Stop any in-flight / queued abstract annotation on the shadow corpus
+    #    (must happen before rows disappear, so task ids can still be resolved).
+    from services.task_cancellation import cancel_tasks_for_corpus
+    shadow_corpus_id = BiblioLibraryDB.get_corpus_id(library_id)
+    if shadow_corpus_id:
+        cancel_tasks_for_corpus(shadow_corpus_id)
+
+    # 2. Delete the shadow corpus through corpus_service (removes DB rows AND
+    #    files: corpus directory, annotations, related caches).
+    if shadow_corpus_id:
+        try:
+            from services.corpus_service import get_corpus_service
+            get_corpus_service().delete_corpus(shadow_corpus_id)
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning(
+                f"Shadow corpus cleanup failed for library {library_id}: {e}")
+
+    # 3. Delete library DB rows (entries / abstracts / link table; corpus rows
+    #    are already gone, the corpus-related statements are then no-ops).
     success = BiblioLibraryDB.delete(library_id)
+
+    # 4. Delete the library's own file directory (PDFs, thumbnails).
+    try:
+        import shutil
+        lib_dir = DATA_DIR / "biblio" / library_id
+        if lib_dir.exists():
+            shutil.rmtree(lib_dir, ignore_errors=True)
+    except Exception:
+        pass
+
     return {"success": success}
 
 
@@ -608,6 +641,26 @@ async def get_entry_thumbnail(entry_id: str):
     return FileResponse(thumb_path, media_type="image/png")
 
 
+@router.get("/entries/{entry_id}/pdf")
+async def get_entry_pdf(entry_id: str):
+    """Download the original uploaded source PDF for an entry (Content-Disposition attachment)."""
+    entry = BiblioEntryDB.get_by_id(entry_id)
+    if not entry:
+        raise HTTPException(status_code=404, detail="Entry not found")
+    pdf_rel = entry.get("pdf_path")
+    library_id = entry.get("library_id")
+    if not library_id or not pdf_rel:
+        raise HTTPException(status_code=404, detail="No PDF for this entry")
+    _, _, pdf_path, _ = _biblio_pdf_dirs(library_id, entry_id)
+    if not pdf_path.exists():
+        raise HTTPException(status_code=404, detail="PDF file not found")
+    # Friendly download filename derived from the entry title (Starlette adds the
+    # UTF-8 filename* form so non-ASCII titles survive).
+    title = (entry.get("title") or "document").strip()
+    safe = re.sub(r'[<>:"/\\|?*\x00-\x1f]', "_", title)[:80].strip() or "document"
+    return FileResponse(pdf_path, media_type="application/pdf", filename=f"{safe}.pdf")
+
+
 def _delete_entry_pdf_files(library_id: str, entry_id: str) -> None:
     """Remove PDF and thumbnail files for an entry if they exist (best-effort)."""
     _, _, pdf_path, thumb_path = _biblio_pdf_dirs(library_id, entry_id)
@@ -627,6 +680,11 @@ async def delete_entry(entry_id: str):
         raise HTTPException(status_code=404, detail="Entry not found")
 
     library_id = entry['library_id']
+    # Cancel any in-flight abstract annotation tied to this entry's shadow text.
+    from services.task_cancellation import cancel_tasks_for_text
+    shadow_text_id = BiblioEntryAbstractsDB.get_text_id(entry_id)
+    if shadow_text_id:
+        cancel_tasks_for_text(shadow_text_id)
     # Remove PDF and thumbnail before deleting the DB record
     _delete_entry_pdf_files(library_id, entry_id)
     success = BiblioEntryDB.delete(entry_id)
@@ -698,14 +756,75 @@ async def get_entries_by_ids(request: EntriesByIdsRequest):
 
 
 @router.patch("/entries/{entry_id}", response_model=BiblioEntry)
-async def update_entry(entry_id: str, request: BiblioEntryUpdate):
-    """Update relevance, tags, and/or notes for an entry"""
+async def update_entry(entry_id: str, request: BiblioEntryUpdate, background_tasks: BackgroundTasks):
+    """Update an entry: WOS/CNKI bibliographic fields (title, authors, DOI, …)
+    and/or relevance, tags, notes, ai_sections. Only provided fields are saved.
+
+    When the abstract changes, the shadow-corpus text file is rewritten so a
+    subsequent re-annotation (and every visualization, incl. sidecar-based
+    noun phrases) works from the NEW content, not the stale upload-time file.
+    An entry that gains an abstract for the first time gets a shadow text
+    created and queued for annotation like a fresh upload."""
     existing = BiblioEntryDB.get_by_id(entry_id)
     if not existing:
         raise HTTPException(status_code=404, detail="Entry not found")
     payload = request.model_dump(exclude_unset=True)
     updated = BiblioEntryDB.update(entry_id, payload)
+
+    if "abstract" in payload:
+        new_abstract = payload.get("abstract")
+        if BiblioEntryAbstractsDB.get_text_id(entry_id):
+            _sync_abstract_text_file(entry_id, new_abstract)
+        elif new_abstract and new_abstract.strip():
+            # Entry had no abstract before: create + annotate like a fresh upload
+            try:
+                library_id = existing["library_id"]
+                corpus_id = BiblioLibraryDB.get_corpus_id(library_id)
+                library = BiblioLibraryDB.get_by_id(library_id)
+                corpus = CorpusDB.get_by_id(corpus_id) if corpus_id else None
+                if corpus_id and corpus:
+                    files_dir = CORPORA_DIR / corpus["name"] / "files"
+                    files_dir.mkdir(parents=True, exist_ok=True)
+                    _queue_abstract_annotation(
+                        entry_id, new_abstract, corpus_id, files_dir,
+                        (library or {}).get("language") or "english", background_tasks,
+                    )
+            except Exception as e:
+                import logging
+                logging.getLogger(__name__).warning(
+                    f"Failed to queue annotation for new abstract of entry {entry_id}: {e}")
     return updated
+
+
+def _sync_abstract_text_file(entry_id: str, abstract: Optional[str]) -> None:
+    """Rewrite the entry's shadow-corpus .txt with the current abstract (best-effort).
+
+    Keeps disk content in sync with the DB after a user edit; annotation
+    sidecars become stale by definition and are refreshed on the next
+    re-annotation run (the NP sidecar cache is mtime-keyed, so it also expires
+    automatically once the sidecar is rewritten)."""
+    try:
+        from services.corpus_path_utils import resolve_stored_path
+        text_id = BiblioEntryAbstractsDB.get_text_id(entry_id)
+        if not text_id:
+            return
+        text = TextDB.get_by_id(text_id)
+        if not text:
+            return
+        cp = resolve_stored_path(text.get("content_path"))
+        if not cp:
+            return
+        new_content = (abstract or "").strip()
+        cp.parent.mkdir(parents=True, exist_ok=True)
+        cp.write_text(new_content, encoding="utf-8")
+        try:
+            TextDB.update(text_id, {"word_count": len(new_content.split())})
+        except Exception:
+            pass
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning(
+            f"Failed to sync abstract text file for entry {entry_id}: {e}")
 
 
 @router.post("/entries/batch-delete")
@@ -713,13 +832,20 @@ async def batch_delete_entries(request: BatchDeleteRequest):
     """Delete multiple entries by ID (with PDF / thumbnail cleanup). Returns number deleted."""
     if not request.entry_ids:
         return {"deleted": 0}
-    # Collect library_ids and clean up PDF files before deleting DB records
+    # Collect library_ids + shadow text ids and clean up PDF files before deleting.
+    from services.task_cancellation import cancel_tasks_for_texts
     library_ids = set()
+    shadow_text_ids = []
     for eid in request.entry_ids:
         entry = BiblioEntryDB.get_by_id(eid)
         if entry:
             library_ids.add(entry['library_id'])
             _delete_entry_pdf_files(entry['library_id'], eid)
+        tid = BiblioEntryAbstractsDB.get_text_id(eid)
+        if tid:
+            shadow_text_ids.append(tid)
+    # Cancel any in-flight abstract annotation for these entries.
+    cancel_tasks_for_texts(shadow_text_ids)
     deleted = BiblioEntryDB.delete_batch(request.entry_ids)
     for library_id in library_ids:
         BiblioLibraryDB.update_entry_count(library_id)
@@ -769,20 +895,52 @@ class NetworkRequest(VisualizationBaseRequest):
     max_nodes: int = 100
 
 
+class CiteSpaceParams(BaseModel):
+    """Shared CiteSpace node-selection / network / labelling parameters."""
+    node_type: Optional[str] = None            # keyword | author | institution | country | term | reference
+    # Multi-select node types (hybrid network, e.g. ["keyword", "reference"]):
+    # diamonds (terms) and circles (references) coexist; takes precedence over node_type
+    node_types: Optional[List[str]] = None
+    year_from: Optional[int] = None
+    year_to: Optional[int] = None
+    years_per_slice: int = 1
+    selection_mode: str = "g_index"            # g_index | top_n | top_n_percent | thresholds
+    g_index_k: int = 25
+    clustering_algorithm: str = "louvain"      # louvain | spectral
+    top_n: int = 50
+    top_n_percent: float = 10.0
+    threshold_c: int = 1                        # min node frequency
+    threshold_cc: int = 1                       # min co-occurrence count
+    threshold_ccv: float = 0.0                  # min link strength (cosine)
+    link_strength: str = "cosine"              # cosine | dice | jaccard | cooccurrence
+    pruning: str = "pathfinder"                 # none | pathfinder | mst (CiteSpace default)
+    label_algorithm: str = "llr"               # llr | tfidf | mi
+    max_nodes: int = 200
+    term_sources: Optional[List[str]] = None   # subset of title/abstract/author_keywords/keywords_plus/noun_phrases
+    # CiteSpace "Across Slices": rank nodes by global frequency instead of per-slice
+    # (the panel switch was silently dropped before this field existed)
+    across_slices: bool = False
+
+
 class ClusterRequest(VisualizationBaseRequest):
     cluster_by: str = "keyword"
+    # Deprecated: the CiteSpace engine determines cluster count from modularity
+    # (louvain) / estimates K for spectral; kept only for old-client compatibility.
     n_clusters: Optional[int] = None
+    citespace: Optional[CiteSpaceParams] = None
 
 
 class TimeRequest(VisualizationBaseRequest):
     time_slice: int = 1
     top_n: int = 10
+    citespace: Optional[CiteSpaceParams] = None
 
 
 class BurstRequest(VisualizationBaseRequest):
     burst_type: str = "keyword"
     min_frequency: int = 2
     gamma: float = 1.0
+    alpha: float = 1.0
 
 
 class WordCloudRequest(VisualizationBaseRequest):
@@ -793,6 +951,8 @@ class WordCloudRequest(VisualizationBaseRequest):
 class HeatmapRequest(VisualizationBaseRequest):
     bandwidth: Optional[float] = None
     grid_size: int = 50
+    cluster_by: str = "keyword"
+    citespace: Optional[CiteSpaceParams] = None
 
 
 def _get_filtered_entries(library_id: str, filters: Optional[BiblioFilter] = None):
@@ -880,11 +1040,16 @@ async def get_cluster_view(request: ClusterRequest):
     entries = _get_filtered_entries(request.library_id, request.filters)
     if not entries:
         return {"nodes": [], "edges": [], "clusters": [], "modularity": 0, "silhouette": 0}
-    
+
+    cs = request.citespace.model_dump(exclude_none=True) if request.citespace else {}
+    node_types = cs.pop("node_types", None)
+    node_type = node_types or cs.pop("node_type", None) or request.cluster_by
+    cs.pop("node_type", None)
     return generate_visualization(
         entries, 'cluster',
-        cluster_by=request.cluster_by,
-        n_clusters=request.n_clusters
+        cluster_by=node_type,
+        n_clusters=request.n_clusters,
+        citespace=cs,
     )
 
 
@@ -896,10 +1061,16 @@ async def get_timeline_view(request: TimeRequest):
         if not entries:
             return {"nodes": [], "edges": [], "clusters": [], "time_range": {"start": 0, "end": 0}}
         
+        cs = request.citespace.model_dump(exclude_none=True) if request.citespace else {}
+        node_types = cs.pop("node_types", None)
+        node_type = node_types or cs.pop("node_type", None) or "keyword"
+        cs.pop("node_type", None)
         result = generate_visualization(
             entries, 'timeline',
             time_slice=request.time_slice,
-            top_n=request.top_n
+            top_n=request.top_n,
+            cluster_by=node_type,
+            citespace=cs,
         )
         return result
     except Exception as e:
@@ -933,7 +1104,8 @@ async def get_burst_detection(request: BurstRequest):
         entries, 'burst',
         burst_type=request.burst_type,
         min_frequency=request.min_frequency,
-        gamma=request.gamma
+        gamma=request.gamma,
+        alpha=request.alpha,
     )
 
 
@@ -971,6 +1143,48 @@ async def get_wordcloud_visualization(request: WordCloudRequest):
     return {"words": words}
 
 
+class LlmLabelCluster(BaseModel):
+    id: int
+    size: int = 0
+    top_terms: List[str] = []
+    sample_titles: List[str] = []
+
+
+class LlmLabelsRequest(BaseModel):
+    """Joint AI labelling for cluster/timeline clusters (one LLM call for all)."""
+    clusters: List[LlmLabelCluster]
+    language: str = "en"
+    use_openai_first: bool = True
+    openai_base_url: Optional[str] = None
+    openai_api_key: Optional[str] = None
+    openai_model: Optional[str] = None
+    ollama_url: Optional[str] = None
+    ollama_model: Optional[str] = None
+
+
+@router.post("/visualization/llm-labels")
+async def generate_visualization_llm_labels(request: LlmLabelsRequest):
+    """Name all clusters in one LLM request (cross-cluster de-duplication).
+
+    Provider rule: API first when enabled (use_openai_first + base_url given),
+    local Ollama otherwise or as fallback — same policy as entry AI generation."""
+    from services.biblio.llm_labels import generate_llm_cluster_labels
+    try:
+        labels = await generate_llm_cluster_labels(
+            [c.model_dump() for c in request.clusters],
+            request.language,
+            use_openai=bool(request.use_openai_first and request.openai_base_url),
+            openai_base_url=request.openai_base_url,
+            openai_api_key=request.openai_api_key,
+            openai_model=request.openai_model,
+            ollama_url=request.ollama_url,
+            ollama_model=request.ollama_model,
+        )
+        return {"success": True, "labels": labels}
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=str(e))
+
+
 @router.post("/visualization/heatmap")
 async def get_heatmap_view(request: HeatmapRequest):
     """Get heatmap (2D density) visualization data"""
@@ -978,9 +1192,16 @@ async def get_heatmap_view(request: HeatmapRequest):
     if not entries:
         return {"points": [], "clusters": [], "time_range": {"start": 0, "end": 0}, "density_grid": {"x": [], "y": [], "z": []}}
 
+    cs = request.citespace.model_dump(exclude_none=True) if request.citespace else {}
+    # node_type inside citespace would collide with the positional cluster_by
+    node_types = cs.pop("node_types", None)
+    node_type = node_types or cs.pop("node_type", None) or request.cluster_by
+    cs.pop("node_type", None)
     return generate_visualization(
         entries, 'heatmap',
         bandwidth=request.bandwidth,
-        grid_size=request.grid_size
+        grid_size=request.grid_size,
+        cluster_by=node_type,
+        citespace=cs,
     )
 

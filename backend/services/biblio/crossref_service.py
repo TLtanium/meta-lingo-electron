@@ -27,12 +27,20 @@ from services.pdf_text_service import extract_text_from_pdf_bytes
 logger = logging.getLogger(__name__)
 
 CROSSREF_BASE = "https://api.crossref.org/works"
+ARXIV_API = "http://export.arxiv.org/api/query"
 # Crossref asks for a mailto in the User-Agent for the "polite pool" (faster, more reliable).
 _USER_AGENT = "Meta-Lingo/1.0 (https://github.com/; mailto:meta-lingo@example.com)"
 _HTTP_TIMEOUT = 10
 
 # DOI pattern (intentionally permissive); trailing punctuation is trimmed afterwards.
 _DOI_RE = re.compile(r"10\.\d{4,9}/[-._;()/:A-Za-z0-9]+", re.IGNORECASE)
+
+# arXiv identifier, both modern (1503.02531) and legacy (hep-th/9901001) forms, with an
+# optional version suffix. arXiv PDFs carry this as a side-margin stamp on page 1.
+_ARXIV_ID_RE = re.compile(
+    r"arxiv:\s*(?P<id>(?:[a-z\-]+(?:\.[A-Z]{2})?/\d{7}|\d{4}\.\d{4,5}))(?:v\d+)?",
+    re.IGNORECASE,
+)
 
 _CROSSREF_TYPE_MAP = {
     "journal-article": "Journal Article",
@@ -62,7 +70,7 @@ def extract_pdf_hints(pdf_bytes: bytes) -> Dict[str, Optional[str]]:
     Extract DOI / title / first-author hints from a PDF using embedded metadata and
     first-page text heuristics. Returns a dict with keys: doi, title, author.
     """
-    hints: Dict[str, Optional[str]] = {"doi": None, "title": None, "author": None}
+    hints: Dict[str, Optional[str]] = {"doi": None, "title": None, "author": None, "arxiv_id": None}
     try:
         import fitz  # PyMuPDF
     except ImportError:
@@ -96,6 +104,11 @@ def extract_pdf_hints(pdf_bytes: bytes) -> Dict[str, Optional[str]]:
         if doi_match:
             hints["doi"] = _clean_doi(doi_match.group(1) if doi_match.lastindex else doi_match.group(0))
 
+        # arXiv ID: the canonical signal for preprints (which usually carry no DOI).
+        arxiv_match = _ARXIV_ID_RE.search(first_text)
+        if arxiv_match:
+            hints["arxiv_id"] = arxiv_match.group("id")
+
         # Title: trust a sensible embedded metadata title, otherwise heuristically pick the
         # most title-like line near the top of page 1 (largest font block).
         title_guess = meta_title if _looks_like_title(meta_title) else None
@@ -121,9 +134,12 @@ def _looks_like_title(text: str) -> bool:
     if " " not in t:
         return False
     low = t.lower()
-    if low.startswith(("http", "www.", "doi:")) or low.endswith((".pdf", ".doc", ".docx")):
+    if low.startswith(("http", "www.", "doi:", "arxiv")) or low.endswith((".pdf", ".doc", ".docx")):
         return False
     if "untitled" in low or "microsoft word" in low:
+        return False
+    # arXiv side-margin stamp ("arXiv:1503.02531v1 [stat.ML] 9 Mar 2015") is not a title.
+    if _ARXIV_ID_RE.search(t):
         return False
     return True
 
@@ -317,14 +333,107 @@ def search_by_title(title: str, author: Optional[str] = None, rows: int = 5) -> 
             best_score = score
             best_item = item
 
-    # Accept a confident title match; otherwise fall back to Crossref's own top relevance hit.
+    # Only accept a confident title match. Returning Crossref's top relevance hit on a weak
+    # match (e.g. when the "title" was actually an arXiv stamp or page noise) attaches a wrong
+    # paper's DOI/abstract/authors — better to return nothing and fall back to PDF-derived data.
     if best_item and best_score >= 0.6:
         return best_item
-    return items[0]
+    return None
 
 
 def _norm(text: str) -> str:
     return re.sub(r"[^a-z0-9 ]", "", (text or "").lower()).strip()
+
+
+# ==================== arXiv lookup ====================
+
+def lookup_arxiv(arxiv_id: str) -> Optional[Dict[str, Any]]:
+    """Resolve an arXiv ID to mapped entry fields via the public arXiv Atom API.
+
+    Returns an already-mapped fields dict (same shape as crossref_to_entry_fields output)
+    or None on any failure. arXiv preprints rarely carry a DOI, so this is the reliable
+    metadata path for them.
+    """
+    if not arxiv_id:
+        return None
+    try:
+        import httpx
+        resp = httpx.get(
+            ARXIV_API,
+            params={"id_list": arxiv_id, "max_results": 1},
+            headers={"User-Agent": _USER_AGENT},
+            timeout=_HTTP_TIMEOUT,
+            follow_redirects=True,
+        )
+        if resp.status_code != 200:
+            logger.info("arXiv API returned %s for %s", resp.status_code, arxiv_id)
+            return None
+        return _parse_arxiv_atom(resp.text, arxiv_id)
+    except Exception as e:
+        logger.warning("arXiv request failed (%s): %s", arxiv_id, e)
+        return None
+
+
+def _parse_arxiv_atom(xml_text: str, arxiv_id: str) -> Optional[Dict[str, Any]]:
+    """Parse an arXiv Atom <entry> into entry fields. Returns None if no titled entry."""
+    import xml.etree.ElementTree as ET
+    ns = {"a": "http://www.w3.org/2005/Atom", "arxiv": "http://arxiv.org/schemas/atom"}
+    try:
+        root = ET.fromstring(xml_text)
+    except Exception as e:
+        logger.warning("arXiv XML parse failed: %s", e)
+        return None
+    entry = root.find("a:entry", ns)
+    if entry is None:
+        return None
+
+    title_el = entry.find("a:title", ns)
+    title = re.sub(r"\s+", " ", (title_el.text or "").strip()) if title_el is not None else ""
+    if not title:
+        return None  # A bad id_list query returns an entry with no real title.
+
+    summary_el = entry.find("a:summary", ns)
+    abstract = re.sub(r"\s+", " ", (summary_el.text or "").strip()) if summary_el is not None and summary_el.text else None
+
+    authors: List[str] = []
+    for a in entry.findall("a:author", ns):
+        n = a.find("a:name", ns)
+        full = (n.text or "").strip() if n is not None else ""
+        if not full:
+            continue
+        # arXiv gives "First [Middle] Last"; reformat to "Last, First …" like other entries.
+        parts = full.split()
+        authors.append(f"{parts[-1]}, {' '.join(parts[:-1])}" if len(parts) >= 2 else full)
+
+    year: Optional[int] = None
+    pub = entry.find("a:published", ns)
+    if pub is not None and pub.text:
+        ym = re.match(r"(\d{4})", pub.text.strip())
+        if ym:
+            year = int(ym.group(1))
+
+    categories = [c.get("term") for c in entry.findall("a:category", ns) if c.get("term")]
+    doi_el = entry.find("arxiv:doi", ns)
+    doi = (doi_el.text.strip() if doi_el is not None and doi_el.text else None)
+
+    return {
+        "title": title,
+        "authors": authors,
+        "institutions": [],
+        "countries": [],
+        "journal": "arXiv preprint",
+        "year": year,
+        "volume": None,
+        "issue": None,
+        "pages": None,
+        "doi": doi,
+        "keywords": [c for c in categories if c],
+        "abstract": abstract,
+        "doc_type": "Preprint",
+        "citation_count": 0,
+        "url": f"https://arxiv.org/abs/{arxiv_id}",
+        "publisher": "arXiv",
+    }
 
 
 # ==================== Mapping ====================
@@ -401,6 +510,7 @@ def build_entry_from_pdf(
     hints = extract_pdf_hints(pdf_bytes)
     matched_via = "none"
     item: Optional[Dict[str, Any]] = None
+    arxiv_fields: Optional[Dict[str, Any]] = None
 
     # 1) DOI is the most reliable signal
     if hints.get("doi"):
@@ -408,14 +518,22 @@ def build_entry_from_pdf(
         if item:
             matched_via = "doi"
 
-    # 2) Fall back to a title search
-    if item is None and hints.get("title"):
+    # 2) arXiv ID — the canonical signal for preprints (resolved via the arXiv API)
+    if item is None and hints.get("arxiv_id"):
+        arxiv_fields = lookup_arxiv(hints["arxiv_id"])
+        if arxiv_fields:
+            matched_via = "arxiv"
+
+    # 3) Fall back to a title search (only accepts a confident match)
+    if item is None and arxiv_fields is None and hints.get("title"):
         item = search_by_title(hints["title"], hints.get("author"))
         if item:
             matched_via = "title"
 
     if item is not None:
         fields = crossref_to_entry_fields(item)
+    elif arxiv_fields is not None:
+        fields = arxiv_fields
     else:
         # 3) Pure PDF-derived minimal entry
         fields = {

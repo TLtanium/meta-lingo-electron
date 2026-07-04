@@ -443,17 +443,21 @@ def generate_visualization(
         )
     
     elif viz_type == 'cluster':
-        return cluster_entries(
+        # CiteSpace-aligned: term co-occurrence network + modularity clustering.
+        from .citespace import build_term_network
+        return build_term_network(
             entries,
             kwargs.get('cluster_by', 'keyword'),
-            kwargs.get('n_clusters')
+            **(kwargs.get('citespace') or {}),
         )
-    
+
     elif viz_type == 'timeline':
         try:
-            return service.get_timeline_view(
-                kwargs.get('time_slice', 1),
-                kwargs.get('top_n', 10)
+            from .citespace import build_timeline_network
+            return build_timeline_network(
+                entries,
+                kwargs.get('cluster_by', 'keyword'),
+                **(kwargs.get('citespace') or {}),
             )
         except Exception as e:
             print(f"Error generating timeline: {e}")
@@ -477,7 +481,8 @@ def generate_visualization(
             entries,
             kwargs.get('burst_type', 'keyword'),
             kwargs.get('min_frequency', 2),
-            kwargs.get('gamma', 1.0)
+            kwargs.get('gamma', 1.0),
+            kwargs.get('alpha', 1.0),
         )
     
     elif viz_type == 'landscape':
@@ -491,7 +496,9 @@ def generate_visualization(
         heatmap_service = HeatmapService(entries)
         return heatmap_service.generate_heatmap(
             bandwidth=kwargs.get('bandwidth'),
-            grid_size=kwargs.get('grid_size', 50)
+            grid_size=kwargs.get('grid_size', 50),
+            cluster_by=kwargs.get('cluster_by', 'keyword'),
+            citespace=kwargs.get('citespace') or {},
         )
 
     else:

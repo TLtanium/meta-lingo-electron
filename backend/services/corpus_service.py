@@ -407,6 +407,18 @@ class CorpusService:
                         pdf_sidecar.unlink()
                 except Exception as e:
                     logger.warning(f"Failed to remove PDF sidecar for text {text_id}: {e}")
+
+            # Remove annotation sidecars (.spacy/.usas/.mipvu/.nrc .json) — these
+            # were previously left behind when a single text was deleted
+            if content_path:
+                try:
+                    cp = Path(content_path)
+                    for suffix in ('.spacy.json', '.usas.json', '.mipvu.json', '.nrc.json'):
+                        sidecar = cp.parent / f"{cp.stem}{suffix}"
+                        if sidecar.exists():
+                            sidecar.unlink()
+                except Exception as e:
+                    logger.warning(f"Failed to remove annotation sidecars for text {text_id}: {e}")
             
             # Delete associated annotation archives
             from routers.annotation import delete_archives_by_text_id

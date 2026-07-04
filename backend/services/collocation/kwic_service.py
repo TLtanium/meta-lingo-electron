@@ -1111,9 +1111,26 @@ class KWICService:
         if parsed.ordered_segments and parsed.structural_patterns and parsed.patterns:
             return self._execute_standard_structure_token(tokens, parsed, context_size)
 
+        # Quantifier semantics split (2026-07):
+        # - single conditioned pattern [x]{m,n} alone → doc-level frequency filter
+        #   (documented 2026-03 behaviour; match each token singly, then filter)
+        # - quantifier inside a multi-pattern sequence → consecutive repetition,
+        #   handled natively by the engine matcher (standard CQL)
+        freq_pat = None
+        query_to_match = parsed
+        if (not parsed.structural_patterns and not parsed.or_groups
+                and len(parsed.patterns) == 1 and not parsed.patterns[0].is_any
+                and (parsed.patterns[0].min_count != 1 or parsed.patterns[0].max_count != 1)):
+            from .cql_engine import CQLQuery as _CQLQuery
+            freq_pat = parsed.patterns[0]
+            query_to_match = _CQLQuery(
+                patterns=[self._clone_pattern_as_single(freq_pat)],
+                raw_query=parsed.raw_query
+            )
+
         results = []
         sentence_spans = self._get_sentence_spans(tokens) if parsed.structural_patterns else None
-        for match in self.cql_engine.find_matches(tokens, parsed, context_size):
+        for match in self.cql_engine.find_matches(tokens, query_to_match, context_size):
             if parsed.structural_patterns:
                 if not self._check_structural_constraints(
                     tokens, match['position'], match['end_position'], parsed.structural_patterns, sentence_spans
@@ -1129,16 +1146,11 @@ class KWICService:
                 'pos': matched_tokens[0].get('pos', '') if matched_tokens else ''
             })
 
-        # Token frequency filter (no structure): only keep if doc-level match count in [min,max]
-        if not parsed.structural_patterns and parsed.patterns:
-            freq_pat = next(
-                (p for p in parsed.patterns if (p.min_count != 1 or p.max_count != 1) and not p.is_any),
-                None
-            )
-            if freq_pat and results:
-                doc_count = self._count_token_matches_in_span(tokens, freq_pat)
-                if doc_count < freq_pat.min_count or doc_count > freq_pat.max_count:
-                    return []
+        # Doc-level frequency filter for the single quantified pattern case
+        if freq_pat is not None and results:
+            doc_count = self._count_token_matches_in_span(tokens, freq_pat)
+            if doc_count < freq_pat.min_count or doc_count > freq_pat.max_count:
+                return []
         return results
 
     # -----------------------------------------------------------------
@@ -1336,6 +1348,13 @@ class KWICService:
             token_freq_min = pattern_list[0].min_count
             token_freq_max = pattern_list[0].max_count
             freq_pat = pattern_list[0]
+            # Frequency semantics: match the token singly; the {min,max} count is
+            # applied per-span below. Normalize so the engine matcher (which now
+            # treats quantifiers on conditioned tokens as repetition) matches 1.
+            ordered = [
+                (t, self._clone_pattern_as_single(v) if t == 'pattern' else v)
+                for t, v in ordered
+            ]
 
         def apply_span_filters(span_start: int, span_end: int) -> bool:
             if not (sp.min_count == 1 and sp.max_count == 1):

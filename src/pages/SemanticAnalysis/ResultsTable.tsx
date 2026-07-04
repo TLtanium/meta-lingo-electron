@@ -379,8 +379,9 @@ export default function ResultsTable({
         alignItems="center" 
         sx={{ px: 2, py: 1, borderBottom: 1, borderColor: 'divider' }}
       >
-        {/* Stats */}
-        <Stack direction="row" spacing={1} flexWrap="wrap">
+        {/* Stats — grows to fill available width so the control cluster
+            (switch, filter box, action icons) stays anchored to the right edge */}
+        <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ flex: '1 1 auto', minWidth: 0 }}>
           <Chip 
             label={`${t('semantic.results.totalTokens')}: ${results.total_tokens.toLocaleString()}`}
             size="small"
@@ -401,8 +402,29 @@ export default function ResultsTable({
             size="small"
             color="primary"
           />
+          {/* Metaphor highlight switch — sits inline with stats chips
+              (same placement as the implicit-backref switch in Metaphor Analysis) */}
+          {onShowMetaphorHighlightChange && (
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={showMetaphorHighlight}
+                  onChange={(e) => onShowMetaphorHighlightChange(e.target.checked)}
+                  size="small"
+                  color="success"
+                />
+              }
+              label={
+                <Typography variant="caption" color={showMetaphorHighlight ? 'success.main' : 'text.secondary'} noWrap>
+                  {t('semantic.results.showMetaphorHighlight')}
+                </Typography>
+              }
+              sx={{ mx: 0 }}
+            />
+          )}
+
           {selectedItems.length > 0 && (
-            <Chip 
+            <Chip
               label={`${isZh ? '已选' : 'Selected'}: ${selectedItems.length}`}
               size="small"
               color="primary"
@@ -410,28 +432,7 @@ export default function ResultsTable({
           )}
         </Stack>
 
-        <Box sx={{ flex: 1 }} />
-
-        {/* Metaphor highlight switch - available in both domain and word mode */}
-        {onShowMetaphorHighlightChange && (
-          <FormControlLabel
-            control={
-              <Switch
-                checked={showMetaphorHighlight}
-                onChange={(e) => onShowMetaphorHighlightChange(e.target.checked)}
-                size="small"
-                color="success"
-              />
-            }
-            label={
-              <Typography variant="body2">
-                {t('semantic.results.showMetaphorHighlight')}
-              </Typography>
-            }
-          />
-        )}
-
-        {/* Table filter */}
+        {/* Table filter — wide but shrinkable; right-aligned with the actions */}
         <TextField
           size="small"
           placeholder={isDomainMode ? t('semantic.table.filterDomainPlaceholder') : t('semantic.table.filterWordPlaceholder')}
@@ -440,7 +441,7 @@ export default function ResultsTable({
             setTableFilter(e.target.value)
             onPageChange(0)
           }}
-          sx={{ width: 150 }}
+          sx={{ width: 240, minWidth: 140, flexShrink: 1 }}
           InputProps={{
             startAdornment: (
               <InputAdornment position="start">

@@ -123,30 +123,45 @@ class RefworksParser:
             return self._parse_cnki(content)
     
     def _parse_wos(self, content: str) -> Tuple[List[Dict[str, Any]], List[str]]:
-        """Parse WOS Refworks format"""
+        """Parse WOS Refworks / plain-text format
+
+        Handles both the legacy short export and the current
+        "Full Record and Cited References" export. The file-level header
+        (FN/VR) is stripped per-record so the first record is never dropped,
+        regardless of whether the BOM was kept during decoding.
+        """
         entries = []
         errors = []
-        
-        # Split into records by ER (End of Record)
-        # WOS format uses ER to mark end of each record
-        records = re.split(r'\nER\s*\n', content)
-        
+
+        # Strip a leading UTF-8 BOM if it survived decoding (utf-8 vs utf-8-sig).
+        content = content.lstrip('﻿')
+
+        # Split into records by ER (End of Record). WOS marks each record end
+        # with a line containing only "ER".
+        records = re.split(r'\nER\s*(?:\n|$)', content)
+
         for i, record in enumerate(records):
-            record = record.strip()
+            record = record.strip().lstrip('﻿')
             if not record:
                 continue
-            
-            # Skip header lines
-            if record.startswith('FN ') or record.startswith('VR '):
+
+            # Drop the file-level header lines (FN/VR) that are glued to the
+            # first record. Previously the whole first record was skipped when
+            # it started with "FN ", losing one entry.
+            lines = record.split('\n')
+            while lines and re.match(r'^(FN|VR)\b', lines[0]):
+                lines.pop(0)
+            record = '\n'.join(lines).strip()
+            if not record:
                 continue
-            
+
             try:
                 entry = self._parse_wos_record(record)
                 if entry and entry.get('title'):
                     entries.append(entry)
             except Exception as e:
                 errors.append(f"Record {i+1}: {str(e)}")
-        
+
         return entries, errors
     
     def _parse_wos_record(self, record: str) -> Optional[Dict[str, Any]]:
@@ -237,7 +252,21 @@ class RefworksParser:
             institutions, countries = self._parse_wos_addresses(addresses)
             entry['institutions'] = institutions
             entry['countries'] = countries
-        
+
+        # Prefer C3 (Web of Science organization-enhanced names) when present.
+        # The "Full Record" export includes C3 with clean, normalized
+        # institution names (e.g. "University of Neuchatel" instead of the
+        # abbreviated "Univ Neuchatel" found in C1).
+        c3 = raw.get('C3', '')
+        if c3:
+            c3_orgs = []
+            for chunk in re.split(r'[;\n]', c3):
+                org = chunk.strip()
+                if org and org not in c3_orgs:
+                    c3_orgs.append(org)
+            if c3_orgs:
+                entry['institutions'] = c3_orgs
+
         # Also try RP (reprint address) for additional institution info
         if not entry['institutions']:
             rp = raw.get('RP', '')

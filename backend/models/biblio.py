@@ -85,7 +85,31 @@ class BiblioEntryBase(BaseModel):
 
 
 class BiblioEntryUpdate(BaseModel):
-    """Update payload for relevance, tags, notes, pdf paths, ai_sections"""
+    """Update payload for an entry.
+
+    Covers user-editable WOS/CNKI bibliographic fields (title, authors, DOI, …)
+    as well as relevance, tags, notes, pdf paths and ai_sections. Only fields
+    explicitly provided by the client are persisted (router uses
+    ``model_dump(exclude_unset=True)``), so unset fields are never overwritten.
+    """
+    # ── Bibliographic fields (WOS / CNKI) ──
+    title: Optional[str] = None
+    authors: Optional[List[str]] = None
+    institutions: Optional[List[str]] = None
+    countries: Optional[List[str]] = None
+    journal: Optional[str] = None
+    year: Optional[int] = None
+    volume: Optional[str] = None
+    issue: Optional[str] = None
+    pages: Optional[str] = None
+    doi: Optional[str] = None
+    keywords: Optional[List[str]] = None
+    abstract: Optional[str] = None
+    doc_type: Optional[str] = None
+    language: Optional[str] = None
+    citation_count: Optional[int] = None
+    source_url: Optional[str] = None
+    # ── User annotations ──
     relevance: Optional[int] = None
     tags: Optional[List[str]] = None
     notes: Optional[str] = None

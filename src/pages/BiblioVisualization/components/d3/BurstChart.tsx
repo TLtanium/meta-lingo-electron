@@ -35,6 +35,7 @@ interface MergedBurst {
   periods: BurstPeriod[]
   maxStrength: number
   totalFrequency: number
+  firstYear?: number
 }
 
 interface BurstChartProps {
@@ -43,14 +44,20 @@ interface BurstChartProps {
   colorScheme?: string
   width?: number
   height?: number
+  /** Max number of terms shown (ranked by the chosen sort). */
+  topN?: number
+  /** Row ordering: by burst strength (default) or by burst beginning year (CiteSpace). */
+  sortBy?: 'strength' | 'begin'
 }
 
 export default function BurstChart({ 
   data, 
   loading = false,
   colorScheme = 'red',
-  width = 800, 
-  height = 600 
+  width = 800,
+  height = 600,
+  topN = 30,
+  sortBy = 'strength',
 }: BurstChartProps) {
   const { t } = useTranslation()
   const theme = useTheme()
@@ -125,13 +132,14 @@ export default function BurstChart({
     const { width: w } = dimensions
     
     // Layout configuration - CiteSpace-style table layout
-    const labelWidth = 160
+    const labelWidth = 150
+    const yearColWidth = 44
     const strengthWidth = 70
-    const yearRangeWidth = 90
+    const yearRangeWidth = 84
     const margin = { top: 0, right: 15, bottom: 20, left: 15 }
     const headerHeight = 40
     const rowHeight = 22
-    const chartLeft = margin.left + labelWidth + yearRangeWidth
+    const chartLeft = margin.left + labelWidth + yearColWidth + yearRangeWidth
     const chartWidth = w - chartLeft - margin.right - strengthWidth
     
     // Get colors
@@ -146,7 +154,8 @@ export default function BurstChart({
           term: burst.term,
           periods: [],
           maxStrength: 0,
-          totalFrequency: 0
+          totalFrequency: 0,
+          firstYear: (burst as any).first_year ?? burst.burst_start
         })
       }
       
@@ -161,10 +170,13 @@ export default function BurstChart({
       merged.totalFrequency += burst.frequency
     })
     
-    // Sort by max strength and take top 30 terms
+    // Rank by the chosen sort and take the top N terms
     const mergedBursts = Array.from(termBursts.values())
-      .sort((a, b) => b.maxStrength - a.maxStrength)
-      .slice(0, 30)
+      .sort((a, b) => sortBy === 'begin'
+        ? (Math.min(...a.periods.map(p => p.start)) - Math.min(...b.periods.map(p => p.start)))
+          || (b.maxStrength - a.maxStrength)
+        : b.maxStrength - a.maxStrength)
+      .slice(0, Math.max(5, topN))
     
     // Sort periods within each term by start year
     mergedBursts.forEach(burst => {
@@ -199,7 +211,16 @@ export default function BurstChart({
       .text(t('biblio.keyword'))
     
     g.append('text')
-      .attr('x', margin.left + labelWidth + yearRangeWidth / 2)
+      .attr('x', margin.left + labelWidth + yearColWidth / 2)
+      .attr('y', headerHeight / 2 + 4)
+      .attr('text-anchor', 'middle')
+      .attr('font-size', 11)
+      .attr('font-weight', 'bold')
+      .attr('fill', themeColors.textPrimary)
+      .text(t('biblio.yearColumn'))
+
+    g.append('text')
+      .attr('x', margin.left + labelWidth + yearColWidth + yearRangeWidth / 2)
       .attr('y', headerHeight / 2 + 4)
       .attr('text-anchor', 'middle')
       .attr('font-size', 11)
@@ -248,9 +269,16 @@ export default function BurstChart({
       .attr('stroke', themeColors.borderMedium)
     
     g.append('line')
-      .attr('x1', margin.left + labelWidth + yearRangeWidth)
+      .attr('x1', margin.left + labelWidth + yearColWidth)
       .attr('y1', 0)
-      .attr('x2', margin.left + labelWidth + yearRangeWidth)
+      .attr('x2', margin.left + labelWidth + yearColWidth)
+      .attr('y2', headerHeight)
+      .attr('stroke', themeColors.borderMedium)
+
+    g.append('line')
+      .attr('x1', margin.left + labelWidth + yearColWidth + yearRangeWidth)
+      .attr('y1', 0)
+      .attr('x2', margin.left + labelWidth + yearColWidth + yearRangeWidth)
       .attr('y2', headerHeight)
       .attr('stroke', themeColors.borderMedium)
     
@@ -295,11 +323,20 @@ export default function BurstChart({
         .on('mouseleave', () => setTooltip(null))
       
       // Year range label
+      // First-appearance year (CiteSpace "Year" column)
+      g.append('text')
+        .attr('x', margin.left + labelWidth + yearColWidth / 2)
+        .attr('y', rowY + rowHeight / 2 + 4)
+        .attr('text-anchor', 'middle')
+        .attr('font-size', 9)
+        .attr('fill', themeColors.textSecondary)
+        .text(burst.firstYear ?? '')
+
       const periodsText = burst.periods.length === 1
         ? `${burst.periods[0].start}-${burst.periods[0].end}`
         : `${burst.periods.length} ${t('biblio.periods')}`
       g.append('text')
-        .attr('x', margin.left + labelWidth + yearRangeWidth / 2)
+        .attr('x', margin.left + labelWidth + yearColWidth + yearRangeWidth / 2)
         .attr('y', rowY + rowHeight / 2 + 4)
         .attr('text-anchor', 'middle')
         .attr('font-size', 9)
@@ -363,9 +400,16 @@ export default function BurstChart({
         .attr('stroke', themeColors.borderLight)
       
       g.append('line')
-        .attr('x1', margin.left + labelWidth + yearRangeWidth)
+        .attr('x1', margin.left + labelWidth + yearColWidth)
         .attr('y1', rowY)
-        .attr('x2', margin.left + labelWidth + yearRangeWidth)
+        .attr('x2', margin.left + labelWidth + yearColWidth)
+        .attr('y2', rowY + rowHeight)
+        .attr('stroke', themeColors.borderLight)
+
+      g.append('line')
+        .attr('x1', margin.left + labelWidth + yearColWidth + yearRangeWidth)
+        .attr('y1', rowY)
+        .attr('x2', margin.left + labelWidth + yearColWidth + yearRangeWidth)
         .attr('y2', rowY + rowHeight)
         .attr('stroke', themeColors.borderLight)
       
@@ -440,7 +484,7 @@ export default function BurstChart({
       .attr('fill', themeColors.textMuted)
       .text(`${t('biblio.totalBursts')}: ${data.bursts.length}`)
     
-  }, [data, dimensions, colorScheme, t, showTooltip, themeColors])
+  }, [data, dimensions, colorScheme, t, showTooltip, themeColors, topN, sortBy])
   
   if (loading) {
     return (

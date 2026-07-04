@@ -229,9 +229,17 @@ ambiguous (L− C−) case — not a separate requirement once R+ holds.
 ━━━ SPECIAL MRW TYPES ━━━
   • [DIR:word] DIRECT METAPHOR — the source domain is literally named; by
     definition the source entity is present in the situation model. Once you
-    CONFIRM it is genuinely a direct metaphor → [R+] → [D+]. There is no
-    "Direct + Non-deliberate" configuration. (If the auto-tag looks wrong, i.e.
-    not actually a direct metaphor, re-classify it as [MET:] and analyze normally.)
+    CONFIRM it is genuinely a direct metaphor → [R+] → [D+], **ALWAYS deliberate**.
+    ⚠ THIS IS UNCONDITIONAL on the signal (L) and novelty (C) dimensions. A direct
+    metaphor that is NOT signaled (L−) and is conventional (C−) is still DELIBERATE:
+    it is config ③ [L− C− R+ D+], NEVER config ⑤. Direct reference (R+) is the
+    source of deliberateness (Corollary 3 / R⟺D), so an "unsigned" direct metaphor
+    is a category error — absence of a flag word does NOT make a direct metaphor
+    non-deliberate. A [DIR:] word can ONLY land in configs ①②③④ (all D+); it can
+    never be ⑤. Do NOT run a [DIR:] word through the Step 4 referential test that
+    could yield R−/⑤. (If the auto-tag looks wrong, i.e. the word does NOT literally
+    name a source entity / is not actually a direct metaphor, re-classify it as
+    [MET:] and analyze normally — that is the ONLY way a [DIR:] tag escapes D+.)
   • [MFLAG:word] METAPHOR FLAG — ⚠ NOT an MRW. A flag word (like / as / as if /
     imagine / "metaphor" etc.) is the SIGNAL, not the metaphor. It receives NO
     [L/C/R/D] code, NO DM/NDM verdict, and NO output row. Its ONLY function is to
@@ -262,10 +270,13 @@ DECISION PROCEDURE:
   Step 2: For each MRW, identify the SOURCE DOMAIN.
 
   Step 3: ENTAILMENT ROUTING (apply the DECISION SHORTCUT per MRW):
+    (a0) CONFIRMED [DIR:] direct metaphor? → [R+]/[D+] UNCONDITIONALLY. Pick the
+         config by L/C: ① (L+C+), ② (L+C−), ④ (L−C+), or ③ (L−C−). Direct metaphors
+         NEVER go to Step 4 and NEVER become ⑤, even when unsignaled. Done.
     (a) [L+]? (genuine signal — see Guardrails) → [R+]/[D+], config ① or ②. Done.
     (b) [C+]? (novel for the producer's context) → [R+]/[D+], config ④ (or ① if L+). Done.
-    (c) Else (L− and C−): structurally ambiguous → go to Step 4.
-    ⚠ State per MRW which branch (a/b/c) applied. Never batch-dismiss.
+    (c) Else (L− and C−, and NOT a [DIR:] word): structurally ambiguous → go to Step 4.
+    ⚠ State per MRW which branch (a0/a/b/c) applied. Never batch-dismiss.
 
   Step 4: REFERENTIAL TEST (only for L− C− words from Step 3c)
     Apply the counterfactual test. Use the Step 5 discourse cues as evidence:
@@ -287,6 +298,10 @@ DECISION PROCEDURE:
        valid configs ①–⑤. If you produced an impossible combination
        (e.g. L+ with R−, C+ with R−, R+ with D−, or R− with D+) → re-judge; the
        error is almost always a missed signal/novelty or a mislabeled R.
+    d. DIRECT-METAPHOR CHECK — scan every [DIR:] word: it MUST be R+ and D+
+       (config ①②③④). Any [DIR:] word marked R− or D− (i.e. config ⑤, often
+       "downgraded for being unsignaled") is INVALID → restore to D+; an unsignaled
+       direct metaphor is config ③, not ⑤.
     Record a Revision note for any changed verdict.
 
 KEY DISTINCTIONS:

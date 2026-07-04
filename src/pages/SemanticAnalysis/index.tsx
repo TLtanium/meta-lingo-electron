@@ -1,18 +1,21 @@
 /**
- * Semantic Analysis Page
- * Container for Semantic Domain Analysis (USAS) and Metaphor Analysis (MIPVU)
+ * Discourse Analysis Page
+ * Container for Semantic Domain Analysis (USAS), Metaphor Analysis (MIPVU)
+ * and Multidimensional Analysis (Biber 1988 / MAT)
  */
 
 import { useState } from 'react'
 import { Box, Tabs, Tab } from '@mui/material'
 import CategoryIcon from '@mui/icons-material/Category'
 import AutoGraphIcon from '@mui/icons-material/AutoGraph'
+import ViewInArIcon from '@mui/icons-material/ViewInAr'
 import { useTranslation } from 'react-i18next'
 import type { CrossLinkParams } from '../../types'
 import SemanticDomainAnalysis from './SemanticDomainAnalysis'
 import MetaphorAnalysis from './MetaphorAnalysis'
+import MultidimensionalAnalysis from './MultidimensionalAnalysis'
 
-type AnalysisTab = 'semantic' | 'metaphor'
+type AnalysisTab = 'semantic' | 'metaphor' | 'mda'
 
 interface SemanticAnalysisProps {
   crossLinkParams?: CrossLinkParams
@@ -46,6 +49,13 @@ export default function SemanticAnalysis({ crossLinkParams }: SemanticAnalysisPr
             label={isZh ? '隐喻分析' : 'Metaphor Analysis'}
             sx={{ textTransform: 'none' }}
           />
+          <Tab
+            value="mda"
+            icon={<ViewInArIcon />}
+            iconPosition="start"
+            label={isZh ? '多维分析' : 'Multidimensional Analysis'}
+            sx={{ textTransform: 'none' }}
+          />
         </Tabs>
       </Box>
 
@@ -56,6 +66,9 @@ export default function SemanticAnalysis({ crossLinkParams }: SemanticAnalysisPr
         </Box>
         <Box sx={{ display: activeTab === 'metaphor' ? 'block' : 'none', height: '100%', width: '100%' }}>
           <MetaphorAnalysis crossLinkParams={crossLinkParams} />
+        </Box>
+        <Box sx={{ display: activeTab === 'mda' ? 'block' : 'none', height: '100%', width: '100%' }}>
+          <MultidimensionalAnalysis crossLinkParams={crossLinkParams} />
         </Box>
       </Box>
     </Box>

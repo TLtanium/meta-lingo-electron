@@ -298,7 +298,8 @@ class ReliabilityService:
                 unit=unit,
                 distance=distance_name,
                 coverage=getattr(params, 'coverage', 'majority'),
-                include_empty=getattr(params, 'include_empty', False),
+                # 与 ReliabilityParams 默认一致：未标注词隐含为负类（稀疏标注的标准口径）
+                include_empty=getattr(params, 'include_empty', True),
                 tokens=tokens,
                 token_source=token_source,
                 included_labels=included_labels,

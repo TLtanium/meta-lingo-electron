@@ -7,6 +7,7 @@ Builds various co-occurrence and collaboration networks from bibliographic data.
 from typing import List, Dict, Any, Tuple, Optional
 from collections import defaultdict
 import math
+import re
 
 
 class NetworkBuilder:
@@ -205,19 +206,99 @@ class NetworkBuilder:
             min_weight, max_nodes, "keyword"
         )
     
+    @staticmethod
+    def _parse_cited_references(cr_text: str) -> List[str]:
+        """Parse a WOS CR (Cited References) field into normalized reference keys.
+
+        Each cited reference is one line, typically formatted as:
+            "Savoy J, 2022, DIGIT SCHOLARSH HUM, V37, P229, DOI 10.1093/..."
+        We normalize to "FirstAuthor, Year" (e.g. "Savoy J, 2022"), which is the
+        standard unit of analysis in author co-citation analysis (ACA).
+        """
+        refs: List[str] = []
+        if not cr_text:
+            return refs
+        for line in cr_text.split('\n'):
+            line = line.strip()
+            if not line:
+                continue
+            parts = [p.strip() for p in line.split(',')]
+            author = parts[0].strip()
+            if not author or author.lower().startswith('[anonymous'):
+                # "[Anonymous]" entries conflate many unrelated works; skip them.
+                continue
+            year = None
+            for p in parts[1:]:
+                if re.fullmatch(r'(1[5-9]|20)\d{2}', p):
+                    year = p
+                    break
+            refs.append(f"{author}, {year}" if year else author)
+        # De-duplicate within a single paper (a paper co-cites a pair only once)
+        seen = set()
+        unique = []
+        for r in refs:
+            if r not in seen:
+                seen.add(r)
+                unique.append(r)
+        return unique
+
     def build_co_citation_network(self, min_weight: int = 1, max_nodes: int = 100) -> Dict[str, Any]:
         """
-        Build co-citation network (for entries that have cited references)
-        
-        Note: This requires reference data which may not be available in all formats
+        Build a co-citation network from the cited references (CR field) carried
+        in each entry's raw_data. Two references are "co-cited" when they appear
+        together in the reference list of the same paper; edge weight is the
+        number of papers that co-cite both.
+
+        Requires the WOS "Full Record and Cited References" export. When no entry
+        carries cited references (e.g. legacy exports), falls back to a
+        keyword-similarity proxy so the view still renders something useful.
         """
-        # For co-citation, we would need cited references data
-        # Currently return entries as nodes with similarity-based edges
-        
+        # Gather per-paper reference lists from raw_data['CR'].
+        paper_refs: List[List[str]] = []
+        ref_freq: Dict[str, int] = defaultdict(int)
+        ref_years: Dict[str, List[int]] = defaultdict(list)
+
+        for entry in self.entries:
+            raw = entry.get('raw_data') or {}
+            cr_text = raw.get('CR') if isinstance(raw, dict) else None
+            refs = self._parse_cited_references(cr_text) if cr_text else []
+            if not refs:
+                continue
+            paper_refs.append(refs)
+            for r in refs:
+                ref_freq[r] += 1
+                m = re.search(r'(\d{4})\s*$', r)
+                if m:
+                    ref_years[r].append(int(m.group(1)))
+
+        # Fall back to the legacy keyword-similarity proxy when no real cited
+        # references are available.
+        if not paper_refs:
+            return self._build_co_citation_proxy(min_weight, max_nodes)
+
+        # Keep only the most-cited references as nodes.
+        top_refs = set(r for r, _ in sorted(ref_freq.items(), key=lambda x: -x[1])[:max_nodes])
+
+        # Count co-citations among the top references.
+        cooccurrence: Dict[str, Dict[str, int]] = defaultdict(lambda: defaultdict(int))
+        for refs in paper_refs:
+            present = [r for r in refs if r in top_refs]
+            for a in range(len(present)):
+                for b in range(a + 1, len(present)):
+                    r1, r2 = present[a], present[b]
+                    cooccurrence[r1][r2] += 1
+                    cooccurrence[r2][r1] += 1
+
+        return self._build_network_from_cooccurrence(
+            cooccurrence, ref_freq, ref_years,
+            min_weight, max_nodes, "citation"
+        )
+
+    def _build_co_citation_proxy(self, min_weight: int, max_nodes: int) -> Dict[str, Any]:
+        """Legacy fallback: papers as nodes, shared-keyword count as edges."""
         nodes = []
         edges = []
-        
-        # Use entries themselves as nodes
+
         for i, entry in enumerate(self.entries[:max_nodes]):
             nodes.append({
                 'id': entry.get('id', str(i)),
@@ -232,8 +313,7 @@ class NetworkBuilder:
                     'doi': entry.get('doi')
                 }
             })
-        
-        # Build edges based on shared keywords/authors (proxy for co-citation)
+
         for i, e1 in enumerate(self.entries[:max_nodes]):
             kw1 = set(k.lower() for k in e1.get('keywords', []))
             for j, e2 in enumerate(self.entries[i+1:max_nodes], i+1):
@@ -245,10 +325,9 @@ class NetworkBuilder:
                         'target': e2.get('id', str(j)),
                         'weight': shared
                     })
-        
-        # Calculate centrality
+
         self._calculate_centrality(nodes, edges)
-        
+
         return {
             'nodes': nodes,
             'edges': edges,

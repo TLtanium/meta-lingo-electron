@@ -835,6 +835,30 @@ class TaskDB:
             return rows_to_list(cursor.fetchall())
     
     @staticmethod
+    def list_active_ids_by_corpus(corpus_id: str) -> List[str]:
+        """Return ids of pending/processing tasks for a corpus (for cooperative cancel)."""
+        with get_db_readonly() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """SELECT id FROM processing_tasks
+                   WHERE corpus_id = ? AND status IN ('pending', 'processing')""",
+                (corpus_id,)
+            )
+            return [row[0] for row in cursor.fetchall()]
+
+    @staticmethod
+    def list_active_ids_by_text(text_id: str) -> List[str]:
+        """Return ids of pending/processing tasks tied to a single text."""
+        with get_db_readonly() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """SELECT id FROM processing_tasks
+                   WHERE text_id = ? AND status IN ('pending', 'processing')""",
+                (text_id,)
+            )
+            return [row[0] for row in cursor.fetchall()]
+
+    @staticmethod
     def cleanup_stale_tasks():
         """Mark any pending/processing tasks as failed (called on startup)"""
         # #region agent log
@@ -1193,36 +1217,37 @@ class BiblioEntryDB:
             id_to_entry[entry['id']] = entry
         return [id_to_entry[eid] for eid in unique_ids if eid in id_to_entry]
     
+    # Scalar columns that are stored as-is (text / integer)
+    _UPDATE_SCALAR_FIELDS = frozenset({
+        'relevance', 'notes', 'pdf_path', 'pdf_thumbnail_path',
+        'title', 'journal', 'year', 'volume', 'issue', 'pages',
+        'doi', 'abstract', 'doc_type', 'language', 'citation_count', 'source_url',
+    })
+    # List columns serialized as JSON arrays
+    _UPDATE_JSON_LIST_FIELDS = frozenset({'tags', 'authors', 'institutions', 'countries', 'keywords'})
+
     @staticmethod
     def update(entry_id: str, data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-        """Update relevance, tags, notes, pdf paths, and/or ai_sections for an entry."""
-        allowed = {'relevance', 'tags', 'notes', 'pdf_path', 'pdf_thumbnail_path', 'ai_sections'}
-        updates = {k: v for k, v in data.items() if k in allowed}
-        if not updates:
+        """Update bibliographic fields (title/authors/doi/…), relevance, tags,
+        notes, pdf paths, and/or ai_sections for an entry. Column names are drawn
+        only from the fixed allow-lists above, so the dynamic SET clause is safe."""
+        set_parts: List[str] = []
+        params: List[Any] = []
+        for key, value in data.items():
+            if key in BiblioEntryDB._UPDATE_SCALAR_FIELDS:
+                set_parts.append(f"{key} = ?")
+                params.append(value)
+            elif key in BiblioEntryDB._UPDATE_JSON_LIST_FIELDS:
+                set_parts.append(f"{key} = ?")
+                params.append(json.dumps(value if value is not None else [], ensure_ascii=False))
+            elif key == 'ai_sections':
+                set_parts.append("ai_sections = ?")
+                params.append(json.dumps(value, ensure_ascii=False) if value is not None else None)
+        if not set_parts:
             return BiblioEntryDB.get_by_id(entry_id)
+        params.append(entry_id)
         with get_db_connection() as conn:
             cursor = conn.cursor()
-            set_parts = []
-            params = []
-            if 'relevance' in updates:
-                set_parts.append("relevance = ?")
-                params.append(updates['relevance'])
-            if 'tags' in updates:
-                set_parts.append("tags = ?")
-                params.append(json.dumps(updates['tags'], ensure_ascii=False))
-            if 'notes' in updates:
-                set_parts.append("notes = ?")
-                params.append(updates['notes'])
-            if 'pdf_path' in updates:
-                set_parts.append("pdf_path = ?")
-                params.append(updates['pdf_path'])
-            if 'pdf_thumbnail_path' in updates:
-                set_parts.append("pdf_thumbnail_path = ?")
-                params.append(updates['pdf_thumbnail_path'])
-            if 'ai_sections' in updates:
-                set_parts.append("ai_sections = ?")
-                params.append(json.dumps(updates['ai_sections'], ensure_ascii=False) if updates['ai_sections'] is not None else None)
-            params.append(entry_id)
             cursor.execute("UPDATE biblio_entries SET " + ", ".join(set_parts) + " WHERE id = ?", params)
             conn.commit()
         return BiblioEntryDB.get_by_id(entry_id)

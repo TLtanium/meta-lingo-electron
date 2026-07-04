@@ -865,20 +865,25 @@ export default function CorpusList({ onSelectCorpus, onCreateNew, onCorpusUpdate
       ) : (
         <>
           {viewMode === 'card' ? renderCardView() : renderListView()}
-          
-          <TablePagination
-            component="div"
-            count={filteredCorpora.length}
-            page={page}
-            onPageChange={(_, newPage) => setPage(newPage)}
-            rowsPerPage={rowsPerPage}
-            onRowsPerPageChange={(e) => {
-              setRowsPerPage(parseInt(e.target.value, 10))
-              setPage(0)
-            }}
-            rowsPerPageOptions={viewMode === 'card' ? [6, 12, 24] : [5, 10, 25]}
-            sx={{ mt: 2 }}
-          />
+
+          {/* Hide the pagination bar entirely when everything fits on one
+              minimum-size page (matches the library list, which never shows
+              "Rows per page" for a handful of items) */}
+          {filteredCorpora.length > (viewMode === 'card' ? 6 : 5) && (
+            <TablePagination
+              component="div"
+              count={filteredCorpora.length}
+              page={page}
+              onPageChange={(_, newPage) => setPage(newPage)}
+              rowsPerPage={rowsPerPage}
+              onRowsPerPageChange={(e) => {
+                setRowsPerPage(parseInt(e.target.value, 10))
+                setPage(0)
+              }}
+              rowsPerPageOptions={viewMode === 'card' ? [6, 12, 24] : [5, 10, 25]}
+              sx={{ mt: 2 }}
+            />
+          )}
         </>
       )}
 

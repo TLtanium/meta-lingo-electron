@@ -91,7 +91,14 @@ function splitTop(s: string, sep: string): string[] {
 }
 
 function parseCondition(part: string): Condition {
-  const m = part.match(CONDITION_RE)
+  // 支持带括号的取反 !(attr="v")（与后端一致）
+  let outerNeg = false
+  let p = part.trim()
+  if (p.startsWith('!(') && p.endsWith(')')) {
+    outerNeg = true
+    p = p.slice(2, -1).trim()
+  }
+  const m = p.match(CONDITION_RE)
   if (!m) throw new TokenQueryError('parse')
   const [, neg, attr, opRaw, value] = m
   if (!SUPPORTED_ATTRS.has(attr)) {
@@ -103,7 +110,7 @@ function parseCondition(part: string): Condition {
   else if (opRaw === '!=') operator = '!='
   else if (opRaw.startsWith('!')) operator = '!=='
   else operator = '=='
-  return { attribute: attr, value, operator, negated: neg === '!' }
+  return { attribute: attr, value, operator, negated: outerNeg !== (neg === '!') }
 }
 
 /** 解析 [ ... ] 内容（不含方括号），可带数量词信息（由调用方传入） */
@@ -159,6 +166,8 @@ function readBracket(cql: string, start: number): { pat: RawPattern; end: number
       optional = true; min = 0; max = 1; j++
     } else if (cql[j] === '*') {
       min = 0; max = 100; j++
+    } else if (cql[j] === '+') {
+      min = 1; max = 100; j++
     }
   }
   return { pat: { raw: inner, min, max, optional }, end: j }
@@ -172,6 +181,8 @@ type Segment =
 
 function parseMeet(cql: string, start: number): { meet: MeetQuery; end: number } {
   let pos = start + 1 // skip (
+  while (pos < cql.length && /\s/.test(cql[pos])) pos++ // 容忍 "( meet"
+  if (cql.slice(pos, pos + 4).toLowerCase() !== 'meet') throw new TokenQueryError('parse')
   pos += 4            // skip 'meet'
   while (pos < cql.length && /\s/.test(cql[pos])) pos++
   if (cql[pos] !== '[') throw new TokenQueryError('parse')

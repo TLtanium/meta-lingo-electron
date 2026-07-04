@@ -1,17 +1,22 @@
 """
 Heatmap Service for Bibliographic Visualization
 
-Generates 2D density heatmap data using Kernel Density Estimation (KDE).
-Points are positioned based on cluster layout, density computed with scipy.
+Generates a 2D density landscape via Kernel Density Estimation (KDE) over a
+*deterministic network layout*:
+
+1. The same CiteSpace-style term co-occurrence network as the cluster view is
+   built (identical node type / term sources / pruning parameters), so the
+   heatmap is semantically consistent with the cluster & timeline views.
+2. Node coordinates come from a seeded force-directed layout
+   (networkx spring_layout, seed=42) — the density surface reflects actual
+   network proximity and is reproducible run to run.
+3. Density is a weighted Gaussian KDE (weight = frequency + 10 x centrality).
 """
 
 from typing import List, Dict, Any, Optional
-from collections import defaultdict
 import math
 import numpy as np
 from scipy.stats import gaussian_kde
-
-from .cluster_service import cluster_entries
 
 
 class HeatmapService:
@@ -23,41 +28,41 @@ class HeatmapService:
     def generate_heatmap(
         self,
         bandwidth: Optional[float] = None,
-        grid_size: int = 50
+        grid_size: int = 50,
+        cluster_by: str = "keyword",
+        citespace: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         """
         Generate heatmap visualization data with KDE density grid.
 
         Args:
-            bandwidth: KDE bandwidth (None for auto via Scott's rule)
+            bandwidth: KDE bandwidth (None -> 0.15, sharper local peaks)
             grid_size: Resolution of the density grid (NxN)
+            cluster_by: node type, same options as the cluster view
+            citespace: CiteSpace engine params (term sources, pruning, ...)
 
         Returns:
             Dict with points, clusters, time_range, density_grid
         """
+        empty = {
+            'points': [], 'clusters': [],
+            'time_range': {'start': 0, 'end': 0},
+            'density_grid': {'x': [], 'y': [], 'z': []}
+        }
         if not self.entries:
-            return {
-                'points': [], 'clusters': [],
-                'time_range': {'start': 0, 'end': 0},
-                'density_grid': {'x': [], 'y': [], 'z': []}
-            }
+            return empty
 
-        # Cluster entries to get node positions
-        cluster_result = cluster_entries(self.entries, cluster_by="keyword")
-        nodes = cluster_result.get('nodes', [])
-        clusters = cluster_result.get('clusters', [])
-
+        # Same engine + params as the cluster view -> consistent semantics
+        from .citespace import build_term_network
+        net = build_term_network(self.entries, cluster_by, **(citespace or {}))
+        nodes = net.get('nodes', [])
+        edges = net.get('edges', [])
+        clusters = net.get('clusters', [])
         if not nodes:
-            return {
-                'points': [], 'clusters': clusters,
-                'time_range': {'start': 0, 'end': 0},
-                'density_grid': {'x': [], 'y': [], 'z': []}
-            }
+            return {**empty, 'clusters': clusters}
 
-        # Assign 2D positions based on cluster layout
-        points = self._layout_points(nodes, clusters)
+        points = self._layout_points(nodes, edges)
 
-        # Compute time range
         years = [
             e.get('year') for e in self.entries
             if e.get('year') and isinstance(e.get('year'), (int, float))
@@ -68,10 +73,7 @@ class HeatmapService:
             'end': max(years) if years else 0
         }
 
-        # Compute KDE density grid
-        density_grid = self._compute_density_grid(
-            points, bandwidth, grid_size
-        )
+        density_grid = self._compute_density_grid(points, bandwidth, grid_size)
 
         return {
             'points': points,
@@ -83,46 +85,36 @@ class HeatmapService:
     def _layout_points(
         self,
         nodes: List[Dict[str, Any]],
-        clusters: List[Dict[str, Any]]
+        edges: List[Dict[str, Any]],
     ) -> List[Dict[str, Any]]:
-        """Position nodes in 2D space based on cluster membership."""
-        import random
-        random.seed(42)
+        """Deterministic force-directed 2D positions for the term network."""
+        import networkx as nx
 
-        # Compute cluster center positions (radial layout)
-        n_clusters = len(clusters)
-        cluster_centers = {}
-        for i, cluster in enumerate(clusters):
-            angle = 2 * math.pi * i / max(n_clusters, 1)
-            radius = 5
-            cluster_centers[cluster['id']] = (
-                radius * math.cos(angle),
-                radius * math.sin(angle)
-            )
+        g = nx.Graph()
+        for n in nodes:
+            g.add_node(n['id'])
+        for e in edges:
+            if e.get('source') in g and e.get('target') in g:
+                g.add_edge(e['source'], e['target'], weight=float(e.get('weight', 1.0)))
+
+        # Seeded spring layout: same input -> same coordinates, and clusters end
+        # up spatially grouped because their nodes are densely interconnected.
+        k = 1.2 / math.sqrt(max(len(g), 2))
+        pos = nx.spring_layout(g, weight='weight', seed=42, k=k, iterations=80, scale=5.0)
 
         points = []
         for node in nodes:
-            cluster_id = node.get('cluster', 0)
-            cx, cy = cluster_centers.get(cluster_id, (0, 0))
-
-            # Spread within cluster proportional to cluster size
-            spread = 1.5
-            x = cx + random.gauss(0, spread)
-            y = cy + random.gauss(0, spread)
-
-            weight = max(node.get('frequency', 0), 1) + \
-                node.get('centrality', 0) * 10
-
+            x, y = pos.get(node['id'], (0.0, 0.0))
+            weight = max(node.get('frequency', 0), 1) + node.get('centrality', 0) * 10
             points.append({
-                'x': round(x, 4),
-                'y': round(y, 4),
-                'weight': round(weight, 4),
+                'x': round(float(x), 4),
+                'y': round(float(y), 4),
+                'weight': round(float(weight), 4),
                 'id': node.get('id', ''),
                 'label': node.get('label', ''),
-                'cluster': cluster_id,
+                'cluster': node.get('cluster', 0),
                 'year': node.get('year')
             })
-
         return points
 
     def _compute_density_grid(

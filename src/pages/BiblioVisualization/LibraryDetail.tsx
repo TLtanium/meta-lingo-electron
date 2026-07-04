@@ -52,6 +52,7 @@ import StarIcon from '@mui/icons-material/Star'
 import StarBorderIcon from '@mui/icons-material/StarBorder'
 import FileDownloadIcon from '@mui/icons-material/FileDownload'
 import ViewColumnIcon from '@mui/icons-material/ViewColumn'
+import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf'
 import { useTranslation } from 'react-i18next'
 import type { BiblioLibrary, BiblioEntry, BiblioFilter, BiblioStatistics } from '../../types/biblio'
 import { BIBLIO_AI_SECTION_KEYS } from '../../types/biblio'
@@ -387,6 +388,22 @@ export default function LibraryDetail({ library, onBack, onUpload }: LibraryDeta
       loadEntries()
       loadStatistics()
     }
+  }
+
+  const handleExportSourcePdf = (entry: BiblioEntry, e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (!entry.pdf_path) return
+    // Plain same-tab anchor with `download` (no target=_blank). The server sends
+    // Content-Disposition: attachment, so the browser turns this into a download
+    // WITHOUT navigating the page or opening a new window — and there is no fetch,
+    // so it isn't subject to cross-origin (CORS) restrictions.
+    const safe = (entry.title || 'document').replace(/[<>:"/\\|?*\x00-\x1f]/g, '_').slice(0, 80).trim() || 'document'
+    const a = document.createElement('a')
+    a.href = biblioApi.getEntryPdfUrl(entry.id)
+    a.download = `${safe}.pdf`
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
   }
 
   const handlePdfUploadClick = (entryId: string, e: React.MouseEvent) => {
@@ -1075,6 +1092,22 @@ export default function LibraryDetail({ library, onBack, onUpload }: LibraryDeta
                           <VisibilityIcon fontSize="small" />
                         </IconButton>
                       </Tooltip>
+                      {entry.pdf_path && (
+                        <Tooltip title={t('biblio.exportSourcePdf')}>
+                          <IconButton
+                            size="small"
+                            onClick={(e) => handleExportSourcePdf(entry, e)}
+                            sx={{
+                              '&:hover': {
+                                bgcolor: 'primary.light',
+                                color: 'primary.contrastText'
+                              }
+                            }}
+                          >
+                            <PictureAsPdfIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      )}
                       <Tooltip title={t('common.delete')}>
                         <IconButton 
                           size="small" 
@@ -1145,8 +1178,12 @@ export default function LibraryDetail({ library, onBack, onUpload }: LibraryDeta
         onClose={() => setDetailDialogOpen(false)}
         existingTags={Array.from(new Set(entries.flatMap(e => e.tags || [])))}
         onEntryUpdated={updated => {
+          // Merge instead of replace: the update endpoint returns a bare entry
+          // without the list-only status fields (task_status/task_id/text_id/
+          // progress), so a plain replace would drop the "completed" chip
+          // until the next full list refresh.
           setSelectedEntry(updated)
-          setEntries(prev => prev.map(e => (e.id === updated.id ? updated : e)))
+          setEntries(prev => prev.map(e => (e.id === updated.id ? { ...e, ...updated } : e)))
         }}
       />
     </Box>

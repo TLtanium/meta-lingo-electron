@@ -1348,6 +1348,10 @@ async def update_corpus(corpus_id: str, data: CorpusUpdate):
 @router.delete("/{corpus_id}")
 async def delete_corpus(corpus_id: str):
     """Delete corpus"""
+    # Stop any in-flight annotation for this corpus before tearing it down, so a
+    # background thread can't keep writing sidecars into a deleted corpus.
+    from services.task_cancellation import cancel_tasks_for_corpus
+    cancel_tasks_for_corpus(corpus_id)
     service = get_corpus_service()
     result = service.delete_corpus(corpus_id)
     if not result.get("success"):
@@ -1680,6 +1684,9 @@ async def update_transcript_segments(corpus_id: str, text_id: str, data: dict):
 @router.delete("/{corpus_id}/texts/{text_id}")
 async def delete_text(corpus_id: str, text_id: str):
     """Delete text"""
+    # Cancel any in-flight annotation tied to this text before deleting it.
+    from services.task_cancellation import cancel_tasks_for_text
+    cancel_tasks_for_text(text_id)
     service = get_corpus_service()
     result = service.delete_text(text_id)
     if not result.get("success"):
@@ -3030,8 +3037,21 @@ def process_text_spacy_sync(
         text_type: Optional text type for USAS priority
     """
     logger.info(f"=== Starting SpaCy background processing for task {task_id} ===")
-    
+
     try:
+        # Entry checkpoint: queued tasks whose library/corpus/text was deleted must
+        # exit immediately (BackgroundTasks queues one task per abstract — after a
+        # library delete, hundreds of queued tasks would otherwise each run a full
+        # SpaCy pass before hitting the first mid-pipeline checkpoint).
+        from services.task_cancellation import should_abort as _entry_should_abort, clear as _entry_clear
+        if _entry_should_abort(task_id, text_id):
+            logger.info(f"Annotation task {task_id} aborted at entry (deleted/cancelled)")
+            send_progress_sync(task_id, "cancelled", 0,
+                               "Annotation cancelled (library/corpus/text deleted)",
+                               status="cancelled")
+            _entry_clear(task_id)
+            return
+
         # Align with DB-stored paths + METALINGO_DATA_PATH: relative paths must not
         # resolve against the backend cwd (packaged app), or sidecars end up outside userData.
         resolved_save = resolve_stored_path(save_path)
@@ -3062,7 +3082,22 @@ def process_text_spacy_sync(
         
         base_name = Path(save_path).stem
         output_dir = Path(save_dir)
-        
+
+        # Cooperative cancellation: bail out (and clean half-written sidecars) when this
+        # task was cancelled or its owning text/corpus was deleted mid-annotation.
+        from services.task_cancellation import should_abort, cleanup_partial_sidecars, clear as _clear_cancel
+
+        def _aborted(stage: str) -> bool:
+            if should_abort(task_id, text_id):
+                logger.info(f"Annotation task {task_id} aborted before '{stage}' (deleted/cancelled)")
+                cleanup_partial_sidecars(str(output_dir), base_name)
+                send_progress_sync(task_id, "cancelled", 0,
+                                   "Annotation cancelled (library/corpus/text deleted)",
+                                   status="cancelled")
+                _clear_cancel(task_id)
+                return True
+            return False
+
         # Estimate processing time (roughly 10000 chars/second for en_core_web_sm)
         total_chars = len(content)
         estimated_seconds = max(10, total_chars // 10000)
@@ -3073,8 +3108,11 @@ def process_text_spacy_sync(
         else:
             time_msg = f"~{estimated_seconds} seconds"
         
+        if _aborted("spacy"):
+            return
+
         # Process entire document (chunking disabled to avoid hanging issues)
-        send_progress_sync(task_id, "spacy", 20, 
+        send_progress_sync(task_id, "spacy", 20,
                           f"Running SpaCy annotation ({total_chars:,} chars, {time_msg})...")
         
         # For long processing, we still need periodic progress updates
@@ -3130,8 +3168,11 @@ def process_text_spacy_sync(
                 "sentences": len(result.get("sentences", []))
             }
             
+            if _aborted("usas"):
+                return
+
             send_progress_sync(task_id, "usas", 80, "Running USAS annotation...")
-            
+
             # Perform USAS annotation
             usas_svc = get_usas_service()
             usas_info = None
@@ -3161,6 +3202,9 @@ def process_text_spacy_sync(
                     logger.warning(f"USAS annotation failed during upload: {usas_err}")
 
             # Perform MIPVU annotation (only for English)
+            if _aborted("mipvu"):
+                return
+
             send_progress_sync(task_id, "mipvu", 95, "Running MIPVU annotation...")
             
             from services.mipvu_service import get_mipvu_service
@@ -3198,6 +3242,9 @@ def process_text_spacy_sync(
                     logger.warning(f"MIPVU result: {mipvu_result}")
             
             # NRC emotion annotation after MIPVU (uses SpaCy result)
+            if _aborted("nrc"):
+                return
+
             send_progress_sync(task_id, "nrc", 98, "Running NRC annotation...")
             try:
                 corpus_svc = get_corpus_service()

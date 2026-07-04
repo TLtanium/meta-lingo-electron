@@ -2346,6 +2346,13 @@ Each token (word) is represented by square brackets `[]`, with matching conditio
 - `[]{n}`: Match n any tokens
 - `[]{m,n}`: Match m to n any tokens
 
+#### Quantifiers (Repetition & Frequency)
+
+Quantifiers `{n}`, `{m,n}`, `?` (0 or 1), `*` (0 or more), `+` (1 or more) can follow any token pattern; the meaning depends on position:
+
+- **Inside a multi-pattern sequence**: consecutive repetition. `[pos="ADJ"]{2}[pos="NOUN"]` = exactly two consecutive adjectives followed by a noun; `[pos="ADJ"]+[pos="NOUN"]` = one or more adjectives before a noun; in `[pos="DET"][pos="ADJ"]?[pos="NOUN"]` the adjective is optional
+- **As the only conditioned pattern**: document-level frequency filter. `[word="growth"]{3,5}` = return hits only in documents where growth occurs 3–5 times; inside `within <s/>` / `containing`, the count applies per sentence/paragraph span
+
 ### Logical Operators
 
 | Operator | Description | Example |
@@ -3115,9 +3122,9 @@ Export buttons are located on the right side of the chart settings bar.
 - When exporting CSV, large datasets may take some time
 - Visualization charts may be slow when result count is very large
 
-# Semantic Analysis
+# Discourse Analysis
 
-This module provides semantic analysis functionality based on the USAS semantic annotation system.
+This module (formerly "Semantic Analysis") provides three discourse-level analyses: semantic domain analysis based on the USAS annotation system, metaphor analysis based on MIPVU, and Multidimensional Analysis (MDA) based on Biber's (1988) framework.
 
 ## Theoretical Foundation and References
 
@@ -4098,6 +4105,57 @@ Official documentation: [https://ucrel.github.io/pymusas/](https://ucrel.github.
 - Visualization charts may be slow when result count is very large
 - View domain words feature requires additional server requests; please be patient
 
+## Multidimensional Analysis (MDA)
+
+### Overview
+
+Multidimensional Analysis (MDA) is the register variation framework proposed by Douglas Biber in *Variation across Speech and Writing* (1988): the frequencies of 67 lexico-grammatical features are converted into z-scores against Biber's large-corpus norms and aggregated by factor loadings into six functional dimension scores that position a text in a multidimensional register space.
+
+The algorithm in this module is ported from the widely used MAT (Multidimensional Analysis Tagger, Nini 2019) and runs **directly on the corpus's stored SpaCy annotations** (PTB tags) — no model inference or reprocessing is needed. Select a corpus and click Start Analysis for instant results.
+
+**Supported language**: English only (Biber's feature set is designed for English)
+
+**References**:
+- Biber, D. (1988). *Variation across Speech and Writing*. Cambridge University Press.
+- Biber, D. (1989). A typology of English texts. *Linguistics*, 27(1), 3–43.
+- Nini, A. (2019). The Multi-Dimensional Analysis Tagger. In Berber Sardinha, T. & Veirano Pinto, M. (eds), *Multi-Dimensional Analysis: Research Methods and Current Issues*, 67–94. Bloomsbury Academic.
+
+### The Six Dimensions
+
+| Dimension | Name | High score / low score |
+|-----------|------|------------------------|
+| D1 | Involved vs. Informational Production | High: interactive, affective (e.g. conversations); low: informationally dense (e.g. academic prose) |
+| D2 | Narrative vs. Non-Narrative Concerns | High: dense past tense and third-person features (e.g. fiction) |
+| D3 | Explicit vs. Situation-Dependent Reference | High: context-independent reference (e.g. official documents); low: situation-dependent (e.g. sports broadcasts) |
+| D4 | Overt Expression of Persuasion | High: dense modals and suasive verbs (e.g. editorials) |
+| D5 | Abstract vs. Non-Abstract Information | High: dense passives and conjuncts, technical and abstract (e.g. scientific discourse) |
+| D6 | On-Line Informational Elaboration | High: informational production under real-time constraints (e.g. speeches) |
+
+### Parameters
+
+- **TTR window**: type-token ratio is computed over the first N tokens of each text; Biber (1988) used 400. With any other window, TTR is not comparable with the norms and its z-score is treated as 0
+- **Z-score correction**: caps z-scores entering the dimension computation at ±5 so that a few infrequent features cannot dominate the scores (recommended only for very short texts)
+- **Excluded features**: excluded features contribute 0 to dimension scores, useful for testing the influence of individual features
+
+### Interpreting Results
+
+- **Dimension Scores table**: per-text D1–D6 scores, AWL (average word length), TTR, and the closest text type determined by Euclidean distance to Biber's (1989) eight text type centroids; the bottom row shows corpus means
+- **Feature Statistics table**: per-100-token frequency, corpus-internal SD, Biber norm (mean ± SD) and z-score for all 67 features; features with |z|>2 are flagged as over/underused; expanding a row shows its top contributing words, and clicking a word searches it in the Concordance module
+- **CSV export**: three files aligned with MAT output — Dimensions, Statistics, and Zscores (including underused/overused variables)
+
+### Visualization
+
+- **Dimension Chart**: replicates MAT's dimension plots — error bars with mean ± range for the eight Biber genres, plus the position of your corpus (with min–max range and per-text dots when multiple texts), and the closest genre in the title
+- **Text Type Chart**: a parallel-coordinates profile across D1–D5 drawing the eight Biber (1989) text type centroids and your corpus as a bold line; the closest text type is highlighted, and hovering the legend emphasizes a type
+- **Feature Z-scores**: a diverging bar chart of all feature z-scores with a grey ±2 SD reference band; salient deviations are highlighted
+- All charts support SVG/PNG export and adapt to dark mode
+
+### Notes
+
+- The analysis reads stored SpaCy annotations; texts without annotations are skipped with a notice
+- Results match the original MAT, including its documented quirks: the MAT manual notes Dimension 3 scores can be slightly inflated by high adverb z-scores — cross-check with the feature table when interpreting
+- TTR of short texts (<400 tokens) does not enter z-scores; consider enabling z-score correction for very short texts
+
 # Collocation Analysis
 
 ## Overview
@@ -4895,6 +4953,96 @@ In the "Visualization" tab, you can generate various visualization charts. The s
 6. **Heatmap** — Contour density with scatter overlay
 7. **Word Cloud** — Title/abstract word cloud
 
+### Algorithm Principles
+
+The Cluster, Timeline and Heatmap views share one analysis engine: **term extraction → node selection → co-occurrence network → pruning → community detection → cluster labelling**. Every statement below corresponds to the actual implementation.
+
+#### Term Sources
+
+- **Author Keywords (DE) / Keywords Plus (ID)**: read from the structured WOS fields (falling back to the merged keyword list for CNKI etc.)
+- **Title / Abstract**: light tokenization into content words and adjacent content-word bigrams
+- **Noun Phrases (NP)**: 2–5 word phrases matching the classic `ADJ* NOUN+` POS pattern. For abstracts the POS tags are **precomputed at upload time in the SpaCy sidecar**, so visualization rebuilds NPs with a pure linear scan (no model inference, sub-second); live spaCy extraction is used only for entries whose annotation hasn't finished
+
+#### Node Selection
+
+Within each time slice (width set by Years Per Slice), terms are ranked by frequency and selected by:
+
+- **g-index (default, k=25)**: the largest g with $g^2 \le k\sum_{i=1}^{g} c_i$ (c sorted descending). Larger k admits more rare/structural terms
+- **Top N / Top N%**: per-slice top N or top N%
+- **Thresholds (c, cc, ccv)**: keep terms with frequency ≥ c; drop edges with co-occurrence < cc or link strength < ccv
+- **Across Slices switch**: when on, terms are ranked once by global frequency over the whole period; off (default) lets each slice contribute its own selection, preserving each period's important terms
+
+Isolated low-frequency nodes are **kept** (they often signal emerging or peripheral topics) and can be hidden via the data table.
+
+#### Link Strength
+
+- **Cosine (default)**: $\text{Cosine}(i,j) = cc(i,j)/\sqrt{c(i)\cdot c(j)}$, removing the bias of very frequent terms
+- **Dice**: $2cc/(c_i+c_j)$; **Jaccard**: $cc/(c_i+c_j-cc)$; **Co-occurrence**: raw counts (normalised to [0,1])
+
+#### Pruning
+
+- **Pathfinder (PFNET, default)**: the r=∞, q=N−1 limit criterion — an edge is kept iff its direct distance does not exceed the bottleneck (maximum edge distance) of any indirect path. Implemented as a Floyd-Warshall closure on the (min, max) semiring; preserves the backbone and removes redundant links
+- **MST**: maximum spanning tree over link strength
+- **None**: no pruning (dense co-occurrence nets become hairballs and under-segment; not recommended)
+
+#### Community Detection & Quality Metrics
+
+- **Louvain (default)**: weighted modularity maximization with a fixed random seed (identical input → identical clusters), fast and stable on dense co-occurrence networks; **spectral clustering** is available as an option
+- **Spectral**: similarity matrix as the precomputed affinity, K estimated from a Louvain pass, k-means assignment
+- **Modularity Q**: strict weighted Newman modularity $Q = \frac{1}{2m}\sum_{ij}(A_{ij} - \frac{d_i d_j}{2m})\delta(c_i,c_j)$; Q > 0.3 indicates significant community structure
+- **Silhouette S**: computed in the "distance = 1 − link strength" space (non-adjacent pairs = 1); singleton clusters score 0 by convention; overall S is the mean over all nodes (equivalent to size-weighted). S > 0.5 reasonable homogeneity, S > 0.7 highly credible
+- **Betweenness centrality**: Freeman betweenness (distance-weighted, normalised) — the purple-ring "centrality" identifying terms/references bridging different topics
+
+#### Cluster Labelling
+
+- **LLR (default, Dunning 1993)**: 2×2 contingency table (docs in cluster vs. docs outside), $G^2 = 2[a\ln(a/E_1) + b\ln(b/E_2)]$ with expected counts $E_1 = n_1(a+b)/N$, $E_2 = n_2(a+b)/N$; zero cells are skipped per $\lim_{x\to0}x\ln x = 0$; only over-representation in the cluster is rewarded. $G^2 \ge 10.83$ corresponds to p < 0.001 — the highest label specificity
+- **TF-IDF**: $a \cdot \ln\frac{|D|+1}{\text{DF}}$ (|D| clusters, DF clusters containing the term; +1 smoothing variant)
+- **MI**: mutual information of the binary contingency table
+- **Reverse-citing naming for co-citation clusters**: co-citation nodes are *cited references*; cluster labels are extracted from the **citing papers'** titles/abstracts (LLR-ranked) — cited references represent the knowledge base, while citing terms characterize the research front built on it
+
+#### Co-citation Network (Reference)
+
+WOS CR fields are parsed into "FirstAuthor, Year" citation keys; two references co-cited by the same paper get a co-citation edge; node year = **the cited reference's own publication year** (so the timeline spreads over decades). Requires WOS exports in "Full Record and Cited References" format.
+
+#### Burst Detection (Kleinberg 2002)
+
+Each term's yearly frequency series is modelled as a two-state HMM: baseline (background rate $p_0$ = overall proportion) vs. burst ($p_1 = p_0(1+\gamma)$). Emission costs are binomial negative log-likelihoods; entering the burst state costs $\alpha\ln T$ (leaving is free); the optimal state sequence is found by Viterbi dynamic programming, and each contiguous burst period's strength = actual rate in the burst / background rate. **Higher α → fewer, longer bursts; higher γ → stronger rise required.** The red burst rings in the Timeline view use this same Kleinberg detection (not a simple frequency threshold).
+
+#### Heatmap
+
+Shares the **same network and all parameters** as the Cluster view (node type, term sources, pruning, …); node coordinates come from a seeded force-directed layout (identical input → identical picture); the density surface is a 2D Gaussian KDE weighted by "frequency + 10 × betweenness", with adjustable bandwidth (default 0.15 for sharper peaks).
+
+#### Implementation Notes
+
+- Default clustering is Louvain with spectral switchable (cluster count is determined automatically in both)
+- TF-IDF uses a +1 smoothing variant; the LLR contingency table counts document frequencies (not total word tokens)
+- Structural Variation Analysis (SVA), Concept Trees and LSI labels are planned advanced features not offered in the current version
+
+#### Multi-select Node Types & Dual Node Layers (diamonds + circles)
+
+The node-type selector is **multi-select**: checking several types (e.g. "keyword + reference") builds one hybrid co-occurrence network — each type is **selected independently and gets an equal share of the max-node budget** (so frequent keywords cannot crowd out the rarer citation keys). Shapes distinguish the layers on canvas:
+
+- **References (co-citation) → circles** (year rings); node year = the cited reference's own publication year
+- **Keywords / terms / authors etc. → diamonds**
+
+Each layer has its own **label metric** (the "Layers" row of the parameter drawer): by degree, by frequency/citation, by betweenness centrality, by eigenvector centrality, by Sigma (Σ = (centrality+1)^burst, combining structural and temporal salience), or hide the layer's labels — together with per-layer threshold, font size and node size.
+
+#### Cluster Layouts
+
+Three arrangements are available in the Cluster view: **Centered** (force-directed, default), **Ring (empty center)** and **Ring (central core)** (largest cluster in the middle).
+
+#### AI Cluster Naming
+
+The ✨ toolbar button submits **all clusters' candidate terms in one request** to the language model for joint naming: seeing every cluster at once lets the model de-duplicate across clusters, avoiding several clusters sharing one generic head word. Provider selection follows the app-wide rule — the API model is preferred when the API integration is enabled, otherwise the local Ollama model is used; the button is disabled when neither is configured.
+
+#### Burst Detection Parameters
+
+- **α (transition cost)**: the cost of entering the burst state; higher → fewer, longer bursts
+- **γ (burst rate)**: the frequency elevation of the burst state (p₁ = p₀(1+γ)); higher → a sharper rise is required
+- **Min frequency**: terms below this total frequency are skipped
+- **Top N / Sort by**: the table shows the top N terms, ordered by burst strength or by beginning year (the latter reads as an evolution narrative)
+- Table columns: term / first-appearance year / burst period / time bar (red = burst) / strength (burst-period rate ÷ background rate)
+
 ### Common Interactions
 
 All D3 charts support the following interactions:
@@ -4977,7 +5125,7 @@ Timeline view uses a horizontal swim-lane layout showing cluster evolution over 
 - **Dynamic year spacing**: Horizontal space per year is allocated proportionally to publication volume (using `sqrt(count)` ratio), avoiding wasted space during publication gaps and overcrowding during dense years
 - **Cluster swim-lanes**: Left side shows cluster labels (Cluster #0, #1, ...), each row has a highlighted line from its first to last node's year position
 - **Node circles**: Size reflects weight (citation count + term count); higher weight precision produces more varied circle sizes. Nodes in the same year slot are positioned using a constrained force simulation: **year-anchor force** keeps each node near its publication year; **link-attraction force** pulls co-cited or co-occurring nodes closer together; **collision force** prevents total overlap. As a result, nodes that are strongly related appear close together even if they partially overlap, while weakly related nodes spread apart.
-- **Distance = structural relationship**: The horizontal distance between nodes reflects **co-occurrence / co-citation strength**, not just time. Close nodes share strong structural links; distant nodes are weakly related or belong to different research directions. This follows CiteSpace's Timezone View convention.
+- **Distance = structural relationship**: The horizontal distance between nodes reflects **co-occurrence / co-citation strength**, not just time. Close nodes share strong structural links; distant nodes are weakly related or belong to different research directions. Distance encodes structural relatedness rather than time difference, making cross-period topical continuity visible at a glance.
 - **Connection arcs**: Quadratic Bézier arcs connect nodes with shared keywords. Both **within-lane arcs** (same cluster, shared keywords) and **cross-lane arcs** (different clusters, 2+ shared keywords) are shown; cross-lane arc curvature scales with vertical distance. Arc color derives from the source node's color; thickness reflects edge weight. **Arcs do not indicate citation order** — they show co-occurrence / co-citation relationships.
 - **Hover tooltip**: Shows term name, year, weight value, and cluster
 - **Horizontal scrolling**: Scrollbar appears automatically when X-Axis Scale > 1
@@ -5036,7 +5184,7 @@ Burst strength indicates significance:
 
 ### Heatmap
 
-Heatmap uses `d3.contourDensity()` to calculate 2D density contours, displaying literature clustering in coordinate space with continuous gradient colors. The X/Y axes represent the two principal coordinates derived from a similarity matrix of the bibliographic data (comparable to MDS or PCoA in CiteSpace).
+Heatmap uses `d3.contourDensity()` to render 2D density contours with continuous gradient colors. Node coordinates come from a seeded force-directed layout of the same term co-occurrence network as the Cluster view (identical input yields an identical picture), and the density surface is a Gaussian KDE weighted by frequency + betweenness centrality, so peaks mark structurally dense topic areas.
 
 #### Configuration Parameters
 
@@ -5717,268 +5865,144 @@ The Inter-Coder Reliability module uses a multi-panel layout:
 - Video/audio annotation archives are not supported (archives containing `yoloAnnotations`, `videoBoxes`, `audioBoxes`, or `mediaType` set to `video`/`audio` will be rejected)
 - Specific error messages will be displayed for non-compliant files
 
-### Index-Label Matrix Calculation
+### Calculation Method: Token Units × Label Sets
 
-This software uses a character index-based binary matrix approach to calculate reliability coefficients.
+Reliability is computed with a **set-based token approach**, aligned with standard practice in computational linguistics (Artstein & Poesio 2008; Passonneau 2006) and cross-validated against NLTK's `AnnotationTask` (Krippendorff's α differs by < 10⁻⁹ under all three set distances).
 
-#### Matrix Construction Principle
+#### Analysis Unit: Token ("one word, one vote")
 
-For each coder, the system constructs a `text length × number of labels` binary matrix:
+The basic unit is the **word token**, not the character:
 
-- **Rows**: Each character position (index) in the text
-- **Columns**: All labels in the annotation framework
-- **Values**: 1 if a label covers that character position, 0 otherwise
+- Character units are implicitly weighted by word length: a one-character boundary slip on a long word barely affects agreement while the same slip on a short word destroys it; adjacent characters are also highly correlated, inflating the sample size
+- With token units, boundary disagreements naturally become "partial token agreement": if one coder marks "look up" and the other only "up", one of two tokens agrees — weighted per token, not per character
 
-#### Handling Overlapping Annotations
+**Token acquisition chain** (by priority, never fails): embedded SpaCy annotation in the archive → corpus `.spacy.json` sidecar → on-the-fly SpaCy tokenization → regex fallback. Everything operates in the **original text's character offset space**; whitespace-only tokens are dropped.
 
-This method naturally supports overlapping annotations:
+#### Annotation Projection: Span → Token
 
-- **Multiple labels at same position**: The same character position can be annotated with multiple labels simultaneously (multiple 1s in that row)
-- **Nested annotations**: When a larger range label contains a smaller one, both are recorded as 1 at corresponding positions
-- **Different coders using different labels**: When different coders use different labels at the same position, each coder's matrix reflects their choice
+Each annotation's character span is projected onto the token grid with the **majority coverage rule**: a token receives the label when the overlap with the span reaches at least 50% of the token's length.
 
-#### Calculation Units
+#### One Label Set per Token
 
-Reliability is calculated using "character index-label" pairs as basic units:
+Each (coder, token) value is a **label set** (possibly empty):
 
-- **N Decisions**: Number of coders × text length × number of labels
-- **Agreement**: All coders have the same value (all 1 or all 0) for a "character index-label" pair
-- **Disagreement**: Coders have different values for a "character index-label" pair
+- **Multi-label**: a token annotated with several labels by the same coder → a set with several elements (no artificial "atomic combination categories")
+- **Overlapping/nested annotations** are represented naturally
+- **Unannotated** → empty set
+
+#### Negative Class (why unannotated tokens count, default)
+
+In "positives-only" tasks such as metaphor identification (MIPVU) or NER, coders never explicitly mark "not a metaphor". Computing only over tokens annotated by at least one coder throws away the massive agreement of "both consider it non-metaphorical" and triggers the **kappa paradox** (very high raw agreement, yet chance-corrected coefficients near 0 or negative).
+
+The software therefore includes **all word tokens (excluding pure punctuation)** by default, with unannotated tokens implicitly in the negative class (empty set). On one real sparse metaphor dataset: candidates-only α ≈ −0.02 vs. include-negative α ≈ 0.95 — the latter is the standard convention in the content analysis literature.
+
+#### Set Distance δ (partial credit)
+
+The difference between two label sets A, B is measured by a distance δ(A,B) ∈ [0,1]:
+
+**MASI distance (default, Passonneau 2006)**:
+
+$$\delta_{MASI}(A,B) = 1 - J \times M$$
+
+where J = |A∩B| / |A∪B| is Jaccard similarity and M is the monotonicity factor: 1 when A=B, 2/3 when one set is a proper subset of the other, 1/3 for crossing overlap, 0 when disjoint. Compared with plain Jaccard, MASI rewards the "subset" relation — {metaphor} vs {metaphor, direct} (one coder simply annotated at finer grain) counts as closer to agreement than a crossing overlap with the same Jaccard.
+
+**Jaccard distance**: δ = 1 − |A∩B| / |A∪B|.
+
+**Nominal distance**: 0 when A=B, else 1 (no partial credit; the classic "exact agreement" view).
+
+> **UI note**: to avoid configuration confusion, the interface only exposes "which coefficients to compute". The calculation uses fixed, scientifically standard settings: **token unit / MASI / majority coverage / include negative class / overlap matching**. The results panel displays the settings read-only. The backend API still accepts all parameters for advanced use.
+
+#### Label Filtering
+
+After validation the system lists every label actually used. With "Label Filter" you can compute reliability over a subset of labels: ignored labels are excluded from the computation, and tokens carrying only ignored labels leave the candidate set. The filter equally applies to the KWIC details and Recall/Precision so all views share one scope.
 
 ### Supported Reliability Coefficients
 
 #### 1. Average Pairwise Percent Agreement
 
-**Use Case**: Quick assessment of overall agreement between two or more coders
+**Use case**: quick overall agreement check (no chance correction)
 
-**Calculation Principle**:
+**Computation**: for each coder pair (i, j), the mean graded agreement over all candidate tokens:
 
-For each pair of coders i and j:
+$$\text{Agreement}(i,j) = \frac{1}{n} \sum_{t=1}^{n} \left[ 1 - \delta(S_{i,t},\ S_{j,t}) \right]$$
 
-$$\text{Percent Agreement}(i,j) = \frac{\text{Number of agreements}}{\text{Total positions}}$$
+with S the label sets and δ the chosen set distance (MASI by default). With multiple coders, the average over all pairs is reported. With δ = nominal this reduces to the classic "sets exactly equal" percentage.
 
-Where:
-- **Number of agreements**: Count of positions where both coders' matrices have the same value
-- **Total positions**: Text length × Number of labels
+**Interpretation**: above 0.80 high; 0.60–0.80 moderate; below 0.60 low.
 
-**For multiple coders**:
-
-$$\text{Average Pairwise Percent Agreement} = \frac{\sum(\text{all pairwise agreements})}{\text{Number of pairs}}$$
-
-**Interpretation**:
-- Range: 0 to 1 (usually displayed as percentage)
-- Above 0.80: High agreement
-- 0.60-0.80: Moderate agreement
-- Below 0.60: Low agreement
-
-**Limitation**: Does not account for chance agreement; may overestimate actual agreement when category distribution is uneven
+**Limitation**: no correction for chance; inflated under skewed category distributions — read together with κ/α.
 
 ---
 
-#### 2. Fleiss' Kappa
+#### 2. Average Pairwise Cohen's Kappa
 
-**Use Case**: Evaluating agreement among three or more coders; extension of Cohen's Kappa for multiple coders
+**Use case**: chance-corrected pairwise agreement; with multiple coders the average over all pairs is reported
 
-**Calculation Principle**:
-
-$$\kappa = \frac{\bar{P} - \bar{P}_e}{1 - \bar{P}_e}$$
-
-Where:
-
-**Observed Agreement $\bar{P}$**:
-
-For each "character index-label" pair i:
-
-$$P_i = \frac{\sum n_{ij}^2 - n}{n \times (n-1)}$$
-
-- $n_{ij}$: Number of coders selecting category j at position i
-- n: Total number of coders
-
-Then average:
-
-$$\bar{P} = \frac{1}{N} \sum P_i$$
-
-- N: Total positions (character index-label pairs)
-
-**Expected Agreement $\bar{P}_e$**:
-
-$$\bar{P}_e = \sum p_j^2$$
-
-- $p_j$: Overall proportion of category j being selected
-
-**Interpretation**:
-- Range: -1 to 1
-- 0.81-1.00: Almost Perfect agreement
-- 0.61-0.80: Substantial agreement
-- 0.41-0.60: Moderate agreement
-- 0.21-0.40: Fair agreement
-- 0.00-0.20: Slight agreement
-- < 0: Below chance level
-
----
-
-#### 3. Average Pairwise Cohen's Kappa
-
-**Use Case**: Evaluating agreement between two coders, correcting for chance agreement
-
-**Calculation Principle**:
-
-For each pair of coders:
+**Computation**: every distinct label set that occurs (including the empty set / negative class) is one category; agreement = exact set equality:
 
 $$\kappa = \frac{P_o - P_e}{1 - P_e}$$
 
-Where:
+- P_o: proportion of tokens where the two coders' sets are equal
+- P_e: expected chance agreement from the two coders' own marginals, $P_e = \sum_c p_{i}(c) \times p_{j}(c)$
 
-**Observed Agreement $P_o$**:
+**Interpretation** (Landis & Koch 1977): < 0 poor; 0–0.20 slight; 0.21–0.40 fair; 0.41–0.60 moderate; 0.61–0.80 substantial; 0.81–1.00 almost perfect.
 
-$$P_o = \frac{\text{Number of agreements}}{\text{Total positions}}$$
+**Reference**: Cohen, J. (1960). A coefficient of agreement for nominal scales. *Educational and Psychological Measurement*, 20(1), 37–46.
 
-**Expected Agreement $P_e$**:
+---
 
-$$P_e = \sum (p_{1c} \times p_{2c})$$
+#### 3. Fleiss' Kappa
 
-- $p_{1c}$: Proportion of coder 1 selecting category c
-- $p_{2c}$: Proportion of coder 2 selecting category c
+**Use case**: overall agreement for three or more coders
 
-**For multiple coders**:
+**Computation**: categories as above (distinct label sets, including the empty set).
 
-$$\text{Average Pairwise Cohen's Kappa} = \frac{\sum(\text{all pairwise Kappa values})}{\text{Number of pairs}}$$
+$$\kappa = \frac{\bar{P} - \bar{P_e}}{1 - \bar{P_e}}$$
 
-**Interpretation**: Same interpretation scale as Fleiss' Kappa
+- Per-token agreement $P_t = \frac{1}{m(m-1)} \left( \sum_c r_{tc}^2 - m \right)$ with m coders and r_tc coders assigning category c to token t; $\bar{P}$ is its mean
+- $\bar{P_e} = \sum_c p_c^2$ with p_c the overall proportion of category c
+
+**Interpretation**: Landis & Koch scale as for Cohen's Kappa.
+
+**Reference**: Fleiss, J. L. (1971). Measuring nominal scale agreement among many raters. *Psychological Bulletin*, 76(5), 378–382.
 
 ---
 
 #### 4. Krippendorff's Alpha
 
-**Use Case**: Most versatile reliability coefficient, supports multiple levels of measurement, can handle missing data
+**Use case**: the most general and rigorous coefficient; supports partial credit natively (the set distance serves directly as the difference function)
 
-**Basic Principle**:
-
-$$\alpha = 1 - \frac{D_o}{D_e}$$
-
-Where:
-- $D_o$: Observed disagreement
-- $D_e$: Expected disagreement by chance
-
-**Coincidence Matrix Calculation**:
-
-The system first constructs a coincidence matrix O, where:
-- o_ck: Number of times categories c and k co-occur (weighted count)
-
-For each unit (character position), if m coders made annotations:
-- Each pair of values (c, k) contributes 1/(m-1) to the coincidence matrix
-
-**Key Statistics**:
-
-- **Σc·o_cc (Observed Agreement)**: Sum of diagonal elements in coincidence matrix, representing degree to which coders chose the same category
-- **Σc·n_c(n_c-1) (Expected Agreement Base)**: Expected value calculated from marginal frequencies
-
-**Difference Function δ (by Level of Measurement)**:
-
-Krippendorff's Alpha supports four levels of measurement, each using different difference functions:
-
-**Nominal Level**:
-
-$$\delta^2(c, k) = \begin{cases} 0 & \text{if } c = k \\ 1 & \text{if } c \neq k \end{cases}$$
-
-Use for: Unordered categorical data (e.g., label types, gender)
-
-**Ordinal Level**:
-
-$$\delta^2(c, k) = \left[\sum_{g=c}^{k} n_g - \frac{n_c + n_k}{2}\right]^2$$
-
-- $n_g$: Marginal frequency of category g
-- Sum ranges from c to k (inclusive)
-
-This function considers cumulative frequencies of intermediate categories, reflecting the concept of distance on an ordinal scale.
-
-Use for: Ordered categorical data (e.g., Likert scales, ratings)
-
-**Interval Level**:
-
-$$\delta^2(c, k) = (c - k)^2$$
-
-Use for: Equal-interval numerical data (e.g., temperature, dates)
-
-**Ratio Level**:
-
-$$\delta^2(c, k) = \left[\frac{c - k}{c + k}\right]^2$$
-
-Use for: Numerical data with absolute zero (e.g., frequencies, distances)
-
-**Final Calculation**:
-
-$$D_o = \frac{1}{n} \sum_c \sum_k o_{ck} \times \delta^2(c, k)$$
-
-$$D_e = \frac{1}{n(n-1)} \sum_c \sum_k n_c \times n_k \times \delta^2(c, k)$$
+**Computation**: categories = distinct label sets (including the empty set). Observed disagreement D_o and expected disagreement D_e are computed from the coincidence matrix:
 
 $$\alpha = 1 - \frac{D_o}{D_e}$$
 
-**Interpretation**:
-- Range: -1 to 1
-- α ≥ 0.80: Acceptable reliability level
-- 0.67 ≤ α < 0.80: Can be used with caution
-- α < 0.67: Insufficient reliability
+$$D_o = \frac{1}{n} \sum_{c} \sum_{k} o_{ck} \, \delta(c, k) \qquad D_e = \frac{1}{n(n-1)} \sum_{c} \sum_{k} n_c \, n_k \, \delta(c, k)$$
 
-**Reference**: Krippendorff, K. (2004). Content Analysis: An Introduction to Its Methodology. Sage Publications.
+where o_ck is the coincidence matrix (each within-token coder pair weighted 1/(m−1)), n_c the marginal frequencies, and δ the chosen set distance (MASI by default) — partial overlap of multi-label sets is credited smoothly by δ with no extra rules. The implementation is cross-validated against NLTK `AnnotationTask.alpha()`.
+
+**Interpretation** (Krippendorff 2004): α ≥ 0.80 acceptable; 0.667 ≤ α < 0.80 usable for tentative conclusions; α < 0.667 insufficient.
+
+**References**: Krippendorff, K. (2004). *Content Analysis: An Introduction to Its Methodology*. Sage. / Passonneau, R. (2006). Measuring agreement on set-valued items (MASI) for semantic and pragmatic annotation. *LREC 2006*.
 
 ---
 
 #### 5. Recall & Precision
 
-**Use Case**: When you have a "gold standard" (reference annotation), use this to evaluate other coders' accuracy against the standard
+**Use case**: with a designated gold standard, evaluates each coder against it
 
-**Prerequisites**: You need to select one archive as the "Gold Standard" in the Data Source panel
+**Prerequisite**: select one archive as the gold standard in the data source panel
 
-**Calculation Principle**:
+**Matching rule (overlap, default)**: a coder annotation matches a gold annotation when the **labels are equal** and the **character spans overlap by at least 50% of the shorter span**; greedy 1:1 matching (each gold annotation matches at most one coder annotation), consistent with the token-based main view and giving partial credit to slightly shifted boundaries. The API also offers an `exact` mode (identical start/end/label).
 
-Calculates each coder's annotation accuracy based on the gold standard:
+$$\text{Recall} = \frac{TP}{TP + FN} \qquad \text{Precision} = \frac{TP}{TP + FP} \qquad F_1 = \frac{2 \times P \times R}{P + R}$$
 
-**Recall**:
+- **TP**: coder annotations matched to the gold standard
+- **FN**: gold annotations not matched by this coder
+- **FP**: coder annotations not matched to any gold annotation
 
-$$\text{Recall} = \frac{\text{True Positives}}{\text{Total Gold Standard Annotations}}$$
+**Display**: R / P / F1 per coder and per label; the label filter applies here too.
 
-- **True Positives**: Number of coder annotations that exactly match gold standard annotations
-- **Total Gold Standard Annotations**: Total number of annotations in the gold standard
-- Recall measures whether the coder "found all" annotations in the gold standard
-
-**Precision**:
-
-$$\text{Precision} = \frac{\text{True Positives}}{\text{Total Coder Annotations}}$$
-
-- **True Positives**: Number of coder annotations that exactly match gold standard annotations
-- **Total Coder Annotations**: Total number of annotations created by the coder
-- Precision measures whether the coder's annotations are "correct"
-
-**F1 Score**:
-
-$$F_1 = \frac{2 \times \text{Precision} \times \text{Recall}}{\text{Precision} + \text{Recall}}$$
-
-- F1 score is the harmonic mean of precision and recall
-- Comprehensively reflects the coder's annotation quality
-
-**Matching Rules**:
-- Annotation matching is based on: start position, end position, and label name
-- All three must match exactly to count as a True Positive
-
-**Results Display**:
-- **By Coder**: Shows each coder's recall, precision, and F1 score
-- **By Label**: Shows recall, precision, and F1 score for each label
-- Coder names use the names saved in the archive files
-
-**Interpretation**:
-- Range: 0 to 1 (usually displayed as percentage)
-- 0.90 and above: Excellent
-- 0.80-0.90: Good
-- 0.70-0.80: Fair
-- 0.60-0.70: Moderate
-- 0.50-0.60: Poor
-- Below 0.50: Very Poor
-
-**Usage Suggestions**:
-- Use expert annotations as gold standard to evaluate training effectiveness for new coders
-- Compare different coders' differences from gold standard when establishing annotation guidelines
-- Use together with other reliability coefficients for comprehensive annotation quality assessment
+**Tips**: train new coders against expert gold annotations, compare coders when building guidelines, and combine with κ/α for a full picture.
 
 ### Gold Standard Selection
 
@@ -5999,9 +6023,9 @@ In the Data Source panel, after selecting multiple annotation archives, you can 
 
 Displays basic statistics:
 - **N Coders**: Number of coders participating in annotation
-- **N Cases**: Text length (number of character indices)
-- **N Decisions**: Total "coder-position-label" decisions
-- **N Labels**: Total number of labels in annotation framework
+- **N Cases**: Number of candidate token units (default scope = all word tokens, excluding pure punctuation)
+- **N Decisions**: Total non-empty (coder, token) assignments over candidate tokens
+- **N Labels**: Labels actually used (and not excluded by the label filter)
 
 #### Coefficient Cards
 
@@ -6014,10 +6038,10 @@ Each calculated coefficient is displayed as an independent card:
 
 #### Krippendorff's Alpha Details
 
-- **Level of Measurement**: Shows the measurement level used (nominal/ordinal/interval/ratio)
+- **Set Distance**: Shows the set distance used (masi/jaccard/nominal, default masi)
 - **N Decisions**: Total decisions used in calculation
-- **Σc·o_cc**: Coincidence matrix statistic (observed agreement)
-- **Σc·n_c(n_c-1)**: Marginal frequency statistic (expected agreement base)
+- **Σc·o_cc**: Coincidence matrix statistic (observed disagreement, δ-weighted)
+- **Σc·n_c(n_c-1)**: Marginal frequency statistic (expected disagreement base)
 
 ### Report Export
 
@@ -6041,11 +6065,11 @@ Each calculated coefficient is displayed as an independent card:
 - **Multiple Coders**: Use Fleiss' Kappa
 - **Rigorous Assessment**: Use Krippendorff's Alpha
 
-#### Level of Measurement Selection (Krippendorff's Alpha)
+#### Calculation Settings
 
-- **Label Classification**: Choose Nominal
-- **Rating Scales**: Choose Ordinal
-- **Numerical Scores**: Choose Interval or Ratio
+- The UI uses fixed, scientifically standard settings (token unit / MASI / majority coverage / include negative class / overlap matching) — nothing to configure; the results panel shows them read-only
+- Alternative settings (character unit, nominal distance, …) remain available through the backend API parameters
+- **Label Filter**: to assess reliability for a subset of labels, use the Label Filter button; other labels and tokens carrying only them leave the computation
 
 #### Result Interpretation Notes
 

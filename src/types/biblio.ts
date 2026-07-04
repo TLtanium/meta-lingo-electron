@@ -161,6 +161,11 @@ export interface NetworkNode {
   weight: number
   frequency: number
   centrality: number
+  degree?: number
+  eigen_centrality?: number
+  sigma?: number
+  is_burst?: boolean
+  term_type?: string
   cluster?: number
   year?: number
   attributes?: Record<string, any>
@@ -191,6 +196,8 @@ export interface ClusterInfo {
   size: number
   silhouette: number
   top_terms: string[]
+  /** Mean first-appearance year of the cluster's terms (CiteSpace engine). */
+  mean_year?: number | null
 }
 
 export interface ClusterVisualizationData {
@@ -199,6 +206,39 @@ export interface ClusterVisualizationData {
   clusters: ClusterInfo[]
   modularity: number
   silhouette: number
+  /** Node entity the network was built on (keyword/author/institution/country/term). */
+  node_type?: string
+  /** Cluster-label extraction algorithm used (llr/tfidf/mi). */
+  label_algorithm?: string
+}
+
+/** CiteSpace-aligned node selection / network / labelling parameters. */
+export type BiblioNodeType = 'keyword' | 'author' | 'institution' | 'country' | 'term' | 'reference'
+
+export interface CiteSpaceParams {
+  node_type?: BiblioNodeType
+  /** Multi-select node types (hybrid network: diamonds = terms, circles = references).
+      Takes precedence over node_type when non-empty. */
+  node_types?: BiblioNodeType[]
+  year_from?: number
+  year_to?: number
+  years_per_slice?: number
+  selection_mode?: 'g_index' | 'top_n' | 'top_n_percent' | 'thresholds'
+  g_index_k?: number
+  clustering_algorithm?: 'louvain' | 'spectral'
+  top_n?: number
+  top_n_percent?: number
+  threshold_c?: number
+  threshold_cc?: number
+  threshold_ccv?: number
+  link_strength?: 'cosine' | 'dice' | 'jaccard' | 'cooccurrence'
+  pruning?: 'none' | 'pathfinder' | 'mst'
+  label_algorithm?: 'llr' | 'tfidf' | 'mi'
+  max_nodes?: number
+  /** Which fields feed term extraction (keyword/term node types). */
+  term_sources?: Array<'title' | 'abstract' | 'author_keywords' | 'keywords_plus' | 'noun_phrases'>
+  /** Across Slices mode: select top-N globally instead of per-slice then merge. */
+  across_slices?: boolean
 }
 
 // ==================== Timeline Visualization ====================
@@ -210,6 +250,32 @@ export interface TimelineNode {
   cluster: number
   weight: number
   is_burst: boolean
+  frequency?: number
+  centrality?: number
+  degree?: number
+  eigen_centrality?: number
+  sigma?: number
+  /** Which node type produced this node (hybrid networks): reference -> circle, others -> diamond */
+  term_type?: string
+}
+
+/** Metric used to rank/filter node labels in one label group */
+export type NodeLabelMetric = 'frequency' | 'degree' | 'centrality' | 'eigen' | 'sigma' | 'cluster' | 'burstness' | 'hide'
+
+/** One of the two independent label groups (term layer = diamonds, reference layer = circles) */
+export interface NodeLabelGroup {
+  metric: NodeLabelMetric
+  threshold: number
+  fontSize: number
+  nodeSize: number
+  showFrequency: boolean
+}
+
+export const DEFAULT_TERM_LABEL_GROUP: NodeLabelGroup = {
+  metric: 'degree', threshold: 0, fontSize: 12, nodeSize: 1, showFrequency: false
+}
+export const DEFAULT_REF_LABEL_GROUP: NodeLabelGroup = {
+  metric: 'frequency', threshold: 0, fontSize: 9, nodeSize: 1, showFrequency: false
 }
 
 export interface TimelineCluster {
@@ -218,6 +284,7 @@ export interface TimelineCluster {
   size: number
   year_start: number
   year_end: number
+  silhouette?: number
 }
 
 export interface TimelineVisualizationData {
@@ -228,6 +295,9 @@ export interface TimelineVisualizationData {
     start: number
     end: number
   }
+  node_type?: string
+  modularity?: number
+  silhouette?: number
 }
 
 // ==================== Timezone Visualization ====================
@@ -337,6 +407,9 @@ export interface HeatmapVisualizationRequest {
   filters?: BiblioFilter
   bandwidth?: number
   grid_size?: number
+  /** Same node type as the cluster view (heatmap shares the CiteSpace engine) */
+  cluster_by?: string
+  citespace?: CiteSpaceParams
 }
 
 // ==================== Word Cloud Visualization ====================
@@ -390,8 +463,9 @@ export interface NetworkVisualizationRequest {
 export interface ClusterVisualizationRequest {
   library_id: string
   filters?: BiblioFilter
-  cluster_by?: 'keyword' | 'author' | 'institution' | 'country'
+  cluster_by?: 'keyword' | 'author' | 'institution' | 'country' | 'term' | 'reference'
   n_clusters?: number
+  citespace?: CiteSpaceParams
 }
 
 export interface TimeVisualizationRequest {
@@ -399,6 +473,7 @@ export interface TimeVisualizationRequest {
   filters?: BiblioFilter
   time_slice?: number
   top_n?: number
+  citespace?: CiteSpaceParams
 }
 
 export interface BurstDetectionRequest {
@@ -407,6 +482,7 @@ export interface BurstDetectionRequest {
   burst_type?: 'keyword' | 'author'
   min_frequency?: number
   gamma?: number
+  alpha?: number
 }
 
 export interface WordCloudVisualizationRequest {

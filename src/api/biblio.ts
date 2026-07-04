@@ -222,7 +222,30 @@ export function getEntryThumbnailUrl(entryId: string, version?: string): string 
   return version ? `${base}?v=${encodeURIComponent(version)}` : base
 }
 
+/** URL to download the entry's original uploaded source PDF (server sends it as an attachment). */
+export function getEntryPdfUrl(entryId: string): string {
+  return `${API_BASE_URL}${BASE_URL}/entries/${entryId}/pdf`
+}
+
 export interface BiblioEntryUpdatePayload {
+  // Bibliographic fields (WOS / CNKI) — all user-editable
+  title?: string
+  authors?: string[]
+  institutions?: string[]
+  countries?: string[]
+  journal?: string | null
+  year?: number | null
+  volume?: string | null
+  issue?: string | null
+  pages?: string | null
+  doi?: string | null
+  keywords?: string[]
+  abstract?: string | null
+  doc_type?: string | null
+  language?: string | null
+  citation_count?: number | null
+  source_url?: string | null
+  // User annotations
   relevance?: number
   tags?: string[]
   notes?: string
@@ -275,6 +298,25 @@ export async function deleteEntriesBatch(entryIds: string[]): Promise<ApiRespons
 
 export async function getEntriesByIds(entryIds: string[]): Promise<ApiResponse<{ entries: BiblioEntry[] }>> {
   return api.post<{ entries: BiblioEntry[] }>(`${BASE_URL}/entries/by-ids`, { entry_ids: entryIds })
+}
+
+export interface LlmLabelsParams {
+  clusters: Array<{ id: number; size?: number; top_terms?: string[]; sample_titles?: string[] }>
+  language: 'zh' | 'en'
+  ollama_url?: string
+  ollama_model?: string
+  openai_base_url?: string
+  openai_api_key?: string
+  openai_model?: string
+  use_openai_first?: boolean
+}
+
+/** Joint AI naming for all clusters in one LLM call (cross-cluster de-duplication). */
+export async function generateLlmClusterLabels(
+  params: LlmLabelsParams
+): Promise<ApiResponse<{ success: boolean; labels: Record<string, string> }>> {
+  return api.postLong<{ success: boolean; labels: Record<string, string> }>(
+    `${BASE_URL}/visualization/llm-labels`, params)
 }
 
 // ==================== Statistics & Filter Options ====================

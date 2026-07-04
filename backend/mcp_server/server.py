@@ -15,6 +15,7 @@ from mcp_server.tools import (
     annotation,
     biblio,
     dmip,
+    mda,
     task,
 )
 
@@ -30,6 +31,7 @@ TOOL_MODULES = [
     annotation,
     biblio,
     dmip,
+    mda,
     task,
 ]
 
@@ -40,10 +42,11 @@ def create_server(backend_url: str = "http://127.0.0.1:8000") -> FastMCP:
         "meta-lingo",
         instructions=(
             "Meta-Lingo is a corpus linguistics research application. "
-            "You have 62 tools for corpus management, lexical analysis, "
+            "You have 63 tools for corpus management, lexical analysis, "
             "concordance/KWIC, collocations, word sketches, semantic domains "
             "(USAS), metaphor detection (MIPVU), deliberate metaphor analysis "
-            "(DMIP), sentiment (NRC), synonyms, topic modeling, annotation, "
+            "(DMIP), multidimensional register analysis (Biber 1988 MDA), "
+            "sentiment (NRC), synonyms, topic modeling, annotation, "
             "bibliographic visualization, export, and multi-text task management.\n\n"
 
             "=== LOCAL FILESYSTEM ACCESS ===\n"
@@ -68,7 +71,8 @@ def create_server(backend_url: str = "http://127.0.0.1:8000") -> FastMCP:
             "3. list_corpus_upload_tasks / get_processing_task_status - wait\n"
             "4. get_corpus_info - get text IDs and metadata\n"
             "5. Run analyses: word_frequency, concordance_search, ngram_analysis, "
-            "keyword_extraction, collocation_analysis, word_sketch, etc.\n"
+            "keyword_extraction, collocation_analysis, word_sketch, "
+            "mda_analysis (Biber 1988 register/genre profiling, English only), etc.\n"
             "6. Use reference tools: get_pos_tags, get_usas_categories, "
             "validate_cql, list_reference_corpora\n"
             "7. Compare corpora: keyness_analysis (two user corpora) or "
@@ -77,6 +81,37 @@ def create_server(backend_url: str = "http://127.0.0.1:8000") -> FastMCP:
             "get_domain_words (words in a USAS domain), get_lemma_forms\n"
             "9. Annotate: see annotation workflow below\n"
             "10. export_annotations - save results\n\n"
+
+            "=== RIGOR RULES (corpus-assisted discourse analysis, Baker 2023) ===\n"
+            "1. ABSENCE CLAIMS: NEVER conclude 'X does not appear' from a top-N list.\n"
+            "   Run a targeted search first: word_frequency(search_word='X',\n"
+            "   search_type='exact') — zero rows is the only valid evidence of absence.\n"
+            "   For concepts (not single words) also check the lemma, plausible synonyms\n"
+            "   and rewordings before reporting absence, and phrase it as 'absent from\n"
+            "   this corpus', not 'does not exist'.\n"
+            "2. VERIFY WITH CONCORDANCE: before claiming stance, framing or discourse\n"
+            "   prosody for a word, read its concordance lines (concordance_search).\n"
+            "   Frequency tables show WHAT occurs, not HOW it is used; a form does not\n"
+            "   always have the same function, and quoted uses may be criticised rather\n"
+            "   than endorsed by the author.\n"
+            "3. SAMPLE PROPERLY: with many hits, analyse a random sample\n"
+            "   (sort_by='random'), not the first page; state how many lines you read.\n"
+            "   Quantify any pattern you claim ('N of M sampled lines'), and report the\n"
+            "   dominant pattern, not just vivid rare examples (saliency ≠ frequency).\n"
+            "4. CHECK DISPERSION: high total frequency may come from one text — check\n"
+            "   the spread across files before generalising to 'the corpus'.\n"
+            "5. REPRESENTATION ≠ REALITY: findings describe how texts represent things,\n"
+            "   not facts about the world; consider genre and period context.\n\n"
+
+            "=== MULTIDIMENSIONAL ANALYSIS (MDA, Biber 1988) ===\n"
+            "mda_analysis(corpus_id) — register/genre profiling for ENGLISH corpora:\n"
+            "67 features per 100 tokens from stored SpaCy annotations, z-scored against\n"
+            "Biber's norms, aggregated into six dimension scores + closest text type.\n"
+            "Interpretation: dimension scores are continuous positions (closest genre is\n"
+            "a nearest match, not a category); always name the specific features driving\n"
+            "a dimension (see the most-deviant-features table) before explaining it;\n"
+            "flag extreme z on near-zero-SD rare features as artefacts; note instability\n"
+            "for texts under ~400 tokens.\n\n"
 
             "=== CQL (Corpus Query Language) ===\n"
             "Use concordance_search(search_mode='cql') for complex pattern queries.\n"
@@ -176,8 +211,11 @@ def create_server(backend_url: str = "http://127.0.0.1:8000") -> FastMCP:
             "6. [MET:] indirect metaphors CAN be deliberately used (config ③). Do NOT\n"
             "   batch-dismiss; for EACH MRW check main-predicate position and cluster\n"
             "   membership before applying the conventional/unsignaled default (⑤).\n"
-            "7. [DIR:] direct metaphor: once confirmed genuinely direct → R+ → D+ (there is\n"
-            "   no Direct+Non-deliberate config). [IMPL:] inherits its antecedent's coding.\n"
+            "7. [DIR:] direct metaphor: once confirmed genuinely direct → R+ → D+, ALWAYS\n"
+            "   deliberate — UNCONDITIONAL on signal/novelty. An unsignaled, conventional\n"
+            "   direct metaphor is config ③ [L−C−R+D+], NEVER ⑤; absence of a flag word\n"
+            "   does NOT make it non-deliberate. [DIR:] words can only be ①②③④, never ⑤.\n"
+            "   [IMPL:] inherits its antecedent's coding.\n"
             "   ⚠ [MFLAG:] is NOT an MRW — only [MET:]/[DIR:]/[IMPL:] words get a four-\n"
             "   dimension row. An MFLAG (like/as/'metaphor') merely sets the ADJACENT MRW to\n"
             "   L+; never code it or count the flag word itself as a deliberate metaphor.\n"

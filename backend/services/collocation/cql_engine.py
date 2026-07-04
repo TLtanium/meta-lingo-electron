@@ -18,9 +18,12 @@ Supported syntax:
 - []?                    Optional token (0 or 1)
 - "word"                 Default attribute match
 
-Quantifier semantics (2026-03):
+Quantifier semantics (2026-03, refined 2026-07):
 - []{min,max}            Distance: skip min..max arbitrary tokens (sequence gap), same as before
-- Token / structure / meet {min,max}: Frequency filter (occurrence count) used by within/containing/meet execution
+- [x]{min,max} inside a multi-pattern sequence: consecutive repetition (standard CQL),
+  e.g. [pos="ADJ"]{2}[pos="NOUN"] = exactly two adjectives then a noun; ? * + also work
+- [x]{min,max} as the ONLY pattern (alone / within <s/> / containing): frequency filter —
+  the token must occur min..max times in the document/span (kwic_service applies the count)
 - <s/>{min,max}          Sentence span must repeat min..max times in the document (exact sentence string match)
 
 Extended dependency syntax (2026-01):
@@ -383,14 +386,20 @@ class CQLEngine:
         Returns:
             Tuple of (TokenPattern, end_position)
         """
-        # Find matching ]
+        # Find matching ] (quote-aware: brackets inside "..." values, e.g. regex
+        # character classes like [word="[A-Z].*"] or literal "]"s, are ignored)
         bracket_count = 1
         pos = start_pos + 1
+        in_quotes = False
         while pos < len(query) and bracket_count > 0:
-            if query[pos] == '[':
-                bracket_count += 1
-            elif query[pos] == ']':
-                bracket_count -= 1
+            char = query[pos]
+            if char == '"':
+                in_quotes = not in_quotes
+            elif not in_quotes:
+                if char == '[':
+                    bracket_count += 1
+                elif char == ']':
+                    bracket_count -= 1
             pos += 1
 
         if bracket_count != 0:
@@ -426,6 +435,10 @@ class CQLEngine:
                 end_pos += 1
             elif query[end_pos] == '*':
                 min_count = 0
+                max_count = 100
+                end_pos += 1
+            elif query[end_pos] == '+':
+                min_count = 1
                 max_count = 100
                 end_pos += 1
 
@@ -550,6 +563,15 @@ class CQLEngine:
                     negated=negated
                 )
             raise CQLParseError(f"Invalid condition: {part}")
+
+        # Strict: the condition must consume the whole part. Otherwise e.g.
+        # [word="dog" pos="NOUN"] (missing &) would silently drop pos="NOUN".
+        if part[match.end():].strip():
+            raise CQLParseError(
+                f"Invalid condition: {part} "
+                f"(unexpected trailing content: {part[match.end():].strip()!r}; "
+                f"did you forget '&' or '|' between conditions?)"
+            )
 
         prefix_neg, attribute, operator, value = match.groups()
 
@@ -829,6 +851,12 @@ class CQLEngine:
         """
         n_tokens = len(tokens)
 
+        # Punct-only matches are noise when every pattern is an any-token []
+        # (e.g. optional fillers landing on stray punctuation), but they are the
+        # whole point of explicit queries like [pos="PUNCT"] or [word=","] —
+        # only discard them for all-any pattern sequences.
+        all_any = all(p.is_any for p in query.patterns)
+
         pos = 0
         while pos < n_tokens:
             # Try to match sequence starting at pos
@@ -837,8 +865,11 @@ class CQLEngine:
             if match_result:
                 start_pos, end_pos, matched_tokens = match_result
 
-                # Skip if matched only space/punct tokens (optional patterns)
-                if not matched_tokens or all(t.get('is_space') or t.get('is_punct') for t in matched_tokens):
+                # Skip empty / all-space matches; punct-only only for all-any queries
+                if not matched_tokens or all(t.get('is_space') for t in matched_tokens):
+                    pos += 1
+                    continue
+                if all_any and all(t.get('is_space') or t.get('is_punct') for t in matched_tokens):
                     pos += 1
                     continue
 
@@ -889,75 +920,46 @@ class CQLEngine:
             Tuple of (start_pos, end_pos, matched_tokens) or None
         """
         n_tokens = len(tokens)
-        matched_tokens = []
-        current_pos = start_pos
 
         if not patterns:
             return (start_pos, start_pos, [])
 
-        for pat_idx, pattern in enumerate(patterns):
-            if current_pos >= n_tokens:
-                if pattern.min_count == 0 or pattern.optional:
-                    continue
-                return None
+        # Unified backtracking matcher: every pattern (any-token [] or
+        # conditioned [pos="ADJ"]) honours its own {min,max} / ? / * / +
+        # quantifier. Ordering convention:
+        #   - patterns follow → try minimal first (non-greedy), so e.g.
+        #     <s> []{1,2} [lemma="make"] takes 1 filler then "make";
+        #   - last pattern → try maximal first (greedy), so e.g.
+        #     []{1,2} </s> consumes 2 tokens ending at the span boundary.
+        pattern = patterns[0]
+        rest_patterns = patterns[1:]
+        eff_min, eff_max = pattern.min_count, pattern.max_count
 
-            if pattern.is_any:
-                eff_min, eff_max = pattern.min_count, pattern.max_count
-            else:
-                eff_min, eff_max = 1, 1
-
-            match_count = 0
-            pattern_matches = []
-
-            if pattern.is_any:
-                # When there are more patterns after, try minimal first (non-greedy) so e.g. <s> []{1,2} [lemma="make"] matches 1 token then make.
-                # When no patterns after, try maximal first so e.g. []{1,2} </s> matches 2 tokens ending at span end.
-                rest_patterns = patterns[pat_idx + 1:]
-                order = range(eff_min, min(eff_max, n_tokens - current_pos) + 1) if rest_patterns else range(
-                    min(eff_max, n_tokens - current_pos), eff_min - 1, -1
-                )
-                for target_count in order:
-                    if current_pos + target_count > n_tokens:
-                        continue
-                    take = tokens[current_pos:current_pos + target_count]
-                    if not all(self.match_token(t, pattern) for t in take):
-                        continue
-                    rest = self._try_match_sequence(tokens, rest_patterns, current_pos + target_count)
-                    if rest is not None:
-                        return (
-                            start_pos,
-                            rest[1],
-                            matched_tokens + take + rest[2]
-                        )
-                return None
-            else:
-                while (
-                    current_pos < n_tokens and
-                    match_count < eff_max and
-                    self.match_token(tokens[current_pos], pattern)
-                ):
-                    pattern_matches.append(tokens[current_pos])
-                    match_count += 1
-                    current_pos += 1
-                if match_count < eff_min:
-                    return None
-                matched_tokens.extend(pattern_matches)
-
-        if not matched_tokens:
+        hi = min(eff_max, n_tokens - start_pos)
+        if hi < 0:
+            hi = 0
+        if eff_min > hi:
             return None
 
-        return start_pos, current_pos, matched_tokens
+        order = range(eff_min, hi + 1) if rest_patterns else range(hi, eff_min - 1, -1)
+        for target_count in order:
+            take = tokens[start_pos:start_pos + target_count]
+            if not all(self.match_token(t, pattern) for t in take):
+                continue
+            rest = self._try_match_sequence(tokens, rest_patterns, start_pos + target_count)
+            if rest is not None:
+                # Empty totals are filtered by callers (_find_matches_simple);
+                # rejecting here would break suffixes like [pos="NOUN"] []? at text end.
+                return (start_pos, rest[1], take + rest[2])
+        return None
 
     def _pattern_sequence_length_range(self, patterns: List[TokenPattern]) -> Tuple[int, int]:
-        """Return (min_total, max_total) token length for the pattern sequence."""
+        """Return (min_total, max_total) token length for the pattern sequence.
+        Quantifiers apply to conditioned tokens too, matching _try_match_sequence."""
         min_total, max_total = 0, 0
         for p in patterns:
-            if p.is_any:
-                min_total += p.min_count
-                max_total += p.max_count
-            else:
-                min_total += 1
-                max_total += 1
+            min_total += p.min_count
+            max_total += p.max_count
         return (min_total, max_total)
 
     def try_match_sequence_ending_at(

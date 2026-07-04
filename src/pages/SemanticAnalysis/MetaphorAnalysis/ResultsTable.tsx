@@ -291,15 +291,16 @@ export default function ResultsTable({
 
   return (
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      {/* Toolbar with Statistics */}
+      {/* Toolbar with Statistics — outer row never wraps; chips wrap inside
+          their own flex item so the search box stays on the same line */}
       <Stack
         direction="row"
         spacing={1}
         alignItems="center"
-        flexWrap="wrap"
         sx={{ px: 2, py: 1, borderBottom: 1, borderColor: 'divider', gap: 1 }}
       >
-        {/* Stats — grows to fill available width, wraps chips internally */}
+        {/* Stats — grows to fill available width so the control cluster
+            (search box … export button) stays anchored to the right edge */}
         <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ flex: '1 1 auto', minWidth: 0 }}>
           {statistics && (
             <>
@@ -410,7 +411,8 @@ export default function ResultsTable({
           )}
         </Stack>
 
-        {/* Right-side controls — never shrink, stick close to stats */}
+        {/* Right-side controls — right-aligned cluster; the search field is
+            wide but can shrink on narrow windows */}
         <Stack direction="row" spacing={0.5} alignItems="center" sx={{ flexShrink: 0 }}>
           <TextField
             size="small"
@@ -420,7 +422,7 @@ export default function ResultsTable({
               setTableFilter(e.target.value)
               setPage(0)
             }}
-            sx={{ width: 160 }}
+            sx={{ width: 240, minWidth: 140, flexShrink: 1 }}
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">

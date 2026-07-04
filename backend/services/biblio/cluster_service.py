@@ -172,12 +172,14 @@ class ClusterService:
         # Initialize each node in its own community
         labels = list(range(n))
         
-        # Iterative label propagation
+        # Iterative label propagation (seeded RNG: identical input must yield
+        # identical clusters — an unseeded shuffle made every run different)
+        rng = random.Random(42)
         max_iterations = 50
         for _ in range(max_iterations):
             changed = False
             order = list(range(n))
-            random.shuffle(order)
+            rng.shuffle(order)
             
             for i in order:
                 if not similarity[i]:

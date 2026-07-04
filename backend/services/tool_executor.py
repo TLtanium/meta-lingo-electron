@@ -12,14 +12,14 @@ from mcp.server.fastmcp import FastMCP
 from mcp_server.api_client import MetaLingoClient
 from mcp_server.tools import (
     corpus, analysis, concordance, semantic,
-    sketch, topic, export, reference, annotation, biblio, dmip, task,
+    sketch, topic, export, reference, annotation, biblio, dmip, mda, task,
 )
 
 logger = logging.getLogger(__name__)
 
 _TOOL_MODULES = [
     corpus, analysis, concordance, semantic,
-    sketch, topic, export, reference, annotation, biblio, dmip, task,
+    sketch, topic, export, reference, annotation, biblio, dmip, mda, task,
 ]
 
 MAX_RESULT_LEN = 4000  # Default truncation limit for tool results

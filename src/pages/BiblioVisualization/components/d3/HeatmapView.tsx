@@ -40,16 +40,26 @@ const CLUSTER_COLORS = [
   '#00796b', '#5d4037', '#455a64', '#c2185b', '#0097a7'
 ]
 
+// Fixed canvas size for contour pre-computation — keeps contour math independent of resize
+const CONTOUR_W = 800
+const CONTOUR_H = 600
+
 interface HeatmapViewProps {
   data: HeatmapVisualizationData | null
   loading?: boolean
   colorScheme?: string
+  /** Node-size multiplier (CiteSpace "Node Size"). */
+  nodeScale?: number
+  /** Minimum node weight to show a text label. 0 = no labels. */
+  labelThreshold?: number
 }
 
 export default function HeatmapView({
   data,
   loading = false,
-  colorScheme = 'turbo'
+  colorScheme = 'turbo',
+  nodeScale = 1,
+  labelThreshold = 0,
 }: HeatmapViewProps) {
   const { t } = useTranslation()
   const theme = useTheme()
@@ -81,9 +91,12 @@ export default function HeatmapView({
       }
     }
     update()
-    const obs = new ResizeObserver(update)
+    // Debounce resize so rapid changes (params panel scrolling) don't recompute contours
+    let timer: ReturnType<typeof setTimeout>
+    const debounced = () => { clearTimeout(timer); timer = setTimeout(update, 220) }
+    const obs = new ResizeObserver(debounced)
     if (containerRef.current) obs.observe(containerRef.current)
-    return () => obs.disconnect()
+    return () => { obs.disconnect(); clearTimeout(timer) }
   }, [])
 
   const filteredPoints = useMemo(() => {
@@ -91,6 +104,24 @@ export default function HeatmapView({
     if (yearFilter === null) return data.points
     return data.points.filter(p => p.year !== undefined && p.year <= yearFilter)
   }, [data, yearFilter])
+
+  // Pre-compute contours at fixed canvas size so resize events don't re-trigger expensive d3.contourDensity
+  const contourMemo = useMemo(() => {
+    if (!data || filteredPoints.length === 0) return null
+    const allPoints = data.points
+    const xs = allPoints.map(p => p.x)
+    const ys = allPoints.map(p => p.y)
+    const pad = 2
+    const xExtent: [number, number] = [d3.min(xs)! - pad, d3.max(xs)! + pad]
+    const yExtent: [number, number] = [d3.min(ys)! - pad, d3.max(ys)! + pad]
+    const xSc = d3.scaleLinear().domain(xExtent).range([0, CONTOUR_W])
+    const ySc = d3.scaleLinear().domain(yExtent).range([CONTOUR_H, 0])
+    const contours = d3.contourDensity<HeatmapPoint>()
+      .x(d => xSc(d.x)).y(d => ySc(d.y)).weight(d => d.weight)
+      .size([CONTOUR_W, CONTOUR_H]).bandwidth(20).thresholds(8)(filteredPoints)
+    const maxDensity = d3.max(contours, d => d.value) || 1
+    return { contours, maxDensity, xExtent, yExtent }
+  }, [data, filteredPoints])
 
   const yearRange = useMemo(() => {
     if (!data) return { start: 2000, end: 2024 }
@@ -114,9 +145,9 @@ export default function HeatmapView({
     return () => { if (playRef.current) clearInterval(playRef.current) }
   }, [playing, yearRange, yearFilter])
 
-  // Draw heatmap
+  // Draw heatmap — contour computation is memoized; this effect only handles layout/rendering
   useEffect(() => {
-    if (!svgRef.current || !data || filteredPoints.length === 0) return
+    if (!svgRef.current || !contourMemo) return
 
     const svg = d3.select(svgRef.current)
     svg.selectAll('*').remove()
@@ -128,16 +159,12 @@ export default function HeatmapView({
 
     const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`)
 
-    // Use all points for stable coordinate system
-    const allPoints = data.points
-    const xs = allPoints.map(p => p.x)
-    const ys = allPoints.map(p => p.y)
-    const pad = 2
-    const xExtent = [d3.min(xs)! - pad, d3.max(xs)! + pad] as [number, number]
-    const yExtent = [d3.min(ys)! - pad, d3.max(ys)! + pad] as [number, number]
-
+    const { contours, maxDensity, xExtent, yExtent } = contourMemo
     const xScale = d3.scaleLinear().domain(xExtent).range([0, innerW])
     const yScale = d3.scaleLinear().domain(yExtent).range([innerH, 0])
+    // Scale factors to map pre-computed CONTOUR_W×CONTOUR_H paths to actual canvas
+    const scaleX = innerW / CONTOUR_W
+    const scaleY = innerH / CONTOUR_H
 
     // ---- Background grid ----
     const gridG = g.append('g').attr('class', 'grid')
@@ -151,6 +178,7 @@ export default function HeatmapView({
       .attr('y1', 0).attr('y2', innerH)
       .attr('stroke', isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)')
       .attr('stroke-width', 0.5)
+      .attr('pointer-events', 'none')
 
     gridG.selectAll('line.y-grid')
       .data(yTicks)
@@ -159,20 +187,7 @@ export default function HeatmapView({
       .attr('y1', d => yScale(d)).attr('y2', d => yScale(d))
       .attr('stroke', isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)')
       .attr('stroke-width', 0.5)
-
-    // ---- Compute contours with lower bandwidth for sharper peaks ----
-    const bandwidth = Math.max(8, Math.min(20, innerW / 40))
-    const nThresholds = 20
-
-    const contourData = d3.contourDensity<HeatmapPoint>()
-      .x(d => xScale(d.x))
-      .y(d => yScale(d.y))
-      .weight(d => d.weight)
-      .size([innerW, innerH])
-      .bandwidth(bandwidth)
-      .thresholds(nThresholds)(filteredPoints)
-
-    const maxDensity = d3.max(contourData, d => d.value) || 1
+      .attr('pointer-events', 'none')
 
     // ---- Discrete quantize color scale ----
     const palette = COLOR_PALETTES[colorScheme] || TURBO_COLORS
@@ -180,10 +195,12 @@ export default function HeatmapView({
       .domain([0, maxDensity])
       .range(palette)
 
-    // ---- Draw contour fills ----
+    // ---- Draw contour fills (pre-computed paths scaled to actual canvas) ----
     g.append('g').attr('class', 'contour-fills')
+      .attr('pointer-events', 'none')
+      .attr('transform', `scale(${scaleX},${scaleY})`)
       .selectAll('path')
-      .data(contourData)
+      .data(contours)
       .join('path')
       .attr('d', d3.geoPath())
       .attr('fill', d => colorScale(d.value))
@@ -192,30 +209,31 @@ export default function HeatmapView({
 
     // ---- Draw contour lines (fine, discrete) ----
     g.append('g').attr('class', 'contour-lines')
+      .attr('pointer-events', 'none')
+      .attr('transform', `scale(${scaleX},${scaleY})`)
       .selectAll('path')
-      .data(contourData)
+      .data(contours)
       .join('path')
       .attr('d', d3.geoPath())
       .attr('fill', 'none')
       .attr('stroke', isDark ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.2)')
-      .attr('stroke-width', 0.6)
+      .attr('stroke-width', 0.6 / scaleX)
 
     // ---- Crosshair markers at density peaks ----
-    if (contourData.length > 0) {
-      // Find the top density peaks by computing centroids of highest contours
-      const highContours = contourData.filter(c => c.value > maxDensity * 0.7)
-      const crosshairG = g.append('g').attr('class', 'crosshairs')
+    if (contours.length > 0) {
+      const highContours = contours.filter(c => c.value > maxDensity * 0.7)
+      const crosshairG = g.append('g').attr('class', 'crosshairs').attr('pointer-events', 'none')
 
       highContours.forEach(contour => {
         contour.coordinates.forEach(polygon => {
           polygon.forEach(ring => {
-            // Compute centroid of the ring
             let cx = 0, cy = 0
             const n = ring.length
             if (n === 0) return
             ring.forEach(pt => { cx += pt[0]; cy += pt[1] })
-            cx /= n
-            cy /= n
+            // Convert centroid from CONTOUR_W×CONTOUR_H space to actual canvas space
+            cx = (cx / n) * scaleX
+            cy = (cy / n) * scaleY
 
             const crossSize = 6
             const crossColor = isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.5)'
@@ -247,7 +265,7 @@ export default function HeatmapView({
       .join('circle')
       .attr('cx', d => xScale(d.x))
       .attr('cy', d => yScale(d.y))
-      .attr('r', d => Math.max(2.5, Math.min(8, d.weight * 0.5)))
+      .attr('r', d => Math.max(2.5, Math.min(8, d.weight * 0.5)) * nodeScale)
       .attr('fill', d => clusterColorScale(d.cluster))
       .attr('stroke', isDark ? '#111' : '#fff')
       .attr('stroke-width', 1)
@@ -261,6 +279,29 @@ export default function HeatmapView({
           `${d.label}\nCluster: ${d.cluster}${d.year ? `\n${t('biblio.yearColumn')}: ${d.year}` : ''}\nWeight: ${d.weight.toFixed(2)}`)
       })
       .on('mouseleave', () => setTooltip(null))
+
+    // ---- Point labels: only when threshold > 0; font size ∝ weight ----
+    if (labelThreshold > 0) {
+      const labelPts = [...filteredPoints]
+        .filter(p => p.weight >= labelThreshold)
+        .sort((a, b) => b.weight - a.weight)
+      if (labelPts.length > 0) {
+        const maxLabelW = labelPts[0].weight || 1
+        g.append('g').attr('class', 'heatmap-labels')
+          .attr('pointer-events', 'none')
+          .selectAll<SVGTextElement, HeatmapPoint>('text')
+          .data(labelPts)
+          .join('text')
+          .attr('x', d => xScale(d.x) + Math.max(2.5, Math.min(8, d.weight * 0.5)) * nodeScale + 4)
+          .attr('y', d => yScale(d.y) + 3.5)
+          .text(d => d.label.length > 18 ? d.label.slice(0, 18) + '…' : d.label)
+          .attr('font-size', d => {
+            const norm = d.weight / maxLabelW
+            return Math.max(8, Math.min(18, 8 + Math.pow(norm, 0.6) * 10))
+          })
+          .attr('fill', isDark ? 'rgba(255,255,255,0.82)' : 'rgba(0,0,0,0.72)')
+      }
+    }
 
     // ---- Color bar legend ----
     const legendW = 16
@@ -316,7 +357,7 @@ export default function HeatmapView({
         .text(yearFilter)
     }
 
-  }, [data, filteredPoints, dimensions, isDark, t, showTooltip, yearFilter, colorScheme])
+  }, [contourMemo, dimensions, isDark, t, showTooltip, yearFilter, colorScheme, nodeScale, labelThreshold])
 
   if (loading) {
     return (

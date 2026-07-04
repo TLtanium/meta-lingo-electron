@@ -23,7 +23,11 @@ import {
   Tooltip,
   Divider,
   Switch,
-  FormControlLabel
+  FormControlLabel,
+  Checkbox,
+  ListItemText,
+  OutlinedInput,
+  Slider
 } from '@mui/material'
 import BubbleChartIcon from '@mui/icons-material/BubbleChart'
 import ViewTimelineIcon from '@mui/icons-material/ViewTimeline'
@@ -35,7 +39,9 @@ import ImageIcon from '@mui/icons-material/Image'
 import AccountTreeIcon from '@mui/icons-material/AccountTree'
 import TimelineIcon from '@mui/icons-material/Timeline'
 import GradientIcon from '@mui/icons-material/Gradient'
+import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome'
 import { useTranslation } from 'react-i18next'
+import { useSettingsStore } from '../../stores/settingsStore'
 import { NumberInput } from '../../components/common'
 import type {
   BiblioLibrary,
@@ -46,10 +52,14 @@ import type {
   TimezoneVisualizationData,
   BurstDetectionData,
   HeatmapVisualizationData,
-  WordCloudVisualizationData
+  WordCloudVisualizationData,
+  CiteSpaceParams
 } from '../../types/biblio'
 import * as biblioApi from '../../api/biblio'
 import FilterPanel from './FilterPanel'
+import CiteSpaceParamsPanel from './viz/CiteSpaceParamsPanel'
+import { SliderParam, SliderGrid, DrawerSubLabel } from './viz/ParamComponents'
+import DataTableDock, { type DataTableRow } from './viz/DataTableDock'
 import NetworkGraph from './components/d3/NetworkGraph'
 import TimezoneView from './components/d3/TimezoneView'
 import BurstChart from './components/d3/BurstChart'
@@ -101,8 +111,10 @@ function getColorFromScheme(scheme: string): string {
 }
 
 export default function VisualizationPanel({ library }: VisualizationPanelProps) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const chartContainerRef = useRef<HTMLDivElement>(null)
+  const settings = useSettingsStore()
+  const [aiNaming, setAiNaming] = useState(false)
   
   // Chart type states
   const [chartCategory, setChartCategory] = useState<ChartCategory>('network')
@@ -116,18 +128,74 @@ export default function VisualizationPanel({ library }: VisualizationPanelProps)
   const [minWeight, setMinWeight] = useState(1)
   const [maxNodes, setMaxNodes] = useState(100)
   const [burstType, setBurstType] = useState<'keyword' | 'author'>('keyword')
+  const [burstAlpha, setBurstAlpha] = useState(1.0)
+  const [burstGamma, setBurstGamma] = useState(1.0)
+  const [burstMinFreq, setBurstMinFreq] = useState(2)
+  const [burstTopN, setBurstTopN] = useState(30)
+  const [burstSortBy, setBurstSortBy] = useState<'strength' | 'begin'>('strength')
   const [timeSlice, _setTimeSlice] = useState(1)
   const [topN, setTopN] = useState(10)
   const [wordCloudSource, setWordCloudSource] = useState<'title' | 'abstract'>('abstract')
   const [wordCloudMaxItems, setWordCloudMaxItems] = useState(100)
   const [wordCloudColormap, setWordCloudColormap] = useState<'viridis' | 'inferno' | 'plasma' | 'autumn' | 'winter' | 'rainbow' | 'ocean' | 'forest' | 'sunset'>('viridis')
-  const [clusterBy, setClusterBy] = useState<'keyword' | 'author' | 'institution' | 'country'>('keyword')
+  // Node types for the term co-occurrence network — MULTI-select (hybrid networks:
+  // e.g. keyword + reference gives diamonds and citation circles on one canvas)
+  const [nodeTypes, setNodeTypes] = useState<Array<'keyword' | 'author' | 'institution' | 'country' | 'reference'>>(['keyword'])
+  // Primary type drives legacy single-type consumers (titles, wordcloud gating, …)
+  const clusterBy = nodeTypes[0] ?? 'keyword'
   const [heatmapBandwidth, setHeatmapBandwidth] = useState(0.15)
   const [heatmapColorScheme, setHeatmapColorScheme] = useState('turbo')
+  const [heatmapLabelThreshold, setHeatmapLabelThreshold] = useState(0)
   const [clusterShowHulls, setClusterShowHulls] = useState(true)
   const [clusterHullThreshold, setClusterHullThreshold] = useState(2)
+  // CiteSpace "Node Labels": which metric + threshold decides which nodes show a tag.
+  const [labelMetric, setLabelMetric] = useState<'frequency' | 'centrality' | 'degree'>('frequency')
+  // Dual label groups (CiteSpace panel): term/diamond layer + reference/circle layer metrics
+  const [termLabelMetric, setTermLabelMetric] = useState<'degree' | 'frequency' | 'centrality' | 'eigen' | 'sigma' | 'hide'>('degree')
+  const [refLabelMetric, setRefLabelMetric] = useState<'degree' | 'frequency' | 'centrality' | 'eigen' | 'sigma' | 'hide'>('frequency')
+  const [showFrequency, setShowFrequency] = useState(false)
+  // CiteSpace "Node Size" / "Font Size" sliders (apply to network / cluster / timeline / heatmap).
+  const [nodeSizeScale, setNodeSizeScale] = useState(1)
+  const [labelFontScale, setLabelFontScale] = useState(1)
   const [xAxisScale, setXAxisScale] = useState(2)
   const [weightPrecision, setWeightPrecision] = useState(4)
+  // Cluster layout: force (default) / ring (empty center) / ring-center (central core)
+  const [clusterLayoutMode, setClusterLayoutMode] = useState<'force' | 'ring' | 'ring-center'>('force')
+  // Timeline node shape (circle/diamond).
+  // Timeline: By Citation layer controls
+  const [tlCitationThreshold, setTlCitationThreshold] = useState(0)
+  const [tlCitationFontScale, setTlCitationFontScale] = useState(1)
+  const [tlCitationNodeScale, setTlCitationNodeScale] = useState(1)
+  // Timeline: By Degree layer controls (keyword mode only)
+  const [tlDegreeNodeScale, setTlDegreeNodeScale] = useState(1)
+  // Timeline row height + link filter (CiteSpace "Timeline View Controls").
+  const [rowSpan, setRowSpan] = useState(64)
+  const [linkFilter, setLinkFilter] = useState(0)
+  // Cluster & link label controls (CiteSpace "Cluster Labels" + "Link Labels").
+  const [clusterLabelFontSize, setClusterLabelFontSize] = useState(12)
+  const [clusterLabelMaxLength, setClusterLabelMaxLength] = useState(30)
+  const [showLinkLabels, setShowLinkLabels] = useState(false)
+  const [showLinkStrengths, setShowLinkStrengths] = useState(false)
+
+  // CiteSpace engine params (cluster + timeline), display-only label threshold,
+  // data-table node visibility, and dock open state.
+  const [citespace, setCitespace] = useState<CiteSpaceParams>({
+    selection_mode: 'g_index', g_index_k: 25, clustering_algorithm: 'louvain',
+    top_n: 50, top_n_percent: 10, years_per_slice: 1,
+    threshold_c: 1, threshold_cc: 1, threshold_ccv: 0,
+    link_strength: 'cosine', pruning: 'pathfinder', label_algorithm: 'llr', max_nodes: 200,
+  })
+  // Term sources (CiteSpace: Title / Abstract / Author Keywords (DE) / Keywords Plus (ID)).
+  // Default all selected; all keyword-network computation is based on the checked set.
+  const [termSources, setTermSources] = useState<Array<'title' | 'abstract' | 'author_keywords' | 'keywords_plus' | 'noun_phrases'>>(
+    ['title']
+  )
+  const [labelThreshold, setLabelThreshold] = useState(0)
+  const [hiddenNodeIds, setHiddenNodeIds] = useState<Set<string>>(new Set())
+  const [dataTableOpen, setDataTableOpen] = useState(false)
+  const updateCitespace = useCallback((patch: Partial<CiteSpaceParams>) => {
+    setCitespace(prev => ({ ...prev, ...patch }))
+  }, [])
 
   // Loading and error states
   const [loading, setLoading] = useState(false)
@@ -221,7 +289,10 @@ export default function VisualizationPanel({ library }: VisualizationPanelProps)
           response = await biblioApi.getBurstDetection({
             library_id: library.id,
             filters,
-            burst_type: burstType
+            burst_type: burstType,
+            alpha: burstAlpha,
+            gamma: burstGamma,
+            min_frequency: burstMinFreq,
           })
           if (response.success && response.data) {
             setBurstData(response.data)
@@ -244,7 +315,8 @@ export default function VisualizationPanel({ library }: VisualizationPanelProps)
           response = await biblioApi.getClusterView({
             library_id: library.id,
             filters,
-            cluster_by: clusterBy
+            cluster_by: clusterBy,
+            citespace: { ...citespace, node_types: nodeTypes, term_sources: nodeTypes.includes('keyword') ? termSources : undefined }
           })
           if (response.success && response.data) {
             setClusterData(response.data)
@@ -252,11 +324,12 @@ export default function VisualizationPanel({ library }: VisualizationPanelProps)
           break
 
         case 'timeline':
+          // time slicing is controlled by citespace.years_per_slice; the legacy
+          // time_slice/top_n fields are ignored by the timeline endpoint
           response = await biblioApi.getTimelineView({
             library_id: library.id,
             filters,
-            time_slice: timeSlice,
-            top_n: topN
+            citespace: { ...citespace, node_types: nodeTypes, term_sources: nodeTypes.includes('keyword') ? termSources : undefined }
           })
           if (response.success && response.data) {
             setTimelineData(response.data)
@@ -264,10 +337,14 @@ export default function VisualizationPanel({ library }: VisualizationPanelProps)
           break
 
         case 'heatmap':
+          // Same node type / term sources / engine params as the cluster view,
+          // so the density landscape is consistent with cluster & timeline.
           response = await biblioApi.getHeatmapView({
             library_id: library.id,
             filters,
-            bandwidth: heatmapBandwidth
+            bandwidth: heatmapBandwidth,
+            cluster_by: clusterBy,
+            citespace: { ...citespace, node_types: nodeTypes, term_sources: nodeTypes.includes('keyword') ? termSources : undefined }
           })
           if (response.success && response.data) {
             setHeatmapData(response.data)
@@ -289,18 +366,63 @@ export default function VisualizationPanel({ library }: VisualizationPanelProps)
     }
     
     setLoading(false)
-  }, [library.id, currentVizType, filters, minWeight, maxNodes, burstType, timeSlice, topN, wordCloudSource, wordCloudMaxItems, clusterBy, heatmapBandwidth, t])
-  
+  }, [library.id, currentVizType, filters, minWeight, maxNodes, burstType, burstAlpha, burstGamma, burstMinFreq, timeSlice, topN, wordCloudSource, wordCloudMaxItems, nodeTypes, heatmapBandwidth, citespace, termSources, t])
+
   // Use JSON.stringify to ensure deep comparison of filters object
   const filtersKey = JSON.stringify(filters)
-  
+  const citespaceKey = JSON.stringify(citespace)
+  const nodeTypesKey = JSON.stringify(nodeTypes)
+  const termSourcesKey = JSON.stringify(termSources)
+
   // Trigger reload when any dependency changes
   useEffect(() => {
     loadVisualization()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [library.id, currentVizType, filtersKey, minWeight, maxNodes, burstType, timeSlice, topN, wordCloudSource, wordCloudMaxItems, clusterBy, heatmapBandwidth])
+  }, [library.id, currentVizType, filtersKey, minWeight, maxNodes, burstType, burstAlpha, burstGamma, burstMinFreq, timeSlice, topN, wordCloudSource, wordCloudMaxItems, nodeTypesKey, heatmapBandwidth, citespaceKey, termSourcesKey])
+
+  // Reset data-table node visibility whenever the active chart / node type changes.
+  useEffect(() => {
+    setHiddenNodeIds(new Set())
+  }, [currentVizType, nodeTypesKey, library.id])
   
-  // Handle tab change
+  // AI cluster naming: one joint LLM call for all clusters of the active view;
+  // API preferred when enabled, local Ollama otherwise (app-wide provider rule).
+  const handleAiNameClusters = async () => {
+    const viewData = chartCategory === 'cluster' ? clusterData : timelineData
+    const clusters = viewData?.clusters ?? []
+    if (!clusters.length) return
+    setAiNaming(true)
+    try {
+      const res = await biblioApi.generateLlmClusterLabels({
+        clusters: clusters.map((c: any) => ({
+          id: c.id, size: c.size, top_terms: c.top_terms ?? String(c.label || '').split(',').map((x: string) => x.trim()),
+        })),
+        language: i18n.language === 'zh' ? 'zh' : 'en',
+        ollama_url: settings.ollamaUrl || undefined,
+        ollama_model: settings.ollamaModel || undefined,
+        openai_base_url: settings.openaiApiEnabled ? settings.openaiApiBaseUrl : undefined,
+        openai_api_key: settings.openaiApiEnabled ? settings.openaiApiKey : undefined,
+        openai_model: settings.openaiApiEnabled ? settings.openaiApiModel : undefined,
+        use_openai_first: settings.openaiApiEnabled,
+      })
+      const labels = res.data?.labels
+      if (res.success && labels) {
+        const rename = (cs: any[]) => cs.map(c => ({ ...c, label: labels[String(c.id)] ?? c.label }))
+        if (chartCategory === 'cluster' && clusterData) {
+          setClusterData({ ...clusterData, clusters: rename(clusterData.clusters ?? []) })
+        } else if (chartCategory === 'timeline' && timelineData) {
+          setTimelineData({ ...timelineData, clusters: rename(timelineData.clusters ?? []) })
+        }
+      } else {
+        setError(res.error || t('biblio.aiNameFailed'))
+      }
+    } catch (err: any) {
+      setError(err?.message || t('biblio.aiNameFailed'))
+    }
+    setAiNaming(false)
+  }
+
+  // Handle tab change (hybrid engine supports reference in cluster view too now)
   const handleTabChange = (_: React.SyntheticEvent, newValue: ChartCategory) => {
     setChartCategory(newValue)
   }
@@ -412,7 +534,7 @@ export default function VisualizationPanel({ library }: VisualizationPanelProps)
       const img = new Image()
       img.onload = () => {
         const canvas = document.createElement('canvas')
-        const scale = 3 // High resolution
+        const scale = 2 // Retina resolution (3× was too slow for complex charts)
         canvas.width = width * scale
         canvas.height = height * scale
         
@@ -524,10 +646,13 @@ export default function VisualizationPanel({ library }: VisualizationPanelProps)
       case 'network':
         return (
           <Box sx={{ height: '100%', display: 'flex' }}>
-            <NetworkGraph 
-              data={networkData} 
+            <NetworkGraph
+              data={networkData}
               title={t(`biblio.vizType.${networkType}`)}
               colorScheme={colorScheme}
+              hiddenNodeIds={hiddenNodeIds}
+              nodeScale={nodeSizeScale}
+              fontScaleMul={labelFontScale}
             />
           </Box>
         )
@@ -548,6 +673,8 @@ export default function VisualizationPanel({ library }: VisualizationPanelProps)
             <BurstChart 
               data={burstData}
               colorScheme={colorScheme}
+              topN={burstTopN}
+              sortBy={burstSortBy}
             />
           </Box>
         )
@@ -566,21 +693,27 @@ export default function VisualizationPanel({ library }: VisualizationPanelProps)
       case 'cluster':
         return (
           <Box sx={{ height: '100%', display: 'flex' }}>
-            <ClusterView data={clusterData} colorScheme={colorScheme} showHulls={clusterShowHulls} hullThreshold={clusterHullThreshold} />
+            <ClusterView data={clusterData} colorScheme={colorScheme} showHulls={clusterShowHulls} hullThreshold={clusterHullThreshold} labelMetric={labelMetric} labelThreshold={labelThreshold} showFrequency={showFrequency} nodeScale={nodeSizeScale} fontScaleMul={labelFontScale} hiddenNodeIds={hiddenNodeIds} layoutMode={clusterLayoutMode} showLinkLabels={showLinkLabels} showLinkStrengths={showLinkStrengths} clusterLabelFontSize={clusterLabelFontSize} clusterLabelMaxLength={clusterLabelMaxLength} />
           </Box>
         )
 
       case 'timeline':
         return (
           <Box sx={{ height: '100%', display: 'flex' }}>
-            <TimelineView data={timelineData} colorScheme={colorScheme} xAxisScale={xAxisScale} weightPrecision={weightPrecision} />
+            <TimelineView data={timelineData} colorScheme={colorScheme} xAxisScale={xAxisScale} weightPrecision={weightPrecision}
+              citationThreshold={tlCitationThreshold} citationFontScale={tlCitationFontScale} nodeScale={tlCitationNodeScale}
+              citationNodeScale={tlCitationNodeScale} refLabelMetric={refLabelMetric}
+              showDiamondLabels={nodeTypes.includes('keyword')} labelThreshold={labelThreshold} fontScaleMul={labelFontScale} diamondNodeScale={tlDegreeNodeScale}
+              termLabelMetric={termLabelMetric}
+              hiddenNodeIds={hiddenNodeIds} rowSpan={rowSpan} linkFilter={linkFilter} clusterLabelFontSize={clusterLabelFontSize} clusterLabelMaxLength={clusterLabelMaxLength}
+              showFrequency={showFrequency} />
           </Box>
         )
 
       case 'heatmap':
         return (
           <Box sx={{ height: '100%', display: 'flex' }}>
-            <HeatmapView data={heatmapData} colorScheme={heatmapColorScheme} />
+            <HeatmapView data={heatmapData} colorScheme={heatmapColorScheme} nodeScale={nodeSizeScale} labelThreshold={heatmapLabelThreshold} />
           </Box>
         )
 
@@ -589,6 +722,208 @@ export default function VisualizationPanel({ library }: VisualizationPanelProps)
     }
   }
   
+  // ---- Data-table dock (node-based charts only) ----
+  const isNodeChart = chartCategory === 'network' || chartCategory === 'cluster' || chartCategory === 'timeline'
+  const showCiteSpaceParams = chartCategory === 'cluster' || chartCategory === 'timeline'
+
+  const tableVariableLabel = useMemo(() => {
+    const key = chartCategory === 'network'
+      ? (networkType === 'co-author' ? 'author'
+        : networkType === 'co-institution' ? 'institution'
+        : networkType === 'co-country' ? 'country' : 'keyword')
+      : clusterBy
+    return t(`biblio.${key}`)
+  }, [chartCategory, networkType, clusterBy, t])
+
+  const dataTableRows: DataTableRow[] = useMemo(() => {
+    if (chartCategory === 'network' && networkData) {
+      return networkData.nodes.map(n => ({
+        id: n.id, label: n.label, frequency: n.frequency,
+        centrality: n.centrality, year: n.year ?? null, cluster: n.cluster,
+      }))
+    }
+    if (chartCategory === 'cluster' && clusterData) {
+      return clusterData.nodes.map(n => ({
+        id: n.id, label: n.label, frequency: n.frequency,
+        centrality: n.centrality, year: n.year ?? null, cluster: n.cluster,
+      }))
+    }
+    if (chartCategory === 'timeline' && timelineData) {
+      return timelineData.nodes.map(n => ({
+        id: n.id, label: n.label, frequency: n.frequency ?? 0,
+        centrality: n.centrality ?? 0, year: n.year ?? null, cluster: n.cluster,
+      }))
+    }
+    return []
+  }, [chartCategory, networkData, clusterData, timelineData])
+
+  const toggleNode = useCallback((id: string) => {
+    setHiddenNodeIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id); else next.add(id)
+      return next
+    })
+  }, [])
+  const setAllNodes = useCallback((visible: boolean) => {
+    setHiddenNodeIds(visible ? new Set() : new Set(dataTableRows.map(r => r.id)))
+  }, [dataTableRows])
+
+  // Chart-specific tuning params — rendered inside the "参数设置" drawer (not the gray bar).
+  const renderDrawerParams = () => {
+    return (
+      <Stack spacing={3}>
+        {chartCategory === 'network' && (
+          <Box>
+            <Typography variant="overline" color="text.secondary">{t('biblio.cs.section')}</Typography>
+            <Stack direction="row" spacing={1.5} sx={{ mt: 1 }} flexWrap="wrap" useFlexGap>
+              <NumberInput label={t('biblio.minWeight')} size="small" value={minWeight} onChange={setMinWeight}
+                min={1} max={10} step={1} integer defaultValue={1} sx={{ width: 130 }} />
+              <NumberInput label={t('biblio.maxNodes')} size="small" value={maxNodes} onChange={setMaxNodes}
+                min={10} max={300} step={10} integer defaultValue={100} sx={{ width: 130 }} />
+            </Stack>
+          </Box>
+        )}
+
+        {chartCategory === 'wordcloud' && (
+          <NumberInput label={t('wordFrequency.viz.maxWords')} size="small" value={wordCloudMaxItems}
+            onChange={setWordCloudMaxItems} min={5} max={500} step={10} integer defaultValue={100} sx={{ width: 180 }} />
+        )}
+
+        {chartCategory === 'heatmap' && (
+          <Box>
+            <Typography variant="overline" color="text.secondary">{t('biblio.vizType.heatmap')}</Typography>
+            <Stack direction="row" spacing={2} sx={{ mt: 0.5 }} flexWrap="wrap" useFlexGap alignItems="center">
+              <Box sx={{ width: 160 }}>
+                <Typography variant="caption" color="text.secondary">{t('biblio.heatmapBandwidth')} {heatmapBandwidth.toFixed(2)}</Typography>
+                <Slider size="small" value={heatmapBandwidth} onChange={(_, v) => setHeatmapBandwidth(v as number)}
+                  min={0.05} max={2.0} step={0.05} />
+              </Box>
+              <Box sx={{ width: 140 }}>
+                <Typography variant="caption" color="text.secondary">{t('biblio.cs.nodeSize')} {nodeSizeScale.toFixed(1)}</Typography>
+                <Slider size="small" value={nodeSizeScale} onChange={(_, v) => setNodeSizeScale(v as number)}
+                  min={0.3} max={3} step={0.1} />
+              </Box>
+              <Box sx={{ width: 160 }}>
+                <Typography variant="caption" color="text.secondary">{t('biblio.heatmapLabelThreshold')} {heatmapLabelThreshold}</Typography>
+                <Slider size="small" value={heatmapLabelThreshold} onChange={(_, v) => setHeatmapLabelThreshold(v as number)}
+                  min={0} max={20} step={1} />
+              </Box>
+            </Stack>
+          </Box>
+        )}
+
+        {chartCategory === 'timezone' && (
+          <NumberInput label={t('biblio.topNItems')} size="small" value={topN} onChange={setTopN}
+            min={5} max={50} step={5} integer defaultValue={10} sx={{ width: 130 }} />
+        )}
+
+        {/* CiteSpace-derived network/cluster params (cluster + timeline) */}
+        {showCiteSpaceParams && (
+          <CiteSpaceParamsPanel
+            params={citespace}
+            onChange={updateCitespace}
+            labelMetric={labelMetric}
+            onLabelMetricChange={setLabelMetric}
+            labelThreshold={labelThreshold}
+            onLabelThresholdChange={setLabelThreshold}
+            showFrequency={showFrequency}
+            onShowFrequencyChange={setShowFrequency}
+            clusterLabelFontSize={clusterLabelFontSize}
+            onClusterLabelFontSizeChange={setClusterLabelFontSize}
+            clusterLabelMaxLength={clusterLabelMaxLength}
+            onClusterLabelMaxLengthChange={setClusterLabelMaxLength}
+            showLinkLabels={showLinkLabels}
+            onShowLinkLabelsChange={setShowLinkLabels}
+            showLinkStrengths={showLinkStrengths}
+            onShowLinkStrengthsChange={setShowLinkStrengths}
+            termLabelMetric={termLabelMetric}
+            onTermLabelMetricChange={setTermLabelMetric}
+            refLabelMetric={refLabelMetric}
+            onRefLabelMetricChange={setRefLabelMetric}
+          />
+        )}
+
+        {/* Cluster: node/font size sliders + hull toggle */}
+        {chartCategory === 'cluster' && (
+          <Stack spacing={3}>
+            <SliderGrid>
+              <SliderParam label={t('biblio.cs.nodeSize')} value={nodeSizeScale}
+                min={0.3} max={3} step={0.1} format={v => v.toFixed(1)} onChange={setNodeSizeScale} />
+              <SliderParam label={t('biblio.cs.fontSize')} value={labelFontScale}
+                min={0.5} max={3} step={0.1} format={v => v.toFixed(1)} onChange={setLabelFontScale} />
+            </SliderGrid>
+            <Stack direction="row" spacing={1} alignItems="flex-end" flexWrap="wrap" useFlexGap>
+              <FormControlLabel
+                control={<Switch size="small" checked={clusterShowHulls} onChange={(e) => setClusterShowHulls(e.target.checked)} />}
+                label={t('biblio.showHulls')}
+                sx={{ ml: 0.25, '& .MuiFormControlLabel-label': { fontSize: '0.8125rem' } }}
+              />
+              {clusterShowHulls && (
+                <NumberInput label={t('biblio.hullThreshold')} size="small" value={clusterHullThreshold}
+                  onChange={setClusterHullThreshold} min={1} max={10} step={1} integer defaultValue={2} sx={{ width: 120 }} />
+              )}
+            </Stack>
+          </Stack>
+        )}
+
+        {/* Network: node/font size sliders */}
+        {chartCategory === 'network' && (
+          <SliderGrid>
+            <SliderParam label={t('biblio.cs.nodeSize')} value={nodeSizeScale}
+              min={0.3} max={3} step={0.1} format={v => v.toFixed(1)} onChange={setNodeSizeScale} />
+            <SliderParam label={t('biblio.cs.fontSize')} value={labelFontScale}
+              min={0.5} max={3} step={0.1} format={v => v.toFixed(1)} onChange={setLabelFontScale} />
+          </SliderGrid>
+        )}
+
+        {/* Timeline: layout params + citation/degree layers */}
+        {chartCategory === 'timeline' && (
+          <Stack spacing={3}>
+            {/* 4 layout params as 2×2 slider grid */}
+            <SliderGrid>
+              <SliderParam label={t('biblio.cs.rowSpan')} value={rowSpan}
+                min={32} max={150} step={8} format={v => String(v)} onChange={setRowSpan} />
+              <SliderParam label={t('biblio.cs.linkFilter')} value={linkFilter}
+                min={0} max={1} step={0.05} format={v => v.toFixed(2)} onChange={setLinkFilter} />
+              <SliderParam label={t('biblio.xAxisScale')} value={xAxisScale}
+                min={0.5} max={5} step={0.5} format={v => v.toFixed(1)} onChange={setXAxisScale} />
+              <SliderParam label={t('biblio.weightPrecision')} value={weightPrecision}
+                min={0} max={6} step={1} format={v => String(v)} onChange={setWeightPrecision} />
+            </SliderGrid>
+
+            {/* By Citation: 3-col slider grid */}
+            <Box>
+              <DrawerSubLabel>{t('biblio.cs.byCitation')}</DrawerSubLabel>
+              <SliderGrid columns={3}>
+                <SliderParam label={t('biblio.cs.labelThreshold')} value={tlCitationThreshold}
+                  min={0} max={10} step={0.5} onChange={setTlCitationThreshold} />
+                <SliderParam label={t('biblio.cs.fontSize')} value={tlCitationFontScale}
+                  min={0.5} max={2.5} step={0.1} format={v => v.toFixed(1)} onChange={setTlCitationFontScale} />
+                <SliderParam label={t('biblio.cs.nodeSize')} value={tlCitationNodeScale}
+                  min={0.3} max={3} step={0.1} format={v => v.toFixed(1)} onChange={setTlCitationNodeScale} />
+              </SliderGrid>
+            </Box>
+
+            {/* By Degree: keyword mode only */}
+            {clusterBy === 'keyword' && (
+              <Box>
+                <DrawerSubLabel>{t('biblio.cs.byDegree')}</DrawerSubLabel>
+                <SliderGrid columns={3}>
+                  <SliderParam label={t('biblio.cs.labelThreshold')} value={labelThreshold}
+                    min={0} max={20} step={1} onChange={setLabelThreshold} />
+                  <SliderParam label={t('biblio.cs.fontSize')} value={labelFontScale}
+                    min={0.5} max={2.5} step={0.1} format={v => v.toFixed(1)} onChange={setLabelFontScale} />
+                  <SliderParam label={t('biblio.cs.nodeSize')} value={tlDegreeNodeScale}
+                    min={0.5} max={3} step={0.1} format={v => v.toFixed(1)} onChange={setTlDegreeNodeScale} />
+                </SliderGrid>
+              </Box>
+            )}
+          </Stack>
+        )}
+      </Stack>
+    )
+  }
+
   return (
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       {/* Chart Type Tabs */}
@@ -624,7 +959,10 @@ export default function VisualizationPanel({ library }: VisualizationPanelProps)
         }}
       >
         <Stack direction="row" spacing={3} alignItems="center" flexWrap="wrap">
-          {/* Network Type Selector */}
+          {/* === Gray bar holds ONLY content-defining meta-params + color + downloads. ===
+              All numeric / tuning params live in the "参数设置" drawer (renderDrawerParams). */}
+
+          {/* Network Type Selector (meta) */}
           {chartCategory === 'network' && (
             <FormControl size="small" sx={{ minWidth: 180 }}>
               <InputLabel>{t('biblio.networkType')}</InputLabel>
@@ -640,206 +978,160 @@ export default function VisualizationPanel({ library }: VisualizationPanelProps)
               </Select>
             </FormControl>
           )}
-          
-          {/* Burst Type Selector */}
+
+          {/* Burst Type Selector + Alpha (meta) */}
           {chartCategory === 'burst' && (
-            <FormControl size="small" sx={{ minWidth: 150 }}>
-              <InputLabel>{t('biblio.burstType')}</InputLabel>
+            <>
+              <FormControl size="small" sx={{ minWidth: 150 }}>
+                <InputLabel>{t('biblio.burstType')}</InputLabel>
+                <Select
+                  value={burstType}
+                  label={t('biblio.burstType')}
+                  onChange={(e) => setBurstType(e.target.value as 'keyword' | 'author')}
+                >
+                  <MenuItem value="keyword">{t('biblio.keyword')}</MenuItem>
+                  <MenuItem value="author">{t('biblio.author')}</MenuItem>
+                </Select>
+              </FormControl>
+              <NumberInput label={t('biblio.cs.burstAlpha')} size="small" value={burstAlpha}
+                onChange={setBurstAlpha} min={0.1} max={3.0} step={0.1} defaultValue={1.0} sx={{ width: 130 }} />
+              <NumberInput label={t('biblio.cs.burstGamma')} size="small" value={burstGamma}
+                onChange={setBurstGamma} min={0.2} max={5.0} step={0.1} defaultValue={1.0} sx={{ width: 130 }} />
+              <NumberInput label={t('biblio.cs.burstMinFreq')} size="small" value={burstMinFreq}
+                onChange={setBurstMinFreq} min={1} max={50} step={1} integer defaultValue={2} sx={{ width: 130 }} />
+              <NumberInput label={t('biblio.cs.burstTopN')} size="small" value={burstTopN}
+                onChange={setBurstTopN} min={5} max={100} step={5} integer defaultValue={30} sx={{ width: 120 }} />
+              <FormControl size="small" sx={{ minWidth: 140 }}>
+                <InputLabel>{t('biblio.cs.burstSortBy')}</InputLabel>
+                <Select value={burstSortBy} label={t('biblio.cs.burstSortBy')}
+                  onChange={(e) => setBurstSortBy(e.target.value as 'strength' | 'begin')}>
+                  <MenuItem value="strength">{t('biblio.cs.sortByStrength')}</MenuItem>
+                  <MenuItem value="begin">{t('biblio.cs.sortByBegin')}</MenuItem>
+                </Select>
+              </FormControl>
+            </>
+          )}
+
+          {/* Word Cloud data source (meta) */}
+          {chartCategory === 'wordcloud' && (
+            <FormControl size="small" sx={{ minWidth: 160 }}>
+              <InputLabel>{t('biblio.wordCloudSource')}</InputLabel>
               <Select
-                value={burstType}
-                label={t('biblio.burstType')}
-                onChange={(e) => setBurstType(e.target.value as 'keyword' | 'author')}
+                value={wordCloudSource}
+                label={t('biblio.wordCloudSource')}
+                onChange={(e) => setWordCloudSource(e.target.value as 'title' | 'abstract')}
               >
-                <MenuItem value="keyword">{t('biblio.keyword')}</MenuItem>
-                <MenuItem value="author">{t('biblio.author')}</MenuItem>
+                <MenuItem value="title">{t('biblio.wordCloudSourceTitle')}</MenuItem>
+                <MenuItem value="abstract">{t('biblio.wordCloudSourceAbstract')}</MenuItem>
               </Select>
             </FormControl>
           )}
 
-          {/* Word Cloud: data source, max words (same range as Word Frequency: 5–500, default 100), colormap */}
-          {chartCategory === 'wordcloud' && (
-            <>
-              <FormControl size="small" sx={{ minWidth: 160 }}>
-                <InputLabel>{t('biblio.wordCloudSource')}</InputLabel>
-                <Select
-                  value={wordCloudSource}
-                  label={t('biblio.wordCloudSource')}
-                  onChange={(e) => setWordCloudSource(e.target.value as 'title' | 'abstract')}
-                >
-                  <MenuItem value="title">{t('biblio.wordCloudSourceTitle')}</MenuItem>
-                  <MenuItem value="abstract">{t('biblio.wordCloudSourceAbstract')}</MenuItem>
-                </Select>
-              </FormControl>
-              <NumberInput
-                label={t('wordFrequency.viz.maxWords')}
-                size="small"
-                value={wordCloudMaxItems}
-                onChange={setWordCloudMaxItems}
-                min={5}
-                max={500}
-                step={10}
-                integer
-                defaultValue={100}
-                sx={{ width: 180 }}
-              />
-            </>
-          )}
-          
-          {/* Network Settings */}
-          {chartCategory === 'network' && (
-            <>
-              <NumberInput
-                label={t('biblio.minWeight')}
-                size="small"
-                value={minWeight}
-                onChange={setMinWeight}
-                min={1}
-                max={10}
-                step={1}
-                integer
-                defaultValue={1}
-                sx={{ width: 130 }}
-              />
-              
-              <NumberInput
-                label={t('biblio.maxNodes')}
-                size="small"
-                value={maxNodes}
-                onChange={setMaxNodes}
-                min={10}
-                max={300}
-                step={10}
-                integer
-                defaultValue={100}
-                sx={{ width: 130 }}
-              />
-            </>
-          )}
-          
-          {/* Cluster Settings */}
-          {chartCategory === 'cluster' && (
-            <>
-              <FormControl size="small" sx={{ minWidth: 150 }}>
-                <InputLabel>{t('biblio.clusterBy')}</InputLabel>
-                <Select
-                  value={clusterBy}
-                  label={t('biblio.clusterBy')}
-                  onChange={(e) => setClusterBy(e.target.value as typeof clusterBy)}
-                >
-                  <MenuItem value="keyword">{t('biblio.clusterByKeyword')}</MenuItem>
-                  <MenuItem value="author">{t('biblio.clusterByAuthor')}</MenuItem>
-                  <MenuItem value="institution">{t('biblio.clusterByInstitution')}</MenuItem>
-                  <MenuItem value="country">{t('biblio.clusterByCountry')}</MenuItem>
-                </Select>
-              </FormControl>
-              <FormControlLabel
-                control={
-                  <Switch
-                    size="small"
-                    checked={clusterShowHulls}
-                    onChange={(e) => setClusterShowHulls(e.target.checked)}
-                  />
-                }
-                label={t('biblio.showHulls')}
-                sx={{ ml: 1 }}
-              />
-              {clusterShowHulls && (
-                <NumberInput
-                  label={t('biblio.hullThreshold')}
+          {/* AI joint cluster naming (Ollama / API per app-wide provider rule) */}
+          {(chartCategory === 'cluster' || chartCategory === 'timeline') && (
+            <Tooltip title={(settings.ollamaConnected || settings.openaiApiEnabled)
+              ? t('biblio.aiNameClusters') : t('biblio.aiNameNeedsProvider')}>
+              <span>
+                <IconButton
                   size="small"
-                  value={clusterHullThreshold}
-                  onChange={setClusterHullThreshold}
-                  min={1}
-                  max={10}
-                  step={1}
-                  integer
-                  defaultValue={2}
-                  sx={{ width: 130 }}
-                />
-              )}
-            </>
-          )}
-
-          {/* Heatmap Settings */}
-          {chartCategory === 'heatmap' && (
-            <>
-              <NumberInput
-                label={t('biblio.heatmapBandwidth')}
-                size="small"
-                value={heatmapBandwidth}
-                onChange={setHeatmapBandwidth}
-                min={0.05}
-                max={2.0}
-                step={0.05}
-                defaultValue={0.15}
-                sx={{ width: 150 }}
-              />
-              <FormControl size="small" sx={{ minWidth: 140 }}>
-                <InputLabel>{t('biblio.heatmapColorScale')}</InputLabel>
-                <Select
-                  value={heatmapColorScheme}
-                  label={t('biblio.heatmapColorScale')}
-                  onChange={(e) => setHeatmapColorScheme(e.target.value)}
+                  onClick={handleAiNameClusters}
+                  disabled={aiNaming || !(settings.ollamaConnected || settings.openaiApiEnabled)
+                    || !((chartCategory === 'cluster' ? clusterData : timelineData)?.clusters?.length)}
                 >
-                  <MenuItem value="turbo">Turbo</MenuItem>
-                  <MenuItem value="blue">Blue</MenuItem>
-                  <MenuItem value="green">Green</MenuItem>
-                  <MenuItem value="purple">Purple</MenuItem>
-                  <MenuItem value="orange">Orange</MenuItem>
-                  <MenuItem value="red">Red</MenuItem>
-                  <MenuItem value="teal">Teal</MenuItem>
-                </Select>
-              </FormControl>
-            </>
+                  {aiNaming ? <CircularProgress size={18} /> : <AutoAwesomeIcon fontSize="small" />}
+                </IconButton>
+              </span>
+            </Tooltip>
           )}
 
-          {/* X-axis Scale: for timeline */}
-          {chartCategory === 'timeline' && (
-            <NumberInput
-              label={t('biblio.xAxisScale')}
-              size="small"
-              value={xAxisScale}
-              onChange={setXAxisScale}
-              min={0.5}
-              max={5}
-              step={0.5}
-              defaultValue={1}
-              sx={{ width: 130 }}
-            />
+          {/* Cluster layout selector (three CiteSpace-style arrangements) */}
+          {chartCategory === 'cluster' && (
+            <FormControl size="small" sx={{ minWidth: 140 }}>
+              <InputLabel>{t('biblio.layout')}</InputLabel>
+              <Select
+                value={clusterLayoutMode}
+                label={t('biblio.layout')}
+                onChange={(e) => setClusterLayoutMode(e.target.value as typeof clusterLayoutMode)}
+              >
+                <MenuItem value="force">{t('biblio.layoutForce')}</MenuItem>
+                <MenuItem value="ring">{t('biblio.layoutCircular')}</MenuItem>
+                <MenuItem value="ring-center">{t('biblio.layoutRadial')}</MenuItem>
+              </Select>
+            </FormControl>
           )}
 
-          {/* Weight Precision: for timeline */}
-          {chartCategory === 'timeline' && (
-            <NumberInput
-              label={t('biblio.weightPrecision')}
-              size="small"
-              value={weightPrecision}
-              onChange={setWeightPrecision}
-              min={0}
-              max={6}
-              step={1}
-              integer
-              defaultValue={4}
-              sx={{ width: 130 }}
-            />
+          {/* Node types meta-param: MULTI-select, shared by cluster + timeline.
+              Multiple types build one hybrid network (terms = diamonds,
+              references = circles) with an independent per-type node budget. */}
+          {(chartCategory === 'cluster' || chartCategory === 'timeline') && (
+            <FormControl size="small" sx={{ minWidth: 180 }}>
+              <InputLabel>{t('biblio.nodeType')}</InputLabel>
+              <Select
+                multiple
+                value={nodeTypes}
+                input={<OutlinedInput label={t('biblio.nodeType')} />}
+                onChange={(e) => {
+                  const v = e.target.value as typeof nodeTypes
+                  if (v.length) setNodeTypes(v)  // keep at least one type
+                }}
+                renderValue={(sel) => (sel as string[])
+                  .map(s => t(`biblio.clusterBy${s.charAt(0).toUpperCase() + s.slice(1)}`)).join(', ')}
+              >
+                {(['keyword', 'reference', 'author', 'institution', 'country'] as const).map(s => (
+                  <MenuItem key={s} value={s}>
+                    <Checkbox size="small" checked={nodeTypes.indexOf(s) > -1} />
+                    <ListItemText primary={t(`biblio.clusterBy${s.charAt(0).toUpperCase() + s.slice(1)}`)} />
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
           )}
 
-          {/* Timezone Settings */}
-          {chartCategory === 'timezone' && (
-            <NumberInput
-              label={t('biblio.topNItems')}
-              size="small"
-              value={topN}
-              onChange={setTopN}
-              min={5}
-              max={50}
-              step={5}
-              integer
-              defaultValue={10}
-              sx={{ width: 130 }}
-            />
+          {/* Term Source (meta — defines what feeds keyword-term extraction).
+              Shown for keyword node type on cluster/timeline. */}
+          {(chartCategory === 'cluster' || chartCategory === 'timeline') && nodeTypes.includes('keyword') && (
+            <FormControl size="small" sx={{ minWidth: 200 }}>
+              <InputLabel>{t('biblio.termSource')}</InputLabel>
+              <Select
+                multiple
+                value={termSources}
+                input={<OutlinedInput label={t('biblio.termSource')} />}
+                onChange={(e) => {
+                  const v = e.target.value as typeof termSources
+                  if (v.length) setTermSources(v)  // keep at least one source
+                }}
+                renderValue={(sel) => (sel as string[]).map(s => t(`biblio.termSrc.${s}`)).join(', ')}
+              >
+                {(['title', 'abstract', 'author_keywords', 'keywords_plus', 'noun_phrases'] as const).map(s => (
+                  <MenuItem key={s} value={s}>
+                    <Checkbox size="small" checked={termSources.indexOf(s) > -1} />
+                    <ListItemText primary={t(`biblio.termSrc.${s}`)} />
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
           )}
-          
+
+          {/* Heatmap color scale (color) */}
+          {chartCategory === 'heatmap' && (
+            <FormControl size="small" sx={{ minWidth: 140 }}>
+              <InputLabel>{t('biblio.heatmapColorScale')}</InputLabel>
+              <Select
+                value={heatmapColorScheme}
+                label={t('biblio.heatmapColorScale')}
+                onChange={(e) => setHeatmapColorScheme(e.target.value)}
+              >
+                <MenuItem value="turbo">Turbo</MenuItem>
+                <MenuItem value="blue">Blue</MenuItem>
+                <MenuItem value="green">Green</MenuItem>
+                <MenuItem value="purple">Purple</MenuItem>
+                <MenuItem value="orange">Orange</MenuItem>
+                <MenuItem value="red">Red</MenuItem>
+                <MenuItem value="teal">Teal</MenuItem>
+              </Select>
+            </FormControl>
+          )}
+
           {/* Color Scheme: hidden for heatmap (has own selector) */}
           {chartCategory !== 'heatmap' && <FormControl size="small" sx={{ minWidth: 150 }}>
             <InputLabel>{t('wordFrequency.viz.colorScheme')}</InputLabel>
@@ -898,40 +1190,53 @@ export default function VisualizationPanel({ library }: VisualizationPanelProps)
         )}
       </Paper>
       
-      {/* Chart Container with Filter Panel overlay */}
-      <Box sx={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
-        {/* Filter Panel - positioned absolutely so it doesn't affect chart size */}
-        <Box sx={{ 
-          position: 'absolute', 
-          top: 0, 
-          left: 0, 
-          right: 0, 
-          zIndex: 10,
-          pointerEvents: 'none'
-        }}>
-          <Box sx={{ pointerEvents: 'auto' }}>
-            <FilterPanel
-              libraryId={library.id}
-              filters={filters}
-              onFiltersChange={setFilters}
-            />
-          </Box>
+      {/* Stage: params panel (inline Collapse) + chart card. overflow:auto lets the column
+          scroll when params are expanded so neither section is clipped. */}
+      <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'auto', px: 1, pt: 1, gap: 1 }}>
+        <Box sx={{ flexShrink: 0 }}>
+          <FilterPanel
+            libraryId={library.id}
+            filters={filters}
+            onFiltersChange={setFilters}
+            title={t('biblio.paramsSettings')}
+          >
+            {renderDrawerParams()}
+          </FilterPanel>
         </Box>
 
-        {/* Chart Area - full size, independent of filter panel */}
-        <Box 
-          ref={chartContainerRef} 
-          sx={{ 
-            height: '100%', 
+        {/* Chart card — bordered, rounded, fills remaining space; minHeight prevents collapse */}
+        <Box
+          ref={chartContainerRef}
+          sx={{
+            flex: 1,
+            minHeight: 260,
             width: '100%',
-            overflow: 'auto', 
+            overflow: 'auto',
             p: 1,
-            pt: 9  // Add top padding to avoid overlap with filter panel header (approximately 70px)
+            border: 1,
+            borderColor: 'divider',
+            borderRadius: 2,
+            bgcolor: 'background.paper',
           }}
         >
           {renderVisualization()}
         </Box>
       </Box>
+
+      {/* Bottom data-table dock — node-based charts only; aligned inset, flush bottom */}
+      {isNodeChart && (
+        <Box sx={{ px: 1, pb: 1, pt: 1, flexShrink: 0 }}>
+          <DataTableDock
+            rows={dataTableRows}
+            variableLabel={tableVariableLabel}
+            hiddenNodeIds={hiddenNodeIds}
+            onToggleNode={toggleNode}
+            onSetAll={setAllNodes}
+            open={dataTableOpen}
+            onToggleOpen={() => setDataTableOpen(o => !o)}
+          />
+        </Box>
+      )}
     </Box>
   )
 }

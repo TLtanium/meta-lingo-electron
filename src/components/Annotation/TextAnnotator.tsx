@@ -117,6 +117,9 @@ function isAbbreviationPeriod(text: string, periodPos: number): boolean {
 }
 
 
+// 属于前一句的闭合括号/引号：紧随句末标点或独占一行时不应被切成新句
+const SENTENCE_CLOSE_CHARS = new Set([...')]}>"\'”’）】》」』'])
+
 function findNativeNewlines(text: string): Set<number> {
   const boundaries = new Set<number>()
   let i = 0
@@ -125,11 +128,35 @@ function findNativeNewlines(text: string): Set<number> {
       let j = i + 1
       while (j < text.length && (text[j] === ' ' || text[j] === '\t')) j++
       if (j >= text.length || text[j] === '\n') { i++; continue }
+      // 下一行以闭合括号/引号开头（如 "…letters!\n)"）→ 软换行，不作为边界，
+      // 避免闭合符被孤立成独立段（与后端 find_native_newlines 对齐）
+      if (SENTENCE_CLOSE_CHARS.has(text[j])) { i++; continue }
       boundaries.add(j)
     }
     i++
   }
   return boundaries
+}
+
+/**
+ * 把"整句只含闭合括号/引号"的孤立句并回前一句。
+ * 兜底修复：已落盘的旧 SpaCy 标注（externalSentences）里可能仍带有
+ * ")" / '"' 独立成句的错误边界，显示层直接归并，无需重新标注。
+ */
+function mergeOrphanClosers(sents: SpacySentence[], text: string): SpacySentence[] {
+  const out: SpacySentence[] = []
+  for (const s of sents) {
+    const stripped = s.text.trim()
+    const isOrphan = stripped.length > 0 && [...stripped].every(c => SENTENCE_CLOSE_CHARS.has(c))
+    if (isOrphan && out.length > 0) {
+      const prev = out[out.length - 1]
+      prev.end = s.end
+      prev.text = text.substring(prev.start, s.end)
+    } else {
+      out.push({ ...s })
+    }
+  }
+  return out
 }
 
 function findMarkdownBoundaries(text: string): Set<number> {
@@ -200,13 +227,30 @@ function splitSentences(text: string): SpacySentence[] {
       const posInText = segStart + sentMatch.index
       if (isPositionProtected(posInText, protectedSpans)) continue
       if (isAbbreviationPeriod(text, posInText)) continue
-      const afterPos = sentMatch.index + 1
+      // 把紧随标点的闭合括号/引号并入当前句（"…letters!)" / '…own?"'）：
+      // 紧邻的恒并入；跨空白的仅在"悬空"（其后是空白或段尾）时并入，
+      // 下一句的开引号（'Did he? "Yes…'）不受影响 —— 与后端逻辑一致
+      let boundaryRel = sentMatch.index + 1
+      let closerEnd = boundaryRel
+      while (closerEnd < segment.length && SENTENCE_CLOSE_CHARS.has(segment[closerEnd])) closerEnd++
+      if (closerEnd > boundaryRel) {
+        boundaryRel = closerEnd
+      } else {
+        let k = boundaryRel
+        while (k < segment.length && /\s/.test(segment[k])) k++
+        closerEnd = k
+        while (closerEnd < segment.length && SENTENCE_CLOSE_CHARS.has(segment[closerEnd])) closerEnd++
+        if (closerEnd > k && (closerEnd >= segment.length || /\s/.test(segment[closerEnd]))) {
+          boundaryRel = closerEnd
+        }
+      }
+      const afterPos = boundaryRel
       if (afterPos < segment.length) {
         let nextCharPos = afterPos
         while (nextCharPos < segment.length && /\s/.test(segment[nextCharPos])) nextCharPos++
         if (nextCharPos < segment.length && /[a-z]/.test(segment[nextCharPos])) continue
       }
-      sentenceEndings.push(sentMatch.index + 1)
+      sentenceEndings.push(boundaryRel)
     }
 
     if (sentenceEndings.length === 0) {
@@ -829,9 +873,10 @@ const TextAnnotator = forwardRef<TextAnnotatorRef, TextAnnotatorProps>(({
           }
         }
       }
-      return realignedSentences
+      // 归并旧标注数据中被孤立的闭合括号/引号句（无需重新标注即可正确显示）
+      return mergeOrphanClosers(realignedSentences, text)
     }
-    return splitSentences(text)
+    return mergeOrphanClosers(splitSentences(text), text)
   }, [text, externalSentences])
 
   // 按句子分组标注

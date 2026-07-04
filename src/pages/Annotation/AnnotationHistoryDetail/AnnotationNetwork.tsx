@@ -302,7 +302,6 @@ const AnnotationNetwork = forwardRef<AnnotationNetworkHandle, AnnotationNetworkP
       .scaleExtent([0.1, 6])
       .on('zoom', (event) => root.attr('transform', event.transform))
     svg.call(zoom)
-    zoomResetRef.current = () => svg.transition().duration(400).call(zoom.transform, d3.zoomIdentity)
 
     const maxW = d3.max(graph.nodes, n => n.weight) || 1
     const rScale = d3.scaleSqrt().domain([1, maxW]).range([6, 26])
@@ -324,6 +323,31 @@ const AnnotationNetwork = forwardRef<AnnotationNetworkHandle, AnnotationNetworkP
     sim.stop()
     const preTicks = Math.min(450, 150 + nodeCount * 3)
     for (let i = 0; i < preTicks; i++) sim.tick()
+
+    // Reset view = fit the whole graph to the viewport and center it.
+    // Identity reset (origin 0,0 @ scale 1) left the graph off-center because the
+    // force layout settles around (width/2, height/2) with only weak centering.
+    const fitToView = (animate = true) => {
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+      for (const n of nodes) {
+        if (n.x == null || n.y == null) continue
+        const r = radius(n) + 8
+        minX = Math.min(minX, n.x - r); maxX = Math.max(maxX, n.x + r)
+        minY = Math.min(minY, n.y - r); maxY = Math.max(maxY, n.y + r)
+      }
+      let target = d3.zoomIdentity
+      if (isFinite(minX) && maxX > minX && maxY > minY) {
+        const pad = 40
+        const gW = maxX - minX, gH = maxY - minY
+        const scale = Math.min(6, Math.max(0.1, Math.min((width - pad * 2) / gW, (height - pad * 2) / gH)))
+        const tx = width / 2 - scale * (minX + maxX) / 2
+        const ty = height / 2 - scale * (minY + maxY) / 2
+        target = d3.zoomIdentity.translate(tx, ty).scale(scale)
+      }
+      const sel = animate ? svg.transition().duration(400) : svg
+      ;(sel as any).call(zoom.transform, target)
+    }
+    zoomResetRef.current = () => fitToView(true)
 
     const link = root.append('g')
       .attr('stroke', isDarkMode ? '#555' : '#cbd2dc')
@@ -425,6 +449,9 @@ const AnnotationNetwork = forwardRef<AnnotationNetworkHandle, AnnotationNetworkP
     node.attr('transform', d => `translate(${d.x},${d.y})`)
     sim.on('tick', ticked)
     sim.alpha(0.06).restart()
+
+    // Center/fit the graph on initial render so the starting view matches Reset.
+    fitToView(false)
 
     return () => { sim.stop() }
   }, [graph, containerWidth, isDarkMode, t])

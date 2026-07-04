@@ -4,12 +4,13 @@
  * 功能：
  * - 提供搜索输入框
  * - 精确词语匹配搜索（全词匹配）
+ * - CQL 自动识别：输入完整 CQL 表达式（[...] 形式）时实时按 CQL 求值（防抖）
  * - 可选 CQL 模式（扳手图标打开 CQL 构建器）
  * - 显示匹配数量
  * - 回车触发批量标注
  */
 
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import {
   Box,
   TextField,
@@ -76,6 +77,19 @@ function escapeRegex(str: string): string {
  */
 function containsChinese(text: string): boolean {
   return /[一-鿿]/.test(text)
+}
+
+/**
+ * 判断输入是否是一个"看起来完整"的 CQL 表达式，用于输入时自动识别：
+ * 以 [ 开头，且以 ]（可带 {n,m} / * / + / ? 量词）或 within/containing 子句结尾。
+ * 输入中途的不完整形式（如 `[word=`）不会触发求值，避免报错噪音。
+ */
+function looksLikeCompleteCql(value: string): boolean {
+  const v = value.trim()
+  if (!v.startsWith('[')) return false
+  if (/\](\s*(\{\d+(,\d*)?\}|[*+?]))?$/.test(v)) return true
+  if (/\b(within|containing)\b[\s\S]*\S$/.test(v) && v.includes(']')) return true
+  return false
 }
 
 /**
@@ -147,21 +161,50 @@ export default function SearchAnnotateBox({
   const [cqlError, setCqlError] = useState<string | null>(null)
   const [cqlLoading, setCqlLoading] = useState(false)
 
-  // 处理搜索词变化 (plain text mode)
+  // 输入时自动识别 CQL：防抖计时器 + 最新 handleCqlApply 的引用
+  const cqlDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const handleCqlApplyRef = useRef<(cql: string) => void>(() => {})
+
+  const clearCqlDebounce = useCallback(() => {
+    if (cqlDebounceRef.current) {
+      clearTimeout(cqlDebounceRef.current)
+      cqlDebounceRef.current = null
+    }
+  }, [])
+
+  useEffect(() => clearCqlDebounce, [clearCqlDebounce])
+
+  // 处理搜索词变化：完整 CQL 表达式自动按 CQL 求值（防抖），否则精确词语搜索
   const handleSearchChange = useCallback((value: string) => {
     setSearchTerm(value)
+    clearCqlDebounce()
+    if (looksLikeCompleteCql(value)) {
+      cqlDebounceRef.current = setTimeout(() => {
+        cqlDebounceRef.current = null
+        handleCqlApplyRef.current(value)
+      }, 400)
+      return
+    }
     setIsCqlMode(false)
     setCqlError(null)
     const newMatches = findExactMatches(value, text)
     setMatches(newMatches)
     onSearchChange(value, newMatches)
-  }, [text, onSearchChange])
+  }, [text, onSearchChange, clearCqlDebounce])
 
-  // 处理回车确认 + 上下箭头按顺序定位匹配
+  // 处理回车确认 + 上下箭头按顺序定位匹配；回车可立即触发待求值的 CQL
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && matches.length > 0) {
-      e.preventDefault()
-      onConfirmAnnotate(matches)
+    if (e.key === 'Enter') {
+      if (cqlDebounceRef.current && looksLikeCompleteCql(searchTerm)) {
+        e.preventDefault()
+        clearCqlDebounce()
+        handleCqlApplyRef.current(searchTerm)
+        return
+      }
+      if (matches.length > 0) {
+        e.preventDefault()
+        onConfirmAnnotate(matches)
+      }
     } else if (e.key === 'ArrowDown' && matches.length > 0 && onNavigate) {
       e.preventDefault()
       onNavigate(1)
@@ -169,16 +212,17 @@ export default function SearchAnnotateBox({
       e.preventDefault()
       onNavigate(-1)
     }
-  }, [matches, onConfirmAnnotate, onNavigate])
+  }, [matches, searchTerm, onConfirmAnnotate, onNavigate, clearCqlDebounce])
 
   // 清除搜索
   const handleClear = useCallback(() => {
+    clearCqlDebounce()
     setSearchTerm('')
     setMatches([])
     setIsCqlMode(false)
     setCqlError(null)
     onSearchChange('', [])
-  }, [onSearchChange])
+  }, [onSearchChange, clearCqlDebounce])
 
   // Handle CQL applied from builder
   const handleCqlApply = useCallback(async (cql: string) => {
@@ -283,6 +327,9 @@ export default function SearchAnnotateBox({
       setCqlLoading(false)
     }
   }, [corpusId, textId, currentAnnotations, tokens, onSearchChange, t])
+
+  // 保持输入自动识别路径始终调用最新的 handleCqlApply
+  handleCqlApplyRef.current = handleCqlApply
 
   // 当文本变化时重新搜索 (plain text mode only)
   useEffect(() => {

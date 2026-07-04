@@ -1,8 +1,11 @@
 /**
  * Entry Detail Dialog for Bibliographic Visualization
  *
- * Shows detailed information about a bibliographic entry; supports editing relevance (stars), tags, notes,
- * and 11 AI-generated sections (with visibility toggle and manual edit). AI Generate and Export PDF.
+ * Shows detailed information about a bibliographic entry. The WOS/CNKI bibliographic fields
+ * (title, authors, institutions, countries, journal, year, volume, issue, pages, doc_type,
+ * language, citation_count, DOI, source_url, keywords, abstract) are read-only by default and
+ * become editable via the pencil icon (explicit Save/Cancel edit mode). Relevance (stars),
+ * tags, notes, and the 11 AI-generated sections remain inline-editable. AI Generate and Export PDF.
  *
  * PDF export: render styled HTML into an off-screen div, capture with html2canvas, then jsPDF with multi-page split.
  */
@@ -23,11 +26,14 @@ import {
   TextField,
   InputAdornment,
   Autocomplete,
-  CircularProgress
+  CircularProgress,
+  Tooltip
 } from '@mui/material'
 import CloseIcon from '@mui/icons-material/Close'
 import LaunchIcon from '@mui/icons-material/Launch'
 import AddIcon from '@mui/icons-material/Add'
+import EditIcon from '@mui/icons-material/Edit'
+import CheckIcon from '@mui/icons-material/Check'
 import VisibilityIcon from '@mui/icons-material/Visibility'
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff'
 import SmartToyIcon from '@mui/icons-material/SmartToy'
@@ -36,6 +42,7 @@ import { useTranslation } from 'react-i18next'
 import type { BiblioEntry } from '../../types/biblio'
 import { BIBLIO_AI_SECTION_KEYS } from '../../types/biblio'
 import * as biblioApi from '../../api/biblio'
+import type { BiblioEntryUpdatePayload } from '../../api/biblio'
 import { useSettingsStore } from '../../stores/settingsStore'
 import StarRating from './components/StarRating'
 
@@ -112,12 +119,22 @@ export default function EntryDetailDialog({ entry, open, onClose, existingTags =
   const [languageDialogOpen, setLanguageDialogOpen] = useState(false)
   const [aiGenerating, setAiGenerating] = useState(false)
   const [exportingPdf, setExportingPdf] = useState(false)
+  // The WOS/CNKI bibliographic fields are read-only until the user clicks the
+  // pencil. editMode toggles the form; editDraft holds the in-progress string
+  // values (list fields as ';'-separated text) so editing is explicit and only
+  // committed on "Save".
+  const [editMode, setEditMode] = useState(false)
+  const [editDraft, setEditDraft] = useState<Record<string, string>>({})
 
   useEffect(() => {
-    if (open && entry) setLocalEntry(entry)
+    if (open && entry) {
+      setLocalEntry(entry)
+      setEditMode(false)
+      setEditDraft({})
+    }
   }, [open, entry])
 
-  const updateField = async (payload: { relevance?: number; tags?: string[]; notes?: string; ai_sections?: Record<string, { value: string; hidden: boolean }> }) => {
+  const updateField = async (payload: BiblioEntryUpdatePayload) => {
     if (!localEntry) return
     setSaving(true)
     const response = await biblioApi.updateEntry(localEntry.id, payload)
@@ -126,6 +143,88 @@ export default function EntryDetailDialog({ entry, open, onClose, existingTags =
       setLocalEntry(response.data)
       onEntryUpdated?.(response.data)
     }
+  }
+
+  // ── Bibliographic edit-mode helpers ───────────────────────────────────────
+  const ARRAY_SEP = /[;；\n]+/
+  // List fields rendered as one ';'-separated input while editing.
+  const LIST_FIELDS = ['authors', 'institutions', 'countries', 'keywords'] as const
+
+  /** Build the initial string draft (all editable fields) from an entry. */
+  const buildDraft = (e: BiblioEntry): Record<string, string> => ({
+    title: e.title ?? '',
+    authors: (e.authors ?? []).join('; '),
+    institutions: (e.institutions ?? []).join('; '),
+    countries: (e.countries ?? []).join('; '),
+    journal: e.journal ?? '',
+    year: e.year != null ? String(e.year) : '',
+    volume: e.volume ?? '',
+    issue: e.issue ?? '',
+    pages: e.pages ?? '',
+    doc_type: e.doc_type ?? '',
+    language: e.language ?? '',
+    citation_count: e.citation_count != null ? String(e.citation_count) : '',
+    doi: e.doi ?? '',
+    source_url: e.source_url ?? '',
+    keywords: (e.keywords ?? []).join('; '),
+    abstract: e.abstract ?? '',
+  })
+
+  const enterEditMode = () => {
+    const ent = localEntry ?? entry
+    if (!ent) return
+    setEditDraft(buildDraft(ent))
+    setEditMode(true)
+  }
+  const cancelEdit = () => {
+    setEditMode(false)
+    setEditDraft({})
+  }
+  const setDraft = (field: string, value: string) =>
+    setEditDraft(d => ({ ...d, [field]: value }))
+
+  /** Parse the draft, diff against the current entry, PATCH only changed fields, then exit edit mode. */
+  const saveEdit = async () => {
+    const ent = localEntry ?? entry
+    if (!ent) return
+    const d = editDraft
+    const payload: BiblioEntryUpdatePayload = {}
+
+    // Title is required — keep the existing value if the user blanked it.
+    const title = (d.title ?? '').trim()
+    if (title && title !== (ent.title ?? '')) payload.title = title
+
+    // Optional scalar text fields (empty string clears the field → null).
+    const textFields = ['journal', 'volume', 'issue', 'pages', 'doc_type', 'language', 'doi', 'source_url', 'abstract'] as const
+    for (const f of textFields) {
+      const raw = (d[f] ?? '').trim()
+      const next = raw === '' ? null : raw
+      const curr = ((ent as unknown as Record<string, unknown>)[f] ?? null)
+      if (next !== curr) (payload as Record<string, unknown>)[f] = next
+    }
+
+    // Numeric fields.
+    const yearStr = (d.year ?? '').trim()
+    const yearNum = yearStr === '' ? null : Number(yearStr)
+    if (!(yearStr !== '' && Number.isNaN(yearNum)) && yearNum !== (ent.year ?? null)) {
+      payload.year = yearNum
+    }
+    const ccStr = (d.citation_count ?? '').trim()
+    const ccNum = ccStr === '' ? 0 : Number(ccStr)
+    if (!Number.isNaN(ccNum) && ccNum !== (ent.citation_count ?? 0)) {
+      payload.citation_count = ccNum
+    }
+
+    // List fields.
+    for (const f of LIST_FIELDS) {
+      const arr = (d[f] ?? '').split(ARRAY_SEP).map(s => s.trim()).filter(Boolean)
+      const curr = ((ent as unknown as Record<string, unknown>)[f] as string[]) ?? []
+      if (JSON.stringify(arr) !== JSON.stringify(curr)) (payload as Record<string, unknown>)[f] = arr
+    }
+
+    if (Object.keys(payload).length > 0) await updateField(payload)
+    setEditMode(false)
+    setEditDraft({})
   }
 
   const getAiSections = useCallback(() => {
@@ -555,18 +654,74 @@ export default function EntryDetailDialog({ entry, open, onClose, existingTags =
   const displayEntry = localEntry ?? entry
   if (!displayEntry) return null
 
-  const DetailRow = ({ label, value }: { label: string; value?: string | number | null }) => {
-    if (!value) return null
+  // NOTE: these are plain render functions (called as {renderDraftText(...)}),
+  // NOT components (<EditText/>). Rendering them inline keeps the same element
+  // identity across re-renders so the focused input does not remount on keystroke.
+  const renderDraftText = (opts: {
+    field: string
+    label: string
+    number?: boolean
+    multiline?: boolean
+    minRows?: number
+    placeholder?: string
+    sx?: object
+  }) => {
+    const { field, label, number, multiline, minRows, placeholder, sx } = opts
+    return (
+      <Box sx={{ mb: 2, ...sx }}>
+        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+          {label}
+        </Typography>
+        <TextField
+          fullWidth
+          size="small"
+          type={number ? 'number' : 'text'}
+          multiline={multiline}
+          minRows={minRows}
+          maxRows={multiline ? 10 : undefined}
+          value={editDraft[field] ?? ''}
+          placeholder={placeholder}
+          disabled={saving}
+          onChange={e => setDraft(field, e.target.value)}
+        />
+      </Box>
+    )
+  }
+
+  const renderDraftList = (field: string, label: string) => (
+    <Box sx={{ mb: 2 }}>
+      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+        {label}
+      </Typography>
+      <TextField
+        fullWidth
+        size="small"
+        multiline
+        minRows={1}
+        maxRows={4}
+        value={editDraft[field] ?? ''}
+        placeholder={t('biblio.listFieldHint')}
+        disabled={saving}
+        onChange={e => setDraft(field, e.target.value)}
+        helperText={t('biblio.listFieldHint')}
+        FormHelperTextProps={{ sx: { mx: 0, fontSize: 10 } }}
+      />
+    </Box>
+  )
+
+  /** Read-only labeled row (hidden when value is empty). */
+  const renderReadRow = (label: string, value?: string | number | null) => {
+    if (value == null || value === '') return null
     return (
       <Box sx={{ mb: 1.5 }}>
         <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
           {label}
         </Typography>
-        <Typography variant="body2">{value}</Typography>
+        <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{value}</Typography>
       </Box>
     )
   }
-  
+
   return (
     <Dialog
       open={open}
@@ -574,23 +729,66 @@ export default function EntryDetailDialog({ entry, open, onClose, existingTags =
       maxWidth="md"
       fullWidth
     >
-      <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-        <Box sx={{ flex: 1, pr: 2 }}>
-          <Typography variant="h6" component="div">
-            {displayEntry.title}
-          </Typography>
-          {displayEntry.doc_type && (
-            <Chip
-              label={displayEntry.doc_type}
-              size="small"
-              variant="outlined"
-              sx={{ mt: 1 }}
-            />
+      <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 1 }}>
+        <Box sx={{ flex: 1, pr: 1 }}>
+          {editMode ? (
+            <>
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+                {t('biblio.entryTitle')}
+              </Typography>
+              <TextField
+                fullWidth
+                multiline
+                variant="standard"
+                value={editDraft.title ?? ''}
+                placeholder={t('biblio.entryTitle')}
+                disabled={saving}
+                onChange={e => setDraft('title', e.target.value)}
+                InputProps={{ sx: { fontSize: '1.15rem', fontWeight: 600, lineHeight: 1.35 } }}
+              />
+            </>
+          ) : (
+            <>
+              <Typography variant="h6" component="div">
+                {displayEntry.title}
+              </Typography>
+              {displayEntry.doc_type && (
+                <Chip label={displayEntry.doc_type} size="small" variant="outlined" sx={{ mt: 1 }} />
+              )}
+            </>
           )}
         </Box>
-        <IconButton onClick={onClose} size="small">
-          <CloseIcon />
-        </IconButton>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexShrink: 0 }}>
+          {editMode ? (
+            <>
+              <Tooltip title={t('common.save')}>
+                <span>
+                  <IconButton onClick={saveEdit} size="small" color="primary" disabled={saving}>
+                    {saving ? <CircularProgress size={18} /> : <CheckIcon />}
+                  </IconButton>
+                </span>
+              </Tooltip>
+              <Tooltip title={t('common.cancel')}>
+                <span>
+                  <IconButton onClick={cancelEdit} size="small" disabled={saving}>
+                    <CloseIcon />
+                  </IconButton>
+                </span>
+              </Tooltip>
+            </>
+          ) : (
+            <Tooltip title={t('common.edit')}>
+              <IconButton onClick={enterEditMode} size="small">
+                <EditIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          )}
+          {!editMode && (
+            <IconButton onClick={onClose} size="small">
+              <CloseIcon />
+            </IconButton>
+          )}
+        </Box>
       </DialogTitle>
 
       <DialogContent dividers>
@@ -608,84 +806,90 @@ export default function EntryDetailDialog({ entry, open, onClose, existingTags =
 
         <Divider sx={{ my: 2 }} />
 
-        {/* Authors */}
-        {displayEntry.authors.length > 0 && (
-          <Box sx={{ mb: 2 }}>
-            <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-              {t('biblio.authors')}
-            </Typography>
-            <Typography variant="body2">
-              {displayEntry.authors.join('; ')}
-            </Typography>
-          </Box>
-        )}
+        {editMode ? (
+          <>
+            {/* Authors / Institutions / Countries (';'-separated) */}
+            {renderDraftList('authors', t('biblio.authors'))}
+            {renderDraftList('institutions', t('biblio.institutions'))}
+            {renderDraftList('countries', t('biblio.countries'))}
 
-        {/* Institutions */}
-        {displayEntry.institutions.length > 0 && (
-          <Box sx={{ mb: 2 }}>
-            <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-              {t('biblio.institutions')}
-            </Typography>
-            <Typography variant="body2">
-              {displayEntry.institutions.join('; ')}
-            </Typography>
-          </Box>
-        )}
+            <Divider sx={{ my: 2 }} />
 
-        <Divider sx={{ my: 2 }} />
+            {/* Publication info */}
+            <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 2 }}>
+              {renderDraftText({ field: 'journal', label: t('biblio.journal'), sx: { mb: 0 } })}
+              {renderDraftText({ field: 'year', label: t('biblio.year'), number: true, sx: { mb: 0 } })}
+              {renderDraftText({ field: 'volume', label: t('biblio.volume'), sx: { mb: 0 } })}
+              {renderDraftText({ field: 'issue', label: t('biblio.issue'), sx: { mb: 0 } })}
+              {renderDraftText({ field: 'pages', label: t('biblio.pages'), sx: { mb: 0 } })}
+              {renderDraftText({ field: 'doc_type', label: t('biblio.docType'), sx: { mb: 0 } })}
+              {renderDraftText({ field: 'language', label: t('biblio.language'), sx: { mb: 0 } })}
+              {renderDraftText({ field: 'citation_count', label: t('biblio.citations'), number: true, sx: { mb: 0 } })}
+            </Box>
 
-        {/* Publication info */}
-        <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 2 }}>
-          <DetailRow label={t('biblio.journal')} value={displayEntry.journal} />
-          <DetailRow label={t('biblio.year')} value={displayEntry.year} />
-          <DetailRow label={t('biblio.volume')} value={displayEntry.volume} />
-          <DetailRow label={t('biblio.issue')} value={displayEntry.issue} />
-          <DetailRow label={t('biblio.pages')} value={displayEntry.pages} />
-          <DetailRow label={t('biblio.language')} value={displayEntry.language} />
-          <DetailRow label={t('biblio.citations')} value={displayEntry.citation_count} />
-        </Box>
+            <Box sx={{ mt: 2 }} />
+            {renderDraftText({ field: 'doi', label: 'DOI', placeholder: '10.xxxx/xxxxx' })}
+            {renderDraftText({ field: 'source_url', label: t('biblio.sourceUrl'), placeholder: 'https://…' })}
+          </>
+        ) : (
+          <>
+            {/* Authors / Institutions / Countries (read-only) */}
+            {renderReadRow(t('biblio.authors'), displayEntry.authors?.join('; '))}
+            {renderReadRow(t('biblio.institutions'), displayEntry.institutions?.join('; '))}
+            {renderReadRow(t('biblio.countries'), displayEntry.countries?.join('; '))}
 
-        {/* DOI */}
-        {displayEntry.doi && (
-          <Box sx={{ mb: 2 }}>
-            <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-              DOI
-            </Typography>
-            <Link
-              href={`https://doi.org/${displayEntry.doi}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}
-            >
-              {displayEntry.doi}
-              <LaunchIcon fontSize="small" />
-            </Link>
-          </Box>
-        )}
+            <Divider sx={{ my: 2 }} />
 
-        {/* Source URL */}
-        {displayEntry.source_url && (
-          <Box sx={{ mb: 2 }}>
-            <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-              {t('biblio.sourceUrl')}
-            </Typography>
-            <Link
-              href={displayEntry.source_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              sx={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 0.5,
-                wordBreak: 'break-all'
-              }}
-            >
-              {displayEntry.source_url.length > 60
-                ? displayEntry.source_url.substring(0, 60) + '...'
-                : displayEntry.source_url}
-              <LaunchIcon fontSize="small" />
-            </Link>
-          </Box>
+            {/* Publication info (read-only) */}
+            <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 2 }}>
+              {renderReadRow(t('biblio.journal'), displayEntry.journal)}
+              {renderReadRow(t('biblio.year'), displayEntry.year)}
+              {renderReadRow(t('biblio.volume'), displayEntry.volume)}
+              {renderReadRow(t('biblio.issue'), displayEntry.issue)}
+              {renderReadRow(t('biblio.pages'), displayEntry.pages)}
+              {renderReadRow(t('biblio.docType'), displayEntry.doc_type)}
+              {renderReadRow(t('biblio.language'), displayEntry.language)}
+              {renderReadRow(t('biblio.citations'), displayEntry.citation_count)}
+            </Box>
+
+            {/* DOI (read-only + resolver link) */}
+            {displayEntry.doi?.trim() && (
+              <Box sx={{ mt: 2, mb: 2 }}>
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                  DOI
+                </Typography>
+                <Link
+                  href={`https://doi.org/${displayEntry.doi.trim()}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}
+                >
+                  {displayEntry.doi.trim()}
+                  <LaunchIcon fontSize="small" />
+                </Link>
+              </Box>
+            )}
+
+            {/* Source URL (read-only + open link) */}
+            {displayEntry.source_url?.trim() && (
+              <Box sx={{ mb: 2 }}>
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                  {t('biblio.sourceUrl')}
+                </Typography>
+                <Link
+                  href={displayEntry.source_url.trim()}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, wordBreak: 'break-all' }}
+                >
+                  {displayEntry.source_url.trim().length > 60
+                    ? displayEntry.source_url.trim().substring(0, 60) + '...'
+                    : displayEntry.source_url.trim()}
+                  <LaunchIcon fontSize="small" />
+                </Link>
+              </Box>
+            )}
+          </>
         )}
 
         <Divider sx={{ my: 2 }} />
@@ -771,30 +975,40 @@ export default function EntryDetailDialog({ entry, open, onClose, existingTags =
 
         <Divider sx={{ my: 2 }} />
 
-        {/* Keywords */}
-        {displayEntry.keywords.length > 0 && (
-          <Box sx={{ mb: 2 }}>
-            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
-              {t('biblio.keywords')}
-            </Typography>
-            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-              {displayEntry.keywords.map((kw, i) => (
-                <Chip key={i} label={kw} size="small" variant="outlined" />
-              ))}
-            </Box>
-          </Box>
-        )}
-
-        {/* Abstract */}
-        {displayEntry.abstract && (
-          <Box>
-            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
-              {t('biblio.abstract')}
-            </Typography>
-            <Typography variant="body2" sx={{ textAlign: 'justify' }}>
-              {displayEntry.abstract}
-            </Typography>
-          </Box>
+        {editMode ? (
+          <>
+            {/* Keywords (';'-separated) */}
+            {renderDraftList('keywords', t('biblio.keywords'))}
+            {/* Abstract */}
+            {renderDraftText({ field: 'abstract', label: t('biblio.abstract'), multiline: true, minRows: 3 })}
+          </>
+        ) : (
+          <>
+            {/* Keywords (read-only chips) */}
+            {displayEntry.keywords.length > 0 && (
+              <Box sx={{ mb: 2 }}>
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+                  {t('biblio.keywords')}
+                </Typography>
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                  {displayEntry.keywords.map((kw, i) => (
+                    <Chip key={i} label={kw} size="small" variant="outlined" />
+                  ))}
+                </Box>
+              </Box>
+            )}
+            {/* Abstract (read-only) */}
+            {displayEntry.abstract && (
+              <Box>
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+                  {t('biblio.abstract')}
+                </Typography>
+                <Typography variant="body2" sx={{ textAlign: 'justify' }}>
+                  {displayEntry.abstract}
+                </Typography>
+              </Box>
+            )}
+          </>
         )}
 
         <Divider sx={{ my: 2 }} />

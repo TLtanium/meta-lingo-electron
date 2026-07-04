@@ -95,6 +95,12 @@ def find_protected_spans(text: str) -> Set[Tuple[int, int]]:
     return protected
 
 
+# Closing brackets / quotes that belong to the PRECEDING sentence when they
+# directly follow sentence-final punctuation (shared by newline handling and
+# punctuation-based sentence splitting)
+SENTENCE_CLOSE_CHARS = frozenset(')]}>"\'”’）】》」』')
+
+
 def find_native_newlines(text: str) -> Set[int]:
     """
     Find character positions where native newlines represent real segment breaks.
@@ -115,6 +121,11 @@ def find_native_newlines(text: str) -> Set[int]:
     Returns a set of character positions (content start after the newline).
     """
     SENTENCE_END_CHARS = frozenset('.!?;')
+    # Closing brackets / quotes that belong to the PRECEDING sentence. When a line
+    # starts with one of these (e.g. a dangling ")" after "...letters!\n)"), the
+    # newline is a soft wrap, not a segment boundary — otherwise the closing mark
+    # is orphaned onto its own line.
+    TRAILING_CLOSE_CHARS = SENTENCE_CLOSE_CHARS
     boundaries = set()
 
     i = 0
@@ -144,10 +155,12 @@ def find_native_newlines(text: str) -> Set[int]:
 
             prev_char = text[k]
 
-            # Soft line-wrap: skip ONLY when prev has no punct AND next is lowercase
+            # Soft line-wrap: skip ONLY when prev has no punct AND next is lowercase,
+            # OR when the next line begins with a closing bracket/quote that belongs
+            # to the sentence just ended (don't orphan a dangling ")" onto its own line)
             is_soft_wrap = (
-                prev_char not in SENTENCE_END_CHARS
-                and next_char.islower()
+                (prev_char not in SENTENCE_END_CHARS and next_char.islower())
+                or next_char in TRAILING_CLOSE_CHARS
             )
 
             if not is_soft_wrap:
@@ -296,9 +309,17 @@ def post_process_sentences(text: str, raw_sentences: List[Dict[str, Any]]) -> Li
         # Check if we need to merge with next sentences
         while i + 1 < len(raw_sentences):
             next_sent = raw_sentences[i + 1]
-            
+
+            # A raw sentence consisting only of closing brackets/quotes is an
+            # orphaned fragment (e.g. SpaCy split "…letters!" | ")") — always
+            # merge it back into the current sentence.
+            next_stripped = text[next_sent['start']:next_sent['end']].strip()
+            is_orphan_closer = bool(next_stripped) and all(
+                c in SENTENCE_CLOSE_CHARS for c in next_stripped
+            )
+
             # Check if the boundary between current and next is invalid (protected)
-            if not is_sentence_boundary_valid(text, next_sent['start'], protected_spans):
+            if is_orphan_closer or not is_sentence_boundary_valid(text, next_sent['start'], protected_spans):
                 # Merge: extend current sentence to include next
                 current['text'] = text[current['start']:next_sent['end']]
                 current['end'] = next_sent['end']
@@ -375,18 +396,45 @@ def post_process_sentences(text: str, raw_sentences: List[Dict[str, Any]]) -> Li
             if is_abbreviation_period(text, pos_in_text):
                 continue
             
-            # Check if followed by space and uppercase (or end of segment)
-            after_pos = pos_in_sent + 1
+            # Include closing brackets/quotes that follow the punctuation in the
+            # SAME sentence, so "…letters!)" / '…own?"' never orphan the ")" /
+            # '"' onto the next line. Two cases:
+            #   A. Closers directly after the punctuation (no whitespace): always
+            #      belong to this sentence ("stop.")
+            #   B. Closers after soft-wrap whitespace ("…letters!\n)"): only when
+            #      dangling (followed by whitespace or end) — an opening quote of
+            #      the NEXT sentence ('Did he? "Yes…') must not be consumed.
+            boundary_rel = pos_in_sent + 1
+            closer_end = boundary_rel
+            while closer_end < len(sent_text) and sent_text[closer_end] in SENTENCE_CLOSE_CHARS:
+                closer_end += 1
+            if closer_end > boundary_rel:
+                boundary_rel = closer_end
+            else:
+                k = boundary_rel
+                while k < len(sent_text) and sent_text[k] in ' \t\n\r':
+                    k += 1
+                closer_end = k
+                while closer_end < len(sent_text) and sent_text[closer_end] in SENTENCE_CLOSE_CHARS:
+                    closer_end += 1
+                if closer_end > k and (
+                    closer_end >= len(sent_text) or sent_text[closer_end] in ' \t\n\r'
+                ):
+                    boundary_rel = closer_end
+
+            # Check if followed by space and uppercase (or end of segment),
+            # looking PAST any closing marks consumed above
+            after_pos = boundary_rel
             if after_pos < len(sent_text):
                 # Skip whitespace
                 while after_pos < len(sent_text) and sent_text[after_pos] in ' \t\n\r':
                     after_pos += 1
-                
+
                 # If next char is lowercase, not a sentence boundary
                 if after_pos < len(sent_text) and sent_text[after_pos].islower():
                     continue
-            
-            sentence_endings.append(pos_in_sent + 1)  # Include the punctuation
+
+            sentence_endings.append(boundary_rel)  # Include punctuation + trailing closers
         
         if not sentence_endings:
             result_sentences.append(sent)
@@ -454,14 +502,18 @@ def is_abbreviation_period(text: str, period_pos: int) -> bool:
     while word_start > 0 and text[word_start - 1].isalpha():
         word_start -= 1
     
-    word_before = text[word_start:period_pos].lower()
-    
+    word_before_raw = text[word_start:period_pos]
+    word_before = word_before_raw.lower()
+
     # Check if it's a known abbreviation
     if word_before in COMMON_ABBREVIATIONS:
         return True
-    
-    # Single letter followed by period (like initials: J. K. Rowling)
-    if len(word_before) == 1 and word_before.isupper():
+
+    # Single capital letter followed by period (initials J. K. Rowling, or
+    # acronyms with internal periods like U.S. / U.K. whose final period is
+    # followed by a non-letter such as a comma). Must test the ORIGINAL case —
+    # word_before is already lower-cased, so its .isupper() would always be False.
+    if len(word_before_raw) == 1 and word_before_raw.isupper():
         return True
     
     return False

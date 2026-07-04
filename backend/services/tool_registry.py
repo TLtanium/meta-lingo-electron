@@ -107,6 +107,12 @@ TOOL_MODULES_META: list[dict[str, Any]] = [
         "tools": ["dmip_analysis"],
     },
     {
+        "name": "mda",
+        "display_en": "Multidimensional Analysis (MDA)",
+        "display_zh": "多维分析（MDA）",
+        "tools": ["mda_analysis"],
+    },
+    {
         "name": "task",
         "display_en": "Task Management",
         "display_zh": "任务管理",
@@ -859,6 +865,31 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
                   default=False,
               ),
           }, ["corpus_id", "text_id"]),
+
+    # ─── mda ───
+    _tool("mda_analysis",
+          (
+              "Biber (1988) multidimensional analysis (MAT algorithm) of an ENGLISH "
+              "corpus. Computes 67 lexico-grammatical features per 100 tokens from "
+              "stored SpaCy annotations, z-scores them against Biber's norms, and "
+              "returns the six dimension scores (e.g. D1 Involved vs. Informational), "
+              "closest Biber genre per dimension, closest Biber (1989) text type, "
+              "over/underused features (|z|>2), and per-text dimension scores. "
+              "INTERPRETATION: the closest text type is a nearest-centroid match, not "
+              "a category membership — always cite the actual dimension scores and the "
+              "features driving them."
+          ),
+          {
+              "corpus_id": _str("Corpus ID to analyze"),
+              "text_ids": _arr({"type": "string"}, "Specific text IDs (omit for all)"),
+              "ttr_tokens": _int("Tokens used for type-token ratio (default 400, per Biber 1988)", default=400),
+              "z_correction": _bool("Cap extreme feature z-scores (MAT option)", default=False),
+              "excluded_features": _arr({"type": "string"}, "Feature codes to exclude, e.g. ['TTR','AWL']"),
+              "top_features": _int("How many most-deviant features to list (default 15)", default=15),
+              "max_texts_shown": _int("Max per-text rows in output (default 25)", default=25),
+              "save_path": _str("Save MAT-style CSVs (Dimensions/Statistics/Zscores): directory path, or '' for ~/Downloads"),
+              "chart_path": _str("Save dimension-score bar chart PNG: path, or '' for ~/Downloads"),
+          }, ["corpus_id"]),
 ]
 
 
