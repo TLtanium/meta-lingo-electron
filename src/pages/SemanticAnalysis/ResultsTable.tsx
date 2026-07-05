@@ -716,6 +716,8 @@ export default function ResultsTable({
                     <TableCell align="center">
                       <WordActionMenu
                         word={wordResult.word}
+                        wordLemma={wordResult.lemma}
+                        matchMode="word"
                         corpusId={corpusId}
                         textIds={textIds}
                         selectionMode={selectionMode}
@@ -820,6 +822,8 @@ export default function ResultsTable({
                     corpusId && (
                       <WordActionMenu
                         word={item.word}
+                        wordLemma={item.lemma}
+                        matchMode="word"
                         corpusId={corpusId}
                         textIds={textIds}
                         selectionMode={selectionMode}

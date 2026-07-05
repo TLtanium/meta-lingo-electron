@@ -76,6 +76,8 @@ export interface WordFrequencyResult {
   frequency: number
   percentage: number
   rank: number
+  /** Lemma of `word` (same value when searchTarget is already 'lemma'); for cross-module lemma linking (Word Sketch) */
+  lemma?: string
 }
 
 export interface WordFrequencyResponse {

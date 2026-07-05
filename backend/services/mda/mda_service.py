@@ -61,6 +61,10 @@ class MDAService:
             excluded = set(excluded_features or [])
             text_results: List[Dict[str, Any]] = []
             feature_words: Dict[str, Counter] = {f: Counter() for f in TAG_FEATURES}
+            # Word-form (lowercased) -> lemma, accumulated across all texts so
+            # top_words can carry a lemma for cross-module lemma-based linking
+            # (collocation/word sketch/etc. — see WordActionMenu wordLemma prop).
+            word_lemmas: Dict[str, str] = {}
             skipped: List[str] = []
 
             for text in texts:
@@ -68,7 +72,7 @@ class MDAService:
                 if tagged is None:
                     skipped.append(text.get("filename") or text.get("id") or "?")
                     continue
-                stats = self._text_statistics(tagged, ttr_tokens, feature_words)
+                stats = self._text_statistics(tagged, ttr_tokens, feature_words, word_lemmas)
                 if stats["tokens"] == 0:
                     skipped.append(text.get("filename") or text.get("id") or "?")
                     continue
@@ -95,7 +99,7 @@ class MDAService:
                 }
 
             corpus_summary = self._corpus_summary(text_results)
-            features = self._feature_summary(text_results, feature_words, top_words)
+            features = self._feature_summary(text_results, feature_words, top_words, word_lemmas)
 
             return {
                 "success": True,
@@ -170,6 +174,7 @@ class MDAService:
         tagged: List[Tok],
         ttr_tokens: int,
         feature_words: Dict[str, Counter],
+        word_lemmas: Dict[str, str],
     ) -> Dict[str, Any]:
         counts: Counter = Counter()
         token_count = 0
@@ -186,11 +191,13 @@ class MDAService:
                     counts[t.tag] += 1
                     if t.tag in feature_words:
                         feature_words[t.tag][t.lw] += 1
+                        word_lemmas.setdefault(t.lw, t.lemma)
             for extra in t.extra:
                 key = f"[{extra}]"
                 counts[key] += 1
                 if key in feature_words:
                     feature_words[key][t.lw] += 1
+                    word_lemmas.setdefault(t.lw, t.lemma)
 
         # Type-token ratio over the first ttr_tokens word tokens
         ttr_types = len(set(word_forms[:ttr_tokens])) if word_forms else 0
@@ -301,6 +308,7 @@ class MDAService:
         text_results: List[Dict[str, Any]],
         feature_words: Dict[str, Counter],
         top_words: int,
+        word_lemmas: Dict[str, str],
     ) -> List[Dict[str, Any]]:
         n = len(text_results)
         features: List[Dict[str, Any]] = []
@@ -339,7 +347,7 @@ class MDAService:
             }
             if f in feature_words and feature_words[f]:
                 entry["top_words"] = [
-                    {"word": wd, "count": c}
+                    {"word": wd, "count": c, "lemma": word_lemmas.get(wd, wd)}
                     for wd, c in feature_words[f].most_common(top_words)
                 ]
             features.append(entry)

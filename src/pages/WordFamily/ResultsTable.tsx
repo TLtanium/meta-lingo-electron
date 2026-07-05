@@ -411,6 +411,7 @@ export default function ResultsTable({
                         <WordActionMenu
                           word={result.word}
                           wordLemma={result.word}
+                          matchMode="lemma"
                           corpusId={corpusId}
                           textIds={textIds || 'all'}
                           selectionMode={selectionMode}

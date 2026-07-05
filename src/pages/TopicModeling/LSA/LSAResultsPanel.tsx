@@ -590,6 +590,7 @@ export default function LSAResultsPanel({
                               <TableCell align="center" sx={{ p: 0.5 }}>
                                 <WordActionMenu
                                   word={kw.word}
+                                  matchMode="word"
                                   corpusId={corpusId}
                                   textIds={textIds || 'all'}
                                   selectionMode={selectionMode}

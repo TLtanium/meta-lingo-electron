@@ -357,6 +357,12 @@ export default function Collocation({ crossLinkParams }: CollocationProps) {
       setSearchMode('cql')
       setSearchValue(crossLinkParams.cqlQuery)
     } else if (crossLinkParams.searchWord) {
+      // Sync the search-mode selector to whatever mode the caller actually searched in —
+      // otherwise a word-form searchWord can arrive while this page defaults to 'lemma' (or
+      // vice versa), silently matching against the wrong field.
+      if (crossLinkParams.forceSearchMode === 'word' || crossLinkParams.forceSearchMode === 'lemma') {
+        setSearchMode(crossLinkParams.forceSearchMode)
+      }
       setSearchValue(crossLinkParams.searchWord)
     }
     if (crossLinkParams.highlightWords && crossLinkParams.highlightWords.length > 0) {

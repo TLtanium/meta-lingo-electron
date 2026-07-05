@@ -198,6 +198,8 @@ export interface KeynessKeyword {
   // Optional semantic domain metadata when comparison_mode === 'domain'
   domain_code?: string
   domain_name?: string
+  /** Lemma of `keyword`, for cross-module lemma linking (Word Sketch); not set in domain mode */
+  lemma?: string
 }
 
 export interface KeynessResponse {

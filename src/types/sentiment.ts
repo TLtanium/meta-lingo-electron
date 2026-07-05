@@ -22,6 +22,8 @@ export interface SentimentResultRow {
   domain_name?: string   // USAS mode only: human-readable domain name
   total: number
   percentage: number
+  /** Lemma of `word`, for cross-module lemma linking (Word Sketch); not set in USAS mode */
+  lemma?: string
   [key: string]: number | string | undefined  // positive, negative, neutral | anger, ... trust, others
 }
 

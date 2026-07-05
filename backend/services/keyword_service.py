@@ -886,17 +886,22 @@ class KeywordService:
         stopwords_config: Optional[Dict[str, Any]] = None,
         language: str = 'english',
         comparison_mode: str = 'word'
-    ) -> Tuple[Counter, int]:
+    ) -> Tuple[Counter, int, Dict[str, str]]:
         """
         Build frequency counter and total token count for a corpus.
-        
+
         comparison_mode:
             - 'word': surface word form (default)
             - 'lemma': lemma form
             - 'domain': USAS semantic domain (delegated to semantic_analysis_service)
+
+        Returns (counter, total_tokens, word_lemmas) — word_lemmas maps each counted unit
+        (word-form or lemma, per comparison_mode) to a representative lemma, so results can
+        always cross-link to Word Sketch by lemma (its grammar-relation index only matches
+        lemma) even when this table is comparing by word-form. Empty in 'domain' mode.
         """
         comparison_mode = (comparison_mode or 'word').lower()
-        
+
         # USAS semantic domain mode: delegate to semantic analysis service
         if comparison_mode == 'domain':
             try:
@@ -930,7 +935,7 @@ class KeywordService:
                 domain_counter[code] += int(freq)
             
             total_tokens = int(result.get("total_tokens", sum(domain_counter.values())))
-            return domain_counter, total_tokens
+            return domain_counter, total_tokens, {}
         
         # Word / lemma modes use SpaCy token data
         tokens = self._load_spacy_data(corpus_id, text_ids)
@@ -942,41 +947,44 @@ class KeywordService:
         keep_mode = pos_filter.get('keepMode', True)
         
         items: List[Tuple[str, str]] = []
+        word_lemmas: Dict[str, str] = {}
         for token in tokens:
             text = token.get('text', token.get('word', ''))
             lemma = token.get('lemma', text)
             pos = token.get('pos', token.get('upos', 'X'))
-            
+
             # Skip empty tokens
             if not text or not text.strip():
                 continue
-            
+
             # POS filtering (same logic as _filter_by_pos)
             if selected_pos:
                 if keep_mode and pos not in selected_pos:
                     continue
                 if not keep_mode and pos in selected_pos:
                     continue
-            
+
             if comparison_mode == 'lemma':
                 unit = lemma or text
             else:
                 unit = text
-            
+
             if not unit or not unit.strip():
                 continue
-            
+
             if lowercase:
                 unit = unit.lower()
-            
+                lemma = (lemma or text).lower()
+
+            word_lemmas.setdefault(unit, lemma)
             items.append((unit, pos))
-        
+
         # Apply stopwords filter only for word/lemma modes
         if stopwords_config:
             items = self._apply_stopwords_filter(items, stopwords_config, language)
-        
+
         words = [w for w, _ in items]
-        return Counter(words), len(words)
+        return Counter(words), len(words), word_lemmas
     
     def _calculate_log_likelihood(
         self,
@@ -1156,14 +1164,16 @@ class KeywordService:
         try:
             comparison_mode = (comparison_mode or 'word').lower()
             # Build frequency tables with stopwords filtering
-            study_freq, study_total = self._build_frequency_table(
+            study_freq, study_total, study_lemmas = self._build_frequency_table(
                 study_corpus_id, study_text_ids, pos_filter, lowercase,
                 stopwords_config, language, comparison_mode=comparison_mode
             )
-            ref_freq, ref_total = self._build_frequency_table(
+            ref_freq, ref_total, ref_lemmas = self._build_frequency_table(
                 reference_corpus_id, reference_text_ids, pos_filter, lowercase,
                 stopwords_config, language, comparison_mode=comparison_mode
             )
+            # study takes priority when a word appears (with a different lemma) in both
+            word_lemmas: Dict[str, str] = {**ref_lemmas, **study_lemmas}
             
             if study_total == 0 or ref_total == 0:
                 return {
@@ -1306,6 +1316,8 @@ class KeywordService:
                 if comparison_mode == 'domain':
                     result_item['domain_code'] = word
                     result_item['domain_name'] = get_aggregated_domain_description(word)
+                else:
+                    result_item['lemma'] = word_lemmas.get(word, word)
                 results.append(result_item)
             
             # Sort by absolute score
@@ -1372,7 +1384,7 @@ class KeywordService:
             
             comparison_mode = (comparison_mode or 'word').lower()
             # Build study corpus frequency table
-            study_freq, study_total = self._build_frequency_table(
+            study_freq, study_total, word_lemmas = self._build_frequency_table(
                 study_corpus_id, study_text_ids, pos_filter, lowercase,
                 stopwords_config, language, comparison_mode=comparison_mode
             )
@@ -1559,8 +1571,10 @@ class KeywordService:
                 if comparison_mode == 'domain':
                     result_item['domain_code'] = word
                     result_item['domain_name'] = get_aggregated_domain_description(word)
+                else:
+                    result_item['lemma'] = word_lemmas.get(word, word)
                 results.append(result_item)
-            
+
             results.sort(key=lambda x: abs(x['score']), reverse=True)
             
             for i, r in enumerate(results):

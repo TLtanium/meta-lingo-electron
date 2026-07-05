@@ -236,6 +236,8 @@ export default function FeaturesTable({ features, corpusSelection, filter, selec
                                   {corpusSelection && (
                                     <WordActionMenu
                                       word={wItem.word}
+                                      wordLemma={wItem.lemma}
+                                      matchMode="word"
                                       corpusId={corpusSelection.corpusId}
                                       textIds={corpusSelection.textIds || 'all'}
                                       selectionMode={corpusSelection.selectionMode === 'keywords' ? 'tags' : (corpusSelection.selectionMode ?? 'all')}

@@ -702,6 +702,7 @@ class SemanticAnalysisService:
                     "category": token.get("category", ""),
                     "category_name": token.get("category_name", ""),
                     "pos": token.get("pos", ""),
+                    "lemma": token.get("lemma", word),
                     "is_metaphor":          bool(token.get("is_metaphor", False)),
                     "is_direct_metaphor":   bool(token.get("is_direct_metaphor", False)),
                     "is_mflag":             bool(token.get("is_mflag", False)),
@@ -745,6 +746,7 @@ class SemanticAnalysisService:
                 "pos": info.get("pos", ""),
                 "frequency": count,
                 "percentage": round(percentage, 4),
+                "lemma": info.get("lemma", word),
                 "is_metaphor":          info.get("is_metaphor",          False),
                 "is_direct_metaphor":   info.get("is_direct_metaphor",   False),
                 "is_mflag":             info.get("is_mflag",             False),
@@ -794,6 +796,7 @@ class SemanticAnalysisService:
                         # OR-merge metaphor flags across all occurrences
                         if word not in word_metaphor_info:
                             word_metaphor_info[word] = {
+                                "lemma": token.get("lemma", word),
                                 "is_metaphor":          bool(token.get("is_metaphor",          False)),
                                 "is_direct_metaphor":   bool(token.get("is_direct_metaphor",   False)),
                                 "is_mflag":             bool(token.get("is_mflag",             False)),
@@ -813,6 +816,7 @@ class SemanticAnalysisService:
                 results.append({
                     "word": word,
                     "frequency": count,
+                    "lemma": info.get("lemma", word),
                     "is_metaphor":          info.get("is_metaphor",          False),
                     "is_direct_metaphor":   info.get("is_direct_metaphor",   False),
                     "is_mflag":             info.get("is_mflag",             False),

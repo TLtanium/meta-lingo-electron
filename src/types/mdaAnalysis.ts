@@ -14,6 +14,8 @@ export interface MDARequest {
 export interface MDAFeatureWord {
   word: string
   count: number
+  /** Lemma of the word-form, for cross-module lemma matching (collocation/word sketch/etc.) */
+  lemma?: string
 }
 
 export interface MDAFeatureLoading {

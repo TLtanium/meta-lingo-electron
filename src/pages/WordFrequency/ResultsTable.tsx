@@ -370,7 +370,8 @@ export default function ResultsTable({
                   <TableCell align="center" onClick={(e) => e.stopPropagation()}>
                     <WordActionMenu
                       word={row.word}
-                      wordLemma={searchTarget === 'lemma' ? row.word : undefined}
+                      wordLemma={row.lemma ?? (searchTarget === 'lemma' ? row.word : undefined)}
+                      matchMode={searchTarget === 'lemma' ? 'lemma' : 'word'}
                       corpusId={corpusId}
                       textIds={textIds || 'all'}
                       selectionMode={selectionMode}

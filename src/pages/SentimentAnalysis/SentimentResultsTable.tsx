@@ -459,7 +459,8 @@ export default function SentimentResultsTable({
                     ) : (
                       <WordActionMenu
                         word={row.word}
-                        wordLemma={searchTarget === 'lemma' ? row.word : undefined}
+                        wordLemma={(row.lemma as string | undefined) ?? (searchTarget === 'lemma' ? row.word : undefined)}
+                        matchMode={searchTarget === 'lemma' ? 'lemma' : 'word'}
                         corpusId={corpusSelection.corpusId}
                         textIds={corpusSelection.textIds ?? 'all'}
                         selectionMode={

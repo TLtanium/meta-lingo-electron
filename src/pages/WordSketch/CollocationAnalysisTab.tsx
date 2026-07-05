@@ -128,6 +128,14 @@ export default function CollocationAnalysisTab({ crossLinkParams }: CollocationA
     if (!crossLinkParams || crossLinkProcessedRef.current) return
     crossLinkProcessedRef.current = true
     if (crossLinkParams.searchWord) setNodeWord(crossLinkParams.searchWord)
+    // Sync the match-mode selector to whatever mode the caller was actually searching in —
+    // otherwise searchWord (a word-form) can arrive while this page's own selector still
+    // defaults to 'lemma', silently matching against the wrong field.
+    if (crossLinkParams.forceSearchMode === 'word' || crossLinkParams.forceSearchMode === 'lemma') {
+      setMatchMode(crossLinkParams.forceSearchMode)
+    } else if (crossLinkParams.matchMode) {
+      setMatchMode(crossLinkParams.matchMode)
+    }
     if (crossLinkParams.autoSearch) pendingAutoSearchRef.current = true
   }, [crossLinkParams])
 

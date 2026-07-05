@@ -98,14 +98,23 @@ class SentimentAnalysisService:
                     pos = t.get("pos", "")
                     if not self._pass_pos_filter(t, pos_filter):
                         continue
+                    lemma = (t.get("lemma") or word)
                     if lowercase:
                         word = word.lower()
-                    all_pairs.append((word, scores))
+                        lemma = lemma.lower()
+                    all_pairs.append((word, scores, lemma))
             if not all_pairs:
                 return self._empty_response(analysis_mode)
 
+            # Word (or lemma, in lemma mode) -> representative lemma, so the frontend can
+            # always cross-link to Word Sketch by lemma (its grammar-relation index only
+            # matches lemma) even when this table is displaying word-forms.
+            word_lemmas: Dict[str, str] = {}
+            for word, _scores, lemma in all_pairs:
+                word_lemmas.setdefault(word, lemma)
+
             word_counts: Dict[str, Dict[str, int]] = defaultdict(lambda: defaultdict(int))
-            for word, scores in all_pairs:
+            for word, scores, _lemma in all_pairs:
                 if analysis_mode == "polarity":
                     label = self._polarity_label(scores)
                     word_counts[word][label] += 1
@@ -125,7 +134,7 @@ class SentimentAnalysisService:
                 return self._empty_response(analysis_mode)
 
             summary = self._build_summary(word_counts, analysis_mode)
-            results = self._build_results(word_counts, analysis_mode)
+            results = self._build_results(word_counts, analysis_mode, word_lemmas)
             return {
                 "success": True,
                 "summary": summary,
@@ -483,14 +492,16 @@ class SentimentAnalysisService:
         self,
         word_counts: Dict[str, Dict[str, int]],
         analysis_mode: str,
+        word_lemmas: Optional[Dict[str, str]] = None,
     ) -> List[Dict[str, Any]]:
+        word_lemmas = word_lemmas or {}
         total_per_word = {w: sum(counts.values()) for w, counts in word_counts.items()}
         total_all = sum(total_per_word.values())
         results = []
         for word in sorted(word_counts.keys(), key=lambda w: -total_per_word[w]):
             counts = word_counts[word]
             total = total_per_word[word]
-            row = {"word": word, "total": total}
+            row = {"word": word, "total": total, "lemma": word_lemmas.get(word, word)}
             if total_all > 0:
                 row["percentage"] = round(100 * total / total_all, 4)
             else:

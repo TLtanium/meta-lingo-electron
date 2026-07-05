@@ -614,6 +614,7 @@ export default function ResultsPanel({
                               <TableCell align="center" sx={{ p: 0.5 }}>
                                 <WordActionMenu
                                   word={word.word}
+                                  matchMode="word"
                                   corpusId={corpusId}
                                   textIds={textIds || 'all'}
                                   selectionMode={selectionMode}

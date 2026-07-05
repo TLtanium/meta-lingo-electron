@@ -174,13 +174,13 @@ class WordFrequencyService:
             if search_config and "searchTarget" in search_config:
                 target = search_config.get("searchTarget", "word")
             
-            # Collect all tokens from SpaCy annotations
-            all_tokens = []
-            
+            # Collect all tokens from SpaCy annotations (word_form, lemma) pairs
+            all_tokens: List[tuple] = []
+
             for text in texts:
                 tokens = self._get_tokens_from_text(text, pos_filter, lowercase, target)
                 all_tokens.extend(tokens)
-            
+
             if not all_tokens:
                 return {
                     "success": True,
@@ -188,27 +188,34 @@ class WordFrequencyService:
                     "total_tokens": 0,
                     "unique_words": 0
                 }
-            
+
+            # Word-form (or lemma, in lemma mode) -> representative lemma, so the frontend
+            # can always cross-link to Word Sketch by lemma even when this table itself is
+            # displaying word-forms (Word Sketch's grammar-relation index only matches lemma).
+            word_lemmas: Dict[str, str] = {}
+            for w, lm in all_tokens:
+                word_lemmas.setdefault(w, lm)
+
             # Count word frequencies
-            word_counts = Counter(all_tokens)
-            
+            word_counts = Counter(w for w, _ in all_tokens)
+
             # Apply frequency filters
             filtered_counts = self._apply_frequency_filters(
                 word_counts, min_freq, max_freq
             )
-            
+
             # Apply search filters (including stopwords removal)
             if search_config:
                 filtered_counts = self._apply_search_filters(
                     filtered_counts, search_config, language
                 )
-            
+
             # Calculate results
             total_filtered = sum(filtered_counts.values())
             results = []
-            
+
             for rank, (word, count) in enumerate(
-                sorted(filtered_counts.items(), key=lambda x: x[1], reverse=True), 
+                sorted(filtered_counts.items(), key=lambda x: x[1], reverse=True),
                 start=1
             ):
                 percentage = (count / total_filtered * 100) if total_filtered > 0 else 0
@@ -216,7 +223,8 @@ class WordFrequencyService:
                     "word": word,
                     "frequency": count,
                     "percentage": round(percentage, 4),
-                    "rank": rank
+                    "rank": rank,
+                    "lemma": word_lemmas.get(word, word)
                 })
             
             return {
@@ -240,18 +248,18 @@ class WordFrequencyService:
         pos_filter: Optional[Dict[str, Any]],
         lowercase: bool,
         search_target: str = "word"
-    ) -> List[str]:
+    ) -> List[Tuple[str, str]]:
         """
         Extract tokens from a text's SpaCy annotation
-        
+
         Args:
             text: Text database entry
             pos_filter: POS filter config
             lowercase: Whether to lowercase tokens
             search_target: "word" for word form, "lemma" for lemma form
-            
+
         Returns:
-            List of tokens
+            List of (word_form_or_lemma, lemma) tuples, see _extract_from_tokens
         """
         tokens = []
         
@@ -324,18 +332,19 @@ class WordFrequencyService:
         pos_filter: Optional[Dict[str, Any]],
         lowercase: bool,
         search_target: str = "word"
-    ) -> List[str]:
+    ) -> List[Tuple[str, str]]:
         """
         Extract word strings from token data
-        
+
         Args:
             tokens: List of token dictionaries from SpaCy
             pos_filter: POS filter config
             lowercase: Whether to lowercase
             search_target: "word" for word form, "lemma" for lemma form
-            
+
         Returns:
-            List of word strings
+            List of (word_form_or_lemma, lemma) tuples — the second element is always the
+            token's lemma, independent of search_target, for cross-module lemma linking.
         """
         result = []
         
@@ -354,7 +363,8 @@ class WordFrequencyService:
             else:
                 # Use word form (default)
                 text = token.get("text", "")
-            
+            lemma = token.get("lemma") or text
+
             pos = token.get("pos", "")
             
             # Skip empty tokens
@@ -380,9 +390,10 @@ class WordFrequencyService:
             # Apply lowercase if requested
             if lowercase:
                 text = text.lower()
-            
-            result.append(text)
-        
+                lemma = lemma.lower()
+
+            result.append((text, lemma))
+
         return result
     
     def _apply_frequency_filters(

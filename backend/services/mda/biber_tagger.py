@@ -228,9 +228,9 @@ SUASIVE_VERBS = {
 class Tok:
     """Mutable token used during rule application."""
 
-    __slots__ = ("w", "lw", "norm", "tag", "extra", "is_punct")
+    __slots__ = ("w", "lw", "norm", "tag", "extra", "is_punct", "lemma")
 
-    def __init__(self, word: str, tag: str, is_punct: bool):
+    def __init__(self, word: str, tag: str, is_punct: bool, lemma: str = ""):
         self.w = word
         self.lw = word.lower()
         # Strip leading apostrophes so clitics ('s, 've, 'll, n't …) match the
@@ -239,6 +239,10 @@ class Tok:
         self.tag = tag
         self.extra: List[str] = []
         self.is_punct = is_punct
+        # Lemma from the SpaCy sidecar (falls back to the surface word when
+        # missing); used only for cross-module lemma matching in the frontend,
+        # not by the Biber tagging rules themselves.
+        self.lemma = lemma or word
 
 
 # Boundary sentinel: behaves like "no token" (never matches anything).
@@ -361,7 +365,7 @@ def tag_tokens(spacy_tokens: List[Dict[str, Any]]) -> List[Tok]:
             tag = "PRPS"
         elif tag == "WP$":
             tag = "WPS"
-        toks.append(Tok(st.get("text", ""), tag, bool(st.get("is_punct"))))
+        toks.append(Tok(st.get("text", ""), tag, bool(st.get("is_punct")), st.get("lemma", "")))
 
     w = _Seq(toks)
     n = len(toks)

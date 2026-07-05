@@ -402,6 +402,7 @@ export default function ResultsTable({
                     <TableCell align="center" onClick={(e) => e.stopPropagation()}>
                       <WordActionMenu
                         word={result.keyword}
+                        matchMode="word"
                         corpusId={corpusId}
                         textIds={textIds || 'all'}
                         selectionMode={selectionMode}

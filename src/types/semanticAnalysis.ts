@@ -56,6 +56,8 @@ export interface SemanticWordResult {
   pos: string
   frequency: number
   percentage: number
+  /** Lemma of `word`, for cross-module lemma linking (Word Sketch) */
+  lemma?: string
   is_metaphor?: boolean
   is_direct_metaphor?: boolean
   is_mflag?: boolean
@@ -75,6 +77,8 @@ export interface SemanticAnalysisResponse {
 export interface DomainWordItem {
   word: string
   frequency: number
+  /** Lemma of `word`, for cross-module lemma linking (Word Sketch) */
+  lemma?: string
   is_metaphor?: boolean
   is_direct_metaphor?: boolean
   is_mflag?: boolean

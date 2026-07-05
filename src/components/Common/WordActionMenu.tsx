@@ -290,7 +290,16 @@ export default function WordActionMenu({
     }
   }
 
-  const createCrossLinkParams = (): CrossLinkParams => {
+  /**
+   * @param forceLemma When true, always search by lemma regardless of `matchMode` — used
+   * only for the Word Sketch target, whose grammar-relation index is lemma-only (a word-form
+   * value that differs from its lemma simply won't match anything there). Collocation and
+   * Collocation Analysis instead must follow the caller's own current search mode: using the
+   * lemma there when the caller wasn't actually searching by lemma would silently change what
+   * gets matched, and — via `forceSearchMode` below — leave the target page's own word/lemma
+   * selector out of sync with the value actually being searched.
+   */
+  const createCrossLinkParams = (forceLemma = false): CrossLinkParams => {
     // Generate CQL query if we have main word and relation info from Word Sketch
     // generateCQLForRelation returns { cql, kwicKeyword, kwicHighlight }
     let cqlQuery: string | undefined
@@ -310,9 +319,13 @@ export default function WordActionMenu({
       kwicKeyword = result.kwicKeyword
       kwicHighlight = result.kwicHighlight
     }
-    
+
+    const searchWordValue = isFromWordSketch || forceLemma
+      ? (wordLemma ?? kwicKeyword)
+      : (matchMode === 'lemma' ? (wordLemma ?? kwicKeyword) : kwicKeyword)
+
     const params: CrossLinkParams = {
-      searchWord: wordLemma ?? kwicKeyword,
+      searchWord: searchWordValue,
       corpusId,
       textIds,
       selectionMode,
@@ -325,7 +338,10 @@ export default function WordActionMenu({
       cqlQuery,
       matchMode,
       relationName,
-      forceSearchMode: cqlQuery ? 'cql' : undefined,
+      // Sync the target page's own word/lemma selector to what searchWordValue actually is
+      // (Word Sketch has no such selector, so this is only meaningful for Concordance/
+      // Collocation Analysis — see createCrossLinkParams doc comment above).
+      forceSearchMode: cqlQuery ? 'cql' : (isFromWordSketch || forceLemma ? undefined : matchMode),
       // For post-processing CQL results:
       // - kwicKeywordLemma: token that should be KWIC keyword
       // - kwicHighlightLemma: token that should be highlighted in context
@@ -372,8 +388,9 @@ export default function WordActionMenu({
 
   const handleOpenWordSketch = (event: React.MouseEvent) => {
     event.stopPropagation()
-    // Store action to execute after menu exit transition completes
-    const crossLinkParams = { ...createCrossLinkParams(), targetSubTab: 1 }
+    // Store action to execute after menu exit transition completes.
+    // forceLemma=true: Word Sketch's grammar-relation index only matches by lemma.
+    const crossLinkParams = { ...createCrossLinkParams(true), targetSubTab: 1 }
     const title = `${t('wordsketch.title')} - ${word}`
     pendingActionRef.current = () => {
       openTab({
