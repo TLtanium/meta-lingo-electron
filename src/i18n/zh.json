@@ -23,7 +23,7 @@
   },
   "startup": {
     "initializing": "正在初始化应用...",
-    "startingBackend": "正在启动本地服务...",
+    "startingBackend": "正在启动应用...",
     "checkingHealth": "正在启动应用...",
     "ready": "启动完成，正在跳转...",
     "error": "本地服务启动失败",
