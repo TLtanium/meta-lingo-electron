@@ -7382,7 +7382,7 @@ Meta-Lingo includes a **Model Context Protocol (MCP) server** that allows AI ass
 
 | Client | Setup Method | Description |
 |--------|-------------|-------------|
-| **Claude Desktop** | Extension (.dxt) or stdio | Anthropic’s desktop app (macOS / Windows). Recommended |
+| **Claude Desktop** | Extension (.mcpb) or stdio | Anthropic’s desktop app (macOS / Windows). Recommended |
 | **Claude.ai** (web) | Connectors (HTTPS required) | Anthropic’s web assistant. Requires ngrok or public server |
 | **Cursor** | stdio config | AI code editor |
 | Other MCP clients | stdio or HTTP | Any client supporting the MCP protocol |
@@ -7392,9 +7392,8 @@ Meta-Lingo includes a **Model Context Protocol (MCP) server** that allows AI ass
 The easiest way to connect. Double-click to install — no config files or terminal commands needed.
 
 1. Ensure Meta-Lingo is running (the MCP service connects to Meta-Lingo’s backend).
-2. In Meta-Lingo **Settings** → **MCP Service**, click the **Download Extension (.dxt)** button to get the extension file.
-3. **Double-click** the `.dxt` file — Claude Desktop will prompt you to install.
-4. Confirm the installation. Meta-Lingo’s 51 tools will be available immediately.
+2. In Meta-Lingo **Settings** → **MCP Service**, click **Install to Claude Desktop** — this opens the extension file directly with Claude Desktop and shows the install confirmation dialog.
+3. Confirm the installation. Meta-Lingo’s tools will be available immediately.
 
 > **Tip**: You can also install via Claude Desktop → **Settings** → **Extensions** → **Install from file**.
 

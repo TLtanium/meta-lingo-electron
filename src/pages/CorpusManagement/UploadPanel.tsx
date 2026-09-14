@@ -48,7 +48,7 @@ import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs'
 import dayjs, { Dayjs } from 'dayjs'
 import { corpusApi } from '../../api'
 import apiClient from '../../api/client'
-import NumberInput from '../../components/common/NumberInput'
+import NumberInput from '../../components/Common/NumberInput'
 import type {
   MediaType,
   Corpus,

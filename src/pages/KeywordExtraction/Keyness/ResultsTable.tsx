@@ -39,7 +39,7 @@ import MoreVertIcon from '@mui/icons-material/MoreVert'
 import { useTranslation } from 'react-i18next'
 import type { KeynessKeyword, KeynessStatistic, ComparisonMode } from '../../../types/keyword'
 import type { SelectionMode } from '../../../types/crossLink'
-import { WordActionMenu } from '../../../components/common'
+import { WordActionMenu } from '../../../components/Common'
 import { useTabStore } from '../../../stores/tabStore'
 
 type SortColumn = 'rank' | 'keyword' | 'study_freq' | 'ref_freq' | 'score' | 'effect_size'

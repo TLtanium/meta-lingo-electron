@@ -9,7 +9,9 @@ import {
   CircularProgress,
   Typography,
   styled,
-  TabsActions
+  TabsActions,
+  Stack,
+  Button
 } from '@mui/material'
 import CloseIcon from '@mui/icons-material/Close'
 import MoreVertIcon from '@mui/icons-material/MoreVert'
@@ -29,8 +31,11 @@ import TheaterComedyIcon from '@mui/icons-material/TheaterComedy'
 import SettingsIcon from '@mui/icons-material/Settings'
 import HelpIcon from '@mui/icons-material/Help'
 import { useTranslation } from 'react-i18next'
+import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline'
+import RefreshIcon from '@mui/icons-material/Refresh'
 import { useTabStore } from '../../stores/tabStore'
 import { useSettingsStore } from '../../stores/settingsStore'
+import ErrorBoundary from '../Common/ErrorBoundary'
 import type { Tab as TabType, TabType as TabTypeEnum, CrossLinkParams } from '../../types'
 
 // Lazy load page components
@@ -136,10 +141,10 @@ const MemoTabContent = memo(TabContent)
 // Loading fallback
 function LoadingFallback() {
   return (
-    <Box 
-      sx={{ 
-        display: 'flex', 
-        justifyContent: 'center', 
+    <Box
+      sx={{
+        display: 'flex',
+        justifyContent: 'center',
         alignItems: 'center',
         height: '100%',
         flexDirection: 'column',
@@ -148,6 +153,53 @@ function LoadingFallback() {
     >
       <CircularProgress />
       <Typography color="text.secondary">Loading...</Typography>
+    </Box>
+  )
+}
+
+/**
+ * Per-tab error fallback. A crash inside one tab's page (e.g. a component
+ * calling an array method on data that hasn't loaded yet — see
+ * ErrorBoundary.tsx header comment) only replaces THIS tab's content; the
+ * tab bar, header, and every other open tab keep working.
+ */
+function TabErrorFallback({ tab, error, onRetry }: { tab: TabType; error: Error; onRetry: () => void }) {
+  const { t } = useTranslation()
+  const { closeTab } = useTabStore()
+
+  return (
+    <Box sx={{ p: 3, height: '100%', overflow: 'auto' }}>
+      <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1.5 }}>
+        <ErrorOutlineIcon color="error" />
+        <Typography variant="h6" color="error">
+          {t('errorBoundary.tabTitle')}
+        </Typography>
+      </Stack>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+        {t('errorBoundary.tabMessage', { title: tab.title })}
+      </Typography>
+      <Box
+        sx={{
+          p: 2,
+          mb: 2,
+          bgcolor: 'action.hover',
+          borderRadius: 1,
+          fontFamily: 'monospace',
+          fontSize: 12,
+          overflow: 'auto',
+          maxHeight: 160
+        }}
+      >
+        {error.message}
+      </Box>
+      <Stack direction="row" spacing={1.5}>
+        <Button variant="contained" startIcon={<RefreshIcon />} onClick={onRetry}>
+          {t('errorBoundary.retry')}
+        </Button>
+        <Button variant="outlined" color="inherit" onClick={() => closeTab(tab.id)}>
+          {t('errorBoundary.closeTab')}
+        </Button>
+      </Stack>
     </Box>
   )
 }
@@ -302,7 +354,12 @@ export default function TabManager() {
                 zIndex: 1
               }}
             >
-              <MemoTabContent tab={tab} />
+              <ErrorBoundary
+                key={tab.id}
+                fallback={(error, reset) => <TabErrorFallback tab={tab} error={error} onRetry={reset} />}
+              >
+                <MemoTabContent tab={tab} />
+              </ErrorBoundary>
             </Box>
           ))}
         </Suspense>

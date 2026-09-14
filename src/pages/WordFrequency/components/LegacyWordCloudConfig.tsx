@@ -14,7 +14,7 @@ import {
 import CloudUploadIcon from '@mui/icons-material/CloudUpload'
 import DeleteIcon from '@mui/icons-material/Delete'
 import { useTranslation } from 'react-i18next'
-import { NumberInput } from '../../../components/common'
+import { NumberInput } from '../../../components/Common'
 import type { WordCloudConfig, WordCloudColormap, WordCloudStyle } from '../../../types/wordFrequency'
 import { WORDCLOUD_COLORMAPS } from '../../../types/wordFrequency'
 

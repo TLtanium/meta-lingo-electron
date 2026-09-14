@@ -23,7 +23,7 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import SettingsIcon from '@mui/icons-material/Settings'
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline'
 import { useTranslation } from 'react-i18next'
-import { NumberInput } from '../../../components/common'
+import { NumberInput } from '../../../components/Common'
 import type { 
   SingleDocAlgorithm, 
   SingleDocConfig

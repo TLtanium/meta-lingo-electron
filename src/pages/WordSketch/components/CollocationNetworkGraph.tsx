@@ -23,7 +23,7 @@ import ImageIcon from '@mui/icons-material/Image'
 import InsertChartIcon from '@mui/icons-material/InsertChart'
 import { useTranslation } from 'react-i18next'
 import * as d3 from 'd3'
-import { NumberInput } from '../../../components/common'
+import { NumberInput } from '../../../components/Common'
 import type { CollocationAnalysisResult, StatisticalMeasure } from '../../../types/collocationAnalysis'
 
 interface CollocationNetworkGraphProps {

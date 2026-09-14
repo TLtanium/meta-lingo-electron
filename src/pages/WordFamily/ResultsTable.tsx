@@ -35,7 +35,7 @@ import KeyboardArrowRightIcon from '@mui/icons-material/KeyboardArrowRight'
 import { useTranslation } from 'react-i18next'
 import type { SynonymResult, Synset } from '../../types/synonym'
 import type { SelectionMode } from '../../types/crossLink'
-import { WordActionMenu } from '../../components/common'
+import { WordActionMenu } from '../../components/Common'
 
 type SortField = 'word' | 'frequency' | 'synonym_count'
 type SortDirection = 'asc' | 'desc'

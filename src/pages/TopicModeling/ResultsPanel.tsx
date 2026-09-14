@@ -39,7 +39,7 @@ import {
   TextField,
   useTheme
 } from '@mui/material'
-import { NumberInput } from '../../components/common'
+import { NumberInput } from '../../components/Common'
 import FileDownloadIcon from '@mui/icons-material/FileDownload'
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome'
 import QueryStatsIcon from '@mui/icons-material/QueryStats'
@@ -51,7 +51,7 @@ import type { TopicAnalysisResult, TopicItem } from '../../types/topicModeling'
 import type { SelectionMode } from '../../types/crossLink'
 import { topicModelingApi } from '../../api'
 import type { OutlierEstimationResult } from '../../api/topicModeling'
-import { WordActionMenu } from '../../components/common'
+import { WordActionMenu } from '../../components/Common'
 
 interface ResultsPanelProps {
   result: TopicAnalysisResult | null
@@ -113,6 +113,14 @@ export default function ResultsPanel({
   const [selectedTopicsForMerge, setSelectedTopicsForMerge] = useState<number[]>([])
   const [merging, setMerging] = useState(false)
   const [mergeError, setMergeError] = useState<string | null>(null)
+
+  // Export topic documents states — independent selection from the merge dialog's
+  // (checkboxes live directly on the topic cards/table rows, not inside a modal)
+  const [selectedTopicsForExport, setSelectedTopicsForExport] = useState<number[]>([])
+  const [exportDialogOpen, setExportDialogOpen] = useState(false)
+  const [exportFormat, setExportFormat] = useState<'txt' | 'csv'>('txt')
+  const [exportingDocs, setExportingDocs] = useState(false)
+  const [exportDocsError, setExportDocsError] = useState<string | null>(null)
   
   // Custom label states
   const [labelDialogOpen, setLabelDialogOpen] = useState(false)
@@ -283,6 +291,53 @@ export default function ResultsPanel({
     }
   }
 
+  // Export topic documents handlers
+  const handleToggleTopicForExport = (topicId: number) => {
+    setSelectedTopicsForExport(prev =>
+      prev.includes(topicId)
+        ? prev.filter(id => id !== topicId)
+        : [...prev, topicId]
+    )
+  }
+
+  const openExportDialog = () => {
+    setExportDialogOpen(true)
+    setExportDocsError(null)
+  }
+
+  const handleExportTopicDocuments = async () => {
+    if (!result?.result_id || selectedTopicsForExport.length === 0) return
+
+    setExportingDocs(true)
+    setExportDocsError(null)
+
+    try {
+      const response = await topicModelingApi.exportTopicDocuments(
+        result.result_id,
+        selectedTopicsForExport,
+        exportFormat
+      )
+
+      if (response.success && response.blob) {
+        const url = URL.createObjectURL(response.blob)
+        const link = document.createElement('a')
+        link.href = url
+        link.download = response.filename || `bertopic_documents.${exportFormat}`
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+        URL.revokeObjectURL(url)
+        setExportDialogOpen(false)
+      } else {
+        setExportDocsError(response.message || t('common.error'))
+      }
+    } catch (err) {
+      setExportDocsError(String(err))
+    } finally {
+      setExportingDocs(false)
+    }
+  }
+
   // Custom label handlers
   const openLabelDialog = (topicId: number) => {
     const topic = validTopics.find(t => t.id === topicId)
@@ -337,6 +392,18 @@ export default function ResultsPanel({
             )}
           </Stack>
           <Stack direction="row" spacing={1}>
+            {selectedTopicsForExport.length > 0 && (
+              <Tooltip title={t('topicModeling.results.exportDocuments')}>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  startIcon={<FileDownloadIcon />}
+                  onClick={openExportDialog}
+                >
+                  {t('topicModeling.results.exportDocumentsWithCount', { count: selectedTopicsForExport.length })}
+                </Button>
+              </Tooltip>
+            )}
             {result.stats.outlier_count > 0 && (
               <Tooltip title={t('topicModeling.results.estimateOutliers')}>
                 <Button
@@ -438,13 +505,22 @@ export default function ResultsPanel({
                   >
                     <CardContent>
                       <Stack direction="row" justifyContent="space-between" alignItems="center" mb={1}>
-                        <Typography variant="subtitle2" color="primary">
-                          Topic {topic.id + 1}
-                        </Typography>
+                        <Stack direction="row" spacing={0.5} alignItems="center">
+                          <Checkbox
+                            size="small"
+                            checked={selectedTopicsForExport.includes(topic.id)}
+                            onClick={(e) => e.stopPropagation()}
+                            onChange={() => handleToggleTopicForExport(topic.id)}
+                            sx={{ p: 0.25 }}
+                          />
+                          <Typography variant="subtitle2" color="primary">
+                            Topic {topic.id + 1}
+                          </Typography>
+                        </Stack>
                         <Stack direction="row" spacing={0.5} alignItems="center">
                           <Tooltip title={t('topicModeling.results.editLabel')}>
-                            <IconButton 
-                              size="small" 
+                            <IconButton
+                              size="small"
                               onClick={(e) => {
                                 e.stopPropagation()
                                 openLabelDialog(topic.id)
@@ -674,6 +750,7 @@ export default function ResultsPanel({
               <Table size="small" stickyHeader>
                 <TableHead>
                   <TableRow sx={{ '& th': { bgcolor: theme.palette.mode === 'dark' ? '#1e1e2e' : 'grey.100', fontWeight: 600 } }}>
+                    <TableCell padding="checkbox" />
                     <TableCell sx={{ width: 60 }}>ID</TableCell>
                     <TableCell sx={{ minWidth: 150 }}>
                       {t('topicModeling.results.topicName')}
@@ -686,12 +763,12 @@ export default function ResultsPanel({
                 </TableHead>
                 <TableBody>
                   {validTopics.map((topic, index) => (
-                    <TableRow 
+                    <TableRow
                       key={topic.id}
                       hover
                       selected={selectedTopicId === topic.id}
                       onClick={() => setSelectedTopicId(topic.id === selectedTopicId ? null : topic.id)}
-                      sx={{ 
+                      sx={{
                         cursor: 'pointer',
                         bgcolor: index % 2 === 0 ? 'transparent' : 'action.hover',
                         '&.Mui-selected': {
@@ -702,10 +779,17 @@ export default function ResultsPanel({
                         }
                       }}
                     >
+                      <TableCell padding="checkbox" onClick={(e) => e.stopPropagation()}>
+                        <Checkbox
+                          size="small"
+                          checked={selectedTopicsForExport.includes(topic.id)}
+                          onChange={() => handleToggleTopicForExport(topic.id)}
+                        />
+                      </TableCell>
                       <TableCell>
-                        <Chip 
-                          label={topic.id} 
-                          size="small" 
+                        <Chip
+                          label={topic.id}
+                          size="small"
                           variant="outlined"
                           sx={{ minWidth: 36 }}
                         />
@@ -921,6 +1005,59 @@ export default function ResultsPanel({
             startIcon={merging ? <CircularProgress size={16} /> : <MergeIcon />}
           >
             {merging ? t('common.loading') : t('topicModeling.results.merge')}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Export Topic Documents Dialog */}
+      <Dialog
+        open={exportDialogOpen}
+        onClose={() => !exportingDocs && setExportDialogOpen(false)}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle>{t('topicModeling.results.exportDocuments')}</DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ mt: 1 }}>
+            <Typography variant="body2" color="text.secondary">
+              {t('topicModeling.results.exportDocumentsHelp', { count: selectedTopicsForExport.length })}
+            </Typography>
+
+            {exportDocsError && (
+              <Alert severity="error" onClose={() => setExportDocsError(null)}>
+                {exportDocsError}
+              </Alert>
+            )}
+
+            <FormControl fullWidth size="small">
+              <InputLabel>{t('topicModeling.results.exportFormat')}</InputLabel>
+              <Select
+                value={exportFormat}
+                label={t('topicModeling.results.exportFormat')}
+                onChange={(e) => setExportFormat(e.target.value as 'txt' | 'csv')}
+                disabled={exportingDocs}
+              >
+                <MenuItem value="txt">{t('topicModeling.results.exportFormatTxt')}</MenuItem>
+                <MenuItem value="csv">{t('topicModeling.results.exportFormatCsv')}</MenuItem>
+              </Select>
+            </FormControl>
+
+            <Typography variant="caption" color="text.secondary">
+              {t('topicModeling.results.selectedTopics')}: {selectedTopicsForExport.join(', ')}
+            </Typography>
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setExportDialogOpen(false)} disabled={exportingDocs}>
+            {t('common.cancel')}
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleExportTopicDocuments}
+            disabled={exportingDocs}
+            startIcon={exportingDocs ? <CircularProgress size={16} /> : <FileDownloadIcon />}
+          >
+            {exportingDocs ? t('common.loading') : t('common.export')}
           </Button>
         </DialogActions>
       </Dialog>

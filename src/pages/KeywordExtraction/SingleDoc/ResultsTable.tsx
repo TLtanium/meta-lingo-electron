@@ -31,7 +31,7 @@ import DeselectIcon from '@mui/icons-material/Deselect'
 import { useTranslation } from 'react-i18next'
 import type { SingleDocKeyword, SingleDocAlgorithm } from '../../../types/keyword'
 import type { SelectionMode } from '../../../types/crossLink'
-import { WordActionMenu } from '../../../components/common'
+import { WordActionMenu } from '../../../components/Common'
 
 type SortColumn = 'rank' | 'keyword' | 'score' | 'frequency'
 type SortDirection = 'asc' | 'desc'

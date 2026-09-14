@@ -295,6 +295,9 @@ export interface SpacyToken {
   lemma: string
   dep: string
   morph: string
+  // USAS 语义域元数据（v4.9.38+，随存档持久化；前端不展示，见 mldoc.md）
+  usas_tag?: string
+  usas_tags?: string[]  // Top-5 候选语义标签（含主候选 usas_tag）
 }
 
 /**

@@ -22,7 +22,7 @@ import {
   Divider,
   Tooltip
 } from '@mui/material'
-import { NumberInput } from '../../../components/common'
+import { NumberInput } from '../../../components/Common'
 import PlayArrowIcon from '@mui/icons-material/PlayArrow'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import TuneIcon from '@mui/icons-material/Tune'

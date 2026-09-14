@@ -1,3 +1,4 @@
+export { default as ErrorBoundary } from './ErrorBoundary'
 export { default as KWICDisplay } from './KWICDisplay'
 export { default as LoadingOverlay } from './LoadingOverlay'
 export { default as NumberInput } from './NumberInput'

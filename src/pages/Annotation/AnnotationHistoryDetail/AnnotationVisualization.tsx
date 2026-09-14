@@ -46,7 +46,7 @@ import { getAbsorbedMemberIds } from '../../../utils/annotationGroups'
 import AnnotationWordCloud, { type LabelInfo, type AnnotationWordCloudHandle } from './AnnotationWordCloud'
 import AnnotationNetwork, { type ArchiveListItem, type AnnotationNetworkHandle } from './AnnotationNetwork'
 import LabelStatChips from './LabelStatChips'
-import { NumberInput } from '../../../components/common'
+import { NumberInput } from '../../../components/Common'
 
 interface AnnotationVisualizationProps {
   annotations: Annotation[]

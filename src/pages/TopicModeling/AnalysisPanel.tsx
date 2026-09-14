@@ -25,7 +25,7 @@ import {
   Tooltip,
   TextField
 } from '@mui/material'
-import { NumberInput } from '../../components/common'
+import { NumberInput } from '../../components/Common'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import PlayArrowIcon from '@mui/icons-material/PlayArrow'
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined'

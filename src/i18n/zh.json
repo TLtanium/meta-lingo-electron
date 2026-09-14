@@ -3,6 +3,16 @@
     "name": "Meta-Lingo",
     "description": "多模态语料库研究软件"
   },
+  "errorBoundary": {
+    "tabTitle": "此标签页遇到问题",
+    "tabMessage": "「{{title}}」模块渲染时出错，其他标签页不受影响。可以重试，或关闭这个标签页。",
+    "retry": "重试",
+    "closeTab": "关闭标签页",
+    "details": "错误详情",
+    "appTitle": "应用出现错误",
+    "appMessage": "发生了未预期的错误，请尝试重新加载应用。",
+    "reload": "重新加载应用"
+  },
   "migration": {
     "export": "导出",
     "import": "导入",
@@ -1085,6 +1095,7 @@
       "viewWords": "查看",
       "crossLink": "操作",
       "wordsInDomain": "该语义域词汇数",
+      "exportDomainWords": "导出该语义域词表 (CSV)",
       "showMetaphorHighlight": "高亮隐喻词",
       "metaphorWord": "隐喻",
       "metaphorIndirect": "间接",
@@ -1123,7 +1134,7 @@
     },
     "table": {
       "filterDomainPlaceholder": "筛选语义域...",
-      "filterWordPlaceholder": "筛选词语..."
+      "filterWordPlaceholder": "筛选词语（精确匹配）..."
     }
   },
   "mda": {
@@ -1460,6 +1471,10 @@
     "libraryDetail": "文献详情",
     "visualization": "可视化",
     "createLibrary": "创建文献库",
+    "editLibrary": "编辑文献库",
+    "updateFailed": "更新失败",
+    "targetLibrary": "目标文献库",
+    "createNewLibrary": "创建新文献库",
     "libraryName": "文献库名称",
     "sourceType": "数据来源",
     "cnki": "中国知网 (CNKI)",
@@ -1856,6 +1871,7 @@
     "time": "时间",
     "deleteConfirm": "确定要删除这个标注存档吗？此操作不可撤销。",
     "batchExport": "批量导出",
+    "batchExportFailed": "批量导出失败",
     "import": "导入",
     "importTooltip": "导入已导出的标注存档（.json）",
     "importing": "导入中...",
@@ -2884,6 +2900,12 @@
       "mergeTopicsHelp": "选择至少2个主题进行合并。合并后将把所选主题归为一个，原主题将消失。",
       "selectedTopics": "已选主题",
       "merge": "合并",
+      "exportDocuments": "导出主题文档",
+      "exportDocumentsWithCount": "导出主题文档({{count}})",
+      "exportDocumentsHelp": "将导出已选中 {{count}} 个主题各自包含的全部主题文档（对应文档分布图中的点）。每个主题单独一个文件；选中多个主题时打包为 zip。",
+      "exportFormat": "导出格式",
+      "exportFormatTxt": "TXT（每行一篇文档）",
+      "exportFormatCsv": "CSV（含序号与概率）",
       "editLabel": "编辑标签",
       "editLabelHelp": "为主题设置自定义标签名称。此标签将显示在主题卡片和可视化中。",
       "customLabel": "自定义标签",
@@ -3668,7 +3690,16 @@
       "description": "允许 AI 助手（Claude、Cursor 等）直接使用 Meta-Lingo 的分析工具。",
       "enabled": "启用 MCP 服务",
       "enabledDesc": "AI 助手可连接 Meta-Lingo，进行语料库分析、上传文本和运行研究工作流。",
-      "downloadExtension": "下载扩展 (.dxt)",
+      "installExtension": "安装到 Claude Desktop",
+      "installExtensionHint": "点击后会用 Claude Desktop 打开这个扩展文件，弹出安装确认框。",
+      "installOpening": "正在打开…",
+      "installDone": "已交给 Claude Desktop ✓",
+      "installFailed": "打开扩展文件失败",
+      "revealInFinder": "在访达中显示",
+      "revealInExplorer": "在资源管理器中显示",
+      "revealFailed": "打开文件管理器失败",
+      "extensionNotBuilt": "还没有打包扩展文件。",
+      "downloadExtension": "下载扩展 (.mcpb)",
       "downloadExtensionHint": "下载后双击即可安装到 Claude Desktop，无需其他配置。",
       "manualConfig": "手动配置",
       "manualConfigHint": "适用于 Cursor 或其他需要 JSON 配置的 MCP 客户端。",

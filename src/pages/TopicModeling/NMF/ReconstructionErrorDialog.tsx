@@ -24,7 +24,7 @@ import {
   Alert,
   useTheme
 } from '@mui/material'
-import { NumberInput } from '../../../components/common'
+import { NumberInput } from '../../../components/Common'
 import CloseIcon from '@mui/icons-material/Close'
 import SaveAltIcon from '@mui/icons-material/SaveAlt'
 import ImageIcon from '@mui/icons-material/Image'

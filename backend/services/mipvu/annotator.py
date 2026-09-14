@@ -180,6 +180,20 @@ class MIPVUAnnotator:
                     results[i]['is_direct_metaphor'] = True
                     results[i]['direct_confidence'] = confidence
 
+        # Final safeguard: a bare "-" character must never end up flagged as any
+        # kind of metaphor-related word. Step 2 (SpaCyRuleFilter) already keeps it
+        # out of indirect-metaphor candidacy, but Step 4's direct-metaphor/mflag
+        # model runs over every word in the sentence unconditionally (no
+        # needs_model gating), so it could still tag one independently.
+        for i, token in enumerate(tokens):
+            if self.rules.is_bare_hyphen(token.get('word', '')):
+                results[i]['is_metaphor'] = False
+                results[i]['is_direct_metaphor'] = False
+                results[i]['is_mflag'] = False
+                results[i]['metaphor_confidence'] = 1.0
+                results[i]['direct_confidence'] = 0.0
+                results[i]['metaphor_source'] = 'rule:bare_hyphen'
+
         return results
 
     def annotate_text(

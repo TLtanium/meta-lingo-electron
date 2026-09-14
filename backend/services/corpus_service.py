@@ -126,7 +126,19 @@ class CorpusService:
                     return {"success": False, "error": f"Corpus '{new_name}' already exists"}
                 if old_dir.exists():
                     old_dir.rename(new_dir)
-                
+
+                    # Repoint every text's stored file paths (content_path,
+                    # transcript_path, transcript_json_path, yolo/clip annotation
+                    # paths, audio_path) from the old directory to the new one.
+                    # The rename above already moved the files on disk (sidecars
+                    # included); without this, the DB rows keep stale absolute
+                    # paths containing old_name, so the text content and every
+                    # downstream module (spaCy/USAS/MIPVU/... sidecars, all
+                    # computed from content_path) resolve to files that no
+                    # longer exist post-rename — text appears empty and any
+                    # analysis on it errors out.
+                    self._relocate_text_paths(corpus_id, old_dir, new_dir)
+
                 # Also rename annotations directory to keep archives accessible
                 old_annotations_dir = ANNOTATIONS_DIR / old_name
                 new_annotations_dir = ANNOTATIONS_DIR / new_name
@@ -1353,6 +1365,51 @@ class CorpusService:
                 return new_path
             counter += 1
     
+    def _relocate_text_paths(self, corpus_id: str, old_dir: Path, new_dir: Path) -> None:
+        """Repoint every text's on-disk path fields after the corpus directory
+        was renamed from old_dir to new_dir (files themselves already moved by
+        the caller's Path.rename()) — only the DB's stored path strings, which
+        still embed the old directory, need updating.
+        """
+        path_fields = [
+            'content_path', 'transcript_path', 'transcript_json_path',
+            'yolo_annotation_path', 'clip_annotation_path', 'audio_path'
+        ]
+        old_dir_abs = os.path.abspath(str(old_dir))
+        new_dir_abs = os.path.abspath(str(new_dir))
+        try:
+            texts = TextDB.list_by_corpus(corpus_id)
+        except Exception as e:
+            logger.error(f"Failed to list texts for path relocation: {e}")
+            return
+
+        for text in texts:
+            updates: Dict[str, str] = {}
+            for field in path_fields:
+                value = text.get(field)
+                if not value:
+                    continue
+                abs_value = os.path.abspath(str(value))
+                # Only relocate paths that actually live under the renamed directory
+                # (os.path.relpath always returns *something* between two absolute
+                # paths, even unrelated ones, hence the leading-'..' check below).
+                try:
+                    rel = os.path.relpath(abs_value, old_dir_abs)
+                except ValueError:
+                    continue  # different drive on Windows -- can't be under old_dir
+                if rel == os.pardir or rel.startswith(os.pardir + os.sep):
+                    continue
+                updates[field] = os.path.join(new_dir_abs, rel)
+
+            if updates:
+                try:
+                    TextDB.update(text['id'], updates)
+                except Exception as e:
+                    logger.error(f"Failed to relocate paths for text {text.get('id')}: {e}")
+
+        if texts:
+            logger.info(f"Relocated file paths for {len(texts)} text(s) in renamed corpus {corpus_id}")
+
     def _update_archives_corpus_name(self, annotations_dir: Path, new_corpus_name: str) -> None:
         """Update corpusName field in all archive files when corpus is renamed"""
         try:

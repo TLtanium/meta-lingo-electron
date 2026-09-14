@@ -21,7 +21,7 @@ import {
 } from '@mui/material'
 import TimelineIcon from '@mui/icons-material/Timeline'
 import { useTranslation } from 'react-i18next'
-import { NumberInput } from '../../components/common'
+import { NumberInput } from '../../components/Common'
 import type { DynamicTopicConfig, DateFormatType } from '../../types/topicModeling'
 import type { CorpusText } from '../../types'
 

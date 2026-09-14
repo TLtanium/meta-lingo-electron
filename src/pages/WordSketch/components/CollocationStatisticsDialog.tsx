@@ -25,7 +25,7 @@ import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward'
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward'
 import RestoreIcon from '@mui/icons-material/Restore'
 import { useTranslation } from 'react-i18next'
-import { NumberInput } from '../../../components/common'
+import { NumberInput } from '../../../components/Common'
 import type { StatMeasureConfig, StatisticalMeasure } from '../../../types/collocationAnalysis'
 import { STAT_MEASURE_INFO, DEFAULT_STAT_CONFIGS } from '../../../types/collocationAnalysis'
 

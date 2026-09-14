@@ -32,7 +32,7 @@ interface MCPConfigInfo {
   stdio_snippet: Record<string, unknown>
   http_url: string
   tool_count: number
-  has_dxt: boolean
+  has_extension: boolean
 }
 
 export default function MCPServerSettings() {
@@ -44,9 +44,20 @@ export default function MCPServerSettings() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [snackbarOpen, setSnackbarOpen] = useState(false)
+  // 是否在 Electron 里跑（原生窗口下载会被拦截，改走 shell.openPath；纯浏览器开发调试时仍走下载兜底）
+  const hasElectronBridge = typeof window !== 'undefined' && !!window.electronAPI?.openMcpExtension
+  const [installState, setInstallState] = useState<'idle' | 'opening' | 'done' | 'error'>('idle')
+  const [installError, setInstallError] = useState<string | null>(null)
+  // Electron 侧的文件存在性检查优先于后端 has_extension（同一份判断，Electron 环境下更贴近实际点击行为）
+  const [extensionExistsElectron, setExtensionExistsElectron] = useState<boolean | null>(null)
 
   useEffect(() => {
     loadConfigInfo()
+    if (window.electronAPI?.getMcpExtensionInfo) {
+      window.electronAPI.getMcpExtensionInfo()
+        .then((info: { path: string; exists: boolean }) => setExtensionExistsElectron(info.exists))
+        .catch(() => setExtensionExistsElectron(null))
+    }
   }, [])
 
   useEffect(() => {
@@ -92,7 +103,31 @@ export default function MCPServerSettings() {
     }
   }
 
-  const handleDownloadDxt = async () => {
+  // 主路径：在 Electron 里让系统默认程序（关联了 .mcpb 的 Claude Desktop）直接打开扩展文件，
+  // 弹出安装确认框——原生窗口点 <a download> 会被拦截/静默失败，同 LEOX 遇到的问题。
+  const handleInstallExtension = async () => {
+    if (!window.electronAPI?.openMcpExtension) {
+      // 非 Electron 环境（纯浏览器开发调试）：退回下载
+      return handleDownloadFallback()
+    }
+    setInstallState('opening')
+    setInstallError(null)
+    try {
+      const result = await window.electronAPI.openMcpExtension()
+      if (result.success) {
+        setInstallState('done')
+      } else {
+        setInstallState('error')
+        setInstallError(result.error || t('settings.mcp.installFailed'))
+      }
+    } catch (err) {
+      setInstallState('error')
+      setInstallError(err instanceof Error ? err.message : t('settings.mcp.installFailed'))
+    }
+  }
+
+  // 兜底：非 Electron 环境下走浏览器标准下载
+  const handleDownloadFallback = async () => {
     try {
       const url = `${configInfo?.backend_url || 'http://127.0.0.1:8000'}/api/mcp/download-extension`
       const response = await fetch(url)
@@ -101,7 +136,7 @@ export default function MCPServerSettings() {
       const objectUrl = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = objectUrl
-      a.download = 'meta-lingo-mcp.dxt'
+      a.download = 'meta-lingo-mcp.mcpb'
       document.body.appendChild(a)
       a.click()
       document.body.removeChild(a)
@@ -199,23 +234,39 @@ export default function MCPServerSettings() {
           </Box>
 
           {/* Actions - only when enabled */}
-          {enabled && configInfo && (
+          {enabled && configInfo && (() => {
+            // Electron 环境下以 shell 实际检测到的文件存在性为准；非 Electron（浏览器调试）用后端字段
+            const extensionExists = hasElectronBridge ? (extensionExistsElectron ?? configInfo.has_extension) : configInfo.has_extension
+            return (
             <Stack spacing={1.5}>
-              {/* Download Extension Button */}
+              {/* Install / Download Extension */}
               <Box>
                 <Button
                   variant="contained"
-                  onClick={handleDownloadDxt}
-                  disabled={!configInfo.has_dxt}
+                  onClick={handleInstallExtension}
+                  disabled={!extensionExists || installState === 'opening'}
                   fullWidth
                   sx={{ textTransform: 'none', py: 1.2 }}
                   startIcon={<DownloadIcon />}
                 >
-                  {t('settings.mcp.downloadExtension')}
+                  {installState === 'opening'
+                    ? t('settings.mcp.installOpening')
+                    : installState === 'done'
+                      ? t('settings.mcp.installDone')
+                      : t(hasElectronBridge ? 'settings.mcp.installExtension' : 'settings.mcp.downloadExtension')}
                 </Button>
-                {configInfo.has_dxt && (
+                {extensionExists ? (
                   <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5, px: 0.5 }}>
-                    {t('settings.mcp.downloadExtensionHint')}
+                    {t(hasElectronBridge ? 'settings.mcp.installExtensionHint' : 'settings.mcp.downloadExtensionHint')}
+                  </Typography>
+                ) : (
+                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5, px: 0.5 }}>
+                    {t('settings.mcp.extensionNotBuilt')}
+                  </Typography>
+                )}
+                {installState === 'error' && installError && (
+                  <Typography variant="caption" color="error" sx={{ display: 'block', mt: 0.5, px: 0.5 }}>
+                    {installError}
                   </Typography>
                 )}
               </Box>
@@ -276,7 +327,8 @@ export default function MCPServerSettings() {
                 </AccordionDetails>
               </Accordion>
             </Stack>
-          )}
+            )
+          })()}
         </>
       )}
 

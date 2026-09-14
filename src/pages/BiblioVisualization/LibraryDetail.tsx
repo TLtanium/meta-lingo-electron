@@ -36,9 +36,14 @@ import {
   DialogActions,
   Popover,
   FormGroup,
-  FormControlLabel
+  FormControlLabel,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem
 } from '@mui/material'
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
+import EditIcon from '@mui/icons-material/Edit'
 import DeleteIcon from '@mui/icons-material/Delete'
 import VisibilityIcon from '@mui/icons-material/Visibility'
 import CloudUploadIcon from '@mui/icons-material/CloudUpload'
@@ -62,15 +67,57 @@ import { corpusApi } from '../../api'
 import { useSettingsStore } from '../../stores/settingsStore'
 import FilterPanel from './FilterPanel'
 import EntryDetailDialog from './EntryDetailDialog'
+import { LANGUAGE_OPTIONS } from './constants'
 
 interface LibraryDetailProps {
   library: BiblioLibrary
   onBack: () => void
   onUpload: () => void
+  onLibraryUpdated?: (library: BiblioLibrary) => void
 }
 
-export default function LibraryDetail({ library, onBack, onUpload }: LibraryDetailProps) {
+export default function LibraryDetail({ library, onBack, onUpload, onLibraryUpdated }: LibraryDetailProps) {
   const { t } = useTranslation()
+
+  // Edit library metadata (name/description/language)
+  const [editLibraryOpen, setEditLibraryOpen] = useState(false)
+  const [editLibraryForm, setEditLibraryForm] = useState({ name: '', description: '', language: 'english' })
+  const [savingLibraryEdit, setSavingLibraryEdit] = useState(false)
+  const [editLibraryError, setEditLibraryError] = useState<string | null>(null)
+
+  const handleEditLibraryClick = () => {
+    setEditLibraryForm({
+      name: library.name || '',
+      description: library.description || '',
+      language: library.language || 'english'
+    })
+    setEditLibraryError(null)
+    setEditLibraryOpen(true)
+  }
+
+  const handleEditLibrarySave = async () => {
+    if (!editLibraryForm.name.trim()) {
+      setEditLibraryError(t('biblio.nameRequired'))
+      return
+    }
+    setSavingLibraryEdit(true)
+    setEditLibraryError(null)
+
+    const response = await biblioApi.updateLibrary(library.id, {
+      name: editLibraryForm.name.trim(),
+      description: editLibraryForm.description.trim() || undefined,
+      language: editLibraryForm.language
+    })
+
+    setSavingLibraryEdit(false)
+
+    if (response.success && response.data) {
+      onLibraryUpdated?.(response.data)
+      setEditLibraryOpen(false)
+    } else {
+      setEditLibraryError(response.error || t('biblio.updateFailed'))
+    }
+  }
 
   const [entries, setEntries] = useState<BiblioEntry[]>([])
   const [loading, setLoading] = useState(true)
@@ -473,7 +520,14 @@ export default function LibraryDetail({ library, onBack, onUpload }: LibraryDeta
             <ArrowBackIcon />
           </IconButton>
           <Box sx={{ flex: 1 }}>
-            <Typography variant="h6">{library.name}</Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              <Typography variant="h6">{library.name}</Typography>
+              <Tooltip title={t('biblio.editLibrary')}>
+                <IconButton size="small" onClick={handleEditLibraryClick}>
+                  <EditIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            </Box>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <Chip
                 label={library.source_type}
@@ -1168,6 +1222,60 @@ export default function LibraryDetail({ library, onBack, onUpload }: LibraryDeta
           <Button onClick={() => handleBatchAiGenerate('zh')}>{t('biblio.generateLanguageZh')}</Button>
           <Button onClick={() => handleBatchAiGenerate('en')}>{t('biblio.generateLanguageEn')}</Button>
           <Button onClick={() => setBatchAiLanguageOpen(false)}>{t('common.cancel')}</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Edit library metadata dialog */}
+      <Dialog open={editLibraryOpen} onClose={() => setEditLibraryOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>{t('biblio.editLibrary')}</DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ mt: 1 }}>
+            <TextField
+              label={t('biblio.libraryName')}
+              value={editLibraryForm.name}
+              onChange={e => setEditLibraryForm(prev => ({ ...prev, name: e.target.value }))}
+              fullWidth
+              required
+              disabled={savingLibraryEdit}
+            />
+            <FormControl fullWidth disabled={savingLibraryEdit}>
+              <InputLabel>{t('biblio.language')}</InputLabel>
+              <Select
+                value={editLibraryForm.language}
+                label={t('biblio.language')}
+                onChange={e => setEditLibraryForm(prev => ({ ...prev, language: e.target.value }))}
+              >
+                {LANGUAGE_OPTIONS.map(opt => (
+                  <MenuItem key={opt.value} value={opt.value}>
+                    {t(opt.labelKey)}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <TextField
+              label={t('biblio.description')}
+              value={editLibraryForm.description}
+              onChange={e => setEditLibraryForm(prev => ({ ...prev, description: e.target.value }))}
+              fullWidth
+              multiline
+              rows={3}
+              disabled={savingLibraryEdit}
+            />
+            {editLibraryError && <Alert severity="error">{editLibraryError}</Alert>}
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setEditLibraryOpen(false)} disabled={savingLibraryEdit}>
+            {t('common.cancel')}
+          </Button>
+          <Button
+            onClick={handleEditLibrarySave}
+            variant="contained"
+            disabled={savingLibraryEdit || !editLibraryForm.name.trim()}
+            startIcon={savingLibraryEdit ? <CircularProgress size={16} /> : undefined}
+          >
+            {t('common.save')}
+          </Button>
         </DialogActions>
       </Dialog>
 

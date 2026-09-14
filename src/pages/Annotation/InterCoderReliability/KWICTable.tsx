@@ -48,6 +48,7 @@ import type {
   ValidationSummary
 } from '../../../api/reliability'
 import { reliabilityApi } from '../../../api/reliability'
+import { deriveAnnotationTier } from '../../../utils/annotationPath'
 
 interface KWICTableProps {
   files: ArchiveFile[]
@@ -558,10 +559,7 @@ export default function KWICTable({ files, dataSummary, includedLabels }: KWICTa
           )
           .map(ann => {
             const rawPath: string = (ann.labelPath || ann.label || '') as string
-            const parts = rawPath.split('/').filter(Boolean)
-            const layer = parts.length >= 2
-              ? parts[parts.length - 2]
-              : (parts[0] || (ann.label as string) || '')
+            const layer = deriveAnnotationTier(rawPath, (ann.label as string) || '')
             return {
               text: (ann.text || '') as string,
               startPosition: ann.startPosition as number,

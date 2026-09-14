@@ -28,7 +28,7 @@ import InsertChartIcon from '@mui/icons-material/InsertChart'
 import SaveAltIcon from '@mui/icons-material/SaveAlt'
 import ImageIcon from '@mui/icons-material/Image'
 import { useTranslation } from 'react-i18next'
-import { NumberInput } from '../../components/common'
+import { NumberInput } from '../../components/Common'
 import { topicModelingApi, VisualizationParams } from '../../api/topicModeling'
 import type { VisualizationType, VisualizationData } from '../../types/topicModeling'
 

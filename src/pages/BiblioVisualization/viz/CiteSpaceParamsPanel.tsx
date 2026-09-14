@@ -13,7 +13,7 @@ import {
   FormControlLabel, Switch,
 } from '@mui/material'
 import { useTranslation } from 'react-i18next'
-import { NumberInput } from '../../../components/common'
+import { NumberInput } from '../../../components/Common'
 import type { CiteSpaceParams } from '../../../types/biblio'
 import { ParamRow, SliderParam } from './ParamComponents'
 import { TERM_METRICS, REF_METRICS, type LabelMetric } from '../components/d3/shared/labelMetrics'

@@ -105,6 +105,19 @@ class SpaCyRuleFilter:
         
         return False
     
+    def is_bare_hyphen(self, word: str) -> bool:
+        """
+        Check if the token is a standalone "-" character.
+
+        SpaCy tags a bare hyphen inconsistently — HYPH inside compounds
+        (e.g. "well-known"), but often the "," tag when it's used as a
+        sentence-internal dash — so POS-tag-based rules don't reliably
+        catch it. Filtering on the literal token text instead is exact and
+        tag-independent: a lone hyphen carries no lexical meaning of its own
+        and should never be judged metaphor-related.
+        """
+        return word.strip() == '-'
+
     def is_target_pos(self, pos_tag: str) -> bool:
         """
         Check if the POS tag is one of the target tags for the finetuned model.
@@ -136,17 +149,21 @@ class SpaCyRuleFilter:
         word = token_data.get('word', '')
         tag = token_data.get('tag', '')
         dep = token_data.get('dep', '')
-        
+
+        # Rule 0: Bare "-" character (never metaphor-related; see is_bare_hyphen)
+        if self.is_bare_hyphen(word):
+            return True, 'bare_hyphen'
+
         # Rule 1: Non-metaphor POS tags
         if self.is_non_metaphor_by_pos(tag):
             return True, f'pos_{tag}'
-        
+
         # Rule 2: Infinitive "to"
         if self.is_infinitive_to(token_data, next_token_data):
             return True, 'infinitive_to'
-        
+
         # Rule 3: High-confidence dep+word combinations
         if self.is_non_metaphor_by_dep_word(word, dep):
             return True, f'dep_word_{dep}_{word.lower()}'
-        
+
         return False, None

@@ -24,7 +24,7 @@ import {
   Checkbox,
   useTheme
 } from '@mui/material'
-import { NumberInput } from '../../../components/common'
+import { NumberInput } from '../../../components/Common'
 import SaveAltIcon from '@mui/icons-material/SaveAlt'
 import ImageIcon from '@mui/icons-material/Image'
 import InsertChartIcon from '@mui/icons-material/InsertChart'

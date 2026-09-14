@@ -1,4 +1,4 @@
-import { api } from './client'
+import { api, API_BASE_URL } from './client'
 import type {
   Annotation,
   AnnotationArchive,
@@ -144,7 +144,36 @@ export const annotationApi = {
 
   // Get supported frameworks for auto-annotation
   getSupportedFrameworks: () =>
-    api.get<SupportedFrameworksApiResponse>('/api/annotation/auto-annotate/supported-frameworks')
+    api.get<SupportedFrameworksApiResponse>('/api/annotation/auto-annotate/supported-frameworks'),
+
+  /**
+   * Bundle multiple annotation archives into a single .zip (one download for the whole batch).
+   * Replaces the old N-separate-blob-downloads approach, which fired un-gestured downloads in
+   * a tight loop and made Electron/Chromium play a repeated alert sound while silently dropping
+   * all but the first one or two.
+   */
+  exportBatch: async (
+    items: Array<{ corpusName: string; id: string }>
+  ): Promise<{ success: boolean; blob?: Blob; filename?: string; message?: string }> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/annotation/export-batch`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items })
+      })
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({ detail: response.statusText }))
+        return { success: false, message: err.detail || 'Export failed' }
+      }
+      const disposition = response.headers.get('Content-Disposition') || ''
+      const filenameMatch = disposition.match(/filename\s*=\s*"?([^";\r\n]+)"?/i)
+      const filename = filenameMatch ? filenameMatch[1].trim() : 'metalingo_annotations.zip'
+      const blob = await response.blob()
+      return { success: true, blob, filename }
+    } catch (error) {
+      return { success: false, message: String(error) }
+    }
+  }
 }
 
 // Helper function to create SaveAnnotationRequest for text annotations

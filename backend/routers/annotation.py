@@ -4,12 +4,16 @@ Handles annotation save/load operations
 """
 
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import StreamingResponse
 from typing import List, Optional, Dict, Any
 from pydantic import BaseModel
 from datetime import datetime
 from pathlib import Path
+import io
 import json
+import re
 import uuid
+import zipfile
 import logging
 
 from config import ANNOTATIONS_DIR
@@ -137,6 +141,11 @@ class SpacyToken(BaseModel):
     lemma: str
     dep: str
     morph: str = ""
+    # USAS 语义域元数据（v4.9.38+）：由 GET /texts/{text_id}/spacy 按位置从
+    # <stem>.usas.json（或转录内嵌 usas_annotations）合并写入，随存档一起持久化。
+    # 前端不展示这些字段，仅作为标注存档中每个词的附加元数据保留。
+    usas_tag: Optional[str] = None       # 主候选语义标签
+    usas_tags: Optional[List[str]] = None  # Top-5 候选语义标签（含主候选）
 
 
 class SpacyEntity(BaseModel):
@@ -430,11 +439,72 @@ async def load_annotation(corpus_name: str, archive_id: str):
     archive = load_archive(corpus_name, archive_id)
     if not archive:
         raise HTTPException(status_code=404, detail="Annotation archive not found")
-    
+
     return {
         'success': True,
         'data': archive
     }
+
+
+class BatchExportItem(BaseModel):
+    corpusName: str
+    id: str
+
+
+class BatchExportRequest(BaseModel):
+    items: List[BatchExportItem]
+
+
+_ILLEGAL_FILENAME_CHARS = re.compile(r'[<>:"/\\|?*]')
+
+
+@router.post("/export-batch")
+async def export_annotations_batch(data: BatchExportRequest):
+    """Bundle multiple annotation archives into a single .zip for download.
+
+    Triggering one client-side download per archive (the previous approach)
+    fires N un-gestured downloads in a tight loop; Electron/Chromium plays a
+    system alert sound for downloads it can't complete silently and only the
+    first one or two actually land, so most of the batch silently fails.
+    Zipping server-side collapses the batch into exactly one download.
+    """
+    if not data.items:
+        raise HTTPException(status_code=400, detail="No archives selected")
+
+    buf = io.BytesIO()
+    used_names: Dict[str, int] = {}
+    exported = 0
+    with zipfile.ZipFile(buf, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
+        for item in data.items:
+            archive = load_archive(item.corpusName, item.id)
+            if not archive:
+                continue
+
+            file_stem = archive.get('textName') or archive.get('resourceName') or archive['id']
+            safe_stem = _ILLEGAL_FILENAME_CHARS.sub('_', file_stem)
+            safe_corpus = _ILLEGAL_FILENAME_CHARS.sub('_', item.corpusName)
+            arc_key = f"{safe_corpus}/{safe_stem}.json"
+
+            # Disambiguate if two archives in the same corpus share a display name
+            if arc_key in used_names:
+                used_names[arc_key] += 1
+                arc_key = f"{safe_corpus}/{safe_stem}_{used_names[arc_key]}.json"
+            else:
+                used_names[arc_key] = 0
+
+            zf.writestr(arc_key, json.dumps(archive, ensure_ascii=False, indent=2))
+            exported += 1
+
+    if exported == 0:
+        raise HTTPException(status_code=404, detail="None of the requested archives were found")
+
+    buf.seek(0)
+    filename = f"metalingo_annotations_{datetime.now().strftime('%Y%m%d_%H%M%S')}.zip"
+    return StreamingResponse(
+        buf,
+        media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @router.post("/save")

@@ -3,7 +3,7 @@
  * API functions for BERTopic and LDA topic modeling
  */
 
-import { api } from './client'
+import { api, API_BASE_URL } from './client'
 import type {
   PreprocessConfig,
   PreprocessPreviewResult,
@@ -362,6 +362,38 @@ export async function mergeTopics(
     result_id: resultId,
     topics_to_merge: topicsToMerge
   })
+}
+
+/**
+ * Export the full documents belonging to one or more topics (same points as
+ * the document distribution plot) as txt (one document per line) or csv —
+ * one file per topic, zipped together when more than one topic is requested.
+ * Raw file download (not the api.post JSON wrapper), same pattern as
+ * corpusApi.exportBundle / annotationApi.exportBatch.
+ */
+export async function exportTopicDocuments(
+  resultId: string,
+  topicIds: number[],
+  format: 'txt' | 'csv'
+): Promise<{ success: boolean; blob?: Blob; filename?: string; message?: string }> {
+  try {
+    const response = await fetch(`${API_BASE_URL}${BASE_URL}/export-documents`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ result_id: resultId, topic_ids: topicIds, format })
+    })
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({ detail: response.statusText }))
+      return { success: false, message: err.detail || 'Export failed' }
+    }
+    const disposition = response.headers.get('Content-Disposition') || ''
+    const filenameMatch = disposition.match(/filename\s*=\s*"?([^";\r\n]+)"?/i)
+    const filename = filenameMatch ? filenameMatch[1].trim() : `bertopic_documents.${format === 'csv' ? 'csv' : 'txt'}`
+    const blob = await response.blob()
+    return { success: true, blob, filename }
+  } catch (error) {
+    return { success: false, message: String(error) }
+  }
 }
 
 // ============ Custom Label API ============
@@ -1128,6 +1160,8 @@ export const topicModelingApi = {
   estimateOutliers,
   // Topic merge
   mergeTopics,
+  // Export topic documents
+  exportTopicDocuments,
   // Custom label
   updateTopicLabel,
   // LDA

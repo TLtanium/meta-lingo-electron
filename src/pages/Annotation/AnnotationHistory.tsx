@@ -55,6 +55,7 @@ import UploadFileIcon from '@mui/icons-material/UploadFile'
 import { useTranslation } from 'react-i18next'
 import { useCorpusStore } from '../../stores/corpusStore'
 import { api } from '../../api/client'
+import { annotationApi } from '../../api/annotation'
 import AnnotationHistoryDetail from './AnnotationHistoryDetail'
 
 // 存档信息类型
@@ -310,38 +311,38 @@ export default function AnnotationHistory() {
     }
   }
   
-  // 批量导出
+  // 批量导出（打包成单个 zip，一次下载；避免逐个触发下载导致连续提示音+浏览器丢弃后续下载）
+  const [batchExporting, setBatchExporting] = useState(false)
   const handleBatchExport = async () => {
     const selectedArchives = archives.filter(a => selectedIds.includes(a.id))
-    
-    for (const archive of selectedArchives) {
-      try {
-        const response = await api.get(
-          `/api/annotation/load/${archive.corpus}/${archive.id}`
-        )
-        const result = response.data as { success: boolean; data: any }
-        
-        if (result.success && result.data) {
-          // 使用存档名命名
-          const fileName = archive.textName || archive.resourceName || archive.id
-          const safeFileName = fileName.replace(/[<>:"/\\|?*]/g, '_')
-          
-          const blob = new Blob([JSON.stringify(result.data, null, 2)], {
-            type: 'application/json'
-          })
-          const url = URL.createObjectURL(blob)
-          const link = document.createElement('a')
-          link.href = url
-          link.download = `${safeFileName}.json`
-          link.click()
-          URL.revokeObjectURL(url)
-        }
-      } catch (error) {
-        console.error(`Failed to export ${archive.id}:`, error)
+    if (selectedArchives.length === 0) return
+
+    setBatchExporting(true)
+    try {
+      const result = await annotationApi.exportBatch(
+        selectedArchives.map(a => ({ corpusName: a.corpus, id: a.id }))
+      )
+
+      if (result.success && result.blob) {
+        const url = URL.createObjectURL(result.blob)
+        const link = document.createElement('a')
+        link.href = url
+        link.download = result.filename || 'metalingo_annotations.zip'
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+        URL.revokeObjectURL(url)
+        setSelectedIds([])
+      } else {
+        console.error('Batch export failed:', result.message)
+        setImportFeedback({ severity: 'error', message: result.message || t('annotation.batchExportFailed', '批量导出失败') })
       }
+    } catch (error) {
+      console.error('Failed to batch export archives:', error)
+      setImportFeedback({ severity: 'error', message: t('annotation.batchExportFailed', '批量导出失败') })
+    } finally {
+      setBatchExporting(false)
     }
-    
-    setSelectedIds([])
   }
   
   // 将后端校验错误码映射为本地化提示
@@ -588,10 +589,11 @@ export default function AnnotationHistory() {
             <Button
               size="small"
               variant="contained"
-              startIcon={<DownloadIcon />}
+              startIcon={batchExporting ? <CircularProgress size={16} color="inherit" /> : <DownloadIcon />}
               onClick={handleBatchExport}
+              disabled={batchExporting}
             >
-              {t('annotation.batchExport', '批量导出')}
+              {batchExporting ? t('annotation.exporting', '导出中...') : t('annotation.batchExport', '批量导出')}
             </Button>
           </Box>
         )}

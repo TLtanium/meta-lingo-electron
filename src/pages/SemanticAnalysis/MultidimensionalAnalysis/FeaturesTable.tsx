@@ -29,7 +29,7 @@ import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp'
 import { useTranslation } from 'react-i18next'
 import type { MDAFeatureSummary } from '../../../types/mdaAnalysis'
 import { DIMENSION_COLORS } from './biberReference'
-import { WordActionMenu } from '../../../components/common'
+import { WordActionMenu } from '../../../components/Common'
 import type { CorpusOrLibrarySelection } from '../../../components/Corpus/CorpusOrLibrarySelector'
 
 type SortField = 'code' | 'mean' | 'zscore' | 'raw_total'

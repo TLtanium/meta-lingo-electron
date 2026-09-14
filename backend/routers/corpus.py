@@ -1988,7 +1988,7 @@ async def get_spacy_annotation(corpus_id: str, text_id: str):
         raise HTTPException(status_code=404, detail="Text not found")
     
     media_type = text.get('media_type', 'text')
-    
+
     # For audio/video, convert segment-based format to unified format
     if media_type in ['audio', 'video']:
         transcript_json = text.get('transcript_json_path')
@@ -1996,35 +1996,45 @@ async def get_spacy_annotation(corpus_id: str, text_id: str):
             try:
                 with open(transcript_json, 'r', encoding='utf-8') as f:
                     transcript_data = json.load(f)
-                
+
                 spacy_annotations = transcript_data.get('spacy_annotations', {})
                 segments = transcript_data.get('segments', [])
-                
+                # USAS 语义域标注（若已跑过）：与 spacy_annotations 同样按段落存储，
+                # 用于给每个词的元数据补上 Top-5 候选语义标签（v4.9.38，纯附加数据，不影响前端展示）
+                usas_segments = (transcript_data.get('usas_annotations', {}) or {}).get('segments', {})
+
                 if spacy_annotations and spacy_annotations.get('success') and segments:
                     # Convert segment-based format to unified format
                     all_tokens = []
                     all_entities = []
                     all_sentences = []
-                    
+
                     spacy_segments = spacy_annotations.get('segments', {})
                     current_offset = 0
-                    
+
                     for seg in segments:
                         seg_id = seg.get('id', 0)
                         seg_text = seg.get('text', '')
-                        
+
                         # Get SpaCy data for this segment
                         seg_spacy = spacy_segments.get(seg_id, spacy_segments.get(str(seg_id), {}))
-                        
+                        # Matching USAS-annotated segment (same tokenization/offsets as seg_spacy)
+                        seg_usas = usas_segments.get(seg_id, usas_segments.get(str(seg_id), {}))
+                        usas_by_span = {
+                            (t.get('start', 0), t.get('end', 0)): t
+                            for t in seg_usas.get('tokens', [])
+                        }
+
                         # Add sentence entry
                         all_sentences.append({
                             'text': seg_text,
                             'start': current_offset,
                             'end': current_offset + len(seg_text)
                         })
-                        
+
                         # Add tokens with offset adjustment
                         for token in seg_spacy.get('tokens', []):
+                            usas_tok = usas_by_span.get((token.get('start', 0), token.get('end', 0)))
                             all_tokens.append({
                                 'text': token.get('text', ''),
                                 'start': current_offset + token.get('start', 0),
@@ -2033,9 +2043,11 @@ async def get_spacy_annotation(corpus_id: str, text_id: str):
                                 'tag': token.get('tag', ''),
                                 'lemma': token.get('lemma', ''),
                                 'dep': token.get('dep', ''),
-                                'morph': token.get('morph', '')
+                                'morph': token.get('morph', ''),
+                                'usas_tag': usas_tok.get('usas_tag') if usas_tok else None,
+                                'usas_tags': (usas_tok.get('usas_tags') or [])[:5] if usas_tok else None
                             })
-                        
+
                         # Add entities with offset adjustment
                         for entity in seg_spacy.get('entities', []):
                             all_entities.append({
@@ -2073,6 +2085,28 @@ async def get_spacy_annotation(corpus_id: str, text_id: str):
         try:
             with open(spacy_path, 'r', encoding='utf-8') as f:
                 spacy_data = json.load(f)
+
+            # Merge USAS Top-5 candidate tags into each token's metadata, if the
+            # text has already been USAS-annotated (v4.9.38). Same tokenization/
+            # offsets as the SpaCy sidecar, so tokens line up by (start, end).
+            # Purely additive: does not change what the annotation UI displays.
+            usas_path = content_path.parent / f"{content_path.stem}.usas.json"
+            if usas_path.exists():
+                try:
+                    with open(usas_path, 'r', encoding='utf-8') as f:
+                        usas_data = json.load(f)
+                    usas_by_span = {
+                        (t.get('start', 0), t.get('end', 0)): t
+                        for t in usas_data.get('tokens', [])
+                    }
+                    for token in spacy_data.get('tokens', []):
+                        usas_tok = usas_by_span.get((token.get('start', 0), token.get('end', 0)))
+                        if usas_tok:
+                            token['usas_tag'] = usas_tok.get('usas_tag')
+                            token['usas_tags'] = (usas_tok.get('usas_tags') or [])[:5]
+                except Exception as e:
+                    logger.warning(f"Failed to merge USAS metadata into SpaCy tokens: {e}")
+
             return {
                 "success": True,
                 "data": spacy_data

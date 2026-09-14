@@ -4,14 +4,19 @@ BERTopic-based topic modeling endpoints
 """
 
 from fastapi import APIRouter, HTTPException
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse, Response
 from pydantic import BaseModel
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Tuple
+import csv
+import io
 import json
 import logging
 import numpy as np
+import re
 import sys
 import os
+import zipfile
+from datetime import datetime
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
@@ -980,6 +985,121 @@ async def merge_topics(request: MergeTopicsRequest):
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============ Export Topic Documents ============
+
+class ExportTopicDocumentsRequest(BaseModel):
+    result_id: str
+    topic_ids: List[int]  # Topic IDs to export (one file per topic)
+    format: str = 'txt'  # 'txt' (one document per line) or 'csv'
+
+
+def _safe_export_filename(name: str) -> str:
+    """Sanitize a topic label for use as a filename segment."""
+    cleaned = re.sub(r'[<>:"/\\|?*]', '_', name).strip()
+    return cleaned[:80] if cleaned else 'topic'
+
+
+@router.post("/export-documents")
+async def export_topic_documents(request: ExportTopicDocumentsRequest):
+    """
+    Export the full documents belonging to one or more topics (the same
+    per-document points shown in the document distribution plot) as
+    txt (one document per line) or csv — one file per requested topic.
+
+    Requires the analysis result to still be in the in-memory cache (same
+    requirement as /visualization and /merge — the full document texts are
+    never persisted to the saved result JSON, only 100-char previews are).
+    """
+    if request.result_id not in _analysis_cache:
+        raise HTTPException(
+            status_code=404,
+            detail="Analysis result not found or expired (backend may have restarted since analysis ran). Please re-run analysis."
+        )
+    if not request.topic_ids:
+        raise HTTPException(status_code=400, detail="No topics selected")
+    if request.format not in ('txt', 'csv'):
+        raise HTTPException(status_code=400, detail="format must be 'txt' or 'csv'")
+
+    cached = _analysis_cache[request.result_id]
+    documents: List[str] = cached.get('_documents') or []
+    if not documents:
+        raise HTTPException(
+            status_code=400,
+            detail="Documents are no longer available for this result (backend may have restarted since analysis ran)."
+        )
+
+    doc_topics_list = cached.get('document_topics', [])
+
+    # _raw_topics (topic_model.topics_) is kept in sync by /merge; document_topics'
+    # own 'topic' field is NOT updated on merge and would give stale assignments
+    # for a result that's been merged since it was first computed.
+    raw_topics = cached.get('_raw_topics')
+    if raw_topics is None or len(raw_topics) != len(documents):
+        by_index = {dt.get('index'): dt.get('topic') for dt in doc_topics_list}
+        raw_topics = [by_index.get(i) for i in range(len(documents))]
+
+    probabilities: List[Optional[float]] = [None] * len(documents)
+    for dt in doc_topics_list:
+        idx = dt.get('index')
+        if idx is not None and 0 <= idx < len(probabilities):
+            probabilities[idx] = dt.get('probability')
+
+    topic_labels = {
+        t.get('id'): (t.get('custom_label') or t.get('name') or f"Topic {t.get('id')}")
+        for t in cached.get('topics', [])
+    }
+
+    requested_ids = list(dict.fromkeys(request.topic_ids))  # de-dupe, keep order
+    per_topic_docs: Dict[int, List[Tuple[int, str, Optional[float]]]] = {tid: [] for tid in requested_ids}
+    for i, doc in enumerate(documents):
+        topic_id = raw_topics[i] if i < len(raw_topics) else None
+        if topic_id is None:
+            continue
+        topic_id = int(topic_id)
+        if topic_id in per_topic_docs:
+            per_topic_docs[topic_id].append((i, doc, probabilities[i] if i < len(probabilities) else None))
+
+    def build_file(tid: int) -> Tuple[str, bytes]:
+        docs = per_topic_docs.get(tid, [])
+        label = topic_labels.get(tid) or ('Outliers' if tid == -1 else f'Topic_{tid}')
+        base_name = f"topic_{tid}_{_safe_export_filename(label)}"
+        if request.format == 'csv':
+            out = io.StringIO()
+            writer = csv.writer(out)
+            writer.writerow(['index', 'probability', 'text'])
+            for idx, text, prob in docs:
+                writer.writerow([idx, prob if prob is not None else '', text])
+            return f"{base_name}.csv", out.getvalue().encode('utf-8-sig')
+        # txt: one document per line — flatten any internal newlines so the
+        # "one line = one document" invariant holds even for multi-line source text.
+        lines = [(text or '').replace('\r\n', ' ').replace('\n', ' ').replace('\r', ' ') for _, text, _ in docs]
+        return f"{base_name}.txt", ("\n".join(lines)).encode('utf-8')
+
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+
+    if len(requested_ids) == 1:
+        filename, content = build_file(requested_ids[0])
+        media_type = 'text/csv' if request.format == 'csv' else 'text/plain'
+        return Response(
+            content=content,
+            media_type=media_type,
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+        )
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, mode='w', compression=zipfile.ZIP_DEFLATED) as zf:
+        for tid in requested_ids:
+            filename, content = build_file(tid)
+            zf.writestr(filename, content)
+    buf.seek(0)
+
+    return StreamingResponse(
+        buf,
+        media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="bertopic_documents_{timestamp}.zip"'}
+    )
 
 
 # ============ Custom Label Endpoints ============

@@ -20,36 +20,41 @@ export const AUTO_ANNOTATION_FRAMEWORKS = {
 export const FRAMEWORK_LABELS = {
   // Framework id stays 'MIPVU' (auto-annotation detection); display name is now
   // 'Metaphor', and the mipvu labels live under metaphor > SYSTEM-TYPE > mipvu.
-  // Paths below are label-only breadcrumbs (tiers omitted) for display.
+  // Paths below are hardcoded (self-contained, framework-rename-proof) but MUST
+  // stay structurally identical to the manual FrameworkTree path for the same
+  // leaf label — '/'-separated, full ancestor chain INCLUDING tier nodes (e.g.
+  // SYSTEM-TYPE, MARKERS-TYPE, MRW-TYPE) — so manual and auto-annotation
+  // labelPaths are indistinguishable downstream (see src/utils/annotationPath.ts).
+  // Verified against data/frameworks/MIPVU.json / Halliday-Theme.json / Berry-Theme.json.
   MIPVU: {
     indirect: '79ee0895-6eaf-4f39-adad-d0ba5c0c068b',
     indirect_color: '#8eccb8',
-    indirect_path: 'metaphor > mipvu > markers > mrw > indirect',
+    indirect_path: 'metaphor/SYSTEM-TYPE/mipvu/SYSTEM-TYPE/markers/MARKERS-TYPE/mrw/MRW-TYPE/indirect',
     direct: '67d591b5-dcb6-4664-8742-b52e389d8ce0',
     direct_color: '#938ecc',
-    direct_path: 'metaphor > mipvu > markers > mrw > direct',
+    direct_path: 'metaphor/SYSTEM-TYPE/mipvu/SYSTEM-TYPE/markers/MARKERS-TYPE/mrw/MRW-TYPE/direct',
     mflag: '621b899e-c406-4f46-ba21-0c6fad3445a3',
     mflag_color: '#cc8ec8',
-    mflag_path: 'metaphor > mipvu > markers > mflag',
+    mflag_path: 'metaphor/SYSTEM-TYPE/mipvu/SYSTEM-TYPE/markers/MARKERS-TYPE/mflag',
     implicit: '42d5860a-a427-4118-9053-a8bce286a34c',
     implicit_color: '#cca68e',
-    implicit_path: 'metaphor > mipvu > markers > mrw > implicit'
+    implicit_path: 'metaphor/SYSTEM-TYPE/mipvu/SYSTEM-TYPE/markers/MARKERS-TYPE/mrw/MRW-TYPE/implicit'
   },
   'Halliday-Theme': {
     theme: '641ca3de-75d0-4e7e-ac4f-00aaeedbb2e2',
     theme_color: '#ccc58e',
-    theme_path: 'element > theme',
+    theme_path: 'element/THEME-TYPE/theme',
     rheme: '89ab545d-db8b-4a3a-bcf0-bdd6ce304be8',
     rheme_color: '#8ecca0',
-    rheme_path: 'element > rheme'
+    rheme_path: 'element/THEME-TYPE/rheme'
   },
   'Berry-Theme': {
     theme: '0eda69bb-212b-4fa6-943d-15adfe64cfe8',
     theme_color: '#ccc58e',
-    theme_path: 'element > theme',
+    theme_path: 'element/THEME-TYPE/theme',
     rheme: '65c7bcd4-389a-479e-85e0-3c2f570221a5',
     rheme_color: '#8ecca0',
-    rheme_path: 'element > rheme'
+    rheme_path: 'element/THEME-TYPE/rheme'
   }
 } as const
 

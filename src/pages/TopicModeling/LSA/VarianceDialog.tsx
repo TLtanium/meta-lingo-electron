@@ -30,7 +30,7 @@ import ImageIcon from '@mui/icons-material/Image'
 import AutoGraphIcon from '@mui/icons-material/AutoGraph'
 import { useTranslation } from 'react-i18next'
 import * as d3 from 'd3'
-import { NumberInput } from '../../../components/common'
+import { NumberInput } from '../../../components/Common'
 import type { LSAOptimizeResult, LSAPreprocessConfig, LSAConfig } from '../../../types/topicModeling'
 import { topicModelingApi } from '../../../api'
 

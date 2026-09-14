@@ -43,6 +43,7 @@ import ViewColumnIcon from '@mui/icons-material/ViewColumn'
 import { useTranslation } from 'react-i18next'
 import type { Annotation, SpacyToken, AnnotationRelation, AnnotationGroup } from '../../../types'
 import { countAnnotationUnits, buildGroupNumberMap } from '../../../utils/annotationGroups'
+import { deriveAnnotationTier } from '../../../utils/annotationPath'
 
 interface AnnotationDataTableProps {
   annotations: Annotation[]
@@ -100,27 +101,8 @@ const getEntityColor = (label: string): string => {
   return colors[label] || '#757575'
 }
 
-/**
- * 从标注的 labelPath 推导其「标注层级」（标签所在的上层分组名）。
- * 框架树按 label → tier → label → … → leaf(label) 交替：
- * - 手动标注 labelPath 用 '/' 分隔且**包含** tier 节点
- *   （如 `metaphor/SYSTEM-TYPE/markers/MARKERS-TYPE/mrw/MRW-TYPE/indirect`），
- *   leaf 的「层级」= 其祖父 label 节点 = 倒数第 3 段（'mrw'）；
- * - 自动标注 labelPath 用 ' > ' 分隔且为**纯 label** 面包屑
- *   （如 `metaphor > mipvu > markers > mrw > indirect`），层级 = 父 label = 倒数第 2 段。
- * 无法推导时回退为标签自身。
- */
-const deriveTier = (labelPath: string | undefined, label: string): string => {
-  if (!labelPath) return label
-  if (labelPath.includes('>')) {
-    const segs = labelPath.split('>').map(s => s.trim()).filter(Boolean)
-    return segs.length >= 2 ? segs[segs.length - 2] : (segs[0] || label)
-  }
-  const segs = labelPath.split('/').map(s => s.trim()).filter(Boolean)
-  if (segs.length >= 3) return segs[segs.length - 3]
-  if (segs.length === 2) return segs[0]
-  return segs[0] || label
-}
+// 「标注层级」推导（labelPath → 祖父 label 段）：见 src/utils/annotationPath.ts
+const deriveTier = deriveAnnotationTier
 
 // CSV 安全转义
 const csvEscape = (val: string): string => {

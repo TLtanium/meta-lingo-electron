@@ -95,6 +95,12 @@ export default function BiblioVisualization() {
     setSelectedLibrary(library)
     loadLibraries()
   }
+
+  // Handle library metadata updated (name/description/language)
+  const handleLibraryUpdated = (library: BiblioLibrary) => {
+    setSelectedLibrary(library)
+    loadLibraries()
+  }
   
   // Handle upload complete (called after all files in batch are uploaded, like corpus management)
   const handleUploadComplete = useCallback(async () => {
@@ -193,6 +199,7 @@ export default function BiblioVisualization() {
               library={selectedLibrary}
               onBack={handleBackFromDetail}
               onUpload={() => setCurrentTab('upload')}
+              onLibraryUpdated={handleLibraryUpdated}
             />
           )}
         </TabPanel>

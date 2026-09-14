@@ -1,14 +1,23 @@
 /**
  * Upload Panel for Bibliographic Visualization
- * Create library (with language), upload RefWorks files (corpus-style: multi-file, progress)
+ * Corpus-management-style unified flow: pick "create new library" vs "add to
+ * existing library" (checkbox + selector, exactly like CorpusManagement's
+ * UploadPanel "Target Corpus" section), then drop files and upload in one step
+ * — creating the library first if needed. Previously this had two disconnected
+ * sections (always-visible "Create Library" form + separate "Upload" form that
+ * only worked once a library was already selected), so opening this panel to
+ * add more entries to an existing library showed a redundant, blank-looking
+ * "Create Library" form above the actual upload area.
  */
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import {
   Box,
   Typography,
   TextField,
   FormControl,
+  FormControlLabel,
+  Checkbox,
   InputLabel,
   Select,
   MenuItem,
@@ -20,9 +29,8 @@ import {
   ListItem,
   ListItemIcon,
   ListItemText,
-  ListItemSecondaryAction,
   IconButton,
-  Divider,
+  Stack,
   ToggleButton,
   ToggleButtonGroup
 } from '@mui/material'
@@ -36,11 +44,7 @@ import { useTranslation } from 'react-i18next'
 import { useDropzone } from 'react-dropzone'
 import type { BiblioLibrary, SourceType, UploadResult } from '../../types/biblio'
 import * as biblioApi from '../../api/biblio'
-
-const LANGUAGE_OPTIONS: { value: string; labelKey: string }[] = [
-  { value: 'english', labelKey: 'biblio.languageEnglish' },
-  { value: 'chinese', labelKey: 'biblio.languageChinese' }
-]
+import { LANGUAGE_OPTIONS } from './constants'
 
 interface RefworksFile {
   file: File
@@ -63,13 +67,17 @@ export default function UploadPanel({
 }: UploadPanelProps) {
   const { t } = useTranslation()
 
-  // Create library state
+  // Target library: create new vs pick an existing one (mirrors
+  // CorpusManagement/UploadPanel.tsx's "Target Corpus" createNew/targetCorpusId pattern)
+  const [createNew, setCreateNew] = useState(true)
+  const [libraries, setLibraries] = useState<BiblioLibrary[]>([])
+  const [targetLibraryId, setTargetLibraryId] = useState('')
+
+  // New-library metadata (only used when createNew)
   const [libraryName, setLibraryName] = useState('')
   const [sourceType, setSourceType] = useState<SourceType>('WOS')
   const [language, setLanguage] = useState<string>('english')
   const [description, setDescription] = useState('')
-  const [creating, setCreating] = useState(false)
-  const [createError, setCreateError] = useState<string | null>(null)
 
   // Upload state: multiple files (corpus-style)
   const [uploadMode, setUploadMode] = useState<'refworks' | 'pdf'>('refworks')
@@ -77,6 +85,27 @@ export default function UploadPanel({
   const [uploading, setUploading] = useState(false)
   const [uploadError, setUploadError] = useState<string | null>(null)
   const [uploadSuccess, setUploadSuccess] = useState<string | null>(null)
+  const [hasAttemptedUpload, setHasAttemptedUpload] = useState(false)
+
+  const loadLibraries = useCallback(async () => {
+    const response = await biblioApi.listLibraries()
+    if (response.success && response.data) {
+      setLibraries(response.data.libraries)
+    }
+  }, [])
+
+  useEffect(() => {
+    loadLibraries()
+  }, [loadLibraries])
+
+  // Opened from an existing library's "Add More" action: default to adding to it
+  // rather than showing an unrelated (and unfillable-looking) create-library form.
+  useEffect(() => {
+    if (selectedLibrary) {
+      setTargetLibraryId(selectedLibrary.id)
+      setCreateNew(false)
+    }
+  }, [selectedLibrary])
 
   const handleModeChange = (_: unknown, mode: 'refworks' | 'pdf' | null) => {
     if (!mode || mode === uploadMode) return
@@ -84,33 +113,6 @@ export default function UploadPanel({
     setFiles([])
     setUploadError(null)
     setUploadSuccess(null)
-  }
-
-  const handleCreateLibrary = async () => {
-    if (!libraryName.trim()) {
-      setCreateError(t('biblio.nameRequired'))
-      return
-    }
-
-    setCreating(true)
-    setCreateError(null)
-
-    const response = await biblioApi.createLibrary({
-      name: libraryName.trim(),
-      source_type: sourceType,
-      description: description.trim() || undefined,
-      language
-    })
-
-    setCreating(false)
-
-    if (response.success && response.data) {
-      onLibraryCreated(response.data)
-      setLibraryName('')
-      setDescription('')
-    } else {
-      setCreateError(response.error || t('biblio.createFailed'))
-    }
   }
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
@@ -130,19 +132,52 @@ export default function UploadPanel({
       ? { 'application/pdf': ['.pdf'] }
       : { 'text/plain': ['.txt'] },
     multiple: true,
-    disabled: !selectedLibrary || uploading
+    disabled: uploading
   })
 
   const removeFile = (index: number) => {
     setFiles(prev => prev.filter((_, i) => i !== index))
   }
 
+  const canUpload = () => {
+    if (files.length === 0) return false
+    if (uploading) return false
+    if (!files.some(f => f.status === 'pending')) return false
+    return createNew ? libraryName.trim().length > 0 : targetLibraryId.length > 0
+  }
+
   const handleUpload = async () => {
-    if (!selectedLibrary || files.length === 0) return
+    setHasAttemptedUpload(true)
+    if (!canUpload()) return
 
     setUploading(true)
     setUploadError(null)
     setUploadSuccess(null)
+
+    let libraryId = targetLibraryId
+
+    if (createNew) {
+      const createResponse = await biblioApi.createLibrary({
+        name: libraryName.trim(),
+        source_type: sourceType,
+        description: description.trim() || undefined,
+        language
+      })
+      if (!createResponse.success || !createResponse.data) {
+        setUploadError(createResponse.error || t('biblio.createFailed'))
+        setUploading(false)
+        return
+      }
+      libraryId = createResponse.data.id
+      onLibraryCreated(createResponse.data)
+      await loadLibraries()
+    }
+
+    if (!libraryId) {
+      setUploadError(t('biblio.selectLibraryFirst'))
+      setUploading(false)
+      return
+    }
 
     let totalAdded = 0
 
@@ -166,14 +201,14 @@ export default function UploadPanel({
       let added = 0
 
       if (uploadMode === 'pdf') {
-        const pdfRes = await biblioApi.uploadPaperPdf(selectedLibrary.id, files[i].file, onProgress)
+        const pdfRes = await biblioApi.uploadPaperPdf(libraryId, files[i].file, onProgress)
         response = pdfRes
         if (pdfRes.success && pdfRes.data) {
           added = 1
           entryTasks = pdfRes.data.entry_tasks ?? []
         }
       } else {
-        const rwRes = await biblioApi.uploadRefworksFile(selectedLibrary.id, files[i].file, onProgress)
+        const rwRes = await biblioApi.uploadRefworksFile(libraryId, files[i].file, onProgress)
         response = rwRes
         if (rwRes.success && rwRes.data) {
           added = rwRes.data.entries_added ?? 0
@@ -224,77 +259,114 @@ export default function UploadPanel({
     }
   }
 
-  const allDone = files.length > 0 && files.every(f => f.status === 'completed' || f.status === 'processing' || f.status === 'error')
-  const hasProcessing = files.some(f => f.status === 'uploading' || f.status === 'processing')
-
   return (
-    <Box sx={{ p: 3 }}>
-      {/* Create Library Section */}
-      <Paper sx={{ p: 3, mb: 3 }}>
+    <Box sx={{ p: 3, display: 'flex', flexDirection: 'column', gap: 3 }}>
+      {/* Target Library Section (corpus-management style) */}
+      <Paper sx={{ p: 3 }}>
         <Typography variant="h6" gutterBottom>
-          {t('biblio.createLibrary')}
+          {t('biblio.targetLibrary')}
         </Typography>
 
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          <TextField
-            label={t('biblio.libraryName')}
-            value={libraryName}
-            onChange={e => setLibraryName(e.target.value)}
+        <FormControlLabel
+          control={
+            <Checkbox
+              checked={createNew}
+              onChange={e => setCreateNew(e.target.checked)}
+              disabled={uploading}
+            />
+          }
+          label={t('biblio.createNewLibrary')}
+        />
+
+        {!createNew && (
+          <FormControl
             fullWidth
-            required
-            disabled={creating}
-          />
-
-          <FormControl fullWidth required>
-            <InputLabel>{t('biblio.sourceType')}</InputLabel>
-            <Select
-              value={sourceType}
-              label={t('biblio.sourceType')}
-              onChange={e => setSourceType(e.target.value as SourceType)}
-              disabled={creating}
-            >
-              <MenuItem value="WOS">Web of Science (WOS)</MenuItem>
-              <MenuItem value="CNKI">{t('biblio.cnki')}</MenuItem>
-            </Select>
-          </FormControl>
-
-          <FormControl fullWidth>
-            <InputLabel>{t('biblio.language')}</InputLabel>
-            <Select
-              value={language}
-              label={t('biblio.language')}
-              onChange={e => setLanguage(e.target.value)}
-              disabled={creating}
-            >
-              {LANGUAGE_OPTIONS.map(opt => (
-                <MenuItem key={opt.value} value={opt.value}>
-                  {t(opt.labelKey)}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-
-          <TextField
-            label={t('biblio.description')}
-            value={description}
-            onChange={e => setDescription(e.target.value)}
-            fullWidth
-            multiline
-            rows={2}
-            disabled={creating}
-          />
-
-          {createError && <Alert severity="error">{createError}</Alert>}
-
-          <Button
-            variant="contained"
-            onClick={handleCreateLibrary}
-            disabled={creating || !libraryName.trim()}
+            size="small"
+            sx={{ mt: 2 }}
+            error={hasAttemptedUpload && !targetLibraryId}
           >
-            {creating ? t('common.creating') : t('biblio.create')}
-          </Button>
-        </Box>
+            <InputLabel>{t('biblio.selectLibrary')}</InputLabel>
+            <Select
+              value={targetLibraryId}
+              onChange={e => setTargetLibraryId(e.target.value)}
+              label={t('biblio.selectLibrary')}
+              disabled={uploading}
+            >
+              {libraries.length === 0 ? (
+                <MenuItem disabled value="">
+                  {t('biblio.noLibraries')}
+                </MenuItem>
+              ) : (
+                libraries.map(lib => (
+                  <MenuItem key={lib.id} value={lib.id}>
+                    {lib.name} ({lib.entry_count} {t('biblio.entries')})
+                  </MenuItem>
+                ))
+              )}
+            </Select>
+          </FormControl>
+        )}
       </Paper>
+
+      {/* Create Library metadata — only shown while creating a new one */}
+      {createNew && (
+        <Paper sx={{ p: 3 }}>
+          <Typography variant="h6" gutterBottom>
+            {t('biblio.createLibrary')}
+          </Typography>
+
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <TextField
+              label={t('biblio.libraryName')}
+              value={libraryName}
+              onChange={e => setLibraryName(e.target.value)}
+              fullWidth
+              required
+              disabled={uploading}
+              error={hasAttemptedUpload && !libraryName.trim()}
+            />
+
+            <FormControl fullWidth required>
+              <InputLabel>{t('biblio.sourceType')}</InputLabel>
+              <Select
+                value={sourceType}
+                label={t('biblio.sourceType')}
+                onChange={e => setSourceType(e.target.value as SourceType)}
+                disabled={uploading}
+              >
+                <MenuItem value="WOS">Web of Science (WOS)</MenuItem>
+                <MenuItem value="CNKI">{t('biblio.cnki')}</MenuItem>
+              </Select>
+            </FormControl>
+
+            <FormControl fullWidth>
+              <InputLabel>{t('biblio.language')}</InputLabel>
+              <Select
+                value={language}
+                label={t('biblio.language')}
+                onChange={e => setLanguage(e.target.value)}
+                disabled={uploading}
+              >
+                {LANGUAGE_OPTIONS.map(opt => (
+                  <MenuItem key={opt.value} value={opt.value}>
+                    {t(opt.labelKey)}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+
+            <TextField
+              label={t('biblio.description')}
+              value={description}
+              onChange={e => setDescription(e.target.value)}
+              fullWidth
+              multiline
+              rows={2}
+              disabled={uploading}
+            />
+          </Box>
+        </Paper>
+      )}
 
       {/* Upload Section (corpus-style: multi-file dropzone + list) */}
       <Paper sx={{ p: 3 }}>
@@ -302,100 +374,100 @@ export default function UploadPanel({
           {t('biblio.uploadFile')}
         </Typography>
 
-        {!selectedLibrary ? (
-          <Alert severity="info">{t('biblio.selectLibraryFirst')}</Alert>
-        ) : (
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          {!createNew && targetLibraryId && (
             <Alert severity="info">
-              {t('biblio.uploadingTo')}: <strong>{selectedLibrary.name}</strong> ({selectedLibrary.source_type}). {t('biblio.uploadProcessingHint')}
+              {t('biblio.uploadingTo')}: <strong>{libraries.find(l => l.id === targetLibraryId)?.name}</strong>. {t('biblio.uploadProcessingHint')}
             </Alert>
+          )}
 
-            <ToggleButtonGroup
-              value={uploadMode}
-              exclusive
-              size="small"
-              onChange={handleModeChange}
-              disabled={uploading}
-              aria-label={t('biblio.dataSource')}
-            >
-              <ToggleButton value="refworks">
-                <DescriptionIcon fontSize="small" sx={{ mr: 0.5 }} />
-                {t('biblio.sourceRefworks')}
-              </ToggleButton>
-              <ToggleButton value="pdf">
-                <PictureAsPdfIcon fontSize="small" sx={{ mr: 0.5 }} />
-                {t('biblio.sourcePaperPdf')}
-              </ToggleButton>
-            </ToggleButtonGroup>
+          <ToggleButtonGroup
+            value={uploadMode}
+            exclusive
+            size="small"
+            onChange={handleModeChange}
+            disabled={uploading}
+            aria-label={t('biblio.dataSource')}
+          >
+            <ToggleButton value="refworks">
+              <DescriptionIcon fontSize="small" sx={{ mr: 0.5 }} />
+              {t('biblio.sourceRefworks')}
+            </ToggleButton>
+            <ToggleButton value="pdf">
+              <PictureAsPdfIcon fontSize="small" sx={{ mr: 0.5 }} />
+              {t('biblio.sourcePaperPdf')}
+            </ToggleButton>
+          </ToggleButtonGroup>
 
-            <Box
-              {...getRootProps()}
-              sx={{
-                border: '2px dashed',
-                borderColor: isDragActive ? 'primary.main' : 'divider',
-                borderRadius: 2,
-                p: 4,
-                textAlign: 'center',
-                cursor: uploading ? 'default' : 'pointer',
-                bgcolor: isDragActive ? 'action.hover' : 'background.paper',
-                transition: 'all 0.2s'
-              }}
-            >
-              <input {...getInputProps()} />
-              <CloudUploadIcon sx={{ fontSize: 48, color: 'text.secondary', mb: 1 }} />
-              <Typography variant="body1" color="text.secondary">
-                {isDragActive ? t('biblio.dropHere') : t('biblio.dragOrClick')}
-              </Typography>
-              <Typography variant="caption" color="text.secondary">
-                {uploadMode === 'pdf'
-                  ? `${t('biblio.supportedFormat')}: PDF (.pdf)`
-                  : `${t('biblio.supportedFormat')}: Refworks (.txt)`}
-              </Typography>
-            </Box>
+          <Box
+            {...getRootProps()}
+            sx={{
+              border: '2px dashed',
+              borderColor: isDragActive ? 'primary.main' : 'divider',
+              borderRadius: 2,
+              p: 4,
+              textAlign: 'center',
+              cursor: uploading ? 'default' : 'pointer',
+              bgcolor: isDragActive ? 'action.hover' : 'background.paper',
+              transition: 'all 0.2s'
+            }}
+          >
+            <input {...getInputProps()} />
+            <CloudUploadIcon sx={{ fontSize: 48, color: 'text.secondary', mb: 1 }} />
+            <Typography variant="body1" color="text.secondary">
+              {isDragActive ? t('biblio.dropHere') : t('biblio.dragOrClick')}
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              {uploadMode === 'pdf'
+                ? `${t('biblio.supportedFormat')}: PDF (.pdf)`
+                : `${t('biblio.supportedFormat')}: Refworks (.txt)`}
+            </Typography>
+          </Box>
 
-            {files.length > 0 && (
-              <>
-                <Typography variant="subtitle2">{t('biblio.selectedFiles')}</Typography>
-                <List dense sx={{ border: 1, borderColor: 'divider', borderRadius: 1 }}>
-                  {files.map((item, index) => (
-                    <ListItem
-                      key={index}
-                      secondaryAction={
-                        (item.status === 'pending' || item.status === 'error') && (
-                          <IconButton edge="end" size="small" onClick={() => removeFile(index)} aria-label={t('common.delete')}>
-                            <DeleteIcon fontSize="small" />
-                          </IconButton>
-                        )
+          {files.length > 0 && (
+            <>
+              <Typography variant="subtitle2">{t('biblio.selectedFiles')}</Typography>
+              <List dense sx={{ border: 1, borderColor: 'divider', borderRadius: 1 }}>
+                {files.map((item, index) => (
+                  <ListItem
+                    key={index}
+                    secondaryAction={
+                      (item.status === 'pending' || item.status === 'error') && (
+                        <IconButton edge="end" size="small" onClick={() => removeFile(index)} aria-label={t('common.delete')}>
+                          <DeleteIcon fontSize="small" />
+                        </IconButton>
+                      )
+                    }
+                  >
+                    <ListItemIcon>
+                      <DescriptionIcon />
+                    </ListItemIcon>
+                    <ListItemText
+                      primary={item.file.name}
+                      secondary={
+                        <>
+                          {(item.file.size / 1024).toFixed(1)} KB
+                          {item.message && ` • ${item.message}`}
+                          {(item.status === 'uploading' || item.status === 'processing') && (
+                            <Box sx={{ mt: 0.5 }}>
+                              <LinearProgress variant="determinate" value={item.progress} sx={{ height: 4, borderRadius: 1 }} />
+                            </Box>
+                          )}
+                        </>
                       }
-                    >
-                      <ListItemIcon>
-                        <DescriptionIcon />
-                      </ListItemIcon>
-                      <ListItemText
-                        primary={item.file.name}
-                        secondary={
-                          <>
-                            {(item.file.size / 1024).toFixed(1)} KB
-                            {item.message && ` • ${item.message}`}
-                            {(item.status === 'uploading' || item.status === 'processing') && (
-                              <Box sx={{ mt: 0.5 }}>
-                                <LinearProgress variant="determinate" value={item.progress} sx={{ height: 4, borderRadius: 1 }} />
-                              </Box>
-                            )}
-                          </>
-                        }
-                      />
-                      {item.status === 'completed' && <CheckCircleIcon color="success" fontSize="small" />}
-                      {item.status === 'error' && <ErrorIcon color="error" fontSize="small" />}
-                    </ListItem>
-                  ))}
-                </List>
-              </>
-            )}
+                    />
+                    {item.status === 'completed' && <CheckCircleIcon color="success" fontSize="small" />}
+                    {item.status === 'error' && <ErrorIcon color="error" fontSize="small" />}
+                  </ListItem>
+                ))}
+              </List>
+            </>
+          )}
 
-            {uploadError && <Alert severity="error">{uploadError}</Alert>}
-            {uploadSuccess && <Alert severity="success">{uploadSuccess}</Alert>}
+          {uploadError && <Alert severity="error">{uploadError}</Alert>}
+          {uploadSuccess && <Alert severity="success">{uploadSuccess}</Alert>}
 
+          <Stack direction="row" spacing={2} alignItems="center">
             <Button
               variant="contained"
               startIcon={<CloudUploadIcon />}
@@ -404,8 +476,14 @@ export default function UploadPanel({
             >
               {uploading ? t('biblio.uploading') : t('biblio.upload')}
             </Button>
-          </Box>
-        )}
+            {hasAttemptedUpload && files.length > 0 && createNew && !libraryName.trim() && (
+              <Typography variant="caption" color="error">{t('biblio.nameRequired')}</Typography>
+            )}
+            {hasAttemptedUpload && files.length > 0 && !createNew && !targetLibraryId && (
+              <Typography variant="caption" color="error">{t('biblio.selectLibraryFirst')}</Typography>
+            )}
+          </Stack>
+        </Box>
       </Paper>
     </Box>
   )

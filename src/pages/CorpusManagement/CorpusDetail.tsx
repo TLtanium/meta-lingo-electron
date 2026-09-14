@@ -75,7 +75,7 @@ import { API_BASE_URL } from '../../api/client'
 import { TextEditDialog, TranscriptSegmentEdit, BatchTextEditDialog, CorpusExportDialog } from '../../components/Corpus'
 import type { ExportableTextItem } from '../../components/Corpus'
 import TextMetadataEditor from './TextMetadataEditor'
-import NumberInput from '../../components/common/NumberInput'
+import NumberInput from '../../components/Common/NumberInput'
 import { useCorpusStore, type TaskInfo } from '../../stores/corpusStore'
 import { taskPollingService } from '../../services/taskPollingService'
 

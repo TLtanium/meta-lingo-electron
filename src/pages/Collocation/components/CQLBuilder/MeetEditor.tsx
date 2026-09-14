@@ -27,7 +27,7 @@ import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
 import { useTranslation } from 'react-i18next'
 import QuantifierBar from './QuantifierBar'
 import type { BuilderElement, TokenCondition, ConditionGroup, TokenAttribute, ComparisonOperator } from './types'
-import NumberInput from '../../../../components/common/NumberInput'
+import NumberInput from '../../../../components/Common/NumberInput'
 import {
   TOKEN_ATTRIBUTES,
   COMPARISON_OPERATORS,

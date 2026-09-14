@@ -93,6 +93,14 @@ function looksLikeCompleteCql(value: string): boolean {
 }
 
 /**
+ * 判断输入"看起来正在构建"一个 CQL 表达式（只看开头，不要求已完整）——
+ * 用于在用户还没打完时暂停当作纯文本搜索处理，避免半成品状态被当成字面量。
+ */
+function looksLikeCqlInProgress(value: string): boolean {
+  return value.trim().startsWith('[')
+}
+
+/**
  * 执行精确词语搜索
  * - 英文：使用词边界 \b
  * - 中文：直接字符串匹配
@@ -164,6 +172,9 @@ export default function SearchAnnotateBox({
   // 输入时自动识别 CQL：防抖计时器 + 最新 handleCqlApply 的引用
   const cqlDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const handleCqlApplyRef = useRef<(cql: string) => void>(() => {})
+  // 后端 CQL 搜索请求排序令牌：只应用最新一次请求的结果，避免旧请求晚到覆盖新结果
+  // （例如连续两次回车/防抖触发了重叠的网络请求，响应到达顺序与发出顺序不一致）
+  const cqlRequestSeqRef = useRef(0)
 
   const clearCqlDebounce = useCallback(() => {
     if (cqlDebounceRef.current) {
@@ -174,17 +185,31 @@ export default function SearchAnnotateBox({
 
   useEffect(() => clearCqlDebounce, [clearCqlDebounce])
 
-  // 处理搜索词变化：完整 CQL 表达式自动按 CQL 求值（防抖），否则精确词语搜索
+  // 处理搜索词变化：完整 CQL 表达式自动按 CQL 求值（防抖），否则精确词语搜索。
+  //
+  // 关键修复：此前只要当前值"看起来不完整"（如刚打完一个左括号、或两个 token
+  // 之间的空格）就立即把它当纯文本搜索、清空匹配/CQL 状态——而输入一个多 token
+  // CQL 表达式的过程中，绝大多数中间状态都"看起来不完整"，导致每敲一个字符
+  // 都被重置一次（高亮闪烁、无法正常输入），只有构建器能绕开这条路径。
+  // 现在只要输入"看起来正在构建 CQL"（以 [ 开头，不要求已完整）就整体暂停对
+  // 纯文本状态的重置，只在停止输入 400ms 后表达式确实完整时才求值；仍不完整
+  // 就保持现状继续等待，而不是把半成品当字面量去搜索、把已有匹配清空。
   const handleSearchChange = useCallback((value: string) => {
     setSearchTerm(value)
     clearCqlDebounce()
-    if (looksLikeCompleteCql(value)) {
+
+    if (looksLikeCqlInProgress(value)) {
       cqlDebounceRef.current = setTimeout(() => {
         cqlDebounceRef.current = null
-        handleCqlApplyRef.current(value)
+        if (looksLikeCompleteCql(value)) {
+          handleCqlApplyRef.current(value)
+        }
+        // 停顿时仍不完整（如未闭合的括号）：什么都不做，保留当前高亮/状态，
+        // 等用户继续输入——不清空、不报错、不当作字面量重新搜索。
       }, 400)
       return
     }
+
     setIsCqlMode(false)
     setCqlError(null)
     const newMatches = findExactMatches(value, text)
@@ -229,6 +254,12 @@ export default function SearchAnnotateBox({
     setSearchTerm(cql)
     setIsCqlMode(true)
     setCqlError(null)
+
+    // Bump the request-sequence token for every apply (sync or async): guarantees an
+    // in-flight async backend request from a previous, now-superseded call can never
+    // overwrite a newer result — see isStale() below.
+    const requestSeq = ++cqlRequestSeqRef.current
+    const isStale = () => requestSeq !== cqlRequestSeqRef.current
 
     // Annotation-attribute queries must be evaluated client-side: the backend CQL
     // engine has no `annotation` attribute.
@@ -297,6 +328,8 @@ export default function SearchAnnotateBox({
         max_results: 9999
       })
 
+      if (isStale()) return
+
       if (response.success && response.data?.results) {
         const newMatches: SearchMatch[] = []
         for (const result of response.data.results) {
@@ -320,11 +353,12 @@ export default function SearchAnnotateBox({
         onSearchChange(cql, [])
       }
     } catch (err) {
+      if (isStale()) return
       setCqlError(t('annotation.cqlSearchFailed', 'CQL 搜索失败'))
       setMatches([])
       onSearchChange(cql, [])
     } finally {
-      setCqlLoading(false)
+      if (!isStale()) setCqlLoading(false)
     }
   }, [corpusId, textId, currentAnnotations, tokens, onSearchChange, t])
 

@@ -7394,7 +7394,7 @@ Meta-Lingo 内置 **模型上下文协议 (MCP) 服务器**，允许 AI 助手�
 
 | 客户端 | 配置方式 | 说明 |
 |--------|----------|------|
-| **Claude Desktop** | 扩展 (.dxt) 或 stdio | Anthropic 桌面应用（macOS / Windows），推荐 |
+| **Claude Desktop** | 扩展 (.mcpb) 或 stdio | Anthropic 桌面应用（macOS / Windows），推荐 |
 | **Claude.ai**（网页版） | 连接器（需 HTTPS） | Anthropic 网页助手，需 ngrok 或公网服务器 |
 | **Cursor** | stdio 配置 | AI 代码编辑器 |
 | 其他 MCP 客户端 | stdio 或 HTTP | 任何支持 MCP 协议的客户端 |
@@ -7404,9 +7404,8 @@ Meta-Lingo 内置 **模型上下文协议 (MCP) 服务器**，允许 AI 助手�
 最简单的连接方式。双击安装，无需编辑配置文件或使用终端。
 
 1. 确保 Meta-Lingo 正在运行（MCP 服务需要连接 Meta-Lingo 后端）。
-2. 在 Meta-Lingo **设置** → **MCP 服务** 中点击**下载扩展 (.dxt)** 按钮获取扩展文件。
-3. **双击** `.dxt` 文件 — Claude Desktop 会弹出安装提示。
-4. 确认安装。Meta-Lingo 的 51 个工具将立即可用。
+2. 在 Meta-Lingo **设置** → **MCP 服务** 中点击**安装到 Claude Desktop**——会直接用 Claude Desktop 打开扩展文件并弹出安装确认框。
+3. 确认安装。Meta-Lingo 的工具将立即可用。
 
 > **提示**：也可通过 Claude Desktop → **设置** → **扩展** → **从文件安装** 进行安装。
 

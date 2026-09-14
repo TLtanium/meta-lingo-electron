@@ -94,9 +94,9 @@ async def get_mcp_config_info():
         }
     }
 
-    # Check if .dxt file is available
-    dxt_path = _get_dxt_path()
-    has_dxt = dxt_path is not None and dxt_path.exists()
+    # Check if the packaged Claude Desktop extension (.mcpb) is available
+    extension_path = _get_extension_path()
+    has_extension = extension_path is not None and extension_path.exists()
 
     return {
         "success": True,
@@ -107,26 +107,34 @@ async def get_mcp_config_info():
             "stdio_snippet": stdio_snippet,
             "http_url": mcp_http_url,
             "tool_count": 62,
-            "has_dxt": has_dxt,
+            "has_extension": has_extension,
         },
     }
 
 
-def _get_dxt_path() -> Path | None:
-    """Find the .dxt extension file."""
+def _get_extension_path() -> Path | None:
+    """Find the packaged Claude Desktop extension file (.mcpb).
+
+    Anthropic renamed the "Desktop Extension" format from .dxt to .mcpb and
+    moved packaging to the official @anthropic-ai/mcpb CLI (v4.9.38+) — see
+    build.sh / build.bat Step 5-B. Path candidates mirror
+    electron/main.ts::getMcpExtensionPath() so both sides agree on where the
+    file lives in dev vs packaged mode.
+    """
     is_packaged = getattr(sys, 'frozen', False)
     if is_packaged:
-        # Packaged: resources/mcp-extension/meta-lingo-mcp.dxt
+        # Packaged: resources/mcp-extension/meta-lingo-mcp.mcpb
         base = Path(sys.executable).parent.parent
-        p = base / "mcp-extension" / "meta-lingo-mcp.dxt"
+        p = base / "mcp-extension" / "meta-lingo-mcp.mcpb"
         if p.exists():
             return p
     else:
-        # Dev mode: check backend-dist/ first, then dist/ as fallback
+        # Dev mode: check backend-dist/ first (full app build), then dist/ as
+        # fallback (build-extension.bat / build-extension.sh standalone builds)
         project_root = Path(__file__).parent.parent.parent
         for candidate in [
-            project_root / "backend-dist" / "meta-lingo-mcp.dxt",
-            project_root / "dist" / "meta-lingo-mcp.dxt",
+            project_root / "backend-dist" / "meta-lingo-mcp.mcpb",
+            project_root / "dist" / "meta-lingo-mcp.mcpb",
         ]:
             if candidate.exists():
                 return candidate
@@ -135,13 +143,18 @@ def _get_dxt_path() -> Path | None:
 
 @router.get("/download-extension")
 async def download_extension():
-    """Download the .dxt extension file for Claude Desktop."""
-    dxt_path = _get_dxt_path()
-    if dxt_path is None or not dxt_path.exists():
+    """Download the .mcpb extension file for Claude Desktop.
+
+    Fallback for opening the backend URL directly in a real browser tab; the
+    packaged app's Settings page uses the Electron shell.openPath IPC instead
+    (native-window <a download> triggers get silently blocked/dropped).
+    """
+    extension_path = _get_extension_path()
+    if extension_path is None or not extension_path.exists():
         return {"success": False, "message": "Extension file not found. Please build it first."}
 
     return FileResponse(
-        path=str(dxt_path),
-        filename="meta-lingo-mcp.dxt",
+        path=str(extension_path),
+        filename="meta-lingo-mcp.mcpb",
         media_type="application/octet-stream",
     )

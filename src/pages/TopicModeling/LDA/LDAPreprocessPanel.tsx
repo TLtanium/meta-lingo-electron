@@ -31,7 +31,7 @@ import {
   Tooltip,
   TextField
 } from '@mui/material'
-import { NumberInput } from '../../../components/common'
+import { NumberInput } from '../../../components/Common'
 import PreviewIcon from '@mui/icons-material/Preview'
 import CloseIcon from '@mui/icons-material/Close'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'

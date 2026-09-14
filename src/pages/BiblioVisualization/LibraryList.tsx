@@ -34,9 +34,15 @@ import {
   TableHead,
   TableRow,
   TablePagination,
-  Paper
+  Paper,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  CircularProgress
 } from '@mui/material'
 import DeleteIcon from '@mui/icons-material/Delete'
+import EditIcon from '@mui/icons-material/Edit'
 import VisibilityIcon from '@mui/icons-material/Visibility'
 import StorageIcon from '@mui/icons-material/Storage'
 import AddIcon from '@mui/icons-material/Add'
@@ -50,6 +56,7 @@ import type { BiblioLibrary } from '../../types/biblio'
 import * as biblioApi from '../../api/biblio'
 import ExportBundleDialog from '../../components/Migration/ExportBundleDialog'
 import ImportBundleButton from '../../components/Migration/ImportBundleButton'
+import { LANGUAGE_OPTIONS } from './constants'
 
 interface LibraryListProps {
   onSelectLibrary: (library: BiblioLibrary) => void
@@ -70,6 +77,14 @@ export default function LibraryList({ onSelectLibrary, onCreateNew }: LibraryLis
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [libraryToDelete, setLibraryToDelete] = useState<BiblioLibrary | null>(null)
   const [deleting, setDeleting] = useState(false)
+
+  // Edit library metadata (name/description/language) — the API already existed
+  // (biblioApi.updateLibrary / PUT /api/biblio/libraries/{id}) but no UI called it.
+  const [editDialogOpen, setEditDialogOpen] = useState(false)
+  const [libraryToEdit, setLibraryToEdit] = useState<BiblioLibrary | null>(null)
+  const [editFormData, setEditFormData] = useState({ name: '', description: '', language: 'english' })
+  const [savingEdit, setSavingEdit] = useState(false)
+  const [editError, setEditError] = useState<string | null>(null)
 
   const filteredLibraries = libraries.filter(
     lib =>
@@ -123,6 +138,51 @@ export default function LibraryList({ onSelectLibrary, onCreateNew }: LibraryLis
   const handleDeleteCancel = () => {
     setDeleteDialogOpen(false)
     setLibraryToDelete(null)
+  }
+
+  // Handle edit
+  const handleEditClick = (library: BiblioLibrary) => {
+    setLibraryToEdit(library)
+    setEditFormData({
+      name: library.name || '',
+      description: library.description || '',
+      language: library.language || 'english'
+    })
+    setEditError(null)
+    setEditDialogOpen(true)
+  }
+
+  const handleEditCancel = () => {
+    setEditDialogOpen(false)
+    setLibraryToEdit(null)
+  }
+
+  const handleEditSave = async () => {
+    if (!libraryToEdit) return
+    if (!editFormData.name.trim()) {
+      setEditError(t('biblio.nameRequired'))
+      return
+    }
+
+    setSavingEdit(true)
+    setEditError(null)
+
+    const response = await biblioApi.updateLibrary(libraryToEdit.id, {
+      name: editFormData.name.trim(),
+      description: editFormData.description.trim() || undefined,
+      language: editFormData.language
+    })
+
+    setSavingEdit(false)
+
+    if (response.success && response.data) {
+      const updated = response.data
+      setLibraries(prev => prev.map(l => (l.id === updated.id ? updated : l)))
+      setEditDialogOpen(false)
+      setLibraryToEdit(null)
+    } else {
+      setEditError(response.error || t('biblio.updateFailed'))
+    }
   }
   
   // Format date
@@ -273,6 +333,7 @@ export default function LibraryList({ onSelectLibrary, onCreateNew }: LibraryLis
                   <TableCell align="center">{lib.entry_count}</TableCell>
                   <TableCell align="right" onClick={e => e.stopPropagation()}>
                     <IconButton size="small" onClick={() => onSelectLibrary(lib)}><VisibilityIcon /></IconButton>
+                    <IconButton size="small" onClick={() => handleEditClick(lib)}><EditIcon fontSize="small" /></IconButton>
                     <IconButton size="small" color="error" onClick={e => { e.stopPropagation(); handleDeleteClick(lib) }}><DeleteIcon fontSize="small" /></IconButton>
                   </TableCell>
                 </TableRow>
@@ -474,24 +535,36 @@ export default function LibraryList({ onSelectLibrary, onCreateNew }: LibraryLis
                   >
                     {t('biblio.view')}
                   </Button>
-                  <IconButton
-                    size="small"
-                    color="error"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      handleDeleteClick(library)
-                    }}
-                    sx={{
-                      opacity: 0.7,
-                      '&:hover': { 
-                        opacity: 1,
-                        bgcolor: 'error.light',
-                        color: 'error.contrastText'
-                      }
-                    }}
-                  >
-                    <DeleteIcon fontSize="small" />
-                  </IconButton>
+                  <Box>
+                    <IconButton
+                      size="small"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleEditClick(library)
+                      }}
+                      sx={{ opacity: 0.7, '&:hover': { opacity: 1 } }}
+                    >
+                      <EditIcon fontSize="small" />
+                    </IconButton>
+                    <IconButton
+                      size="small"
+                      color="error"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleDeleteClick(library)
+                      }}
+                      sx={{
+                        opacity: 0.7,
+                        '&:hover': {
+                          opacity: 1,
+                          bgcolor: 'error.light',
+                          color: 'error.contrastText'
+                        }
+                      }}
+                    >
+                      <DeleteIcon fontSize="small" />
+                    </IconButton>
+                  </Box>
                 </CardActions>
               </Card>
             </Grid>
@@ -516,6 +589,60 @@ export default function LibraryList({ onSelectLibrary, onCreateNew }: LibraryLis
           sx={{ mt: 2 }}
         />
       )}
+
+      {/* Edit library dialog */}
+      <Dialog open={editDialogOpen} onClose={handleEditCancel} maxWidth="sm" fullWidth>
+        <DialogTitle>{t('biblio.editLibrary')}</DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ mt: 1 }}>
+            <TextField
+              label={t('biblio.libraryName')}
+              value={editFormData.name}
+              onChange={e => setEditFormData(prev => ({ ...prev, name: e.target.value }))}
+              fullWidth
+              required
+              disabled={savingEdit}
+            />
+            <FormControl fullWidth disabled={savingEdit}>
+              <InputLabel>{t('biblio.language')}</InputLabel>
+              <Select
+                value={editFormData.language}
+                label={t('biblio.language')}
+                onChange={e => setEditFormData(prev => ({ ...prev, language: e.target.value }))}
+              >
+                {LANGUAGE_OPTIONS.map(opt => (
+                  <MenuItem key={opt.value} value={opt.value}>
+                    {t(opt.labelKey)}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <TextField
+              label={t('biblio.description')}
+              value={editFormData.description}
+              onChange={e => setEditFormData(prev => ({ ...prev, description: e.target.value }))}
+              fullWidth
+              multiline
+              rows={3}
+              disabled={savingEdit}
+            />
+            {editError && <Alert severity="error">{editError}</Alert>}
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleEditCancel} disabled={savingEdit}>
+            {t('common.cancel')}
+          </Button>
+          <Button
+            onClick={handleEditSave}
+            variant="contained"
+            disabled={savingEdit || !editFormData.name.trim()}
+            startIcon={savingEdit ? <CircularProgress size={16} /> : undefined}
+          >
+            {t('common.save')}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Delete confirmation dialog */}
       <Dialog open={deleteDialogOpen} onClose={handleDeleteCancel}>

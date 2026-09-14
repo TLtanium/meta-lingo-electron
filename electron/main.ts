@@ -759,23 +759,24 @@ function createWindow() {
   const isWin = process.platform === 'win32'
   
   // Mac 使用 hiddenInset 实现标题栏与页面融合；Windows 通过 hidden + titleBarOverlay 融合后不再需要额外高度补偿
-  const windowHeight = isMac ? 930 : 930
-  const minWindowHeight = isMac ? 930 : 930
-  
+  // 最小视窗从 1458x930 等比例放大到 1495x965（约 +2.5%/+3.8%）
+  const windowHeight = isMac ? 965 : 965
+  const minWindowHeight = isMac ? 965 : 965
+
   // 获取主显示器信息，用于设置最大尺寸限制
   const primaryDisplay = screen.getPrimaryDisplay()
   const { width: availableWidth, height: availableHeight } = primaryDisplay.workAreaSize
-  
+
   // 理想窗口大小
-  const idealWidth = 1458
+  const idealWidth = 1495
   const idealHeight = windowHeight
-  
+
   // 计算实际窗口大小（不超过屏幕可用空间）
   const actualWidth = Math.min(idealWidth, availableWidth)
   const actualHeight = Math.min(idealHeight, availableHeight)
-  
+
   // 计算最小尺寸（也不能超过屏幕可用空间）
-  const actualMinWidth = Math.min(1458, availableWidth)
+  const actualMinWidth = Math.min(1495, availableWidth)
   const actualMinHeight = Math.min(minWindowHeight, availableHeight)
   
   mainWindow = new BrowserWindow({
@@ -1098,6 +1099,55 @@ ipcMain.handle('get-mcp-path', () => {
   }
   const mcpPath = path.join(process.resourcesPath, 'mcp-server', 'meta-lingo-mcp')
   return { command: mcpPath, args: [], cwd: '' }
+})
+
+/**
+ * 解析打包好的 Claude Desktop 扩展文件（.mcpb，2025 年前叫 .dxt，Anthropic 已改名，
+ * 打包/校验工具链同步改用官方 @anthropic-ai/mcpb CLI，见 build.sh/build.bat）在本机的路径。
+ * 打包模式：electron-builder extraResources 放在 resources/mcp-extension/ 下；
+ * 开发模式：跟 backend/routers/mcp.py::_get_extension_path() 保持同一套查找顺序
+ * （backend-dist/ 优先，dist/ 兜底——分别对应 build.sh 完整构建 与 build-extension.* 单独构建扩展）。
+ */
+function getMcpExtensionPath(): string {
+  if (app.isPackaged) {
+    return path.join(process.resourcesPath, 'mcp-extension', 'meta-lingo-mcp.mcpb')
+  }
+  const projectRoot = path.join(__dirname, '..')
+  const candidates = [
+    path.join(projectRoot, 'backend-dist', 'meta-lingo-mcp.mcpb'),
+    path.join(projectRoot, 'dist', 'meta-lingo-mcp.mcpb'),
+  ]
+  return candidates.find((p) => fs.existsSync(p)) || candidates[0]
+}
+
+ipcMain.handle('get-mcp-extension-info', () => {
+  const extensionPath = getMcpExtensionPath()
+  return { path: extensionPath, exists: fs.existsSync(extensionPath) }
+})
+
+// 让系统默认程序（Claude Desktop 关联了 .mcpb）直接打开这个文件，弹出安装确认框。
+// 原生 Electron 窗口里用 <a download> 触发下载会被拦截/静默失败（跟 LEOX 遇到的问题一样），
+// 所以改成 Electron 自己的 shell.openPath——跨平台（macOS `open` / Windows `ShellExecute`），
+// 不依赖 Python subprocess 各写一套 open/start 命令。
+ipcMain.handle('open-mcp-extension', async () => {
+  const extensionPath = getMcpExtensionPath()
+  if (!fs.existsSync(extensionPath)) {
+    return { success: false, error: 'Extension file not found. Build it first.' }
+  }
+  const errorMessage = await shell.openPath(extensionPath)
+  // shell.openPath resolves to '' on success, or an error string on failure
+  // (e.g. Windows：没有关联程序打开 .mcpb —— 需要先安装/更新 Claude Desktop)。
+  return errorMessage ? { success: false, error: errorMessage } : { success: true }
+})
+
+// 在访达 (macOS) / 资源管理器 (Windows) 中定位并高亮这个文件，用户可以自己双击或拖进 Claude Desktop。
+ipcMain.handle('reveal-mcp-extension', () => {
+  const extensionPath = getMcpExtensionPath()
+  if (!fs.existsSync(extensionPath)) {
+    return { success: false, error: 'Extension file not found. Build it first.' }
+  }
+  shell.showItemInFolder(extensionPath)
+  return { success: true }
 })
 
 /**

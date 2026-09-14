@@ -36,7 +36,7 @@ import DeselectIcon from '@mui/icons-material/Deselect'
 import MoreVertIcon from '@mui/icons-material/MoreVert'
 import LinkIcon from '@mui/icons-material/Link'
 import { useTranslation } from 'react-i18next'
-import { WordActionMenu } from '../../components/common'
+import { WordActionMenu } from '../../components/Common'
 import { useTabStore } from '../../stores/tabStore'
 import type {
   SentimentResultRow,

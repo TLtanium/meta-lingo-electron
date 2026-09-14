@@ -59,7 +59,7 @@ import type {
   DomainWordsResponse
 } from '../../types/semanticAnalysis'
 import type { SelectionMode } from '../../types/crossLink'
-import { WordActionMenu } from '../../components/common'
+import { WordActionMenu } from '../../components/Common'
 
 interface ResultsTableProps {
   results: SemanticAnalysisResponse
@@ -159,10 +159,15 @@ export default function ResultsTable({
 
   const isDomainMode = results.result_mode === 'domain'
 
-  // Filter results by table search
+  // Filter results by table search.
+  // Word mode uses EXACT match (not substring): USAS domain codes are
+  // hierarchical (I2, I2.1, I2.2, ...), so a substring filter searching "I2"
+  // would also keep "I2.1" rows, which is confusing — the domain code column
+  // (and the word column) should only match the literal typed value.
+  // Domain mode keeps substring matching (browsing domain names/codes).
   const filteredResults = useMemo(() => {
     if (!tableFilter.trim()) return results.results
-    const filter = tableFilter.toLowerCase()
+    const filter = tableFilter.trim().toLowerCase()
     return results.results.filter(r => {
       if (isDomainMode) {
         const domainResult = r as SemanticDomainResult
@@ -170,9 +175,9 @@ export default function ResultsTable({
                domainResult.domain_name.toLowerCase().includes(filter)
       } else {
         const wordResult = r as SemanticWordResult
-        return wordResult.word.toLowerCase().includes(filter) ||
-               wordResult.domain.toLowerCase().includes(filter) ||
-               wordResult.domain_name.toLowerCase().includes(filter)
+        return wordResult.word.toLowerCase() === filter ||
+               wordResult.domain.toLowerCase() === filter ||
+               wordResult.domain_name.toLowerCase() === filter
       }
     })
   }, [results.results, tableFilter, isDomainMode])
@@ -367,6 +372,33 @@ export default function ResultsTable({
     const link = document.createElement('a')
     link.href = URL.createObjectURL(blob)
     link.download = `semantic_analysis_${results.result_mode}_${new Date().toISOString().slice(0, 10)}.csv`
+    link.click()
+  }
+
+  // Export the word list currently shown in the domain-words dialog as CSV
+  const handleExportDomainWords = () => {
+    const data = domainWordsDialog.data
+    if (!data || data.words.length === 0) return
+
+    let csvContent = 'Word,Lemma,Frequency,Metaphor Type\n'
+    data.words.forEach(item => {
+      const metaphorType = item.is_mflag
+        ? 'mflag'
+        : item.is_direct_metaphor
+          ? 'direct'
+          : item.is_implicit_metaphor
+            ? 'implicit'
+            : item.is_metaphor
+              ? 'indirect'
+              : 'none'
+      csvContent += `"${item.word}","${item.lemma || ''}",${item.frequency},"${metaphorType}"\n`
+    })
+
+    const safeDomain = domainWordsDialog.domain.replace(/[<>:"/\\|?*]/g, '_')
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+    const link = document.createElement('a')
+    link.href = URL.createObjectURL(blob)
+    link.download = `semantic_domain_${safeDomain}_words_${new Date().toISOString().slice(0, 10)}.csv`
     link.click()
   }
 
@@ -800,9 +832,18 @@ export default function ResultsTable({
                 {domainWordsDialog.domainName}
               </Typography>
             </Box>
-            <IconButton onClick={handleCloseDomainWordsDialog}>
-              <CloseIcon />
-            </IconButton>
+            <Stack direction="row" spacing={0.5} alignItems="center">
+              {domainWordsDialog.data && domainWordsDialog.data.words.length > 0 && (
+                <Tooltip title={t('semantic.results.exportDomainWords')}>
+                  <IconButton onClick={handleExportDomainWords} size="small">
+                    <DownloadIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+              )}
+              <IconButton onClick={handleCloseDomainWordsDialog}>
+                <CloseIcon />
+              </IconButton>
+            </Stack>
           </Stack>
         </DialogTitle>
         

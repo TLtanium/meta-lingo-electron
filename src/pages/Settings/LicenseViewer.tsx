@@ -16,7 +16,7 @@ import LicenseDialog from '../../components/Settings/LicenseDialog'
 
 const DOI_URL = 'https://doi.org/10.5281/zenodo.20091931'
 
-const CITATION_VERSION = 'v4.8.45'
+const CITATION_VERSION = 'v4.9.47'
 const CITATION_TEXT = `Tommy Leo. (2026). TLtanium/meta-lingo-electron: Meta-Lingo ${CITATION_VERSION} (${CITATION_VERSION}). Zenodo. ${DOI_URL}`
 
 export default function LicenseViewer() {

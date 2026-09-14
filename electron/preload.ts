@@ -64,7 +64,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
     return () => {
       ipcRenderer.removeListener('startup-status-changed', listener)
     }
-  }
+  },
+
+  // MCP 扩展 (.mcpb) 一键安装：原生窗口下载会被拦截，改用 shell.openPath/showItemInFolder
+  getMcpExtensionInfo: (): Promise<{ path: string; exists: boolean }> =>
+    ipcRenderer.invoke('get-mcp-extension-info'),
+  openMcpExtension: (): Promise<{ success: boolean; error?: string }> =>
+    ipcRenderer.invoke('open-mcp-extension'),
+  revealMcpExtension: (): Promise<{ success: boolean; error?: string }> =>
+    ipcRenderer.invoke('reveal-mcp-extension')
 })
 
 // Type definitions for the exposed API
@@ -86,6 +94,10 @@ export interface ElectronAPI {
   getStartupStatus: () => Promise<StartupStatus>
   retryBackend: () => Promise<boolean>
   onStartupStatusChange: (callback: (status: StartupStatus) => void) => () => void
+  // MCP 扩展 (.mcpb) 一键安装
+  getMcpExtensionInfo: () => Promise<{ path: string; exists: boolean }>
+  openMcpExtension: () => Promise<{ success: boolean; error?: string }>
+  revealMcpExtension: () => Promise<{ success: boolean; error?: string }>
 }
 
 declare global {

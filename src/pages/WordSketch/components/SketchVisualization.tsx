@@ -25,7 +25,7 @@ import BubbleChartIcon from '@mui/icons-material/BubbleChart'
 import * as d3 from 'd3'
 import { useTranslation } from 'react-i18next'
 import type { WordSketchResult } from '../../../api/sketch'
-import NumberInput from '../../../components/common/NumberInput'
+import NumberInput from '../../../components/Common/NumberInput'
 
 interface Props {
   result: WordSketchResult | null

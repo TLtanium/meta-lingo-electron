@@ -676,8 +676,12 @@ def _render_framework_tree(
         color = node.get("color") or ""
         definition = node.get("definition") or ""
 
-        # Build the full label path
-        label_path = f"{path_prefix} > {name}" if path_prefix else name
+        # Build the full label path. '/'-separated, tier nodes included: must
+        # stay structurally identical to the manual FrameworkTree path
+        # (src/components/Annotation/FrameworkTree.tsx addPathsToTree) so
+        # AI-driven and human-driven annotations share one labelPath format
+        # (see src/utils/annotationPath.ts).
+        label_path = f"{path_prefix}/{name}" if path_prefix else name
 
         type_tag = f"[{ntype}]" if ntype else ""
         color_tag = f"  color={color}" if color else ""

@@ -40,7 +40,7 @@ import type {
   TablePaginationConfig 
 } from '../../types/ngram'
 import type { SelectionMode } from '../../types/crossLink'
-import { WordActionMenu } from '../../components/common'
+import { WordActionMenu } from '../../components/Common'
 
 interface ResultsTableProps {
   results: NGramResult[]

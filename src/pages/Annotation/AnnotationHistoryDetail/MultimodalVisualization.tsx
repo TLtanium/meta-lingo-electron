@@ -51,7 +51,7 @@ import html2canvas from 'html2canvas'
 import type { Annotation, YoloTrack, VideoBox, ClipAnnotationData } from '../../../types'
 import AnnotationWordCloud, { type LabelInfo, type AnnotationWordCloudHandle } from './AnnotationWordCloud'
 import AnnotationNetwork, { type ArchiveListItem, type AnnotationNetworkHandle } from './AnnotationNetwork'
-import { NumberInput } from '../../../components/common'
+import { NumberInput } from '../../../components/Common'
 
 interface MultimodalVisualizationProps {
   annotations: Annotation[]

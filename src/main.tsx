@@ -1,9 +1,11 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
+import { useTranslation } from 'react-i18next'
 import { ThemeProvider, CssBaseline, Box, Typography, Button } from '@mui/material'
 import App from './App'
 import { theme, darkTheme } from './styles/theme'
 import { useSettingsStore } from './stores/settingsStore'
+import ErrorBoundary from './components/Common/ErrorBoundary'
 import './i18n'
 
 // Global error state for non-React errors
@@ -62,90 +64,86 @@ errorContainer.style.zIndex = '99999'
 errorContainer.style.background = 'white'
 document.body.appendChild(errorContainer)
 
-// Error Boundary to catch and display runtime errors
-class ErrorBoundary extends React.Component<
-  { children: React.ReactNode },
-  { hasError: boolean; error: Error | null; errorInfo: React.ErrorInfo | null }
-> {
-  constructor(props: { children: React.ReactNode }) {
-    super(props)
-    this.state = { hasError: false, error: null, errorInfo: null }
-  }
-
-  static getDerivedStateFromError(error: Error) {
-    return { hasError: true, error }
-  }
-
-  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    console.error('[ErrorBoundary] Uncaught error:', error, errorInfo)
-    this.setState({ errorInfo })
-  }
-
-  handleReload = () => {
-    window.location.reload()
-  }
-
-  render() {
-    if (this.state.hasError) {
-      return (
-        <Box sx={{ p: 4, maxWidth: 800, mx: 'auto' }}>
-          <Typography variant="h5" color="error" gutterBottom>
-            Application Error
-          </Typography>
-          <Typography variant="body1" sx={{ mb: 2 }}>
-            An unexpected error occurred. Please try reloading the application.
-          </Typography>
-          <Box sx={{ 
-            p: 2, 
-            mb: 2, 
-            bgcolor: 'grey.100', 
-            borderRadius: 1,
-            fontFamily: 'monospace',
-            fontSize: 12,
-            overflow: 'auto',
-            maxHeight: 200
-          }}>
-            <strong>Error:</strong> {this.state.error?.message}
-            {this.state.error?.stack && (
-              <pre style={{ margin: '8px 0 0', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
-                {this.state.error.stack}
-              </pre>
-            )}
-          </Box>
-          {this.state.errorInfo?.componentStack && (
-            <Box sx={{ 
-              p: 2, 
-              mb: 2, 
-              bgcolor: 'grey.100', 
-              borderRadius: 1,
-              fontFamily: 'monospace',
-              fontSize: 11,
-              overflow: 'auto',
-              maxHeight: 150
-            }}>
-              <strong>Component Stack:</strong>
-              <pre style={{ margin: '8px 0 0', whiteSpace: 'pre-wrap' }}>
-                {this.state.errorInfo.componentStack}
-              </pre>
-            </Box>
-          )}
-          <Button variant="contained" onClick={this.handleReload}>
-            Reload Application
-          </Button>
+// Last-resort fallback for the top-level ErrorBoundary — anything that escapes
+// a more specific boundary (e.g. TabManager's per-tab ones; see
+// components/Common/ErrorBoundary.tsx) ends up here, so the whole app is
+// replaced. Kept as a safety net; per-tab crashes should no longer reach it.
+//
+// IMPORTANT: this must be mounted as a real component (JSX `<AppErrorFallback/>`),
+// never called as a plain function — ErrorBoundary's `fallback` prop runs inside a
+// CLASS component's render(), which has no hook dispatcher; calling a function that
+// uses useTranslation() directly there throws "Invalid hook call". JSX composition
+// gives React its own fiber for this component, where hooks work normally.
+function AppErrorFallback({
+  error,
+  errorInfo,
+  onReload
+}: {
+  error: Error
+  errorInfo: React.ErrorInfo | null
+  onReload: () => void
+}) {
+  const { t } = useTranslation()
+  return (
+    <Box sx={{ p: 4, maxWidth: 800, mx: 'auto' }}>
+      <Typography variant="h5" color="error" gutterBottom>
+        {t('errorBoundary.appTitle')}
+      </Typography>
+      <Typography variant="body1" sx={{ mb: 2 }}>
+        {t('errorBoundary.appMessage')}
+      </Typography>
+      <Box sx={{
+        p: 2,
+        mb: 2,
+        bgcolor: 'grey.100',
+        borderRadius: 1,
+        fontFamily: 'monospace',
+        fontSize: 12,
+        overflow: 'auto',
+        maxHeight: 200
+      }}>
+        <strong>Error:</strong> {error.message}
+        {error.stack && (
+          <pre style={{ margin: '8px 0 0', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+            {error.stack}
+          </pre>
+        )}
+      </Box>
+      {errorInfo?.componentStack && (
+        <Box sx={{
+          p: 2,
+          mb: 2,
+          bgcolor: 'grey.100',
+          borderRadius: 1,
+          fontFamily: 'monospace',
+          fontSize: 11,
+          overflow: 'auto',
+          maxHeight: 150
+        }}>
+          <strong>Component Stack:</strong>
+          <pre style={{ margin: '8px 0 0', whiteSpace: 'pre-wrap' }}>
+            {errorInfo.componentStack}
+          </pre>
         </Box>
-      )
-    }
-    return this.props.children
-  }
+      )}
+      <Button variant="contained" onClick={onReload}>
+        {t('errorBoundary.reload')}
+      </Button>
+    </Box>
+  )
 }
 
 function Root() {
   const { darkMode } = useSettingsStore()
-  
+
   return (
     <ThemeProvider theme={darkMode ? darkTheme : theme}>
       <CssBaseline />
-      <ErrorBoundary>
+      <ErrorBoundary
+        fallback={(error, _reset, errorInfo) => (
+          <AppErrorFallback error={error} errorInfo={errorInfo} onReload={() => window.location.reload()} />
+        )}
+      >
         <App />
       </ErrorBoundary>
     </ThemeProvider>

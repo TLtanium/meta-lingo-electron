@@ -19,7 +19,7 @@ import {
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import TuneIcon from '@mui/icons-material/Tune'
 import { useTranslation } from 'react-i18next'
-import { NumberInput } from '../../../components/common'
+import { NumberInput } from '../../../components/Common'
 import { FEATURE_CODES } from './mdaCsv'
 
 interface ParamsPanelProps {

@@ -28,7 +28,7 @@ import SearchIcon from '@mui/icons-material/Search'
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline'
 import { useTranslation } from 'react-i18next'
 import type { SearchConfig, SearchType, SearchTarget } from '../../types/wordFrequency'
-import { NumberInput } from '../../components/common'
+import { NumberInput } from '../../components/Common'
 
 interface SearchConfigPanelProps {
   config: SearchConfig

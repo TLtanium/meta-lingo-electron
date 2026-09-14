@@ -49,7 +49,7 @@ import {
   DEFAULT_STATISTIC_THRESHOLDS
 } from '../../../types/keyword'
 import { CorpusResourceCard, CorpusResourceDialog } from '../../../components/CorpusResource'
-import { NumberInput } from '../../../components/common'
+import { NumberInput } from '../../../components/Common'
 import CorpusOrLibrarySelector, { type CorpusOrLibrarySelection } from '../../../components/Corpus/CorpusOrLibrarySelector'
 
 import POSFilterPanel from '../POSFilterPanel'
