@@ -316,7 +316,7 @@ def register(mcp: FastMCP, client: MetaLingoClient):
 
         When to use: Corpus comparison (keyness / distinctiveness) - e.g. specialist
         vs. general language, register, or period. Needs two user corpus IDs.
-        For comparing against built-in reference corpora (BNC, OANC, etc.),
+        For comparing against built-in reference corpora (AmE06, BNC 2014, COCA, etc.),
         use keyness_resource_analysis() instead.
 
         Identifies words that are statistically more frequent (key) or less
@@ -577,17 +577,17 @@ def register(mcp: FastMCP, client: MetaLingoClient):
         chart_type: str | None = None,
         chart_path: str | None = None,
     ) -> str:
-        """Compare corpus keywords against a built-in reference corpus (BNC, OANC, etc.).
+        """Compare corpus keywords against a built-in reference corpus (AmE06, BNC 2014, COCA, etc.).
 
         When to use: When you want to compare your corpus against a large, standard
-        reference corpus like BNC (British National Corpus) or OANC (Open American
-        National Corpus) instead of another user corpus.
+        reference corpus like AmE06 (American English 2006) or BNC 2014 (British National
+        Corpus 2014, spoken) instead of another user corpus.
 
         Use list_reference_corpora() first to find available resource_ids.
 
         Common resource IDs include:
-        - "bnc_spoken", "bnc_written", "bnc_total" (British National Corpus)
-        - "oanc_total" (Open American National Corpus)
+        - "ame06_total", "be06_total" (American / British English 2006)
+        - "bnc2014_spoken" (British National Corpus 2014, spoken), "coca_total" (COCA)
         - And others returned by list_reference_corpora()
 
         Args:

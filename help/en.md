@@ -1327,41 +1327,34 @@ The corpus used as a comparison baseline for calculating expected word frequenci
 The system includes multiple pre-processed corpus frequency datasets that can be directly used for keyness comparison:
 
 - **Enable**: Toggle the "Corpus Resource" switch on
-- **Default Resource**: OANC (Open American National Corpus) total corpus
+- **Default Resource**: AmE06 (American English 2006) total corpus
 - **Resource Selection**: Click the resource card to open the selection dialog
 
 **Corpus Resource Selection Dialog**:
 
 - **Search Function**: Enter keywords to search corpus names
-- **Corpus Type Filter**: Filter by corpus type (e.g., BNC 1994, BNC 2014, Brown, NOW, OANC, COCA, COHA, GloWbE)
+- **Corpus Type Filter**: Filter by corpus type (e.g., AmE06, BE06, BNC 2014, NOW, COCA, COHA, GloWbE)
 - **Tag Filter**: Filter by tags, supports multiple selection (e.g., news, fiction, spoken)
 - **Resource Card**: Displays corpus name, word count (based on the sum of `freq` in CSV), file size, and other information
 - **Single Selection**: Select one corpus, then the dialog closes and updates the display
 
 **Available Corpus Resources (Examples)**:
 
-The system includes multiple pre-processed corpus resources. BNC is split into **BNC 1994** and **BNC 2014**, and several other corpora are available:
+The system includes multiple pre-processed corpus resources:
 
 | Corpus | Description | Example Tags |
 |--------|-------------|--------------|
-| BNC 1994 | British National Corpus 1994 | spoken, written, applied_science, arts, etc. |
 | BNC 2014 | British National Corpus 2014 (spoken only) | spoken, contemporary British English |
-| Brown | Brown Corpus | news, fiction, academic, etc. |
 | AmE06 | American English 2006 (AmE06) balanced corpus | written American English, press, magazines, fiction, etc. |
 | BE06 | British English 2006 (BE06) balanced corpus | written British English, press, magazines, fiction, etc. |
 | NOW | News on the Web (2010-2024; ~24.2B words/41,104,404 texts) | news (by country) |
-| OANC | Open American National Corpus | various text genres |
 | COCA | Corpus of Contemporary American English (1990-2019; ~1B words/485,000 texts) | spoken, fiction, magazine, news, academic |
 | COHA | Corpus of Historical American English (1810-2009; ~400M words/107,000 texts) | historical American English by period |
 | GloWbE | Global Web-based English (~2013; ~1.9B words/1.8M texts) | English by country/region |
-| Coronavirus | Coronavirus Corpus (Jan 2020 - Dec 2022; ~1.5B words/1.9M texts) | COVID-19 (by country) |
-| iWeb | The Intelligent Web Corpus (14B words/22M pages/~100,000 websites) | web / tech |
-| TV | TV Corpus (1950-2018; 325M words/75,000 episodes) | TV / spoken |
-| Movies | Movies Corpus (1930-2018; 200M words/25,000 movies) | film / spoken |
-| SOAP | SOAP Corpus (2000-2012; ~100M words) | soap opera |
-| Wikipedia | Wikipedia Corpus (1.9B words/4.4M texts) | topics / academic |
 
-About corpus sources: except `NOW`, `Brown`, `AmE06 / BE06`, `OANC`, and `BNC`, the other built-in reference corpus resources (e.g. `COCA / COHA / GloWbE / Coronavirus / iWeb / TV / Movies / SOAP / Wikipedia`) are based on sample full-text data provided by English-Corpora.org / CorpusData; sample dataset details are described on [CorpusData formats](https://www.corpusdata.org/formats.asp).
+About corpus sources: except `NOW`, `AmE06 / BE06`, and `BNC 2014`, the other built-in reference corpus resources (`COCA / COHA / GloWbE`) are based on sample full-text data provided by English-Corpora.org / CorpusData; sample dataset details are described on [CorpusData formats](https://www.corpusdata.org/formats.asp).
+
+**How reference frequencies are counted**: the built-in reference-corpus CSVs are tagged by PyMUSAS with **top-1** only (each token keeps just its highest-ranked USAS tag) and every token is counted once, so the `freq` column sums to the true token count (e.g. AmE06 is about 850K tokens). On the study-corpus side, keyness in semantic-domain mode likewise counts only each token's primary (top-1) tag, so both sides share the same basis. Note this only affects the keyness computation: annotated corpora in Corpus Management still store the top-5 candidate tags, and other modules (semantic domain analysis, CQL search, etc.) are unchanged.
 
 **Note:** BNC 2014 contains spoken data only.
 
@@ -1373,7 +1366,7 @@ About corpus sources: except `NOW`, `Brown`, `AmE06 / BE06`, `OANC`, and `BNC`, 
 
 #### USAS Annotation for Reference Corpus Resources
 
-All built-in corpus resources (e.g. BNC, COCA, OANC, GloWbE) use USAS semantic domain data annotated by Meta-Lingo’s built-in **PyMUSAS neural model**. The framework is developed by UCREL at Lancaster University and supports multilingual semantic tagging. Full documentation and evaluation data: [PyMUSAS documentation](https://ucrel.github.io/pymusas/). The pre-trained model used in Meta-Lingo is **ucrelnlp/PyMUSAS-Neural-Multilingual-Base-BEM** ([HuggingFace](https://huggingface.co/ucrelnlp/PyMUSAS-Neural-Multilingual-Base-BEM)), suitable for multilingual use.
+All built-in corpus resources (e.g. AmE06, BNC 2014, COCA, GloWbE) use USAS semantic domain data annotated by Meta-Lingo’s built-in **PyMUSAS neural model**. The framework is developed by UCREL at Lancaster University and supports multilingual semantic tagging. Full documentation and evaluation data: [PyMUSAS documentation](https://ucrel.github.io/pymusas/). The pre-trained model used in Meta-Lingo is **ucrelnlp/PyMUSAS-Neural-Multilingual-Base-BEM** ([HuggingFace](https://huggingface.co/ucrelnlp/PyMUSAS-Neural-Multilingual-Base-BEM)), suitable for multilingual use.
 
 **Model sizes (from PyMUSAS official site)**:
 
@@ -7466,7 +7459,7 @@ These tools retrieve metadata, validate queries, and list or create annotation f
 - **get_pos_tags**: List all Universal POS tags (ADJ, NOUN, VERB, etc.) with descriptions. Use to understand valid POS filter values for other tools.
 - **get_usas_categories**: List the 21 USAS major semantic domain categories (A–Z). Use before `semantic_domain_analysis` to understand the taxonomy.
 - **get_metaphor_sources**: List MIPVU metaphor detection source types (word filter, MRC concreteness, etc.). Use to interpret `metaphor_analysis` results.
-- **list_reference_corpora**: List built-in reference corpora (BNC, OANC, Brown, etc.) with word counts. Use to find `resource_id` values for `keyness_resource_analysis`.
+- **list_reference_corpora**: List built-in reference corpora (AmE06, BNC 2014, COCA, etc.) with word counts. Use to find `resource_id` values for `keyness_resource_analysis`.
 - **validate_cql**: Validate a CQL (Corpus Query Language) expression before running a concordance search. Returns whether the syntax is valid and any error messages. Always call this before `concordance_search` with `search_mode="cql"`.
 - **list_annotation_frameworks**: List all annotation frameworks organized by category (Appraisal, SFL Grammar, Error Analysis, etc.). Returns framework IDs needed for `get_annotation_framework` and `save_annotation`.
 - **get_annotation_framework**: Get the full label tree of a specific framework by ID (e.g., `MIPVU`, `Halliday-Theme`). Shows all available labels, colors, definitions, and the hierarchy. Essential before creating annotations with `save_annotation`.
@@ -7491,7 +7484,7 @@ Frequency, keyword, keyness, and n-gram analyses.
 - **word_frequency**: Analyze word frequencies with fine-grained filtering. Parameters: `search_word` with `search_type` (exact / contains / starts / ends / regex / wordlist), `search_target` (word / lemma), `pos_filter`, `min_freq`, `max_freq`, `lowercase`, `remove_stopwords`, `limit`. Supports `save_path` (CSV) and `chart_type` (bar/pie/wordcloud) with `chart_path`.
 - **keyword_extraction**: Extract keywords using NLP algorithms. Supports four algorithms: `tfidf`, `textrank`, `yake`, `rake`. Optional `config` parameter for algorithm-specific tuning (e.g., `{maxFeatures: 1000}` for TF-IDF). Also supports `pos_filter`, `save_path`, `chart_type`.
 - **keyness_analysis**: Compare keywords between two user corpora (study vs. reference). Statistics: `log_likelihood`, `chi_squared`, `log_ratio`, `dice`, `mi`, `t_score`, `simple_keyness`. Parameters include `comparison_mode` (word / lemma / domain), `min_freq`, `p_threshold`. For comparing against built-in reference corpora, use `keyness_resource_analysis` instead.
-- **keyness_resource_analysis**: Compare corpus keywords against built-in reference corpora (BNC, OANC, etc.). Use `list_reference_corpora()` first to find the `resource_id`. Same statistics and parameters as `keyness_analysis`.
+- **keyness_resource_analysis**: Compare corpus keywords against built-in reference corpora (AmE06, BNC 2014, COCA, etc.). Use `list_reference_corpora()` first to find the `resource_id`. Same statistics and parameters as `keyness_analysis`.
 - **ngram_analysis**: Find frequent word sequences (bigrams, trigrams, etc.). Parameters: `n_values` (e.g., `[2, 3]`), `search_word`, `min_freq`, `min_word_length`, `nest` (include sub-n-grams), `pos_filter`, `limit`.
 
 ### Concordance & Collocation (4 tools)
@@ -7582,7 +7575,7 @@ The MCP server is a lightweight proxy that translates AI tool calls into Meta-Li
 
 Ask your AI assistant:
 - *"Create a corpus called ‘Political Speeches’, upload these three texts, and analyze word frequency."*
-- *"Compare the keywords in corpus A vs the BNC written corpus using log-likelihood."*
+- *"Compare the keywords in corpus A vs AmE06 using log-likelihood."*
 - *"Search for concordances of ‘democracy’ in my corpus using CQL: `[lemma=\"democracy\"]`, then analyze its collocations."*
 - *"What are the dominant semantic domains in this corpus? Drill into the top domain to see which words contribute."*
 - *"Run LDA topic modeling with 5 topics on my research corpus."*

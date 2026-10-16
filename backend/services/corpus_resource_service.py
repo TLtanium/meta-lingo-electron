@@ -14,6 +14,7 @@ from functools import lru_cache
 
 from config import get_saves_dir
 from services.usas.disambiguator import parse_compound_tag
+from services.corpus_resource_csv import parse_frequency_csv
 
 logger = logging.getLogger(__name__)
 
@@ -58,6 +59,9 @@ class CorpusResourceService:
 
     # Persistent cache to avoid re-scanning + re-summing CSV files on every app restart.
     _PERSISTENT_CACHE_FILENAME = "corpus_resource_service.cache.json"
+    # Bump when the cached payload semantics change (v3: reference CSVs are top-1, word_count is
+    # the plain freq sum; v2 had a top-5 deflation that no longer applies).
+    _PERSISTENT_CACHE_VERSION = 3
 
     def _get_persistent_cache_path(self) -> Path:
         # Keep cache under saves/ so it survives app restarts in both dev and packaged modes.
@@ -87,6 +91,8 @@ class CorpusResourceService:
         try:
             with open(cache_path, "r", encoding="utf-8") as f:
                 payload = json.load(f)
+            if payload.get("version") != self._PERSISTENT_CACHE_VERSION:
+                return None
             saved_key = payload.get("key")
             # Compare normalized key shapes to avoid tuple/list mismatch
             if saved_key != self._key_to_json_compatible(current_key):
@@ -110,6 +116,7 @@ class CorpusResourceService:
         cache_path = self._get_persistent_cache_path()
         try:
             payload = {
+                "version": self._PERSISTENT_CACHE_VERSION,
                 "key": self._key_to_json_compatible(current_key),
                 "resources": resources
             }
@@ -356,7 +363,8 @@ class CorpusResourceService:
             corpus_dir = saves_dir / "corpus"
         
         self.corpus_dir = Path(corpus_dir)
-        self._frequency_cache: Dict[str, Dict[str, int]] = {}
+        self._frequency_cache: Dict[str, Dict[str, Dict[str, Any]]] = {}
+        self._lemma_cache: Dict[str, Dict[str, int]] = {}
         # Cache for list_resources() so we don't re-sum every CSV on each request (corpus data is static)
         self._list_resources_cache: Optional[List[Dict[str, Any]]] = None
         self._list_resources_cache_key: Optional[Tuple[Tuple[str, float], ...]] = None  # (path, mtime) per CSV
@@ -648,7 +656,7 @@ class CorpusResourceService:
                 # Get file info
                 try:
                     file_size = csv_file.stat().st_size
-                    # Sum frequencies as total token count
+                    # Sum frequencies as total token count (top-1 CSVs: one row-count per token)
                     word_count = 0
                     with open(csv_file, 'r', encoding='utf-8') as f:
                         reader = csv.DictReader(f)
@@ -831,40 +839,13 @@ class CorpusResourceService:
             logger.error(f"CSV file not found for resource: {resource_id}")
             return {}
 
-        frequency_data = {}
-
         try:
-            with open(file_path, 'r', encoding='utf-8') as f:
-                reader = csv.DictReader(f)
-                for row in reader:
-                    # Preferred: original-case word in 'Word' 列（由 normalize_corpus_word_column.py 生成）
-                    # Back-compat: 若无 'Word' 列则退回到旧的 'word' 列
-                    raw_word = (row.get('Word') or row.get('word') or '').strip()
-                    if not raw_word:
-                        continue
+            # Reference CSVs are top-1 (one count per token); see corpus_resource_csv.py.
+            frequency_data, lemma_freq = parse_frequency_csv(file_path)
 
-                    lemma = row.get('lemma', raw_word).strip()
-                    pos = row.get('pos', '').strip()
-                    try:
-                        freq = int(row.get('freq', 0))
-                    except (ValueError, TypeError):
-                        freq = 0
-
-                    # Use original-case word as key, store all data.
-                    # If same word appears multiple times with different POS, sum freq.
-                    if raw_word in frequency_data:
-                        frequency_data[raw_word]['freq'] += freq
-                    else:
-                        frequency_data[raw_word] = {
-                            'word': raw_word,
-                            'lemma': lemma,
-                            'pos': pos,
-                            'freq': freq
-                        }
-
-            # Cache the result
             if use_cache:
                 self._frequency_cache[resource_id] = frequency_data
+                self._lemma_cache[resource_id] = lemma_freq
             
             logger.info(f"Loaded {len(frequency_data)} words from {resource_id}")
             
@@ -873,6 +854,22 @@ class CorpusResourceService:
             return {}
         
         return frequency_data
+
+    def load_lemma_frequencies(self, resource_id: str) -> Dict[str, int]:
+        """Token-accurate lemma -> frequency table for a resource (original-case lemmas)."""
+        if resource_id not in self._lemma_cache:
+            # Populates both caches; fall back to a direct parse when caching is bypassed.
+            self.load_frequency_data(resource_id)
+        if resource_id in self._lemma_cache:
+            return self._lemma_cache[resource_id]
+        file_path = self._get_csv_path(resource_id)
+        if not file_path:
+            return {}
+        try:
+            return parse_frequency_csv(file_path)[1]
+        except Exception as e:
+            logger.error(f"Error loading lemma frequencies from {file_path}: {e}")
+            return {}
     
     def get_word_frequency(
         self,
@@ -987,12 +984,11 @@ class CorpusResourceService:
         freq_table: Dict[str, int] = {}
         
         if mode == "lemma":
-            for info in data.values():
-                lemma = info.get('lemma') or info.get('word') or ''
+            for lemma, freq in self.load_lemma_frequencies(resource_id).items():
                 if not lemma:
                     continue
                 key = lemma.lower() if lowercase else lemma
-                freq_table[key] = freq_table.get(key, 0) + info.get('freq', 0)
+                freq_table[key] = freq_table.get(key, 0) + freq
             return freq_table
         
         # Default: aggregate by surface word form
@@ -1014,8 +1010,10 @@ class CorpusResourceService:
         """
         if resource_id:
             self._frequency_cache.pop(resource_id, None)
+            self._lemma_cache.pop(resource_id, None)
         else:
             self._frequency_cache.clear()
+            self._lemma_cache.clear()
             self._list_resources_cache = None
             self._list_resources_cache_key = None
         logger.info(f"Cache cleared: {resource_id or 'all'}")

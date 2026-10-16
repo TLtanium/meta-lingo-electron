@@ -920,7 +920,9 @@ class KeywordService:
                     min_freq=1,
                     max_freq=None,
                     lowercase=lowercase,
-                    result_mode="domain"
+                    result_mode="domain",
+                    # Keyness compares against top-1 reference corpora => count primary tags only
+                    primary_only=True
                 )
             except Exception as e:
                 logger.error(f"Semantic analysis (domain mode) failed: {e}")
@@ -1370,7 +1372,7 @@ class KeywordService:
         Args:
             study_corpus_id: Study corpus ID
             study_text_ids: Text IDs in study corpus
-            resource_id: Corpus resource ID (e.g., 'oanc_total', 'bnc_spoken')
+            resource_id: Corpus resource ID (e.g., 'ame06_total', 'bnc2014_spoken')
             statistic: Statistical method to use
             config: Analysis configuration
             pos_filter: POS filter configuration

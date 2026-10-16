@@ -209,7 +209,7 @@ def register(mcp: FastMCP, client: MetaLingoClient):
         """List available reference corpora for keyness comparison.
 
         When to use: Before using keyness_resource_analysis(). Returns built-in
-        reference corpora (BNC spoken/written, OANC, Brown, etc.) with their
+        reference corpora (AmE06, BE06, BNC 2014, COCA, COHA, GloWbE, NOW) with their
         resource_id, name, language, and word count. Use the resource_id in
         keyness_resource_analysis(resource_id=...).
 

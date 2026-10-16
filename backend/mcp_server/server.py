@@ -76,7 +76,7 @@ def create_server(backend_url: str = "http://127.0.0.1:8000") -> FastMCP:
             "6. Use reference tools: get_pos_tags, get_usas_categories, "
             "validate_cql, list_reference_corpora\n"
             "7. Compare corpora: keyness_analysis (two user corpora) or "
-            "keyness_resource_analysis (vs. BNC/OANC built-in reference)\n"
+            "keyness_resource_analysis (vs. AmE06/BNC 2014/COCA etc. built-in reference)\n"
             "8. Deep-dive: get_extended_context (more context around a KWIC hit), "
             "get_domain_words (words in a USAS domain), get_lemma_forms\n"
             "9. Annotate: see annotation workflow below\n"

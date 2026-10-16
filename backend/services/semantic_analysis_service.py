@@ -43,7 +43,8 @@ class SemanticAnalysisService:
         min_freq: int = 1,
         max_freq: Optional[int] = None,
         lowercase: bool = True,
-        result_mode: str = "domain"  # "domain" or "word"
+        result_mode: str = "domain",  # "domain" or "word"
+        primary_only: bool = False
     ) -> Dict[str, Any]:
         """
         Perform semantic domain analysis
@@ -57,6 +58,9 @@ class SemanticAnalysisService:
             max_freq: Maximum frequency threshold (optional)
             lowercase: Convert all to lowercase
             result_mode: "domain" for domain statistics, "word" for word-level
+            primary_only: Count only each token's primary (top-1) USAS tag, even when the
+                annotation stores several candidates. Used by keyness so the study corpus
+                is on the same basis as the top-1 reference corpora.
             
         Returns:
             Analysis results with domain/word frequencies
@@ -79,7 +83,7 @@ class SemanticAnalysisService:
             all_tokens = []
             
             for text in texts:
-                tokens = self._get_tokens_from_text(text, pos_filter, lowercase)
+                tokens = self._get_tokens_from_text(text, pos_filter, lowercase, primary_only)
                 all_tokens.extend(tokens)
             
             if not all_tokens:
@@ -126,7 +130,8 @@ class SemanticAnalysisService:
         self,
         text: Dict[str, Any],
         pos_filter: Optional[Dict[str, Any]],
-        lowercase: bool
+        lowercase: bool,
+        primary_only: bool = False
     ) -> List[Dict[str, Any]]:
         """
         Extract tokens with USAS tags from a text
@@ -153,6 +158,9 @@ class SemanticAnalysisService:
         
         # Align with saved tagging_mode when key omitted (neural → multi-tag stats).
         disambiguation_enabled = infer_disambiguation_enabled(usas_data)
+        if primary_only:
+            # Primary-tag-only counting == the "disambiguated" branch of _extract_from_tokens.
+            disambiguation_enabled = True
 
         # Handle different annotation formats
         if "tokens" in usas_data:

@@ -41,13 +41,13 @@ export interface StatisticThresholds {
 // ==================== Corpus Resource Types ====================
 
 export interface CorpusResource {
-  id: string              // e.g., 'bnc_commerce_finance', 'oanc_total'
-  name_en: string         // e.g., 'BNC(Commerce&Finance)'
-  name_zh: string         // e.g., 'BNC(商业与金融)'
-  prefix: string          // e.g., 'bnc', 'oanc', 'now', 'brown'
+  id: string              // e.g., 'bnc2014_spoken', 'ame06_total'
+  name_en: string         // e.g., 'BNC 2014(Spoken)'
+  name_zh: string         // e.g., 'BNC 2014(口语)'
+  prefix: string          // e.g., 'ame06', 'bnc2014', 'now', 'coca'
   category: string        // e.g., 'commerce_finance', 'total', 'spoken'
-  tags_en: string[]       // e.g., ['BNC', 'commerce', 'finance']
-  tags_zh: string[]       // e.g., ['BNC', '商业', '金融']
+  tags_en: string[]       // e.g., ['BNC', 'spoken']
+  tags_zh: string[]       // e.g., ['BNC', '口语']
   file_size: number       // File size in bytes
   word_count: number      // Number of words (tokens, sum of freq)
   description_en: string

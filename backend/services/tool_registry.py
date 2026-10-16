@@ -312,7 +312,7 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
               "search_type": _str("'exact','contains','starts','ends','regex','wordlist'", default="contains"),
           }, ["corpus_id", "reference_corpus_id"]),
     _tool("keyness_resource_analysis",
-          "Compare word frequencies against a built-in reference corpus (BNC/OANC).",
+          "Compare word frequencies against a built-in reference corpus (AmE06/BNC 2014/COCA, etc.).",
           {
               "corpus_id": _str("Study corpus ID"),
               "resource_id": _str("Reference corpus resource ID"),
@@ -578,7 +578,7 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
               "max_chars": _int("Max chars per entry before truncation (default 5000)", default=5000),
           }, ["word"]),
     _tool("list_reference_corpora",
-          "List built-in reference corpora (BNC, OANC) available for keyness comparison. "
+          "List built-in reference corpora (AmE06, BE06, BNC 2014, COCA, COHA, GloWbE, NOW) available for keyness comparison. "
           "Use search= to filter by name/ID. Paginated (20 per page); use offset= for next pages.",
           {
               "search": _str("Filter by keyword in ID or name (case-insensitive)", default=""),

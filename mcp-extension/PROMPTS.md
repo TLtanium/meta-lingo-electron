@@ -713,7 +713,7 @@ other MCP clients when they connect. Provides tool usage strategy and workflow g
 >             "6. Use reference tools: get_pos_tags, get_usas_categories, "
 >             "validate_cql, list_reference_corpora\n"
 >             "7. Compare corpora: keyness_analysis (two user corpora) or "
->             "keyness_resource_analysis (vs. BNC/OANC built-in reference)\n"
+>             "keyness_resource_analysis (vs. AmE06/BNC 2014/COCA etc. built-in reference)\n"
 >             "8. Deep-dive: get_extended_context (more context around a KWIC hit), "
 >             "get_domain_words (words in a USAS domain), get_lemma_forms\n"
 >             "9. Annotate: see annotation workflow below\n"
@@ -809,7 +809,7 @@ what parameters to pass, and what to expect in return.
 >
 > When to use: Corpus comparison (keyness / distinctiveness) - e.g. specialist
 > vs. general language, register, or period. Needs two user corpus IDs.
-> For comparing against built-in reference corpora (BNC, OANC, etc.),
+> For comparing against built-in reference corpora (AmE06, BNC 2014, COCA, etc.),
 > use keyness_resource_analysis() instead.
 >
 > Identifies words that are statistically more frequent (key) or less
@@ -867,17 +867,17 @@ what parameters to pass, and what to expect in return.
 #### `keyness_resource_analysis`
 
 
-> Compare corpus keywords against a built-in reference corpus (BNC, OANC, etc.).
+> Compare corpus keywords against a built-in reference corpus (AmE06, BNC 2014, COCA, etc.).
 >
 > When to use: When you want to compare your corpus against a large, standard
-> reference corpus like BNC (British National Corpus) or OANC (Open American
-> National Corpus) instead of another user corpus.
+> reference corpus like AmE06 (American English 2006) or BNC 2014 (British National
+> Corpus 2014, spoken) instead of another user corpus.
 >
 > Use list_reference_corpora() first to find available resource_ids.
 >
 > Common resource IDs include:
-> - "bnc_spoken", "bnc_written", "bnc_total" (British National Corpus)
-> - "oanc_total" (Open American National Corpus)
+> - "ame06_total", "be06_total" (American / British English 2006)
+> - "bnc2014_spoken" (British National Corpus 2014, spoken), "coca_total" (COCA)
 > - And others returned by list_reference_corpora()
 >
 > Args:
@@ -1827,7 +1827,7 @@ what parameters to pass, and what to expect in return.
 > List available reference corpora for keyness comparison.
 >
 > When to use: Before using keyness_resource_analysis(). Returns built-in
-> reference corpora (BNC spoken/written, OANC, Brown, etc.) with their
+> reference corpora (AmE06, BE06, BNC 2014, COCA, COHA, GloWbE, NOW) with their
 > resource_id, name, language, and word count. Use the resource_id in
 > keyness_resource_analysis(resource_id=...).
 >

@@ -120,7 +120,7 @@ async def get_corpus_resource(
     """
     Get details of a specific corpus resource
     
-    - **resource_id**: Resource ID (e.g., 'bnc_commerce_finance', 'oanc_total')
+    - **resource_id**: Resource ID (e.g., 'bnc2014_spoken', 'ame06_total')
     - **lang**: Language for display names
     """
     try:

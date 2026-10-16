@@ -518,7 +518,7 @@ export default function StartupScreen({ onReady }: StartupScreenProps) {
           opacity: 0.5
         }}
       >
-        v4.9.47
+        v4.9.52
       </Typography>
     </Box>
   )

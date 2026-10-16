@@ -208,7 +208,7 @@ class KeynessResourceRequest(BaseModel):
     """Keyness comparison with corpus resource request"""
     study_corpus_id: str
     study_text_ids: List[str] | str = "all"
-    resource_id: str  # Corpus resource ID (e.g., 'oanc_total', 'bnc_spoken')
+    resource_id: str  # Corpus resource ID (e.g., 'ame06_total', 'bnc2014_spoken')
     statistic: str = "log_likelihood"
     config: KeynessConfig = KeynessConfig()
     pos_filter: Optional[POSFilterConfig] = None
@@ -922,7 +922,7 @@ async def keyword_keyness_resource(request: KeynessResourceRequest):
     Keyness comparison between study corpus and a corpus resource (CSV)
     
     Use this endpoint to compare against pre-built corpus resources like
-    BNC, OANC, NOW, or Brown Corpus word frequency data.
+    AmE06, BE06, BNC 2014, COCA, COHA, GloWbE, or NOW word frequency data.
     
     Supports:
     - Stopwords filtering

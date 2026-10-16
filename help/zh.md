@@ -1327,41 +1327,34 @@ $$\chi^2 = \sum \frac{(O - E)^2}{E}$$
 系统内置多个预处理的语料库词频数据，可直接用于关键性对比：
 
 - **启用方式**：打开「语料库资源」开关
-- **默认资源**：OANC（Open American National Corpus）总体语料库
+- **默认资源**：AmE06（美国英语语料库 2006）总体语料库
 - **资源选择**：点击资源卡片打开选择窗口
 
 **语料库资源选择窗口**：
 
 - **搜索功能**：输入关键词搜索语料库名称
-- **语料库类型筛选**：按语料库类型（如 BNC 1994、BNC 2014、Brown、NOW、OANC、COCA、COHA、GloWbE 等）筛选
+- **语料库类型筛选**：按语料库类型（如 AmE06、BE06、BNC 2014、NOW、COCA、COHA、GloWbE）筛选
 - **标签筛选**：通过标签过滤，支持多选（如：新闻、小说、口语等）
 - **资源卡片**：显示语料库名称、词数（基于 CSV 中 `freq` 列求和）、文件大小等信息
 - **一次选择一个**：选择后关闭窗口并更新显示
 
 **可用语料库资源示例**：
 
-系统内置多个预处理好的语料库资源，其中 BNC 拆分为 **BNC 1994** 与 **BNC 2014**，并提供其他多种语料库：
+系统内置多个预处理好的语料库资源：
 
 | 语料库 | 说明 | 示例标签 |
 |--------|------|---------|
-| BNC 1994 | 英国国家语料库 1994 版 | 口语、书面语、应用科学、艺术等 |
 | BNC 2014 | 英国国家语料库 2014 版（仅口语） | 口语、当代英语 |
-| Brown | Brown 语料库 | 新闻、小说、学术等 |
 | AmE06 | 美国英语语料库 2006 (AmE06) | 美式英语、平衡语料、报刊、杂志、小说等 |
 | BE06 | 英国英语语料库 2006 (BE06) | 英式英语、平衡语料、报刊、杂志、小说等 |
 | NOW | News on the Web（2010-2024；约24.2B词/41,104,404文本） | 新闻（按国家划分） |
-| OANC | 开放美国国家语料库 | 多种文本体裁 |
 | COCA | 当代美语语料库（1990-2019；约1B词/485,000文本） | 口语、小说、杂志、新闻、学术 |
 | COHA | 历史美语语料库（1810-2009；约400M词/107,000文本） | 按时期划分的历史英语 |
 | GloWbE | 全球网络英语语料库（约2013；约1.9B词/1.8M文本） | 按国家/地区划分的英语 |
-| Coronavirus | 新冠语料库（Jan 2020 - Dec 2022；约1.5B词/1.9M文本） | COVID-19（按国家划分） |
-| iWeb | 智能网络语料库 iWeb（14B词/22M网页/~100,000网站） | 网络/技术 |
-| TV | 电视语料库（1950-2018；325M词/75,000集） | 电视/口语 |
-| Movies | 电影语料库（1930-2018；200M词/25,000电影） | 电影/口语 |
-| SOAP | SOAP肥皂剧语料库（2000-2012；约100M词） | 肥皂剧 |
-| Wikipedia | 维基百科语料库（1.9B词/4.4M文本） | 主题 |
 
-关于语料来源：除 `NOW`、`Brown`、`AmE06 / BE06`、`OANC`、`BNC` 外，其余内置参考语料资源（如 `COCA / COHA / GloWbE / Coronavirus / iWeb / TV / Movies / SOAP / Wikipedia`）均基于 English-Corpora.org / CorpusData 提供的 sample full-text 数据进行预处理；sample 说明见 [CorpusData formats](https://www.corpusdata.org/formats.asp)。
+关于语料来源：除 `NOW`、`AmE06 / BE06`、`BNC 2014` 外，其余内置参考语料资源（`COCA / COHA / GloWbE`）均基于 English-Corpora.org / CorpusData 提供的 sample full-text 数据进行预处理；sample 说明见 [CorpusData formats](https://www.corpusdata.org/formats.asp)。
+
+**参考语料库的频次口径**：内置参考语料库的 CSV 由 PyMUSAS 以 **top-1**（每个词只取排名第一的 USAS 标签）标注，每个词符只计一次，因此 `freq` 之和即真实词数（如 AmE06 全库约 85 万词）。关键性对比的语义域模式在研究语料侧同样只使用每个词的主标签（top-1）统计，两侧口径一致。需要注意：这只影响关键性对比的计算；语料库管理中的标注语料仍保留 top-5 候选标签，其他模块（语义域分析、CQL 检索等）的逻辑不变。
 
 **使用说明**：BNC 2014 仅有口语语料。
 
@@ -1373,7 +1366,7 @@ $$\chi^2 = \sum \frac{(O - E)^2}{E}$$
 
 #### 参考语料库资源的 USAS 标注说明
 
-所有内置语料库资源（如 BNC、COCA、OANC、GloWbE 等）中的 USAS 语义域数据，均由 Meta-Lingo 内置的 **PyMUSAS 神经网络模型**进行标注。该框架由兰卡斯特大学 UCREL 研究中心开发，支持多语种语义标注；完整文档与评测数据见官网 [PyMUSAS 文档](https://ucrel.github.io/pymusas/)。Meta-Lingo 采用的预训练模型为 **ucrelnlp/PyMUSAS-Neural-Multilingual-Base-BEM**（[HuggingFace](https://huggingface.co/ucrelnlp/PyMUSAS-Neural-Multilingual-Base-BEM)），适用于多语言场景。
+所有内置语料库资源（如 AmE06、BNC 2014、COCA、GloWbE 等）中的 USAS 语义域数据，均由 Meta-Lingo 内置的 **PyMUSAS 神经网络模型**进行标注。该框架由兰卡斯特大学 UCREL 研究中心开发，支持多语种语义标注；完整文档与评测数据见官网 [PyMUSAS 文档](https://ucrel.github.io/pymusas/)。Meta-Lingo 采用的预训练模型为 **ucrelnlp/PyMUSAS-Neural-Multilingual-Base-BEM**（[HuggingFace](https://huggingface.co/ucrelnlp/PyMUSAS-Neural-Multilingual-Base-BEM)），适用于多语言场景。
 
 **模型规模（PyMUSAS 官方）**：
 
@@ -7478,7 +7471,7 @@ Meta-Lingo MCP 提供 51 个工具，分布在 10 个模块中。以下详细描
 - **get_pos_tags**：列出所有 Universal POS 词性标签（ADJ、NOUN、VERB 等）及其描述。用于了解其他工具中 `pos_filter` 参数的有效值。
 - **get_usas_categories**：列出 21 个 USAS 主要语义域类别（A–Z）。在 `semantic_domain_analysis` 前调用以了解分类体系。
 - **get_metaphor_sources**：列出 MIPVU 隐喻检测来源类型（词表过滤、MRC 具象性等）。用于解读 `metaphor_analysis` 的结果。
-- **list_reference_corpora**：列出内置参考语料库（BNC、OANC、Brown 等）及词数。用于获取 `keyness_resource_analysis` 所需的 `resource_id`。
+- **list_reference_corpora**：列出内置参考语料库（AmE06、BNC 2014、COCA 等）及词数。用于获取 `keyness_resource_analysis` 所需的 `resource_id`。
 - **validate_cql**：验证 CQL（语料库查询语言）表达式的语法。返回是否有效及错误信息。在使用 `concordance_search` 的 `search_mode="cql"` 前务必先调用此工具。
 - **list_annotation_frameworks**：列出全部标注框架，按类别组织（评价分析、SFL 语法、错误分析等）。返回 `get_annotation_framework` 和 `save_annotation` 所需的框架 ID。
 - **get_annotation_framework**：获取指定框架的完整标签树（如 `MIPVU`、`Halliday-Theme`）。显示所有可用标签、颜色、定义及层级结构。在 `save_annotation` 创建标注前必须调用。
@@ -7503,7 +7496,7 @@ Meta-Lingo MCP 提供 51 个工具，分布在 10 个模块中。以下详细描
 - **word_frequency**：细粒度词频分析。参数：`search_word` 配合 `search_type`（exact / contains / starts / ends / regex / wordlist）、`search_target`（word / lemma）、`pos_filter`、`min_freq`、`max_freq`、`lowercase`、`remove_stopwords`、`limit`。支持 `save_path`（CSV 导出）和 `chart_type`（bar/pie/wordcloud）及 `chart_path`。
 - **keyword_extraction**：使用 NLP 算法提取关键词。支持四种算法：`tfidf`、`textrank`、`yake`、`rake`。可选 `config` 参数进行算法特定调优。支持 `pos_filter`、`save_path`、`chart_type`。
 - **keyness_analysis**：两个用户语料库间的关键词对比（研究语料库 vs. 参考语料库）。统计方法：`log_likelihood`、`chi_squared`、`log_ratio`、`dice`、`mi`、`t_score`、`simple_keyness`。参数包括 `comparison_mode`（word / lemma / domain）、`min_freq`、`p_threshold`。如需与内置参考语料库对比，请使用 `keyness_resource_analysis`。
-- **keyness_resource_analysis**：与内置参考语料库（BNC、OANC 等）进行关键词对比。先调用 `list_reference_corpora()` 获取 `resource_id`。统计方法和参数同 `keyness_analysis`。
+- **keyness_resource_analysis**：与内置参考语料库（AmE06、BNC 2014、COCA 等）进行关键词对比。先调用 `list_reference_corpora()` 获取 `resource_id`。统计方法和参数同 `keyness_analysis`。
 - **ngram_analysis**：查找高频词组序列（二元组、三元组等）。参数：`n_values`（如 `[2, 3]`）、`search_word`、`min_freq`、`min_word_length`、`nest`（包含子 N-gram）、`pos_filter`、`limit`。
 
 ### 语境索引与搭配（4 个工具）
@@ -7594,7 +7587,7 @@ MCP 服务器是一个轻量级代理，将 AI 的工具调用转换为 Meta-Lin
 
 向 AI 助手提问：
 - *"创建一个名为'政治演讲'的语料库，上传这三篇文本，并分析词频。"*
-- *"使用对数似然比将我的语料库与 BNC 书面语料库进行关键词对比。"*
+- *"使用对数似然比将我的语料库与 AmE06 进行关键词对比。"*
 - *"用 CQL 搜索语料库中'democracy'的所有形式：`[lemma=\"democracy\"]`，然后分析其搭配词。"*
 - *"这个语料库的主要语义域分布是什么？深入查看排名第一的域，看看哪些词贡献最大。"*
 - *"对我的研究语料库运行 LDA 5 个主题的主题建模。"*
