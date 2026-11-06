@@ -217,7 +217,7 @@ This project is currently maintained for academic research purposes. For bug rep
 
 ### v4.7.98 (2026-04-06)
 
-- **Wav2Vec2 (multimodal alignment)**: ModelScope download id `facebook/wav2vec2-base-960h` in `model_manifest_constants.py`; docs/help/README updated. Model Management dialog does not show an extra ModelScope link line (avoid redundancy). See `PROJECT.md`.
+- **Wav2Vec2 (multimodal alignment)**: ModelScope download id `facebook/wav2vec2-base-960h` in `model_manifest_constants.py`; see Help for model setup and alignment workflows.
 - **Video transcript auto-annotation (MIPVU)**: `corpus.py` video upload path now passes SpaCy token `start`/`end` into MIPVU merge (parity with audio). Re-run MIPVU or re-upload to refresh old transcripts.
 - **BERTopic dynamic / topics over time**: Embeddings now save `{id}_docs.json` so chunk texts with newlines cannot desync document rows from vectors (fixes missing evolution chart when dates exist). Recreate embeddings if load fails; visualization tab also keys off `topics_over_time` data.
 
@@ -227,7 +227,7 @@ This project is currently maintained for academic research purposes. For bug rep
 
 ### v4.7.84 (2026-04-02)
 
-- **Help — Corpus SpaCy**: Corpus Management section adds tables for supported languages vs. SpaCy packages (11 languages, `SPACY_MODEL_MAP`) and for annotation output; `src/pages/CorpusManagement/mldoc.md` links to the full help tables.
+- **Help — Corpus SpaCy**: Corpus Management includes tables for supported languages, SpaCy packages (11 languages, `SPACY_MODEL_MAP`) and annotation output.
 
 ### v4.7.83 (2026-04-02)
 
@@ -290,7 +290,7 @@ This project is currently maintained for academic research purposes. For bug rep
 
 ### v3.9.15–v3.9.18 (2026-02-17–22)
 
-- **Praat acoustic analysis**: Spectrogram, formants (F1–F5), intensity, HNR, jitter, shimmer. Chinese audio full visualization support. Corpus building script (`saves/corpus/corpus_building.py`) for 13 English corpora.
+- **Praat acoustic analysis**: Spectrogram, formants (F1–F5), intensity, HNR, jitter, shimmer. Chinese audio full visualization support.
 
 ### v3.9.0–v3.9.14 (2026-02-08–16)
 

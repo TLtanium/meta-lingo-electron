@@ -17,6 +17,8 @@
 # Build & Distribution
 # ===================================
 backend-dist/
+/build/
+/mcp-extension/build/
 backend/build/
 backend/dist/
 dist/
@@ -49,6 +51,24 @@ models/**/*
 # Development & Test Files
 # ===================================
 PROJECT.md
+/*.md
+!/README.md
+!/LICENSING.md
+!/SOURCE.md
+!/THIRD_PARTY_NOTICES.md
+/docs/
+/memory/
+/src/**/*.md
+/mcp-extension/improvements.md
+/language.txt
+/excludes.txt
+/corpus_building.py
+/scripts/antconc_db_to_txt.py
+/scripts/convert_frameworks.py
+/scripts/corpus_processor.py
+/scripts/process_now_oanc.py
+/scripts/usas_accuracy_analysis.py
+/scripts/usas_accuracy_report.txt
 CiteSpace 复刻升级计划.md
 **/mldoc.md
 pymusas_bem_analysis.md
@@ -61,6 +81,7 @@ spacy_tags_test_report.md
 spacy_tags.tsv
 usas_semantic_domains.txt
 test_*.py
+!/scripts/test_*.py
 export_spacy_tags.py
 
 # ===================================
@@ -71,7 +92,7 @@ export_spacy_tags.py
 # ===================================
 # Config & Build Scripts (optional, for dev only)
 # Build outputs and private local scripts are omitted; required build inputs are included below.
-# 根目录任意脚本均不纳入版本库，仅保留本地；push 时不会把这些推上去。
+# Private root scripts remain local; build/development inputs are allowed below.
 # ===================================
 build.sh
 build.bat
@@ -80,7 +101,7 @@ dev-backend.sh
 dev-frontend.sh
 start.sh
 push.sh
-# 根目录脚本（按扩展名一律忽略）
+# Root scripts are private unless explicitly allowed below.
 /*.sh
 /*.bat
 /*.command
@@ -96,6 +117,7 @@ tsconfig.node.json
 # ===================================
 # Data Files (keep structure only)
 # ===================================
+/data/
 data/corpora/
 data/annotations/
 data/topic_modeling/
@@ -197,8 +219,26 @@ temp/
 !/package-lock.json
 !/tsconfig.json
 !/tsconfig.node.json
-!/PROJECT.md
 !/usas_semantic_domains.txt
 
 # Local authorship/disclosure records; never publish automatically.
 /private-ip-records/
+
+# Local tools, generated reports, caches and operating-system state.
+/.agents/
+/.codex/
+/.claude/
+/.cache/
+/coverage/
+*.tsbuildinfo
+*.sqlite
+*.sqlite3
+*.sqlite-wal
+*.sqlite-shm
+*.db
+*.toc
+*.pyz
+*.pkg
+*.dSYM/
+Thumbs.db
+Desktop.ini

@@ -1,12 +1,15 @@
 # Corresponding source and build instructions
 
-Meta-Lingo v4.9.61 — AGPL-3.0-only. Copyright © 2026 Tommy Leo.
+Meta-Lingo — AGPL-3.0-only. Copyright © 2026 Tommy Leo.
 Source repository: https://github.com/TLtanium/meta-lingo-electron
 
 For each binary release publish the matching complete source revision/tag, including
 this file, LICENSE, frontend/backend/Electron/MCP code, package-lock.json,
 requirements.txt, build scripts, packaging specs, default frameworks, help, assets
-and license notices (including PROJECT.md and usas_semantic_domains.txt). Keep the matching source accessible alongside the binary.
+and license notices (including usas_semantic_domains.txt). Keep the matching source accessible alongside the binary.
+Internal project notes, planning documents, runtime data and generated build
+outputs are not part of the public source. Public clones read their release
+version from package.json; a local PROJECT.md can override it during development.
 A citation DOI alone is not a substitute for corresponding source.
 LICENSING.md supplies the author-controlled historical-version grant. The app's
 license viewer uses the unmodified LICENSE in both interface languages; its

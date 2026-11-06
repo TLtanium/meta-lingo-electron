@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """
-版本号同步脚本
-检查 PROJECT.md 和启动页的版本号是否一致，不一致则更新启动页面为 PROJECT.md 的版本号
+Synchronize release metadata from local project notes or public package.json.
 """
 
 import re
@@ -58,10 +57,14 @@ def sync_json_version(path: Path, project_version: str, *, optional=False) -> bo
         return optional
 
 
-def extract_version_from_project_md() -> str | None:
-    """从 PROJECT.md 中提取版本号"""
+def extract_release_version() -> str | None:
+    """Use local project notes when present; public clones use package.json."""
     try:
-        with open(PROJECT_MD_PATH, 'r', encoding='utf-8') as f:
+        if not PROJECT_MD_PATH.exists():
+            payload = json.loads((PROJECT_ROOT / "package.json").read_text(encoding="utf-8-sig"))
+            version = payload.get("version", "")
+            return "v" + version if re.fullmatch(r"\d+\.\d+\.\d+", version) else None
+        with open(PROJECT_MD_PATH, 'r', encoding='utf-8-sig') as f:
             content = f.read()
         
         # 匹配 **版本**: v3.8.67 格式
@@ -79,7 +82,7 @@ def extract_version_from_project_md() -> str | None:
         
         return None
     except Exception as e:
-        print(f"[ERROR] Could not read PROJECT.md: {e}", file=sys.stderr)
+        print(f"[ERROR] Could not read release version: {e}", file=sys.stderr)
         return None
 
 
@@ -143,35 +146,33 @@ def main():
     print()
     
     # 检查文件是否存在
-    if not PROJECT_MD_PATH.exists():
-        print(f"[ERROR] PROJECT.md not found: {PROJECT_MD_PATH}", file=sys.stderr)
-        sys.exit(1)
+    version_source = PROJECT_MD_PATH if PROJECT_MD_PATH.exists() else PROJECT_ROOT / "package.json"
     
     if not STARTUP_SCREEN_PATH.exists():
         print(f"[ERROR] Startup file not found: {STARTUP_SCREEN_PATH}", file=sys.stderr)
         sys.exit(1)
     
     # 提取版本号
-    project_version = extract_version_from_project_md()
+    project_version = extract_release_version()
     startup_version = extract_version_from_startup()
     
     if not project_version:
-        print("[ERROR] No valid version found in PROJECT.md.", file=sys.stderr)
+        print(f"[ERROR] No valid version found in {version_source.name}.", file=sys.stderr)
         sys.exit(1)
     
     if not startup_version:
         print("[ERROR] No valid version found in StartupScreen.tsx.", file=sys.stderr)
         sys.exit(1)
     
-    print(f"[INFO] PROJECT.md version: {project_version}")
+    print(f"[INFO] {version_source.name} version: {project_version}")
     print(f"[INFO] Startup version: {startup_version}")
     print()
     
     # 比较版本号
     if project_version == startup_version:
-        print("[OK] Startup version already matches PROJECT.md.")
+        print(f"[OK] Startup version already matches {version_source.name}.")
     else:
-        print(f"[INFO] Startup version differs from PROJECT.md.")
+        print(f"[INFO] Startup version differs from {version_source.name}.")
         print(f"[INFO] Updating startup version to {project_version}.")
         print()
 
