@@ -1,0 +1,11 @@
+#!/bin/sh
+# Meta-Lingo source hygiene hook: allow required source/build scripts only.
+set -eu
+if command -v python3 >/dev/null 2>&1; then
+    exec python3 scripts/repository_hygiene.py --pre-push
+elif command -v python >/dev/null 2>&1; then
+    exec python scripts/repository_hygiene.py --pre-push
+else
+    echo "[ERROR] Python 3 is required for the source hygiene pre-push check." >&2
+    exit 1
+fi
