@@ -1,0 +1,6 @@
+interface:
+  display_name: "MetaLingo"
+  short_description: "Use MetaLingo for local corpus research and text annotation"
+  default_prompt: "Use $meta-lingo to explore my MetaLingo corpora and run the requested analysis."
+policy:
+  allow_implicit_invocation: true

@@ -42,6 +42,8 @@ class AnnotationItem(BaseModel):
     type: Optional[str] = "text"  # text or video
     bbox: Optional[List[float]] = None
     timestamp: Optional[float] = None
+    startTime: Optional[float] = None
+    endTime: Optional[float] = None
     frameNumber: Optional[int] = None
     frameCount: Optional[int] = None
     pos: Optional[str] = None
@@ -93,13 +95,17 @@ class VideoFrame(BaseModel):
 
 class VideoBox(BaseModel):
     id: int
+    annotationId: Optional[str] = None
     label: str
+    labelPath: Optional[str] = None
+    remark: Optional[str] = None
     color: str
     startFrame: int
     endFrame: int
     frameCount: int
     startTime: float
     endTime: float
+    interpolation: Optional[str] = None
     keyframes: List[VideoKeyframe]
     frames: List[VideoFrame]
 
@@ -179,6 +185,8 @@ class AudioBox(BaseModel):
     """Audio box annotation - time region annotation on waveform"""
     id: int
     label: str
+    labelPath: Optional[str] = None
+    remark: Optional[str] = None
     color: str
     startTime: float      # Start time in seconds
     endTime: float        # End time in seconds
@@ -194,6 +202,28 @@ class PitchDataArchive(BaseModel):
     times: List[float]    # Time points array
     fmin: float           # Minimum frequency
     fmax: float           # Maximum frequency
+    periodicity: Optional[List[float]] = None
+    hop_length_ms: Optional[float] = None
+    sample_rate: Optional[int] = None
+
+
+class WaveformDataArchive(BaseModel):
+    enabled: Optional[bool] = None
+    peaks: List[float]
+    duration: float
+    sampleRate: Optional[int] = None
+    sample_rate: Optional[int] = None
+
+
+class AcousticDataArchive(BaseModel):
+    enabled: bool
+    spectrogram: Optional[Dict[str, Any]] = None
+    formants: Optional[Dict[str, Any]] = None
+    intensity: Optional[Dict[str, Any]] = None
+    hnr: Optional[Dict[str, Any]] = None
+    jitter: Optional[Dict[str, Any]] = None
+    shimmer: Optional[Dict[str, Any]] = None
+    parameters: Optional[Dict[str, Any]] = None
 
 
 class SaveAnnotationRequest(BaseModel):
@@ -217,6 +247,8 @@ class SaveAnnotationRequest(BaseModel):
     coderName: Optional[str] = None  # 编码者名称
     # Audio specific
     audioBoxes: Optional[List[AudioBox]] = None  # Audio box annotations
+    waveformData: Optional[WaveformDataArchive] = None
+    acousticData: Optional[AcousticDataArchive] = None
     pitchData: Optional[PitchDataArchive] = None  # Pitch data for visualization
     audioVisualizationSvg: Optional[str] = None  # SVG visualization of audio waveform
     relations: Optional[List[dict]] = None  # 标注关联（有向箭头）
@@ -584,17 +616,28 @@ async def save_annotation(data: SaveAnnotationRequest):
             archive['yoloAnnotations'] = [y.model_dump() for y in data.yoloAnnotations]
         if data.transcriptSegments:
             archive['transcriptSegments'] = [s.model_dump() for s in data.transcriptSegments]
-        if data.manualTracks:
+        if data.manualTracks is not None:
             archive['manualTracks'] = [t.model_dump() for t in data.manualTracks]
+        elif existing_archive and 'manualTracks' in existing_archive:
+            # Older/incremental clients may omit tracks. An explicit [] still clears them.
+            archive['manualTracks'] = existing_archive['manualTracks']
         if data.clipAnnotations:
             archive['clipAnnotations'] = data.clipAnnotations.model_dump()
         # Audio specific data
-        if data.audioBoxes:
+        if data.audioBoxes is not None:
             archive['audioBoxes'] = [b.model_dump() for b in data.audioBoxes]
-        if data.pitchData:
-            archive['pitchData'] = data.pitchData.model_dump()
-        if data.audioVisualizationSvg:
+        elif existing_archive and 'audioBoxes' in existing_archive:
+            archive['audioBoxes'] = existing_archive['audioBoxes']
+        for field in ('waveformData', 'pitchData', 'acousticData'):
+            value = getattr(data, field)
+            if value is not None:
+                archive[field] = value.model_dump()
+            elif existing_archive and field in existing_archive:
+                archive[field] = existing_archive[field]
+        if data.audioVisualizationSvg is not None:
             archive['audioVisualizationSvg'] = data.audioVisualizationSvg
+        elif existing_archive and 'audioVisualizationSvg' in existing_archive:
+            archive['audioVisualizationSvg'] = existing_archive['audioVisualizationSvg']
     
     # Save relations (always overwrite with latest, since relations reference current annotation IDs)
     if data.relations is not None:

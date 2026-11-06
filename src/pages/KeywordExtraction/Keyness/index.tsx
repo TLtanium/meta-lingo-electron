@@ -154,6 +154,9 @@ export default function KeynessTab({ crossLinkParams }: KeynessTabProps = {}) {
   useEffect(() => {
     loadPosTags()
     loadDefaultResource()
+    const refresh = () => { void loadDefaultResource() }
+    window.addEventListener('meta-lingo:user-resources-changed', refresh)
+    return () => window.removeEventListener('meta-lingo:user-resources-changed', refresh)
   }, [])
   
   // Update threshold when statistic changes
@@ -195,21 +198,10 @@ export default function KeynessTab({ crossLinkParams }: KeynessTabProps = {}) {
     try {
       const lang = (i18n.language === 'zh' ? 'zh' : 'en') as 'en' | 'zh'
 
-      // Try preferred default: AmE06 total, if available
-      try {
-        const response = await corpusResourceApi.get('ame06_total', lang)
-        if (response.success && response.data && response.data.success && response.data.data) {
-          setSelectedResource(response.data.data)
-          return
-        }
-      } catch {
-        // Ignore and fall back to list
-      }
-
-      // Fallback: pick the first available corpus resource from the list
       const listRes = await corpusResourceApi.list(lang)
-      if (listRes.success && listRes.data && listRes.data.success && listRes.data.data?.length) {
-        setSelectedResource(listRes.data.data[0])
+      if (listRes.success && listRes.data?.success) {
+        const resources = listRes.data.data || []
+        setSelectedResource(previous => resources.find(r => r.id === previous?.id) || resources[0] || null)
       }
     } catch (err) {
       console.error('Failed to load default resource:', err)

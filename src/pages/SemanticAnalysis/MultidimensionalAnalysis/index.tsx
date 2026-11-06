@@ -132,7 +132,7 @@ export default function MultidimensionalAnalysis({ crossLinkParams }: Multidimen
 
         <Stack direction="row" spacing={1} mb={2} flexWrap="wrap">
           <Chip label="Biber 1988" size="small" color="primary" variant="outlined" />
-          <Chip label="MAT" size="small" color="secondary" variant="outlined" />
+          <Chip label="MAT · Nini (2019)" size="small" color="secondary" variant="outlined" />
           <Chip label={isZh ? '仅英语' : 'English Only'} size="small" color="warning" variant="outlined" />
         </Stack>
 

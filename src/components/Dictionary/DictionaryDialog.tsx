@@ -8,6 +8,7 @@ import {
   Dialog,
   DialogTitle,
   DialogContent,
+  Alert,
   Box,
   TextField,
   InputAdornment,
@@ -49,7 +50,8 @@ export default function DictionaryDialog({
   const [searchWord, setSearchWord] = useState('')
   const [currentWord, setCurrentWord] = useState('')
   const [results, setResults] = useState<Record<string, LookupResult>>({})
-  const [activeTab, setActiveTab] = useState(0)
+  const [activeDictionary, setActiveDictionary] = useState('')
+  const searchGeneration = useRef(0)
   const [navHistory, setNavHistory] = useState<NavHistoryItem[]>([])
   const [loading, setLoading] = useState(false)
   const [dictsLoading, setDictsLoading] = useState(true)
@@ -62,13 +64,16 @@ export default function DictionaryDialog({
 
   // 加载词典列表
   useEffect(() => {
-    if (open) {
-      loadDictionaries()
-    }
+    const refresh = () => { if (open) void loadDictionaries() }
+    refresh()
+    window.addEventListener('meta-lingo:user-resources-changed', refresh)
+    return () => window.removeEventListener('meta-lingo:user-resources-changed', refresh)
   }, [open])
 
 
   const loadDictionaries = async () => {
+    searchGeneration.current++
+    setLoading(false)
     setDictsLoading(true)
     try {
       const response = await dictionaryApi.list()
@@ -76,9 +81,8 @@ export default function DictionaryDialog({
       if (data?.success && data?.data) {
         setDictionaries(data.data)
         // 默认选中所有词典
-        if (data.data.length > 0) {
-          setSelectedDicts(data.data.map((d: DictionaryInfo) => d.name))
-        }
+        setSelectedDicts(data.data.map((d: DictionaryInfo) => d.name))
+        setResults({})
       }
     } catch (error) {
       console.error('Failed to load dictionaries:', error)
@@ -89,39 +93,43 @@ export default function DictionaryDialog({
 
   // 搜索词条
   const performSearch = useCallback(
-    async (word: string) => {
-      if (!word.trim() || selectedDicts.length === 0) return
+    async (word: string, options: { dictionaries?: string[]; preferredDictionary?: string; addHistory?: boolean } = {}) => {
+      const requestedDicts = options.dictionaries || selectedDicts
+      if (!word.trim() || requestedDicts.length === 0) return
+      const preferredDictionary = options.preferredDictionary || activeDictionary
+      const generation = ++searchGeneration.current
 
       // 添加到历史记录
-      if (currentWord && currentWord !== word) {
-        setNavHistory((prev) => [...prev, { word: currentWord, dictionaries: [...selectedDicts] }])
+      if (options.addHistory !== false && currentWord && currentWord !== word) {
+        setNavHistory((prev) => [...prev, { word: currentWord, dictionaries: [...selectedDicts], activeDictionary }])
       }
 
       setLoading(true)
       setCurrentWord(word)
 
       try {
-        const response = await dictionaryApi.lookup(word, selectedDicts)
+        const response = await dictionaryApi.lookup(word, requestedDicts)
+        if (generation !== searchGeneration.current) return
         const data = response.data
         if (data?.success) {
           const resultData = data.results || {}
           setResults(resultData)
-          // 切换到第一个有结果的标签页
-          const dictNames = Object.keys(resultData)
+          const dictNames = Object.keys(resultData).filter(name => requestedDicts.includes(name))
           if (dictNames.length > 0) {
             const foundIndex = dictNames.findIndex(
               (name) => resultData[name]?.found
             )
-            setActiveTab(foundIndex >= 0 ? foundIndex : 0)
+            setActiveDictionary(dictNames.includes(preferredDictionary)
+              ? preferredDictionary : dictNames[foundIndex >= 0 ? foundIndex : 0])
           }
         }
       } catch (error) {
         console.error('Lookup failed:', error)
       } finally {
-        setLoading(false)
+        if (generation === searchGeneration.current) setLoading(false)
       }
     },
-    [selectedDicts, currentWord]
+    [selectedDicts, currentWord, activeDictionary]
   )
 
   // 获取输入建议
@@ -177,9 +185,9 @@ export default function DictionaryDialog({
   }
 
   // 词条内链接点击
-  const handleWordClick = (word: string) => {
+  const handleWordClick = (word: string, dictionary: string) => {
     setSearchWord(word)
-    performSearch(word)
+    performSearch(word, { preferredDictionary: dictionary })
   }
 
   // 面包屑导航
@@ -189,12 +197,14 @@ export default function DictionaryDialog({
       setNavHistory(navHistory.slice(0, index))
       setSelectedDicts(target.dictionaries)
       setSearchWord(target.word)
-      performSearch(target.word)
+      performSearch(target.word, { dictionaries: target.dictionaries, preferredDictionary: target.activeDictionary, addHistory: false })
     }
   }
 
   // 返回首页
   const handleHome = () => {
+    searchGeneration.current++
+    setLoading(false)
     setNavHistory([])
     setCurrentWord('')
     setResults({})
@@ -203,6 +213,8 @@ export default function DictionaryDialog({
 
   // 关闭弹窗重置状态
   const handleClose = () => {
+    searchGeneration.current++
+    setLoading(false)
     setNavHistory([])
     setCurrentWord('')
     setResults({})
@@ -246,6 +258,7 @@ export default function DictionaryDialog({
         </IconButton>
       </DialogTitle>
 
+      {!dictsLoading && dictionaries.length === 0 && <Alert severity="info" sx={{ m: 2 }}>{t('resources.dictionaryEmpty')}</Alert>}
       <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1, overflow: 'hidden' }}>
         {/* 搜索区域 */}
         <Paper elevation={0} sx={{ p: 2, bgcolor: isDark ? 'rgba(255,255,255,0.05)' : 'grey.50' }}>
@@ -322,14 +335,14 @@ export default function DictionaryDialog({
             <>
               {/* 标签页 */}
               <Tabs
-                value={activeTab}
-                onChange={(_, v) => setActiveTab(v)}
+                value={displayDicts.includes(activeDictionary) ? activeDictionary : displayDicts[0]}
+                onChange={(_, v) => setActiveDictionary(v)}
                 variant="scrollable"
                 scrollButtons="auto"
                 sx={{ borderBottom: 1, borderColor: 'divider' }}
               >
                 {displayDicts.map((dictName) => (
-                  <Tab key={dictName} label={dictName} />
+                  <Tab key={dictName} value={dictName} label={dictName} />
                 ))}
               </Tabs>
 
@@ -355,19 +368,19 @@ export default function DictionaryDialog({
                   },
                 }}
               >
-                {displayDicts.map((dictName, index) => (
+                {displayDicts.map((dictName) => (
                   <Box
                     key={dictName}
                     role="tabpanel"
-                    hidden={activeTab !== index}
+                    hidden={(displayDicts.includes(activeDictionary) ? activeDictionary : displayDicts[0]) !== dictName}
                     sx={{ 
-                      display: activeTab === index ? 'block' : 'none',
+                      display: (displayDicts.includes(activeDictionary) ? activeDictionary : displayDicts[0]) === dictName ? 'block' : 'none',
                     }}
                   >
                     <DictionaryContent
                       dictName={dictName}
                       result={results[dictName]}
-                      onWordClick={handleWordClick}
+                      onWordClick={word => handleWordClick(word, dictName)}
                       isDark={isDark}
                     />
                   </Box>

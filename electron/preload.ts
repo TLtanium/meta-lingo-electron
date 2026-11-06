@@ -1,4 +1,7 @@
 import { contextBridge, ipcRenderer } from 'electron'
+import type { OpenAIPluginInfo, OpenAIPluginResult } from './openaiPlugin'
+import { createPetBridge } from './pet/bridge'
+import type { DesktopPetAPI } from '../shared/desktopPet.mjs'
 
 // 启动状态类型
 export interface StartupStatus {
@@ -14,6 +17,7 @@ export interface StartupStatus {
 
 // Expose protected methods to renderer process
 contextBridge.exposeInMainWorld('electronAPI', {
+  pet: createPetBridge(),
   // App paths
   getAppPath: () => ipcRenderer.invoke('get-app-path'),
   getUserDataPath: () => ipcRenderer.invoke('get-user-data-path'),
@@ -35,6 +39,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Platform info
   platform: process.platform,
 
+  setStartupAppearance: (options: { active: boolean; dark: boolean }): Promise<{ translucent: boolean }> =>
+    ipcRenderer.invoke('set-startup-appearance', options),
+
   // Window controls overlay styling (Windows)
   setTitleBarOverlay: (options: { color?: string; symbolColor?: string; height?: number }) =>
     ipcRenderer.invoke('set-title-bar-overlay', options),
@@ -54,7 +61,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // 启动状态相关
   getStartupStatus: (): Promise<StartupStatus> => ipcRenderer.invoke('get-startup-status'),
-  retryBackend: (): Promise<boolean> => ipcRenderer.invoke('retry-backend'),
+  restartApplication: (language: 'zh' | 'en'): Promise<{ status: 'cancelled' | 'restarting' | 'failed' | 'unavailable' }> => ipcRenderer.invoke('restart-application', language),
   onStartupStatusChange: (callback: (status: StartupStatus) => void) => {
     const listener = (_event: Electron.IpcRendererEvent, status: StartupStatus) => {
       callback(status)
@@ -72,11 +79,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
   openMcpExtension: (): Promise<{ success: boolean; error?: string }> =>
     ipcRenderer.invoke('open-mcp-extension'),
   revealMcpExtension: (): Promise<{ success: boolean; error?: string }> =>
-    ipcRenderer.invoke('reveal-mcp-extension')
+    ipcRenderer.invoke('reveal-mcp-extension'),
+  getOpenAIPluginInfo: (): Promise<OpenAIPluginInfo> => ipcRenderer.invoke('get-openai-plugin-info'),
+  openOpenAIPlugin: (): Promise<OpenAIPluginResult> => ipcRenderer.invoke('open-openai-plugin')
 })
 
 // Type definitions for the exposed API
 export interface ElectronAPI {
+  pet: DesktopPetAPI
   getAppPath: () => Promise<string>
   getUserDataPath: () => Promise<string>
   getResourcePath: (relativePath: string) => Promise<string>
@@ -86,18 +96,21 @@ export interface ElectronAPI {
   /** Export HTML content to PDF via Electron printToPDF. Returns success/filePath/error. */
   exportToPdf: (htmlContent: string, defaultFilename: string) => Promise<{ success: boolean; filePath?: string; canceled?: boolean; error?: string }>
   platform: NodeJS.Platform
+  setStartupAppearance: (options: { active: boolean; dark: boolean }) => Promise<{ translucent: boolean }>
   isFullscreen: () => Promise<boolean>
   onFullscreenChange: (callback: (isFullscreen: boolean) => void) => () => void
   /** Windows: update Window Controls Overlay styling to match header theme */
   setTitleBarOverlay: (options: { color?: string; symbolColor?: string; height?: number }) => Promise<void>
   // 启动状态相关
   getStartupStatus: () => Promise<StartupStatus>
-  retryBackend: () => Promise<boolean>
+  restartApplication: (language: 'zh' | 'en') => Promise<{ status: 'cancelled' | 'restarting' | 'failed' | 'unavailable' }>
   onStartupStatusChange: (callback: (status: StartupStatus) => void) => () => void
   // MCP 扩展 (.mcpb) 一键安装
   getMcpExtensionInfo: () => Promise<{ path: string; exists: boolean }>
   openMcpExtension: () => Promise<{ success: boolean; error?: string }>
   revealMcpExtension: () => Promise<{ success: boolean; error?: string }>
+  getOpenAIPluginInfo: () => Promise<OpenAIPluginInfo>
+  openOpenAIPlugin: () => Promise<OpenAIPluginResult>
 }
 
 declare global {

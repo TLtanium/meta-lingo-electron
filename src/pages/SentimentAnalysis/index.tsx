@@ -4,6 +4,7 @@
  */
 
 import { useState, useEffect, useMemo } from 'react'
+import NRCResourceNotice from './NRCResourceNotice'
 import {
   Box,
   Typography,
@@ -213,6 +214,7 @@ export default function SentimentAnalysis({ crossLinkParams }: SentimentAnalysis
             <Chip label={`${t('corpus.language')}: ${corpusSelection.language}`} size="small" variant="outlined" />
           )}
         </Stack>
+        <NRCResourceNotice language={corpusSelection?.language} />
         <CorpusOrLibrarySelector
           sectionTitle={t('sentiment.corpus.title')}
           onSelectionChange={setCorpusSelection}

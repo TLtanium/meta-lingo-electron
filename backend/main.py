@@ -20,7 +20,7 @@ from routers import llm_chat
 from routers import framework
 from routers import annotation
 from routers import reliability
-from routers import dictionary
+from routers import dictionary, resources
 from routers import topic_modeling
 from routers import collocation
 from routers import syntax
@@ -79,6 +79,7 @@ app.include_router(llm_chat.router, prefix="/api/llm", tags=["LLM"])
 app.include_router(framework.router, prefix="/api/framework", tags=["Framework"])
 app.include_router(annotation.router, prefix="/api/annotation", tags=["Annotation"])
 app.include_router(reliability.router, prefix="/api/reliability", tags=["Reliability"])
+app.include_router(resources.router, prefix="/api/resources", tags=["User resources"])
 app.include_router(dictionary.router, prefix="/api/dictionary", tags=["Dictionary"])
 app.include_router(topic_modeling.router, prefix="/api/topic-modeling", tags=["Topic Modeling"])
 app.include_router(collocation.router, prefix="/api/collocation", tags=["Co-occurrence"])

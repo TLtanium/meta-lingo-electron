@@ -1,6 +1,6 @@
 """
 NRC Emotion Lexicon service for sentiment annotation.
-Loads NRC-EmoLex dictionaries from saves/nrc and annotates token lists with emotion scores.
+Loads user-imported NRC-EmoLex dictionaries and annotates token lists with emotion scores.
 """
 
 import logging
@@ -9,7 +9,7 @@ from typing import Dict, List, Any, Optional
 
 import sys
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from config import get_saves_dir
+
 
 logger = logging.getLogger(__name__)
 
@@ -58,66 +58,30 @@ def _empty_scores() -> Dict[str, int]:
 
 
 def load_lexicon(language: str) -> Optional[Dict[str, Dict[str, int]]]:
-    """
-    Load NRC lexicon for the given language. Cached per language.
-    English: key = first column (English Word).
-    Chinese: key = last column (Chinese-Simplified Word).
-    Returns dict: word -> { emotion -> 0|1 }.
-    """
+    """Load only explicitly imported resources, without a language fallback."""
+    import json
+    from services.user_resource_store import list_resources, resource_path
     lang = _normalize_language(language)
-    entry = NRC_FILES.get(lang)
-    if not entry:
-        logger.warning(f"NRC lexicon not configured for language: {lang}, using English")
-        entry = NRC_FILES["english"]
-        lang = "english"
-
-    filename, key_col = entry
-    nrc_dir = get_saves_dir() / "nrc"
-    path = nrc_dir / filename
-    if not path.exists():
-        if lang != "english":
-            logger.warning(f"NRC lexicon file not found for '{language}' ({path}). "
-                           f"Falling back to English lexicon.")
-            return load_lexicon("english")
-        logger.warning(f"NRC lexicon not found: {path}")
-        return None
-
-    lexicon = {}
-    try:
-        with open(path, "r", encoding="utf-8") as f:
-            lines = f.readlines()
-        if not lines:
-            return None
-        # Skip header
-        for line in lines[1:]:
-            parts = line.strip().split("\t")
-            if len(parts) <= max(key_col, 10):
-                continue
-            key = parts[key_col].strip()
-            if not key:
-                continue
-            scores = _empty_scores()
-            for i, emo in enumerate(NRC_EMOTIONS):
-                if i + 1 < len(parts):
-                    try:
-                        scores[emo] = int(parts[i + 1])
-                    except ValueError:
-                        scores[emo] = 0
-            lexicon[key] = scores
-        logger.info(f"Loaded NRC lexicon: {path.name}, {len(lexicon)} entries")
-        return lexicon
-    except Exception as e:
-        logger.error(f"Failed to load NRC lexicon {path}: {e}")
-        return None
+    for meta in reversed(list_resources("nrc")):
+        if lang in meta.get("languages", {}):
+            path = resource_path("nrc", meta["id"]) / f"{lang}.json"
+            return json.loads(path.read_text(encoding="utf-8"))
+    return None
 
 
 class NRCService:
     """Service for NRC emotion lexicon lookup and token annotation."""
 
     def __init__(self):
-        self._cache: Dict[str, Dict[str, Dict[str, int]]] = {}
+        self._cache = {}
+        self._resource_signature = None
 
     def _get_lexicon(self, language: str) -> Optional[Dict[str, Dict[str, int]]]:
+        from services.user_resource_store import list_resources
+        signature = tuple(m["id"] for m in list_resources("nrc"))
+        if signature != self._resource_signature:
+            self._cache.clear()
+            self._resource_signature = signature
         lang = _normalize_language(language)
         if lang not in self._cache:
             self._cache[lang] = load_lexicon(language)
@@ -125,6 +89,10 @@ class NRCService:
 
     def is_available(self, language: str) -> bool:
         return self._get_lexicon(language) is not None
+
+    def clear_cache(self):
+        self._cache.clear()
+        self._resource_signature = None
 
     def annotate_tokens(
         self,
@@ -147,7 +115,7 @@ class NRCService:
                 key = (t.get("lemma") or t.get("text") or "").strip()
             else:
                 key = (t.get("text") or "").strip()
-            scores = lexicon.get(key, _empty_scores())
+            scores = lexicon.get(key, lexicon.get(key.lower(), _empty_scores()))
             result.append(dict(scores))
         return result
 

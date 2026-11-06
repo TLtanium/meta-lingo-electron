@@ -20,6 +20,7 @@ class DictionaryInfo(BaseModel):
     name: str
     count: int
     filename: str
+    id: str
 
 
 class DictionaryListResponse(BaseModel):
@@ -158,3 +159,19 @@ async def clear_cache():
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/resources/{dictionary_id}/{path:path}")
+def dictionary_resource(dictionary_id: str, path: str):
+    import mimetypes
+    from fastapi.responses import Response
+    try:
+        data = dictionary_service.get_resource(dictionary_id, path)
+    except ValueError:
+        data = None
+    if data is None:
+        raise HTTPException(404, detail="Dictionary resource not found")
+    mime = mimetypes.guess_type(path)[0] or "application/octet-stream"
+    if mime not in {"text/css", "image/png", "image/jpeg", "image/gif", "image/svg+xml", "image/webp", "image/bmp", "image/x-icon", "audio/mpeg", "audio/wav", "audio/x-wav", "audio/ogg", "font/woff", "font/woff2", "font/ttf", "application/vnd.ms-fontobject"}:
+        mime = "application/octet-stream"
+    return Response(data, media_type=mime, headers={"X-Content-Type-Options": "nosniff", "Content-Security-Policy": "default-src 'none'; sandbox"})

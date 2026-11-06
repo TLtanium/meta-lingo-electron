@@ -33,6 +33,12 @@ export interface SentimentResponse {
   results: SentimentResultRow[]
   analysis_mode: SentimentAnalysisMode
   error?: string
+  annotation_coverage?: {
+    requested_texts: number
+    annotated_texts: number
+    missing_annotations: string[]
+    misaligned_annotations: string[]
+  }
 }
 
 /** Which emotions to show: key = emotion key, value = visible */

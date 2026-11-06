@@ -1,4 +1,6 @@
 import { api } from './client'
+import { usePetStore } from '../stores/petStore'
+import { useChatStore } from '../stores/chatStore'
 
 export interface ToolModuleInfo {
   name: string
@@ -58,9 +60,38 @@ export interface SSECallbacks {
  */
 export function chatStream(
   request: AgentChatRequest,
-  callbacks: SSECallbacks
+  originalCallbacks: SSECallbacks
 ): AbortController {
   const controller = new AbortController()
+  const petTaskId = 'agent:' + crypto.randomUUID()
+  const conversationId = useChatStore.getState().activeConversationId ?? undefined
+  let finished = false
+  let failed = false
+  let registered = false
+  const report = (phase: 'working' | 'completed' | 'failed' | 'cancelled', progress?: number) => {
+    // Resetting the app removes the task; late SSE callbacks must not restore it.
+    if (registered && !usePetStore.getState().tasks.some(task => task.id === petTaskId)) return
+    usePetStore.getState().upsertTask({ id: petTaskId, titleKey: 'agentTask', phase,
+      progress, target: { kind: 'agent', id: conversationId } })
+    registered = true
+  }
+  report('working')
+  controller.signal.addEventListener('abort', () => { if (!finished) { finished = true; report('cancelled') } }, { once: true })
+  const callbacks: SSECallbacks = {
+    ...originalCallbacks,
+    onTaskProgress: event => {
+      if (!finished && !failed) report('working', Number.isFinite(event.pct) ? Math.max(0, Math.min(100, event.pct)) : undefined)
+      originalCallbacks.onTaskProgress?.(event)
+    },
+    onError: (key, detail) => {
+      if (!finished) { failed = true; report('failed') }
+      originalCallbacks.onError(key, detail)
+    },
+    onDone: () => {
+      if (!finished) { finished = true; if (!failed) report('completed', 100) }
+      originalCallbacks.onDone()
+    },
+  }
 
   const run = async () => {
     try {

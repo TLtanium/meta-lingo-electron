@@ -2,6 +2,7 @@
 Meta-Lingo MCP Server setup and tool registration.
 """
 from mcp.server.fastmcp import FastMCP
+from mcp_server.resource_policy import RESOURCE_POLICY
 from mcp_server.api_client import MetaLingoClient
 from mcp_server.tools import (
     corpus,
@@ -40,9 +41,9 @@ def create_server(backend_url: str = "http://127.0.0.1:8000") -> FastMCP:
     """Create and configure the Meta-Lingo MCP server with all tools."""
     mcp = FastMCP(
         "meta-lingo",
-        instructions=(
+        instructions=(RESOURCE_POLICY + "\n" +
             "Meta-Lingo is a corpus linguistics research application. "
-            "You have 63 tools for corpus management, lexical analysis, "
+            "You have 65 tools for corpus management, lexical analysis, "
             "concordance/KWIC, collocations, word sketches, semantic domains "
             "(USAS), metaphor detection (MIPVU), deliberate metaphor analysis "
             "(DMIP), multidimensional register analysis (Biber 1988 MDA), "
@@ -76,7 +77,7 @@ def create_server(backend_url: str = "http://127.0.0.1:8000") -> FastMCP:
             "6. Use reference tools: get_pos_tags, get_usas_categories, "
             "validate_cql, list_reference_corpora\n"
             "7. Compare corpora: keyness_analysis (two user corpora) or "
-            "keyness_resource_analysis (vs. AmE06/BNC 2014/COCA etc. built-in reference)\n"
+            "keyness_resource_analysis (vs. a chosen user-imported reference CSV)\n"
             "8. Deep-dive: get_extended_context (more context around a KWIC hit), "
             "get_domain_words (words in a USAS domain), get_lemma_forms\n"
             "9. Annotate: see annotation workflow below\n"
@@ -203,7 +204,7 @@ def create_server(backend_url: str = "http://127.0.0.1:8000") -> FastMCP:
             "     ① L+C+R+D+  ② L+C−R+D+  ③ L−C−R+D+  ④ L−C+R+D+  ⑤ L−C−R−D− (only NDM).\n"
             "5. Apply the DECISION SHORTCUT from the four corollaries (R⟺D biconditional):\n"
             "   (a) L+ genuine metaphor signal?      → R+ → D+  (config ① or ②). Done.\n"
-            "   (b) C+ dictionary-confirmed novel?    → R+ → D+  (config ④, or ① if L+). Done.\n"
+            "   (b) C+ context-supported novelty?    → R+ → D+  (config ④, or ① if L+). Done.\n"
             "   (c) else (L− and C−): structurally ambiguous → run the REFERENTIAL TEST;\n"
             "       reawakened by a discourse cue → R+/D+ (config ③); else R−/D− (config ⑤).\n"
             "   Do NOT require 'DR plus an extra signal' — the signal/novelty/cue IS the\n"

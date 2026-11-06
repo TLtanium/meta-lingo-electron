@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import {
   Box,
   Tabs,
@@ -12,6 +12,7 @@ import UploadPanel from './UploadPanel'
 import CorpusList from './CorpusList'
 import CorpusDetail from './CorpusDetail'
 import type { Corpus } from '../../types'
+import { corpusApi } from '../../api/corpus'
 
 interface TabPanelProps {
   children?: React.ReactNode
@@ -33,10 +34,28 @@ function TabPanel(props: TabPanelProps) {
   )
 }
 
-export default function CorpusManagement() {
+export default function CorpusManagement({ initialCorpusId, initialNavigationToken }: { initialCorpusId?: string; initialNavigationToken?: number } = {}) {
   const { t } = useTranslation()
   const [tabIndex, setTabIndex] = useState(1) // Start on list view
   const [selectedCorpus, setSelectedCorpus] = useState<Corpus | null>(null)
+  useEffect(() => {
+    let alive = true
+    let request = 0
+    const open = async (id: string) => {
+      const current = ++request
+      setSelectedCorpus(null)
+      setTabIndex(1)
+      try {
+        const response = await corpusApi.getCorpus(id)
+        if (alive && current === request && response.success && response.data) {
+          setSelectedCorpus(response.data)
+          setTabIndex(2)
+        }
+      } catch { /* A deleted corpus stays on the corpus list. */ }
+    }
+    if (initialCorpusId) void open(initialCorpusId)
+    return () => { alive = false }
+  }, [initialCorpusId, initialNavigationToken])
 
   const handleTabChange = (_: React.SyntheticEvent, newValue: number) => {
     setTabIndex(newValue)

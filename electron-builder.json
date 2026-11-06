@@ -1,0 +1,127 @@
+{
+  "appId": "com.metalingo.app",
+  "productName": "Meta-Lingo",
+  "directories": {
+    "output": "release",
+    "buildResources": "assets"
+  },
+  "asar": false,
+  "files": [
+    "dist/**/*",
+    "dist-electron/**/*",
+    "!**/node_modules{,/**/*}",
+    "!**/.DS_Store",
+    "!**/._*",
+    "!**/__MACOSX",
+    "!**/.AppleDouble",
+    "LICENSE",
+    "LICENSING.md",
+    "THIRD_PARTY_NOTICES.md",
+    "SOURCE.md",
+    "third-party-licenses/**/*"
+  ],
+  "extraResources": [
+    {
+      "from": "openai-plugin/",
+      "to": "openai-plugin",
+      "filter": [
+        "**/*",
+        ".codex-plugin/plugin.json",
+        "!**/.DS_Store",
+        "!**/._*"
+      ]
+    },
+    {
+      "from": "backend-dist/meta-lingo-backend/",
+      "to": "backend",
+      "filter": [
+        "**/*",
+        "!**/.DS_Store",
+        "!**/._*",
+        "!**/__MACOSX",
+        "!**/.AppleDouble"
+      ]
+    },
+    {
+      "from": "backend-dist/meta-lingo-mcp/",
+      "to": "mcp-server",
+      "filter": [
+        "**/*",
+        "!**/.DS_Store",
+        "!**/._*",
+        "!**/__MACOSX",
+        "!**/.AppleDouble"
+      ]
+    },
+    {
+      "from": "backend-dist/meta-lingo-mcp.mcpb",
+      "to": "mcp-extension/meta-lingo-mcp.mcpb"
+    },
+    {
+      "from": "saves/frameworks/",
+      "to": "data/frameworks",
+      "filter": [
+        "*.json"
+      ]
+    },
+    {
+      "from": "saves/metaphor/",
+      "to": "saves/metaphor",
+      "filter": [
+        "*.json"
+      ]
+    },
+    {
+      "from": "help/",
+      "to": "help",
+      "filter": [
+        "**/*",
+        "!**/.DS_Store",
+        "!**/._*",
+        "!**/__MACOSX",
+        "!**/.AppleDouble"
+      ]
+    },
+    {
+      "from": "assets/",
+      "to": "assets",
+      "filter": [
+        "Background2.jpg",
+        "avatar.png"
+      ]
+    }
+  ],
+  "win": {
+    "icon": "assets/icons/icon.ico",
+    "target": [
+      {
+        "target": "dir",
+        "arch": [
+          "x64"
+        ]
+      }
+    ]
+  },
+  "mac": {
+    "icon": "assets/icons/icon.icns",
+    "target": [
+      {
+        "target": "dir",
+        "arch": [
+          "arm64"
+        ]
+      }
+    ],
+    "category": "public.app-category.education"
+  },
+  "linux": {
+    "icon": "assets/icons",
+    "target": [
+      "AppImage"
+    ],
+    "category": "Education"
+  },
+  "appImage": {
+    "artifactName": "${productName}-${version}.${ext}"
+  }
+}

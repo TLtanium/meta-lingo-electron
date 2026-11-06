@@ -87,6 +87,7 @@ class SentimentResponse(BaseModel):
     results: List[Dict[str, Any]] = []
     analysis_mode: str = "polarity"
     error: Optional[str] = None
+    annotation_coverage: Dict[str, Any] = {}
 
 
 class POSTagInfo(BaseModel):

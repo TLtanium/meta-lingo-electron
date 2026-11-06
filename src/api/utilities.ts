@@ -2,12 +2,14 @@ import { api } from './client'
 
 // Dictionary types
 export interface DictionaryInfo {
+  id: string
   name: string
   count: number
   filename: string
 }
 
 export interface LookupResult {
+  dictionary_id?: string
   found: boolean
   word?: string
   content?: string

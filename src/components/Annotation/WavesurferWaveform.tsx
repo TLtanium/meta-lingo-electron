@@ -21,6 +21,7 @@ import CloseIcon from '@mui/icons-material/Close'
 import { useTranslation } from 'react-i18next'
 import GraphicEqIcon from '@mui/icons-material/GraphicEq'
 import type { AudioBox, AcousticData } from '../../types'
+import { createAudioBoxFromPixels } from '../../utils/audioAnnotationArchive'
 import {
   renderSpectrogram,
   renderFormantTracks,
@@ -43,7 +44,7 @@ interface PitchData {
   fmin: number
   fmax: number
   f0: number[]
-  periodicity: number[]
+  periodicity?: number[]
   times: number[]
 }
 
@@ -175,7 +176,7 @@ const WavesurferWaveform = forwardRef<WavesurferWaveformRef, WavesurferWaveformP
   const [drawStart, setDrawStart] = useState<{ x: number; y: number } | null>(null)
   const [currentBox, setCurrentBox] = useState<{ 
     x1: number; y1: number; x2: number; y2: number; 
-    label: string; color: string 
+    label: string; color: string; labelPath?: string
   } | null>(null)
   
   // 同步 drawMode 状态到 ref
@@ -690,7 +691,7 @@ const WavesurferWaveform = forwardRef<WavesurferWaveformRef, WavesurferWaveformP
     if (!canvasRef.current || !pitchData?.enabled || !showPitch || !isReady) return
 
     // Validate pitchData has all required fields before proceeding
-    if (!pitchData.f0 || !pitchData.periodicity || !pitchData.times ||
+    if (!pitchData.f0 || !pitchData.times ||
         typeof pitchData.fmin !== 'number' || typeof pitchData.fmax !== 'number') {
       console.warn('[WavesurferWaveform] pitchData missing required fields')
       return
@@ -737,11 +738,11 @@ const WavesurferWaveform = forwardRef<WavesurferWaveformRef, WavesurferWaveformP
     let started = false
     for (let i = 0; i < f0.length; i++) {
       const freq = f0[i]
-      const conf = periodicity[i]
+      const conf = periodicity?.[i]
       const time = times[i]
 
       // Skip unvoiced (0 frequency) or low confidence
-      if (freq <= 0 || conf < 0.3) {
+      if (freq <= 0 || (conf !== undefined && conf < 0.3)) {
         if (started) {
           ctx.stroke()
           ctx.beginPath()
@@ -756,7 +757,7 @@ const WavesurferWaveform = forwardRef<WavesurferWaveformRef, WavesurferWaveformP
       const y = height - (normalizedFreq * height * 0.8 + height * 0.1)
 
       // Adjust alpha based on confidence
-      ctx.globalAlpha = Math.max(0.3, conf)
+      ctx.globalAlpha = conf === undefined ? 1 : Math.max(0.3, conf)
 
       if (!started) {
         ctx.moveTo(x, y)
@@ -970,6 +971,7 @@ const WavesurferWaveform = forwardRef<WavesurferWaveformRef, WavesurferWaveformP
     setCurrentBox({
       x1: x, y1: y, x2: x, y2: y,
       label: selectedLabel.node.name,
+      labelPath: selectedLabel.path,
       color: selectedLabel.color
     })
   }, [drawMode, selectedLabel])
@@ -1002,21 +1004,8 @@ const WavesurferWaveform = forwardRef<WavesurferWaveformRef, WavesurferWaveformP
       const boxHeight = Math.abs(currentBox.y2 - currentBox.y1)
       
       if (boxWidth > 10 && boxHeight > 10 && onAudioBoxAdd) {
-        // 将像素坐标转换为时间和归一化 Y 坐标
-        // Canvas 跟随内容滚动，所以不需要加 scrollLeft
-        const startTime = currentBox.x1 / zoom
-        const endTime = currentBox.x2 / zoom
-        const normalizedY = currentBox.y1 / height
-        const normalizedHeight = boxHeight / height
-        
-        onAudioBoxAdd({
-          label: currentBox.label,
-          color: currentBox.color,
-          startTime: Math.max(0, startTime),
-          endTime: Math.min(duration, endTime),
-          y: Math.max(0, Math.min(1, normalizedY)),
-          height: Math.max(0.1, Math.min(1, normalizedHeight))
-        })
+        const audioBox = createAudioBoxFromPixels(currentBox, zoom, height, duration)
+        if (audioBox) onAudioBoxAdd(audioBox)
       }
     }
     

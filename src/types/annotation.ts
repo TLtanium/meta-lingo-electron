@@ -83,6 +83,8 @@ export interface Annotation {
   type?: AnnotationType
   bbox?: [number, number, number, number]  // 视频框选区域 [x1, y1, x2, y2]
   timestamp?: number        // 视频时间戳(秒)
+  startTime?: number        // 音频区间起点（秒）；旧存档可能仅有 timestamp
+  endTime?: number          // 音频区间终点（秒）；不从旧存档推断
   frameNumber?: number      // 视频帧号
   frameCount?: number       // 视频框选帧数(序列标注)
   
@@ -191,13 +193,17 @@ export interface TranscriptSegment {
  */
 export interface VideoBox {
   id: number
+  annotationId?: string     // 对应 annotations 中的表格条目，用于删除/编辑同步与去重
   label: string
+  labelPath?: string
+  remark?: string
   color: string
   startFrame: number
   endFrame: number
   frameCount: number
   startTime: number
   endTime: number
+  interpolation?: 'linear'
   keyframes: VideoKeyframe[]
   frames: VideoFrame[]
 }
@@ -232,6 +238,8 @@ export interface VideoFrame {
 export interface AudioBox {
   id: number
   label: string
+  labelPath?: string
+  remark?: string
   color: string
   startTime: number      // 开始时间（秒）
   endTime: number        // 结束时间（秒）
@@ -244,9 +252,11 @@ export interface AudioBox {
  * 波形可视化数据（用于历史存档）
  */
 export interface WaveformData {
+  enabled?: boolean
   peaks: number[]        // 波形采样点
   duration: number       // 音频时长
-  sampleRate: number     // 采样率
+  sampleRate?: number    // 采样率（存档字段）
+  sample_rate?: number   // 兼容原始分析数据
 }
 
 /**
@@ -258,28 +268,15 @@ export interface PitchDataArchive {
   times: number[]        // 时间点数组
   fmin: number           // 最小频率
   fmax: number           // 最大频率
+  periodicity?: number[]
+  hop_length_ms?: number
+  sample_rate?: number
 }
 
 /**
  * 声学分析数据（用于历史存档）
  */
-export interface AcousticDataArchive {
-  enabled: boolean
-  spectrogram?: {
-    times: number[]
-    frequencies: number[]
-    energy_matrix: number[][]
-    dynamic_range: number
-  }
-  formants?: {
-    times: number[]
-    f1: number[]; f2: number[]; f3: number[]; f4: number[]; f5: number[]
-  }
-  intensity?: { times: number[]; values: number[] }
-  hnr?: { times: number[]; values: number[] }
-  jitter?: Record<string, number>
-  shimmer?: Record<string, number>
-}
+export type AcousticDataArchive = import('./corpus').AcousticData
 
 // ==================== SpaCy Types ====================
 

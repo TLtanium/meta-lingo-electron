@@ -42,9 +42,13 @@ export interface StatisticThresholds {
 
 export interface CorpusResource {
   id: string              // e.g., 'bnc2014_spoken', 'ame06_total'
+  name?: string           // User-entered content, independent of interface language
+  description?: string
+  tags?: string[]
   name_en: string         // e.g., 'BNC 2014(Spoken)'
   name_zh: string         // e.g., 'BNC 2014(口语)'
   prefix: string          // e.g., 'ame06', 'bnc2014', 'now', 'coca'
+  color?: string          // Assigned solely from the full set of group prefixes
   category: string        // e.g., 'commerce_finance', 'total', 'spoken'
   tags_en: string[]       // e.g., ['BNC', 'spoken']
   tags_zh: string[]       // e.g., ['BNC', '口语']

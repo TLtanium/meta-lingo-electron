@@ -1,4 +1,90 @@
+## Multilingual annotation links (v4.9.72)
+
+Links from text and multimodal transcript annotations retain the original word when its lemma is missing, and synchronize the destination search mode. Longer annotation spans are not replaced by one contained token. Existing corpora and annotation archives need no reprocessing.
+
+## Minimal frosted startup (v4.9.70)
+
+The startup screen shows the brand mark and a thin blue line in your selected theme. Supported desktop systems use a translucent frosted backdrop; other environments use a matching solid surface. The workspace appears after the backend is ready, with a full-restart confirmation if startup fails. Confirmation closes the whole app and its local services, then reopens it automatically. Cancelling retains a Restart application action. Corpora, models and settings are kept.
+
+## Unicode media playback fix (v4.9.66)
+
+Video/audio files with Chinese or other non-ASCII filenames now load and seek correctly. A response-header encoding error previously returned HTTP 500; transcription language did not disable playback. Reopen the preview after updating. Existing media and transcripts need no reupload or reprocessing.
+
+
+## Lemy desktop companion (v4.9.62)
+
+Use the **paw icon** beside the conversation-mode switch to show or hide Lemy; it is off by default. In the desktop app, drag it anywhere on the desktop. It stays visible while the main window is minimized and closes with the main window. Browser development offers an in-page preview.
+
+- Drag the character; click or right-click for the menu; double-click to return to chat. Enter/Space opens the menu when the character has keyboard focus.
+- The menu provides chat, task list, Home, Help, size, roaming and desktop always-on-top controls. System reduced-motion preferences use still frames and stop roaming.
+- Agent chat and corpus-processing tasks drive working/completed/failed animations and show actual progress. Click a notification or task to reopen its conversation/corpus. Inspect full errors in the original task; Lemy does not retry or perform actions automatically.
+- The task list supports concurrent work and dismissing read notices. Failures remain failures, stopped tasks are distinct, and modules without a connected task state do not display invented progress.
+- Animation runs locally without model calls. Artwork is bundled and does not depend on ChatGPT. Factory reset disables the companion and clears its position, preferences and session task history.
+
+- On macOS, Always on top keeps Lemy above fullscreen windows as you switch desktops and fullscreen Spaces, without hiding and reopening it. Turning this option off stops forced topmost ordering.
+
+- Showing or hiding Lemy keeps the Meta-Lingo main window and Dock icon visible and does not automatically transfer keyboard focus to the companion.
+
+- Status labels stay horizontally centered on Lemy and follow movement and size. Near the top edge they switch below the character, side edges narrow them, and menu and task panels stay horizontally centered when space permits, shift inward at side edges, and retain above/below switching.
+
+## Licensing and resource lists (v4.9.61)
+
+Settings → License provides the official AGPL text and an adjacent Open source licenses viewer containing complete bundled-dependency notices. Both interface languages use the same authoritative license; an unofficial Chinese reference translation is linked separately.
+
+Imported resources are collapsed by default with a total count. Lists exceeding five entries offer name/ID search and scroll within a fixed height when expanded.
+
+## Resource operations (v4.9.60)
+
+- Small speaker buttons play dictionary pronunciations. Entry links and query history preserve the current dictionary, including when it has no entry for the target word.
+- Reference cards and group-filter chips receive colours from their exact group identifiers. Matching identifiers share a colour; distinct current identifiers get different colours. Names, descriptions, tags and other fields do not affect assignment. Identifiers are displayed as entered.
+- Factory reset includes a default-selected Imported resources option. It removes application copies of NRC, dictionaries and reference CSVs while preserving your original downloaded files. Uncheck it to retain imported resources.
+
 # Meta-Lingo User Manual
+
+# User resources and reference CSV export (v4.9.57)
+
+Original application code uses **GNU AGPL version 3 (AGPL-3.0-only)**, permitting commercial use, modification and redistribution under its terms. Third-party code, models and data keep their own licenses. [Source and build instructions](https://github.com/TLtanium/meta-lingo-electron). NRC, commercial dictionaries and reference CSVs are not bundled; legacy files are not loaded automatically.
+
+## NRC: obtain, extract and import
+
+1. Obtain the lexicon through the [official NRC Emotion Lexicon page](https://saifmohammad.com/WebPages/NRC-Emotion-Lexicon.htm) under its terms. This manual provides no mirror.
+2. Extract and retain the entire `NRC-Emotion-Lexicon` folder. English uses `NRC-Emotion-Lexicon-Wordlevel-v0.92.txt`; Simplified Chinese uses `OneFilePerLanguage/Chinese-Simplified-NRC-EmoLex.txt`. Other translations are in `OneFilePerLanguage`. The official download does not need an `English-NRC-EmoLex.txt` file.
+3. Open Settings → User resources → NRC Emotion Lexicon → Choose NRC folder, select the extracted directory, and import. The list shows the actual languages and entry counts imported. Supported languages: English, Chinese, Danish, Dutch, Finnish, French, Italian, Portuguese, Russian, Spanish and Swedish. Missing languages never fall back to English.
+4. Rerun NRC annotation on existing texts. A missing lexicon cannot generate new annotations for that language. Previously saved annotations remain usable.
+5. Cite NRC as required by its website: Saif M. Mohammad and Peter D. Turney (2013), *Crowdsourcing a Word–Emotion Association Lexicon*, Computational Intelligence, 29(3), 436–465. Follow the official README and website for additional citations and terms.
+
+## Dictionaries: MDX with companion resources
+
+1. Obtain an MDX you are entitled to use. Neither the app nor this manual provides unauthorized commercial dictionary downloads.
+2. In Settings → User resources → MDX dictionaries, choose **one MDX per import**, optionally selecting its MDD, CSS, images, fonts and audio files at the same time. Preserve original companion filenames. Import different dictionaries separately. Enter a name or leave it blank to use the MDX filename.
+3. Wait for indexing to finish, then use the dictionary button in the top toolbar. The unified viewer supports multiple dictionaries, prefix suggestions, internal `entry://` links and `sound://` audio controls. Styles/images require their companion files.
+4. Entries are isolated from the application and dictionary-provided scripts do not execute. Script-dependent interactions and some layouts may not reproduce. Common MDict 2 files are verified; password-protected files and older variants requiring LZO are not guaranteed.
+5. Parsing does not grant resource rights. The previous two bundled JSON dictionaries are no longer loaded. AI/MCP lookup also uses currently imported dictionaries.
+
+## Reference corpora: export your annotated texts, then import
+
+1. In Corpus Management → corpus detail, complete POS, lemma and USAS annotations. Select all texts to combine, click Export and choose **Reference CSV**. Audio/video use their annotated transcripts. All selected texts are aggregated into **one CSV**. Missing required annotations produce an error rather than silently dropping texts.
+2. The exact UTF-8 header is `Word,word,lemma,pos,usas,freq` (a BOM is accepted). `Word` preserves case; `word` is its lowercase form. Frequencies aggregate by surface form, lemma, POS and primary USAS tag, and must be positive integers. Each nonempty token contributes once, without multiplying top-5 candidates. Annotated punctuation is included and can be filtered during analysis. CSV contains neither original media/text nor manual boxes, and is not a full corpus backup.
+3. In Settings → User resources → Reference corpora, choose the CSV and Validate CSV first. Every row is checked for columns, required values, lowercase form and integer frequencies. Rows, token count and file size are shown. A CSV alone cannot establish whether its original producer used top-1 counting; ensure it was generated without duplicated counts.
+4. Enter one name, group identifier, tag set and description: name/group on the left, tags/description on the right, stacked on smaller screens. Tags accept English commas (,) or Chinese commas (，), with or without surrounding spaces. Empty and duplicate tags are ignored. Your name, description and tags are shown as entered in both interface languages; translations are not required. Token count is the sum of `freq`; file size is calculated automatically. Equal group identifiers share a colour. Existing bilingual resources remain readable without re-importing.
+5. In Keyword Extraction → Keyness, enable reference resources and select the imported card. An empty list directs you to Settings; AmE06 and other datasets are no longer bundled or preferred by default. Another user corpus can still be used as reference. Keep language, tokenization, tagging and counting conventions comparable.
+
+## Dictionary agreement in AI/MCP workflows
+
+Before dictionary-supported metaphor or DMIP analysis, the assistant discovers imported dictionaries using `list_dictionaries`. With none available, it explains Settings → User resources → MDX dictionaries and pauses dictionary-dependent judgments. With available dictionaries, you choose which to use and their priority (or explicitly equal priority). If unspecified, the assistant proposes a primary/supplementary plan and waits for your next confirmation, including when only one dictionary is available. Already explicit selections need no repeated confirmation. Missing senses alone do not establish novelty. A user-chosen no-dictionary conceptual analysis must disclose its limits.
+
+`get_resource_status` reports imported dictionaries, NRC languages and reference CSVs. Keyness uses actual selected imported resource IDs, with setup guidance for missing resources. NRC analysis can use existing saved scores even if the lexicon is no longer imported; coverage reports distinguish absent/misaligned annotation, omitted texts and empty filtered results. Missing annotation is not neutral emotion.
+
+MDA includes a Python/SpaCy adaptation of Andrea Nini’s MAT implementation. Original GPLv3-covered parts retain their notices and source; see `third-party-licenses/MAT-NOTICE.md` for GPL/AGPL combination, provenance and Nini (2019) citation. Application code licensing does not erase upstream rights.
+
+After updating the packaged app, reconnect/reinstall its local plugin as needed and start a new conversation so the client loads the revised Skill and MCP descriptions. Old installed binaries/plugins retain their earlier behavior until updated.
+
+## Storage, removal and updates
+
+Imports are stored locally under the application's `user_resources/` directory, outside source and installation assets. Incomplete imports never activate. Removal deletes only the app's imported copy, preserving original selected files and existing annotations. NRC changes do not require restart; rerun annotation/analysis to update existing results. Application updates do not automatically import developer-local resources.
+
+---
+
 
 Welcome to Meta-Lingo, a modern multimodal corpus research software. This manual will help you master all features of the software.
 
@@ -80,7 +166,7 @@ If you have any questions or suggestions while using the software, feel free to 
 
 ## Disclaimer
 
-This software is a personal development project, non-commercial, and not official software of Guangdong University of Foreign Studies. Using this software means you agree to comply with the relevant license agreement.
+This is a personal development project, not official software of Guangdong University of Foreign Studies. Original code uses AGPL-3.0-only; third-party components and user resources retain their own terms.
 
 ---
 
@@ -167,7 +253,7 @@ For English audio, the system automatically performs after Whisper transcription
 - **TorchCrepe Pitch Extraction**: Extract fundamental frequency (F0) data using `full.pth` model
 - These data are used for waveform visualization in multimodal annotation
 
-> **Note**: Forced alignment and pitch extraction are only available for English audio. Non-English audio can only be annotated in Text Annotation mode.
+> **Note**: Wav2Vec2 word-level forced alignment supports English only. Waveform, pitch/acoustic visualization and interval boxes are not restricted to English; availability depends on the analysis data for the current resource.
 
 #### YOLO Object Detection
 
@@ -1322,51 +1408,15 @@ The corpus used as a comparison baseline for calculating expected word frequenci
 - Displays number of selected texts
 - Suitable for comparison with your own imported corpora
 
-**Method 2: Corpus Resource**
+**Method 2: Reference corpus resource**
 
-The system includes multiple pre-processed corpus frequency datasets that can be directly used for keyness comparison:
+Import a compatible CSV in Settings → User resources → Reference corpora first. Enable the resource switch and open the card selector. Filter by name, description, group or tags. Cards show the name, description and tags exactly as entered, independent of interface language, plus automatically computed token count and size. Empty lists direct you to import; no dataset is bundled or preferred by default. Export selected annotated texts as a combined Reference CSV in Corpus Management, then import it here. See the complete workflow at the beginning of this manual.
 
-- **Enable**: Toggle the "Corpus Resource" switch on
-- **Default Resource**: AmE06 (American English 2006) total corpus
-- **Resource Selection**: Click the resource card to open the selection dialog
-
-**Corpus Resource Selection Dialog**:
-
-- **Search Function**: Enter keywords to search corpus names
-- **Corpus Type Filter**: Filter by corpus type (e.g., AmE06, BE06, BNC 2014, NOW, COCA, COHA, GloWbE)
-- **Tag Filter**: Filter by tags, supports multiple selection (e.g., news, fiction, spoken)
-- **Resource Card**: Displays corpus name, word count (based on the sum of `freq` in CSV), file size, and other information
-- **Single Selection**: Select one corpus, then the dialog closes and updates the display
-
-**Available Corpus Resources (Examples)**:
-
-The system includes multiple pre-processed corpus resources:
-
-| Corpus | Description | Example Tags |
-|--------|-------------|--------------|
-| BNC 2014 | British National Corpus 2014 (spoken only) | spoken, contemporary British English |
-| AmE06 | American English 2006 (AmE06) balanced corpus | written American English, press, magazines, fiction, etc. |
-| BE06 | British English 2006 (BE06) balanced corpus | written British English, press, magazines, fiction, etc. |
-| NOW | News on the Web (2010-2024; ~24.2B words/41,104,404 texts) | news (by country) |
-| COCA | Corpus of Contemporary American English (1990-2019; ~1B words/485,000 texts) | spoken, fiction, magazine, news, academic |
-| COHA | Corpus of Historical American English (1810-2009; ~400M words/107,000 texts) | historical American English by period |
-| GloWbE | Global Web-based English (~2013; ~1.9B words/1.8M texts) | English by country/region |
-
-About corpus sources: except `NOW`, `AmE06 / BE06`, and `BNC 2014`, the other built-in reference corpus resources (`COCA / COHA / GloWbE`) are based on sample full-text data provided by English-Corpora.org / CorpusData; sample dataset details are described on [CorpusData formats](https://www.corpusdata.org/formats.asp).
-
-**How reference frequencies are counted**: the built-in reference-corpus CSVs are tagged by PyMUSAS with **top-1** only (each token keeps just its highest-ranked USAS tag) and every token is counted once, so the `freq` column sums to the true token count (e.g. AmE06 is about 850K tokens). On the study-corpus side, keyness in semantic-domain mode likewise counts only each token's primary (top-1) tag, so both sides share the same basis. Note this only affects the keyness computation: annotated corpora in Corpus Management still store the top-5 candidate tags, and other modules (semantic domain analysis, CQL search, etc.) are unchanged.
-
-**Note:** BNC 2014 contains spoken data only.
-
-**Usage Tips**:
-- Study corpus should be your target corpus of interest
-- Reference corpus should be a representative baseline corpus (e.g., general corpus)
-- Both corpora should use the same language
-- Using corpus resources allows quick comparison without importing reference corpora
+Use primary (top-1) USAS tags and count each token once. You are responsible for confirming imported data provenance and ensuring study/reference annotation and counting conventions match.
 
 #### USAS Annotation for Reference Corpus Resources
 
-All built-in corpus resources (e.g. AmE06, BNC 2014, COCA, GloWbE) use USAS semantic domain data annotated by Meta-Lingo’s built-in **PyMUSAS neural model**. The framework is developed by UCREL at Lancaster University and supports multilingual semantic tagging. Full documentation and evaluation data: [PyMUSAS documentation](https://ucrel.github.io/pymusas/). The pre-trained model used in Meta-Lingo is **ucrelnlp/PyMUSAS-Neural-Multilingual-Base-BEM** ([HuggingFace](https://huggingface.co/ucrelnlp/PyMUSAS-Neural-Multilingual-Base-BEM)), suitable for multilingual use.
+Reference CSV export uses existing USAS annotations. The platform’s default neural annotation uses the **PyMUSAS neural model**. The framework is developed by UCREL at Lancaster University and supports multilingual semantic tagging. Full documentation and evaluation data: [PyMUSAS documentation](https://ucrel.github.io/pymusas/). The pre-trained model used in Meta-Lingo is **ucrelnlp/PyMUSAS-Neural-Multilingual-Base-BEM** ([HuggingFace](https://huggingface.co/ucrelnlp/PyMUSAS-Neural-Multilingual-Base-BEM)), suitable for multilingual use.
 
 **Model sizes (from PyMUSAS official site)**:
 
@@ -1377,7 +1427,7 @@ All built-in corpus resources (e.g. AmE06, BNC 2014, COCA, GloWbE) use USAS sema
 | Multilingual Small | PyMUSAS-Neural-Multilingual-Small-BEM | 140 | 501 |
 | **Multilingual Base** | **PyMUSAS-Neural-Multilingual-Base-BEM** | **307** | **1,060** |
 
-Meta-Lingo’s built-in reference corpus resources use the **Multilingual Base** model (307M parameters) in the table above.
+The default neural tagger uses **Multilingual Base** (307M parameters); the app does not infer the original model behind imported CSVs.
 
 **307M Multilingual model architecture (from HuggingFace model card)**:
 
@@ -1407,7 +1457,7 @@ Evaluation uses Top-N accuracy: correct if the gold tag appears in the tagger’
 | Irish | 35.6 | 51.6 |
 | Welsh | 42.0 | 56.4 |
 
-**Note**: All built-in reference resources and user corpora are annotated with the same **PyMUSAS-Neural-Multilingual-Base-BEM** (topn=5) strategy, ensuring comparable semantic domain distributions in keyness analysis.
+**Note**: Imported CSV sources may differ. Ensure comparable tagging; reference CSV export and keyness use only the primary USAS tag per token.
 
 ### POS Filtering
 
@@ -4810,7 +4860,7 @@ In the "Library Detail" tab:
 
 - **Export CSV**: Exports by current filters and visible columns; **does not include the Paper column**; header order: Relevance, Title, DOI, Authors, Year, Journal, Abstract, Keywords, Citations, visible AI columns, Tags, Notes (UTF-8 BOM).
 
-- **Re-annotation**: Same backend as Corpus Management; MIPVU uses metalingo-indirect-metaphor full annotation (English-only); NRC supports all 11 languages (requires language lexicon file in `saves/nrc/`).
+- **Re-annotation**: Same backend as Corpus Management; MIPVU uses metalingo-indirect-metaphor full annotation (English-only); NRC supports all 11 languages (requires importing that language’s lexicon in Settings).
 
 ### Entry Detail Dialog
 
@@ -5675,6 +5725,12 @@ Multimodal annotation uses a left-right split layout, similar to text annotation
    - System automatically linearly interpolates to generate intermediate frame box selections
    - Reduces manual annotation workload
 
+5. **Save the Full Trajectory**:
+   - In the tracking controls, clicking "Next Frame" records the current box before moving ahead. Adjust the box at the new position, then continue tracking.
+   - "Save Sequence" includes the latest adjustment on the final frame and retains all manually defined keyframes and interpolated positions.
+   - Save the annotation archive after saving the sequence. Reloading the archive and exporting JSON retain the full trajectory; deleting its annotation also removes the trajectory.
+   - Intermediate positions already missing from older archives cannot be recovered automatically.
+
 #### YOLO Overlay Display
 
 If video has completed YOLO detection:
@@ -5685,11 +5741,11 @@ If video has completed YOLO detection:
 
 ### Audio Annotation
 
-> **Important**: Audio waveform annotation (Wav2Vec2 forced alignment + pitch extraction) is only available for English audio. All other languages (including Chinese) can only be annotated in Text Annotation mode.
+> **Note**: English audio additionally supports Wav2Vec2 word-level forced alignment. Waveform box annotation is not restricted to English: Chinese and other audio can use it when waveform or acoustic data are available. Available controls depend on the current resource.
 
-#### English Audio Waveform Annotation
+#### Audio Waveform and Interval Annotation
 
-For English audio with forced alignment data, the system displays an interactive waveform interface:
+Audio with waveform, pitch, acoustic, or English alignment data displays an interactive waveform interface:
 
 **Waveform Visualization (Wavesurfer.js)**
 - **Waveform Display**: Display complete audio waveform with zoom and scroll support
@@ -5713,6 +5769,13 @@ For English audio with forced alignment data, the system displays an interactive
 
 > **Tip**: Box drawing and transcript text selection are two independent annotation systems that do not affect each other.
 
+**Complete Saving and Export**
+- Draw multiple separate or overlapping intervals. Each box retains its label path, start/end times and normalized position; use the remark button in the audio annotation list to add notes.
+- Range selections and English aligned-word annotations also retain both time boundaries. Save the annotation archive to preserve these intervals and available waveform, pitch and acoustic snapshots when reopening or exporting JSON.
+- Save again after deleting all intervals to commit the deletion. End times or label paths already missing from older archives are not invented.
+- Audio history CSV uses full-precision seconds and includes label paths, geometry and remarks. Training conversion should match the original times to the audio file, independently of video frame numbers.
+
+
 #### Transcript Annotation
 
 - **Transcript Display**: Display audio transcript text (if available)
@@ -5721,13 +5784,12 @@ For English audio with forced alignment data, the system displays an interactive
 - **Current Sentence Highlighting**: Auto-highlight currently playing sentence
 - **Click to Seek**: Click transcript sentences to jump to corresponding time
 
-#### Non-English Audio Restrictions
+#### Non-English Audio Capabilities and Limits
 
-Since Wav2Vec2 forced alignment only supports English, all non-English audio (including Chinese, French, Spanish, etc.):
-- Does not display waveform visualization interface
-- Does not support box drawing annotation
-- Can only be annotated via Text Annotation mode
-- Does not appear in multimodal annotation media selection
+Chinese and other non-English audio can be selected in multimodal annotation. When waveform, pitch or acoustic data are available, their visualizations and manual interval boxes can be used.
+- The English Wav2Vec2 word-level forced alignment capability is not available for these languages.
+- Manual intervals retain start/end times and do not require automatic word alignment.
+- A resource without waveform or acoustic data may show only the standard audio player and transcript.
 
 ### Annotation Table
 
@@ -7108,7 +7170,7 @@ The module uses a left–right split layout:
 
 ### Lexicons and Dimensions
 
-- The system uses lexicon files under `saves/nrc/` that match the corpus language (e.g. English: `English-NRC-EmoLex.txt`, Chinese: `Chinese-Simplified-NRC-EmoLex.txt`, French: `French-NRC-EmoLex.txt`, etc.). Supported NRC languages: English, Chinese, Danish, Dutch, Finnish, French, Italian, Portuguese, Russian, Spanish, Swedish. If the lexicon file for a language is not present, the system falls back to the English lexicon.
+- Only matching language lexicons explicitly imported in Settings → User resources are used. Missing languages never fall back to English. See the import instructions for supported languages.
 - Each word that matches the lexicon receives scores for 10 dimensions: **anger**, **anticipation**, **disgust**, **fear**, **joy**, **sadness**, **surprise**, **trust**, **positive**, **negative**.
 - Words not in the lexicon have zero on all dimensions; in Polarity mode they are classified as neutral, in Dimension mode as others.
 
@@ -7232,7 +7294,7 @@ Dictionary lookup is available from the **top-right toolbar**: click the **trans
 
 ## Supported Dictionaries
 
-- The app includes **Macmillan** and **Longman Collocations** dictionaries, shown as tabs in the dialog.
+- The app lists dictionaries you import in Settings → User resources → MDX dictionaries, shown as tabs. No dictionary data is bundled.
 - In the "Select dictionaries" area you can choose which to query; multiple selection is supported, and all are selected by default.
 
 ## Search Features
@@ -7352,7 +7414,7 @@ A Claude Desktop-style conversational interface for AI-driven corpus analysis. I
 
 1. **Ensure an AI provider is configured**: Go to Settings and connect Ollama or enable an OpenAI-compatible API.
 2. **Type your request**: For example, "List my corpora", "Analyze word frequency in corpus X", or "Find collocates of 'make' in my academic corpus."
-3. **The AI calls tools automatically**: The assistant uses Meta-Lingo's 45 built-in tools (corpus management, analysis, concordance, semantic analysis, etc.) to fulfill your request. You'll see tool calls and results displayed inline.
+3. **The AI calls tools automatically**: The assistant uses Meta-Lingo's 65 tools (corpus management, analysis, concordance, semantic analysis, etc.) to fulfill your request. You'll see tool calls and results displayed inline.
 4. **Review results**: The AI formats analysis results and provides interpretation.
 
 ### Module Selector
@@ -7375,17 +7437,30 @@ Meta-Lingo includes a **Model Context Protocol (MCP) server** that allows AI ass
 
 | Client | Setup Method | Description |
 |--------|-------------|-------------|
+| **ChatGPT / Codex desktop** | Private local plugin (MCP + Skill) | Requires local plugin support and local execution; not for web or cloud chats |
 | **Claude Desktop** | Extension (.mcpb) or stdio | Anthropic’s desktop app (macOS / Windows). Recommended |
 | **Claude.ai** (web) | Connectors (HTTPS required) | Anthropic’s web assistant. Requires ngrok or public server |
 | **Cursor** | stdio config | AI code editor |
 | Other MCP clients | stdio or HTTP | Any client supporting the MCP protocol |
+
+## Setup — ChatGPT / Codex desktop private plugin
+
+1. Install a ChatGPT / Codex desktop client that supports local plugins. Keep Meta-Lingo running and enable **Settings → MCP Service**.
+2. Select the **ChatGPT** tab inside the MCP Service card, then click **Connect ChatGPT / Codex desktop**. Meta-Lingo prepares a private plugin on this computer and requests its detail page in the desktop client. Confirm installation there.
+3. Start a new chat and say “Use MetaLingo to list my corpora” or describe your analysis task. The bundled Skill helps select existing MCP tools; the client still controls tool permissions.
+
+This does not use a public marketplace and requires no manual configuration, user Python / Conda, or public server. The handoff message does not confirm installation or a working connection. If only the home page opens, update the client. If tools are missing after installation, restart the client and open a new chat. Web and conversations without local execution cannot use this local MCP connection.
+
+**Development testing is supported**: both the local browser frontend and Electron development window use the same Connect button, without a prior app build. The current backend’s Python interpreter runs the latest MCP source; the marketplace appears as **MetaLingo · Development**. Keep the development backend running. If the browser does not launch the client, allow it to open the app or click **Open plugin installation page** to retry. This does not let ChatGPT web conversations execute local MCP; the desktop client runs the tools.
+
+After updating or moving Meta-Lingo, click Connect again and reinstall or refresh the plugin in the client. The exposed MCP tools do not cover every GUI operation: text annotation tools cannot directly draw video boxes or edit audio intervals.
 
 ## Setup — Claude Desktop Extension (Recommended)
 
 The easiest way to connect. Double-click to install — no config files or terminal commands needed.
 
 1. Ensure Meta-Lingo is running (the MCP service connects to Meta-Lingo’s backend).
-2. In Meta-Lingo **Settings** → **MCP Service**, click **Install to Claude Desktop** — this opens the extension file directly with Claude Desktop and shows the install confirmation dialog.
+2. In Meta-Lingo **Settings** → **MCP Service**, select the **Claude** tab and click **Install to Claude Desktop** — this opens the extension file directly with Claude Desktop and shows the install confirmation dialog.
 3. Confirm the installation. Meta-Lingo’s tools will be available immediately.
 
 > **Tip**: You can also install via Claude Desktop → **Settings** → **Extensions** → **Install from file**.
@@ -7459,7 +7534,7 @@ These tools retrieve metadata, validate queries, and list or create annotation f
 - **get_pos_tags**: List all Universal POS tags (ADJ, NOUN, VERB, etc.) with descriptions. Use to understand valid POS filter values for other tools.
 - **get_usas_categories**: List the 21 USAS major semantic domain categories (A–Z). Use before `semantic_domain_analysis` to understand the taxonomy.
 - **get_metaphor_sources**: List MIPVU metaphor detection source types (word filter, MRC concreteness, etc.). Use to interpret `metaphor_analysis` results.
-- **list_reference_corpora**: List built-in reference corpora (AmE06, BNC 2014, COCA, etc.) with word counts. Use to find `resource_id` values for `keyness_resource_analysis`.
+- **list_reference_corpora**: List user-imported reference corpora (AmE06, BNC 2014, COCA, etc.) with word counts. Use to find `resource_id` values for `keyness_resource_analysis`.
 - **validate_cql**: Validate a CQL (Corpus Query Language) expression before running a concordance search. Returns whether the syntax is valid and any error messages. Always call this before `concordance_search` with `search_mode="cql"`.
 - **list_annotation_frameworks**: List all annotation frameworks organized by category (Appraisal, SFL Grammar, Error Analysis, etc.). Returns framework IDs needed for `get_annotation_framework` and `save_annotation`.
 - **get_annotation_framework**: Get the full label tree of a specific framework by ID (e.g., `MIPVU`, `Halliday-Theme`). Shows all available labels, colors, definitions, and the hierarchy. Essential before creating annotations with `save_annotation`.
@@ -7483,8 +7558,8 @@ Frequency, keyword, keyness, and n-gram analyses.
 
 - **word_frequency**: Analyze word frequencies with fine-grained filtering. Parameters: `search_word` with `search_type` (exact / contains / starts / ends / regex / wordlist), `search_target` (word / lemma), `pos_filter`, `min_freq`, `max_freq`, `lowercase`, `remove_stopwords`, `limit`. Supports `save_path` (CSV) and `chart_type` (bar/pie/wordcloud) with `chart_path`.
 - **keyword_extraction**: Extract keywords using NLP algorithms. Supports four algorithms: `tfidf`, `textrank`, `yake`, `rake`. Optional `config` parameter for algorithm-specific tuning (e.g., `{maxFeatures: 1000}` for TF-IDF). Also supports `pos_filter`, `save_path`, `chart_type`.
-- **keyness_analysis**: Compare keywords between two user corpora (study vs. reference). Statistics: `log_likelihood`, `chi_squared`, `log_ratio`, `dice`, `mi`, `t_score`, `simple_keyness`. Parameters include `comparison_mode` (word / lemma / domain), `min_freq`, `p_threshold`. For comparing against built-in reference corpora, use `keyness_resource_analysis` instead.
-- **keyness_resource_analysis**: Compare corpus keywords against built-in reference corpora (AmE06, BNC 2014, COCA, etc.). Use `list_reference_corpora()` first to find the `resource_id`. Same statistics and parameters as `keyness_analysis`.
+- **keyness_analysis**: Compare keywords between two user corpora (study vs. reference). Statistics: `log_likelihood`, `chi_squared`, `log_ratio`, `dice`, `mi`, `t_score`, `simple_keyness`. Parameters include `comparison_mode` (word / lemma / domain), `min_freq`, `p_threshold`. For comparing against user-imported reference corpora, use `keyness_resource_analysis` instead.
+- **keyness_resource_analysis**: Compare corpus keywords against user-imported reference corpora (AmE06, BNC 2014, COCA, etc.). Use `list_reference_corpora()` first to find the `resource_id`. Same statistics and parameters as `keyness_analysis`.
 - **ngram_analysis**: Find frequent word sequences (bigrams, trigrams, etc.). Parameters: `n_values` (e.g., `[2, 3]`), `search_word`, `min_freq`, `min_word_length`, `nest` (include sub-n-grams), `pos_filter`, `limit`.
 
 ### Concordance & Collocation (4 tools)
@@ -7636,7 +7711,9 @@ Optional. Used for the **AI assistant** in analysis modules; you can use either 
 ## License
 
 - Click “View license” to open the application license in a dialog.
-- The text is shown in Chinese or English according to the current interface language (LICENSE_CN / LICENSE_EN).
+- Both interface languages show the same official English AGPL text, with an optional link to an unofficial Chinese reference translation.
+- The adjacent Open source licenses button displays the complete notices for bundled dependencies.
+- LICENSING.md in the source defines the supplemental historical original-code grant; third-party resource permissions remain separate.
 
 ## Factory Reset
 
@@ -7650,6 +7727,7 @@ Check the items you want to reset:
 - **Corpus files**: Text, audio, video, transcription files and other stored files.
 - **Annotation archives**: All saved annotation archives.
 - **Annotation frameworks**: All custom annotation frameworks.
+- **Imported resources**: Application copies of NRC, dictionaries and reference corpora; original downloaded files are preserved.
 
 ### Auto-Reset Items
 
@@ -7657,7 +7735,10 @@ The following are **always** reset when you run factory reset (cannot be uncheck
 
 - Topic modeling data (embeddings, analysis results, etc.)
 - Word2Vec models
-- USAS-related configuration
+- All personal preferences: language, theme/wallpaper, profile, Ollama/API connections and Agent mode (default Chinese and light theme)
+- Chat history, Agent task plans/results including orphaned tasks, shortcuts, saved CQL templates and page preferences
+- Preprocessing configuration, model download-path overrides and USAS settings
+- The generated local ChatGPT/Codex connection directory in a packaged app (connect again when needed)
 - Downloaded ML models (keeps built-in NLTK + TorchCrepe)
 
 ### How to Run

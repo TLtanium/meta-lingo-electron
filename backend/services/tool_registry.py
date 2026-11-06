@@ -1,6 +1,6 @@
 """
 Tool registry for Agent Chat mode.
-Defines all 56 MCP tools in OpenAI function-calling format,
+Defines all 65 MCP tools in OpenAI function-calling format,
 grouped by module for the frontend module selector.
 NOTE: keep in sync with backend/mcp_server/tools/* and backend/routers/mcp.py tool_count.
 """
@@ -74,7 +74,7 @@ TOOL_MODULES_META: list[dict[str, Any]] = [
         "display_zh": "参考数据",
         "tools": [
             "get_pos_tags", "get_usas_categories", "get_metaphor_sources",
-            "dictionary_lookup",
+            "list_dictionaries", "get_resource_status", "dictionary_lookup",
             "list_reference_corpora", "validate_cql",
             "list_annotation_frameworks", "get_annotation_framework",
             "create_annotation_framework",
@@ -312,7 +312,7 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
               "search_type": _str("'exact','contains','starts','ends','regex','wordlist'", default="contains"),
           }, ["corpus_id", "reference_corpus_id"]),
     _tool("keyness_resource_analysis",
-          "Compare word frequencies against a built-in reference corpus (AmE06/BNC 2014/COCA, etc.).",
+          "Compare word frequencies against a user-selected imported reference CSV; discover actual IDs first. Missing resources must not be reported as insignificant results.",
           {
               "corpus_id": _str("Study corpus ID"),
               "resource_id": _str("Reference corpus resource ID"),
@@ -561,8 +561,12 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
     _tool("get_metaphor_sources",
           "Get all MIPVU metaphor source domain categories.",
           {}, []),
+    _tool("list_dictionaries",
+          "Discover imported dictionary names/IDs before asking the user to choose/confirm references and priority. No automatic selection.", {}, []),
+    _tool("get_resource_status",
+          "Inspect imported dictionaries, NRC languages and reference CSVs. Missing resources are prerequisites, not negative analysis results. Saved NRC annotations may still be usable.", {}, []),
     _tool("dictionary_lookup",
-          "Look up a word in the built-in Macmillan + Longman dictionaries: listed "
+          "After dictionary choice/priority is confirmed, look up a word in those imported MDX dictionaries: listed "
           "senses (incl. figurative/extended), POS/grammar, and typical collocations. "
           "General-purpose on-demand reference for any analysis (lexical, concordance, "
           "metaphor, annotation, usage checks). Optional supporting evidence for "
@@ -571,14 +575,12 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
               "word": _str("Word or lemma to look up (case-insensitive)"),
               "dictionaries": _arr(
                   _str(),
-                  "Dictionaries to query (case-insensitive): 'Macmillan' (default) "
-                  "and/or 'Longman Collocations'. Default ['Macmillan'].",
-                  default=["Macmillan"],
+                  "Explicitly chosen dictionary names or IDs in agreed priority order. Omission only requests selection; never queries all automatically.",
               ),
               "max_chars": _int("Max chars per entry before truncation (default 5000)", default=5000),
           }, ["word"]),
     _tool("list_reference_corpora",
-          "List built-in reference corpora (AmE06, BE06, BNC 2014, COCA, COHA, GloWbE, NOW) available for keyness comparison. "
+          "List user-imported reference corpora available for keyness comparison. "
           "Use search= to filter by name/ID. Paginated (20 per page); use offset= for next pages.",
           {
               "search": _str("Filter by keyword in ID or name (case-insensitive)", default=""),

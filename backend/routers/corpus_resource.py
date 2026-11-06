@@ -18,9 +18,13 @@ router = APIRouter()
 class CorpusResourceInfo(BaseModel):
     """Corpus resource information"""
     id: str
+    name: str = ''
+    description: str = ''
+    tags: List[str] = []
     name_en: str
     name_zh: str
     prefix: str
+    color: str = '#2563eb'
     category: str
     tags_en: List[str]
     tags_zh: List[str]
@@ -70,13 +74,13 @@ class FrequencyDataResponse(BaseModel):
 
 @router.get("/list", response_model=CorpusResourceListResponse)
 async def list_corpus_resources(
-    lang: str = Query('en', description="Language for display names (en or zh)"),
+    lang: str = Query('en', description="Legacy interface-language hint; user metadata is language-neutral"),
     refresh: bool = Query(False, description="Force rebuild corpus resource list (ignore persistent cache)")
 ):
     """
     Get list of all available corpus resources
     
-    - **lang**: Language for display names ('en' or 'zh')
+    - **lang**: Compatibility language hint; does not translate user metadata
     """
     try:
         service = get_corpus_resource_service()

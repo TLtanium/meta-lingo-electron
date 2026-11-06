@@ -510,7 +510,20 @@ def register(mcp: FastMCP, client: MetaLingoClient):
         results = data.get("results", [])
         summary = data.get("summary", {})
 
+        if result.get("success") is False or data.get("success") is False:
+            return "NRC_ANALYSIS_FAILED: " + str(data.get("error") or result.get("error") or "Check annotation prerequisites; this is not neutral emotion.")
+        coverage = data.get("annotation_coverage", {})
+        if coverage and coverage.get("annotated_texts", 0) == 0:
+            return "NRC_ANNOTATION_REQUIRED: No selected texts have usable aligned annotations. Check get_resource_status and the corpus language. Import the matching official NRC folder in Settings → User resources and run NRC annotation (plus SpaCy/USAS as needed). Missing annotations are not neutral emotion. Coverage: " + str(coverage)
+        if not results:
+            return "No NRC results matched the current selection/filters. Check annotation coverage before interpreting this as an absence of emotions. Coverage: " + str(coverage)
+
         lines = [f"NRC Sentiment Analysis (mode={analysis_mode})\n"]
+
+        if coverage:
+            lines.append("Saved NRC annotation coverage: " + str(coverage))
+            if coverage.get("annotated_texts", 0) < coverage.get("requested_texts", 0):
+                lines.append("WARNING: Only annotated/aligned texts contribute; do not generalize these results to omitted texts.")
 
         if summary:
             lines.append("Summary:")

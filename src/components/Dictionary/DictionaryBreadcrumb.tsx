@@ -12,6 +12,7 @@ import { getBreadcrumbStyles, breadcrumbItemStyles, breadcrumbActiveStyles } fro
 export interface NavHistoryItem {
   word: string
   dictionaries: string[]
+  activeDictionary?: string
 }
 
 interface DictionaryBreadcrumbProps {

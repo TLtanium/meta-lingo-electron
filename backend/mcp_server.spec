@@ -74,7 +74,7 @@ hiddenimports = [
     'kaleido',
 ]
 
-# Pull in every mcp_server.tools.* submodule (all 13 tool modules / 63 tools) explicitly,
+# Pull in every mcp_server.tools.* submodule (all registered tool modules / 65 tools) explicitly,
 # so adding a tool never silently fails to package.
 hiddenimports += collect_submodules('mcp_server.tools')
 

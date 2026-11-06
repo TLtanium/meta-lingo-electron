@@ -8,42 +8,52 @@ import {
   Snackbar,
   IconButton,
   Tooltip,
-  Link
+  Link,
+  Stack,
+  CircularProgress
 } from '@mui/material'
-import { Article as ArticleIcon, ContentCopy as ContentCopyIcon } from '@mui/icons-material'
+import { Article as ArticleIcon, ContentCopy as ContentCopyIcon, Description as DescriptionIcon } from '@mui/icons-material'
 import { useTranslation } from 'react-i18next'
 import LicenseDialog from '../../components/Settings/LicenseDialog'
 
 const DOI_URL = 'https://doi.org/10.5281/zenodo.20091931'
 
-const CITATION_VERSION = 'v4.9.52'
+const CITATION_VERSION = 'v4.9.74'
 const CITATION_TEXT = `Tommy Leo. (2026). TLtanium/meta-lingo-electron: Meta-Lingo ${CITATION_VERSION} (${CITATION_VERSION}). Zenodo. ${DOI_URL}`
 
 export default function LicenseViewer() {
-  const { t, i18n } = useTranslation()
+  const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   const [licenseText, setLicenseText] = useState('')
   const [error, setError] = useState('')
   const [snackbarOpen, setSnackbarOpen] = useState(false)
+  const [documentKind, setDocumentKind] = useState<'license' | 'thirdParty'>('license')
+  const [loading, setLoading] = useState<'license' | 'thirdParty' | null>(null)
 
-  const handleOpen = async () => {
+  const handleOpen = async (kind: 'license' | 'thirdParty') => {
     setError('')
+    setLoading(kind)
     try {
-      // 根据当前语言选择对应的许可证文件
-      const fileName = i18n.language === 'zh' ? 'LICENSE_CN.txt' : 'LICENSE_EN.txt'
-      // 使用相对路径 ./ 而不是绝对路径 /，以兼容 Electron 打包后的 file:// 协议
-      const response = await fetch(`./${fileName}`)
+      // Relative assets work in both Vite and packaged file:// windows.
+      const fileName = kind === 'license' ? 'AGPL-3.0.txt' : 'THIRD-PARTY-NOTICES.txt'
+      const response = await fetch(`./licenses/${fileName}`, { cache: 'no-store' })
 
       if (!response.ok) {
         throw new Error(`Failed to load license: ${response.statusText}`)
       }
 
       const text = await response.text()
+      if (!text.includes(kind === 'license' ? 'GNU AFFERO GENERAL PUBLIC LICENSE' : 'Third-party notices collected')) {
+        throw new Error('License asset is missing or invalid')
+      }
       setLicenseText(text)
+      setDocumentKind(kind)
       setOpen(true)
     } catch (err) {
       console.error('Failed to load license:', err)
-      setError(err instanceof Error ? err.message : 'Failed to load license')
+      setError(t('settings.licenseLoadFailed'))
+    } finally {
+      setLoading(null)
     }
   }
 
@@ -80,6 +90,9 @@ export default function LicenseViewer() {
         {t('settings.licenseDescription')}
       </Typography>
 
+      <Link href="https://github.com/TLtanium/meta-lingo-electron" target="_blank" rel="noopener noreferrer" sx={{ display: 'block', mb: 2 }}>
+        {t('resources.source')}
+      </Link>
       {/* Citation block */}
       <Box
         sx={{
@@ -112,14 +125,18 @@ export default function LicenseViewer() {
         </Alert>
       )}
 
-      <Button
-        variant="outlined"
-        color="primary"
-        startIcon={<ArticleIcon />}
-        onClick={handleOpen}
-      >
-        {t('settings.viewLicense')}
-      </Button>
+      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
+        <Button variant="outlined" color="primary" disabled={loading !== null}
+          startIcon={loading === 'license' ? <CircularProgress size={18} /> : <ArticleIcon />}
+          onClick={() => void handleOpen('license')}>
+          {t('settings.viewLicense')}
+        </Button>
+        <Button variant="outlined" color="primary" disabled={loading !== null}
+          startIcon={loading === 'thirdParty' ? <CircularProgress size={18} /> : <DescriptionIcon />}
+          onClick={() => void handleOpen('thirdParty')}>
+          {t('settings.openSourceLicenses')}
+        </Button>
+      </Stack>
 
       <Snackbar
         open={snackbarOpen}
@@ -136,6 +153,8 @@ export default function LicenseViewer() {
         open={open}
         onClose={handleClose}
         licenseText={licenseText}
+        title={documentKind === 'thirdParty' ? t('settings.openSourceLicenses') : undefined}
+        showTranslationLink={documentKind === 'license'}
       />
     </Paper>
   )

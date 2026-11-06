@@ -18,6 +18,7 @@ HELP_PATH = os.path.join(PROJECT_ROOT, 'help')
 
 # 收集隐藏导入
 hiddenimports = [
+    "mdict_utils.base.readmdict", "mdict_utils.base.ripemd128", "mdict_utils.base.pureSalsa20", "xxhash",
     # FastAPI 相关
     'uvicorn',
     'uvicorn.logging',
@@ -317,8 +318,8 @@ if os.path.exists(torchcrepe_path):
 # 故意不加入 datas：权重体积大，由「模型管理」下载到 userData/models（见 model_paths.resolve_model_path）。
 # 请勿在此处 collect 整个 models/pymusas/，以免打进安装包。
 
-# 数据目录 (只包含框架定义，不包含用户数据)
-frameworks_path = os.path.join(DATA_PATH, 'frameworks')
+# Default definitions only; never package the editable user frameworks directory.
+frameworks_path = os.path.join(SAVES_PATH, 'frameworks')
 if os.path.exists(frameworks_path):
     datas.append((frameworks_path, 'data/frameworks'))
 
@@ -327,19 +328,10 @@ saves_frameworks_path = os.path.join(SAVES_PATH, 'frameworks')
 if os.path.exists(saves_frameworks_path):
     datas.append((saves_frameworks_path, 'saves/frameworks'))
 
-saves_dict_path = os.path.join(SAVES_PATH, 'dict')
-if os.path.exists(saves_dict_path):
-    datas.append((saves_dict_path, 'saves/dict'))
-
 # MIPVU 隐喻过滤词表
 saves_metaphor_path = os.path.join(SAVES_PATH, 'metaphor')
 if os.path.exists(saves_metaphor_path):
     datas.append((saves_metaphor_path, 'saves/metaphor'))
-
-# NRC 情感词典
-saves_nrc_path = os.path.join(SAVES_PATH, 'nrc')
-if os.path.exists(saves_nrc_path):
-    datas.append((saves_nrc_path, 'saves/nrc'))
 
 # help 目录
 if os.path.exists(HELP_PATH):
@@ -509,6 +501,10 @@ if not any('yake' in str(d[1]) for d in datas):
 print(f"Info: Filtering macOS resource fork files from datas...")
 original_count = len(datas)
 datas = [d for d in datas if not os.path.basename(d[0]).startswith('._')]
+
+sys.path.insert(0, os.path.join(PROJECT_ROOT, 'scripts'))
+from packaging_paths import reject_runtime_data
+reject_runtime_data(datas, PROJECT_ROOT)
 filtered_count = original_count - len(datas)
 if filtered_count > 0:
     print(f"Info: Filtered out {filtered_count} macOS resource fork files")

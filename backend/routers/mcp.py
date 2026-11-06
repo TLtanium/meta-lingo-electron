@@ -7,10 +7,48 @@ import sys
 import os
 from pathlib import Path
 
-from fastapi import APIRouter
+from services.tool_registry import TOOL_DEFINITIONS
+
+from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import FileResponse
+from urllib.parse import urlparse
+
+from services.openai_plugin_service import get_development_plugin_info, prepare_development_plugin
 
 router = APIRouter()
+
+
+def _require_local_plugin_request(request: Request):
+    # This endpoint prepares local executable configuration. Only the local UI
+    # or local Electron process may request it, even when the backend binds LAN.
+    loopback = {"127.0.0.1", "::1", "localhost", "::ffff:127.0.0.1"}
+    origin = request.headers.get("origin")
+    if not request.client or request.client.host not in loopback:
+        raise HTTPException(status_code=403, detail="Local requests only")
+    if origin and urlparse(origin).hostname not in loopback:
+        raise HTTPException(status_code=403, detail="Local origins only")
+
+
+@router.get("/openai-plugin/info")
+def get_openai_development_plugin_info(request: Request):
+    _require_local_plugin_request(request)
+    return {"success": True, "data": get_development_plugin_info()}
+
+
+@router.post("/openai-plugin/prepare")
+def prepare_openai_development_plugin(request: Request):
+    _require_local_plugin_request(request)
+    info = get_development_plugin_info()
+    if not info["ready"]:
+        return {"success": False, "errorCode": info["reason"]}
+    if not _load_settings().get("enabled", False):
+        return {"success": False, "errorCode": "notEnabled"}
+    port = request.url.port or int(os.environ.get("METALINGO_PORT", 8000))
+    try:
+        link = prepare_development_plugin(f"http://127.0.0.1:{port}")
+        return {"success": True, "link": link}
+    except OSError:
+        return {"success": False, "errorCode": "prepareFailed"}
 
 
 def _get_settings_path() -> Path:
@@ -106,7 +144,7 @@ async def get_mcp_config_info():
             "backend_url": backend_url,
             "stdio_snippet": stdio_snippet,
             "http_url": mcp_http_url,
-            "tool_count": 62,
+            "tool_count": len(TOOL_DEFINITIONS),
             "has_extension": has_extension,
         },
     }

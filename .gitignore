@@ -6,6 +6,7 @@
 # macOS System Files
 # ===================================
 .DS_Store
+/public/licenses/
 ._*
 .AppleDouble
 .LSOverride
@@ -69,7 +70,7 @@ export_spacy_tags.py
 
 # ===================================
 # Config & Build Scripts (optional, for dev only)
-# Not distributed: build scripts are omitted from the repository.
+# Build outputs and private local scripts are omitted; required build inputs are included below.
 # 根目录任意脚本均不纳入版本库，仅保留本地；push 时不会把这些推上去。
 # ===================================
 build.sh
@@ -169,3 +170,35 @@ temp/
 # Claude Code
 # ===================================
 .claude/
+
+# Generated private development plugin (contains machine-specific interpreter paths)
+/data/openai-plugin-dev/
+
+# User resources are private and must never be distributed.
+/saves/nrc/
+/saves/dict/
+/saves/.cache/
+/data/user_resources/
+/backend/data/
+*.mdx
+*.mdd
+# Required corresponding source and build inputs (AGPL).
+!/build.sh
+!/build.bat
+!/build-extension.sh
+!/build-extension.bat
+!/dev.sh
+!/dev-backend.sh
+!/dev-frontend.sh
+!/start.sh
+!/index.html
+!/vite.config.ts
+!/electron-builder.json
+!/package-lock.json
+!/tsconfig.json
+!/tsconfig.node.json
+!/PROJECT.md
+!/usas_semantic_domains.txt
+
+# Local authorship/disclosure records; never publish automatically.
+/private-ip-records/

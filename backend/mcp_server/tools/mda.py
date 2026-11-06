@@ -87,6 +87,7 @@ def register(mcp: FastMCP, client: MetaLingoClient):
 
         lines = [
             "Multidimensional Analysis (Biber 1988 / MAT algorithm)",
+            "MAT implementation: Andrea Nini (2019); Meta-Lingo Python/SpaCy adaptation. GPLv3 source/notices retained.",
             f"Texts: {corpus.get('text_count', 0)}  |  Tokens: {corpus.get('total_tokens', 0):,}  "
             f"|  AWL: {corpus.get('awl', 0):.2f}  |  TTR: {corpus.get('ttr', 0)}",
             f"Closest Biber (1989) text type: {corpus.get('closest_text_type', '?')}",

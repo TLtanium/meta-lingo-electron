@@ -1,129 +1,30 @@
-/**
- * 词典内容渲染组件
- * 负责渲染词条HTML内容，处理内部链接点击
- */
-
-import { useRef, useEffect } from 'react'
+import { useRef, useEffect, useMemo, useState } from 'react'
 import { Box, Typography, Alert } from '@mui/material'
 import { useTranslation } from 'react-i18next'
-import {
-  getDictStyles,
-  getFuzzyMatchStyles,
-  getNotFoundStyles,
-  emptyStateStyles,
-} from './DictionaryStyles'
-import MenuBookIcon from '@mui/icons-material/MenuBook'
-
+import { dictionaryDocument } from './dictionaryDocument'
 export interface LookupResult {
-  found: boolean
-  word?: string
-  content?: string
-  fuzzy?: boolean
-  matched_key?: string
-  error?: string
+  found: boolean; word?: string; content?: string; dictionary_id?: string
+  fuzzy?: boolean; matched_key?: string; error?: string
 }
-
-interface DictionaryContentProps {
-  dictName: string
-  result: LookupResult | null
-  onWordClick: (word: string) => void
-  isLoading?: boolean
-  isDark?: boolean
-}
-
-export default function DictionaryContent({
-  dictName,
-  result,
-  onWordClick,
-  isLoading = false,
-  isDark = false,
-}: DictionaryContentProps) {
+interface Props { dictName: string; result: LookupResult | null; onWordClick: (word: string) => void; isLoading?: boolean; isDark?: boolean }
+export default function DictionaryContent({ dictName, result, onWordClick, isLoading = false, isDark = false }: Props) {
   const { t } = useTranslation()
-  const contentRef = useRef<HTMLDivElement>(null)
-
-  // 处理内部链接点击
+  const frame = useRef<HTMLIFrameElement>(null)
+  const [height, setHeight] = useState(400)
+  const html = useMemo(() => result?.found ? dictionaryDocument(result.content || '', result.dictionary_id || '', isDark,
+    { play: t('dictionary.playAudio'), failed: t('dictionary.audioFailed') }) : '', [result, isDark, t])
   useEffect(() => {
-    const handleClick = (e: MouseEvent) => {
-      const target = e.target as HTMLElement
-      const link = target.closest('a.dict-link') as HTMLAnchorElement
-
-      if (link) {
-        e.preventDefault()
-        const word = link.getAttribute('data-word')
-        if (word) {
-          onWordClick(word)
-        }
-      }
+    const handler = (event: MessageEvent) => {
+      if (!frame.current || event.source !== frame.current.contentWindow) return
+      if (event.data?.type === 'dictionary-word' && typeof event.data.word === 'string' && event.data.word.length < 500) onWordClick(event.data.word)
+      if (event.data?.type === 'dictionary-height' && Number.isFinite(event.data.height)) setHeight(Math.min(20000, Math.max(200, event.data.height)))
     }
-
-    const container = contentRef.current
-    if (container) {
-      container.addEventListener('click', handleClick)
-      return () => container.removeEventListener('click', handleClick)
-    }
+    window.addEventListener('message', handler)
+    return () => window.removeEventListener('message', handler)
   }, [onWordClick])
-
-  // 加载中状态
-  if (isLoading) {
-    return (
-      <Box sx={emptyStateStyles}>
-        <Typography>{t('common.loading')}</Typography>
-      </Box>
-    )
-  }
-
-  // 无结果时显示空状态
-  if (!result) {
-    return (
-      <Box sx={emptyStateStyles}>
-        <MenuBookIcon sx={{ fontSize: 48, opacity: 0.5, mb: 2 }} />
-        <Typography>{t('dictionary.inputToSearch', 'Enter a word to search')}</Typography>
-      </Box>
-    )
-  }
-
-  // 错误状态
-  if (result.error) {
-    return (
-      <Box sx={{ p: 2 }}>
-        <Alert severity="error">{result.error}</Alert>
-      </Box>
-    )
-  }
-
-  // 未找到结果
-  if (!result.found) {
-    return (
-      <Box sx={getNotFoundStyles(isDark)}>
-        <Typography>
-          {t('dictionary.noResults')} "{result.word}"
-        </Typography>
-      </Box>
-    )
-  }
-
-  // 获取词典对应样式
-  const dictStyles = getDictStyles(dictName, isDark)
-
-  return (
-    <Box sx={{ p: 2 }}>
-      {/* 模糊匹配提示 */}
-      {result.fuzzy && result.matched_key && (
-        <Box sx={getFuzzyMatchStyles(isDark)}>
-          {t('dictionary.fuzzyMatch', 'Fuzzy match')}: <strong>{result.matched_key}</strong>
-        </Box>
-      )}
-
-      {/* 词条内容 */}
-      <Box
-        ref={contentRef}
-        sx={{
-          ...dictStyles,
-          p: 2,
-          borderRadius: 2,
-        }}
-        dangerouslySetInnerHTML={{ __html: result.content || '' }}
-      />
-    </Box>
-  )
+  if (isLoading) return <Box p={2}>{t('common.loading')}</Box>
+  if (!result) return <Box p={2}><Typography>{t('dictionary.inputToSearch')}</Typography></Box>
+  if (result.error) return <Alert severity="error">{result.error}</Alert>
+  if (!result.found) return <Box p={2}>{t('dictionary.noResults')} “{result.word}”</Box>
+  return <iframe ref={frame} title={dictName} sandbox="allow-scripts" srcDoc={html} style={{ width: '100%', height, border: 0 }} />
 }

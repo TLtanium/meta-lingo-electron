@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 #
-# Copyright (c) 2025 TommyLeo/Meta-Lingo. All rights reserved.
+# Copyright (c) 2025 TommyLeo/Meta-Lingo.
+# SPDX-License-Identifier: AGPL-3.0-only
 # License: Apache-2.0
 
 """

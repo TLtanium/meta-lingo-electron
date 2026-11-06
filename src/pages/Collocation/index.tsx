@@ -360,7 +360,7 @@ export default function Collocation({ crossLinkParams }: CollocationProps) {
       // Sync the search-mode selector to whatever mode the caller actually searched in —
       // otherwise a word-form searchWord can arrive while this page defaults to 'lemma' (or
       // vice versa), silently matching against the wrong field.
-      if (crossLinkParams.forceSearchMode === 'word' || crossLinkParams.forceSearchMode === 'lemma') {
+      if (crossLinkParams.forceSearchMode && crossLinkParams.forceSearchMode !== 'cql') {
         setSearchMode(crossLinkParams.forceSearchMode)
       }
       setSearchValue(crossLinkParams.searchWord)

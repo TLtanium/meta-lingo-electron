@@ -316,7 +316,7 @@ def register(mcp: FastMCP, client: MetaLingoClient):
 
         When to use: Corpus comparison (keyness / distinctiveness) - e.g. specialist
         vs. general language, register, or period. Needs two user corpus IDs.
-        For comparing against built-in reference corpora (AmE06, BNC 2014, COCA, etc.),
+        For comparing against user-imported reference CSVs,
         use keyness_resource_analysis() instead.
 
         Identifies words that are statistically more frequent (key) or less
@@ -577,18 +577,13 @@ def register(mcp: FastMCP, client: MetaLingoClient):
         chart_type: str | None = None,
         chart_path: str | None = None,
     ) -> str:
-        """Compare corpus keywords against a built-in reference corpus (AmE06, BNC 2014, COCA, etc.).
+        """Compare corpus keywords against a chosen user-imported reference CSV.
 
-        When to use: When you want to compare your corpus against a large, standard
-        reference corpus like AmE06 (American English 2006) or BNC 2014 (British National
-        Corpus 2014, spoken) instead of another user corpus.
-
-        Use list_reference_corpora() first to find available resource_ids.
-
-        Common resource IDs include:
-        - "ame06_total", "be06_total" (American / British English 2006)
-        - "bnc2014_spoken" (British National Corpus 2014, spoken), "coca_total" (COCA)
-        - And others returned by list_reference_corpora()
+        Call list_reference_corpora first and obtain the user's reference choice.
+        No reference datasets are bundled, and historical built-in IDs are not
+        valid assumptions. Missing/unavailable references return setup guidance,
+        never 'no significant keywords'. Another user corpus can be used through
+        keyness_analysis if explicitly chosen by the user.
 
         Args:
             corpus_id: Study corpus ID
@@ -606,6 +601,12 @@ def register(mcp: FastMCP, client: MetaLingoClient):
                 "regex", "wordlist" (comma/newline-separated list)
             save_path: Save results as CSV. Path, directory, or empty string for ~/Downloads. None = don't save.
         """
+        resources_response = await client.get("/api/corpus-resource/list")
+        resources = resources_response.get("data", [])
+        if not resources:
+            return "REFERENCE_RESOURCE_REQUIRED: No reference CSVs are imported. Ask the user to import a validated CSV in Settings → User resources → Reference corpora, or explicitly choose another user corpus for keyness_analysis. This is not a finding of no significant keywords."
+        if not any(item.get("id") == resource_id for item in resources):
+            return "REFERENCE_RESOURCE_UNAVAILABLE: The selected reference is unavailable. Use list_reference_corpora to show actual choices and ask the user to confirm a reference; do not silently substitute one."
         body: dict = {
             "study_corpus_id": corpus_id,
             "resource_id": resource_id,
@@ -622,6 +623,8 @@ def register(mcp: FastMCP, client: MetaLingoClient):
         result = await client.post(
             "/api/analysis/keyword/keyness-resource", json_data=body
         )
+        if result.get("success") is False or result.get("data", {}).get("success") is False:
+            return "KEYNESS_ANALYSIS_FAILED: " + str(result.get("error") or result.get("detail") or result.get("data", {}).get("error") or "The analysis failed; this is not a finding of no significant keywords.")
         data = result.get("data", result)
         keywords = data.get("keywords", data.get("results", []))
 

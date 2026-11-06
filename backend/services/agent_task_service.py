@@ -17,10 +17,11 @@ import uuid
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
+from config import get_data_dir
 
 logger = logging.getLogger(__name__)
 
-TASK_DIR = Path(__file__).parent.parent / "data" / "agent_tasks"
+TASK_DIR = get_data_dir() / "agent_tasks"
 
 # Status constants
 STATUS_SUCCESS = "success"
@@ -322,8 +323,8 @@ class AgentTaskService:
             task_dir = TASK_DIR / tid
             if task_dir.is_dir():
                 try:
-                    import shutil
-                    shutil.rmtree(task_dir)
+                    from services.user_resource_store import _remove_tree
+                    _remove_tree(task_dir)
                     removed += 1
                     logger.info("Cleaned up task directory: %s", tid)
                 except Exception as e:
@@ -335,6 +336,8 @@ class AgentTaskService:
     def list_tasks(self) -> list[dict]:
         """Return summary of all task directories."""
         result = []
+        if not TASK_DIR.exists():
+            return result
         for d in sorted(TASK_DIR.iterdir()):
             if not d.is_dir():
                 continue

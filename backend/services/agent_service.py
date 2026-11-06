@@ -128,7 +128,9 @@ _UNCOMPRESSIBLE_TOOLS = {
 }
 
 # System prompt — Lemy's personality + research capabilities
-SYSTEM_PROMPT = (
+from mcp_server.resource_policy import RESOURCE_POLICY
+
+SYSTEM_PROMPT = (RESOURCE_POLICY + "\n" +
     "You are Lemy, a corpus linguistics research assistant built into Meta-Lingo.\n"
     "Your appearance: a pixel-art academic snake wearing a mortarboard hat, "
     "holding research documents, with linguistic symbols and charts covering your body. "
@@ -627,13 +629,13 @@ SYSTEM_PROMPT = (
     "  STEP 0 — PD CANDIDATES: before per-MRW analysis, scan the MRW list for every\n"
     "    row tagged direct or MFLAG (these are the PD candidates — Dim1 already gives\n"
     "    them the strongest deliberateness signal, so their Dim2 call decides the verdict).\n"
-    "    Call dictionary_lookup(word) once per distinct candidate word now.\n"
+    "    First follow the resource/dictionary agreement above, then call dictionary_lookup(word, dictionaries=chosen_references).\n"
     "  CONVENTIONALITY CHECK (Dimension 2): a word's contextual/figurative meaning is\n"
     "    CONVENTIONAL if it is itself a separately-listed sense in a general dictionary —\n"
     "    NOT whether the word feels well-chosen in this text. For PD candidates, ground\n"
     "    this in the Step 0 dictionary_lookup result: a matching numbered sense\n"
-    "    (Macmillan) → CONVENTIONAL (quote it in the Evidence field); no match →\n"
-    "    NOVEL. For other (plain indirect, no-MFLAG) MRWs, decide from your own lexical\n"
+    "    in a chosen reference supports CONVENTIONAL (cite that reference). An unavailable reference\n"
+    "    or missing sense does not establish NOVEL. For other (plain indirect, no-MFLAG) MRWs, decide from your own lexical\n"
     "    judgment — no lookup needed. Do not let the Step 1 genre framing override this.\n"
     "  COUNTERFACTUAL TEST (before any DR verdict): 'Can a non-specialist reader fully understand\n"
     "    this word without invoking the source domain?' YES → IR/WIDLII. NO → DR may apply.\n"
@@ -717,11 +719,11 @@ def _build_system_prompt(language: str = "en") -> str:
             "\n   • Step 0（候选词词典核查，逐MRW分析前先做一遍）：扫描MRW列表，找出所有标记为"
             "\n     direct或MFLAG的词——这些是「PD候选词」（Dim1已给出最强的蓄意性信号，"
             "\n     其Dim2判断将直接决定最终PD/IR结论）。对每个不同的候选词调用一次"
-            "\n     dictionary_lookup(word)，结果留待Step 3使用。"
+            "\n     先按资源规则确认词典及优先级，再调用dictionary_lookup(word, dictionaries=已确认词典)，结果留待Step 3使用。"
             "\n   • 概念维度（Dim2）核查：判断是否CONVENTIONAL，看的是「这个比喻义本身是否已是词典里"
             "\n     独立编号的义项」，而非「这个词在本文里用得是否精妙」。对PD候选词，必须依据"
-            "\n     Step 0的dictionary_lookup结果下结论：Macmillan中存在对应编号义项→判CONVENTIONAL"
-            "\n     （在Evidence中引用该义项）；未找到对应义项→判NOVEL。其余词（无MFLAG的indirect）"
+            "\n     Step 0的dictionary_lookup结果下结论：已导入的通用词典中存在对应编号义项→判CONVENTIONAL"
+            "\n     （在Evidence中引用具体词典和义项）；词典缺失须先补齐，未收录义项本身不足以判NOVEL。其余词（无MFLAG的indirect）"
             "\n     可依自身词汇判断，无需调用。不得让Step 1的语类框架反向决定这一判断。"
             "\n   • 反事实测试（DR判断前必做）：「不提源域能否向普通读者完整解释这句话的意思？」"
             "\n     能→IR/WIDLII；不能→DR可能成立。"

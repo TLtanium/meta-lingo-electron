@@ -72,12 +72,14 @@ class SentimentAnalysisService:
                     texts, pos_filter, search_config or {}, min_freq, max_freq, lowercase, analysis_mode, language
                 )
 
+            coverage = self._new_coverage(texts)
             all_pairs: List[Tuple[str, Dict[str, int]]] = []
 
             for text in texts:
                 spacy_data = self._load_spacy_annotation(text)
                 nrc_scores = self._load_nrc_for_text(text)
                 if not spacy_data or not nrc_scores:
+                    coverage["missing_annotations"].append(text.get("id"))
                     continue
                 tokens = spacy_data.get("tokens", [])
                 if "segments" in spacy_data:
@@ -90,7 +92,9 @@ class SentimentAnalysisService:
                         tokens.extend(spacy_data["segments"][seg_id].get("tokens", []))
                 if len(nrc_scores) != len(tokens):
                     logger.warning(f"NRC token count mismatch for text {text.get('id')}: {len(nrc_scores)} vs {len(tokens)}")
+                    coverage["misaligned_annotations"].append(text.get("id"))
                     continue
+                coverage["annotated_texts"] += 1
                 for t, scores in zip(tokens, nrc_scores):
                     word = (t.get("lemma") if target == "lemma" else t.get("text", "")).strip()
                     if not word or t.get("is_punct") or t.get("is_space"):
@@ -104,7 +108,7 @@ class SentimentAnalysisService:
                         lemma = lemma.lower()
                     all_pairs.append((word, scores, lemma))
             if not all_pairs:
-                return self._empty_response(analysis_mode)
+                return self._empty_response(analysis_mode, coverage)
 
             # Word (or lemma, in lemma mode) -> representative lemma, so the frontend can
             # always cross-link to Word Sketch by lemma (its grammar-relation index only
@@ -131,7 +135,7 @@ class SentimentAnalysisService:
                 if min_freq <= total_per_word[w] and (max_freq is None or total_per_word[w] <= max_freq)
             }
             if not word_counts:
-                return self._empty_response(analysis_mode)
+                return self._empty_response(analysis_mode, coverage)
 
             summary = self._build_summary(word_counts, analysis_mode)
             results = self._build_results(word_counts, analysis_mode, word_lemmas)
@@ -140,6 +144,7 @@ class SentimentAnalysisService:
                 "summary": summary,
                 "results": results,
                 "analysis_mode": analysis_mode,
+                "annotation_coverage": coverage,
             }
         except Exception as e:
             logger.error(f"Sentiment analysis error: {e}")
@@ -166,6 +171,7 @@ class SentimentAnalysisService:
         Loads both SpaCy/NRC annotations and USAS domain tags, then aggregates
         emotion scores per semantic domain instead of per word.
         """
+        coverage = self._new_coverage(texts)
         # domain_code -> emotion_label -> count
         domain_counts: Dict[str, Dict[str, int]] = defaultdict(lambda: defaultdict(int))
         # domain_code -> domain_name (for display)
@@ -176,6 +182,7 @@ class SentimentAnalysisService:
             nrc_scores = self._load_nrc_for_text(text)
             usas_tags = self._load_usas_tags_for_text(text)
             if not spacy_data or not nrc_scores or not usas_tags:
+                coverage["missing_annotations"].append(text.get("id"))
                 continue
 
             # Flatten tokens from segments if needed
@@ -193,13 +200,16 @@ class SentimentAnalysisService:
                 logger.warning(
                     f"NRC token count mismatch for text {text.get('id')}: {len(nrc_scores)} vs {len(tokens)}"
                 )
+                coverage["misaligned_annotations"].append(text.get("id"))
                 continue
             if len(usas_tags) != len(tokens):
                 logger.warning(
                     f"USAS token count mismatch for text {text.get('id')}: {len(usas_tags)} vs {len(tokens)}"
                 )
+                coverage["misaligned_annotations"].append(text.get("id"))
                 continue
 
+            coverage["annotated_texts"] += 1
             for t, scores, raw_tag in zip(tokens, nrc_scores, usas_tags):
                 if t.get("is_punct") or t.get("is_space"):
                     continue
@@ -231,7 +241,7 @@ class SentimentAnalysisService:
                     domain_counts[domain_code][label] += 1
 
         if not domain_counts:
-            return self._empty_response(analysis_mode)
+            return self._empty_response(analysis_mode, coverage)
 
         # Apply search filters (filter by domain_code or domain_name)
         search_type = search_config.get("searchType", "all")
@@ -276,7 +286,7 @@ class SentimentAnalysisService:
             if min_freq <= total_per_domain[d] and (max_freq is None or total_per_domain[d] <= max_freq)
         }
         if not filtered_domain_counts:
-            return self._empty_response(analysis_mode)
+            return self._empty_response(analysis_mode, coverage)
 
         summary = self._build_summary(filtered_domain_counts, analysis_mode)
         results = self._build_domain_results(filtered_domain_counts, domain_names, analysis_mode)
@@ -286,6 +296,7 @@ class SentimentAnalysisService:
             "results": results,
             "analysis_mode": analysis_mode,
             "search_target": "usas",
+            "annotation_coverage": coverage,
         }
 
     def _load_spacy_annotation(self, text: Dict[str, Any]) -> Optional[Dict[str, Any]]:
@@ -535,7 +546,11 @@ class SentimentAnalysisService:
             results.append(row)
         return results
 
-    def _empty_response(self, analysis_mode: str) -> Dict[str, Any]:
+    @staticmethod
+    def _new_coverage(texts):
+        return {"requested_texts": len(texts), "annotated_texts": 0, "missing_annotations": [], "misaligned_annotations": []}
+
+    def _empty_response(self, analysis_mode: str, coverage=None) -> Dict[str, Any]:
         if analysis_mode == "polarity":
             summary = {"positive": 0, "negative": 0, "neutral": 0}
         else:
@@ -546,6 +561,7 @@ class SentimentAnalysisService:
             "summary": summary,
             "results": [],
             "analysis_mode": analysis_mode,
+            "annotation_coverage": coverage or {},
         }
 
 

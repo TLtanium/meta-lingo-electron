@@ -5,6 +5,7 @@
  */
 
 import type { TFunction } from 'i18next'
+import { referenceMetadata } from '../../../components/CorpusResource/resourceMetadata'
 import type { CorpusOrLibrarySelection } from '../../../components/Corpus/CorpusOrLibrarySelector'
 import type {
   POSFilterConfig,
@@ -150,7 +151,7 @@ export function buildKeynessAIContext(params: BuildKeynessAIContextParams): stri
   aRaw(`## ${t('aiAssistant.keyword.keyness.sectionRef')}`)
   if (useCorpusResource) {
     aRaw(`  - ${t('aiAssistant.keyword.keyness.useResource')}: yes`)
-    aRaw(`  - ${t('aiAssistant.keyword.keyness.resourceName')}: ${selectedResource ? (selectedResource.name_en || selectedResource.name_zh || selectedResource.id) : '(none)'}`)
+    aRaw(`  - ${t('aiAssistant.keyword.keyness.resourceName')}: ${selectedResource ? (referenceMetadata(selectedResource).name || selectedResource.id) : '(none)'}`)
   } else {
     aRaw(`  - ${describeCorpusSelection(refSelection, t)}`)
   }

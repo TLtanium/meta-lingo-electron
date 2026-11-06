@@ -17,9 +17,9 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-v4.8.45-blue.svg" alt="Version">
+  <img src="https://img.shields.io/badge/version-v4.9.58-blue.svg" alt="Version">
   <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Windows-lightgrey.svg" alt="Platform">
-  <img src="https://img.shields.io/badge/license-Non--Commercial-green.svg" alt="License">
+  <img src="https://img.shields.io/badge/license-AGPL--3.0-blue.svg" alt="License">
   <a href="https://doi.org/10.5281/zenodo.20091931"><img src="https://zenodo.org/badge/1143968310.svg" alt="DOI"></a>
 </p>
 
@@ -80,7 +80,7 @@
 
 ### Additional Features
 
-- **Dictionary Lookup**: Macmillan, Longman Collocations with fuzzy search
+- **Dictionary Lookup**: User-imported MDX/MDD dictionaries with unified lookup and companion resources
 - **Bilingual Interface**: Chinese and English with real-time switching
 - **Custom Wallpaper**: Personalized application background
 - **Export Options**: CSV, PNG, SVG for all visualizations
@@ -304,24 +304,40 @@ This project is currently maintained for academic research purposes. For bug rep
 
 - LLM topic naming (Ollama). USAS annotation modes (rule / neural / hybrid). Stopword removal (20+ languages). Custom wallpaper. Keyword extraction enhancements. Theme/Rheme auto-annotation. Dark theme for all topic modeling visualizations.
 
+### v4.9.58 — Explicit resource selection and MAT provenance
+
+- AI/MCP dictionary analysis now discovers imported references and waits for user choice/priority agreement; missing resources never become negative findings.
+- Added dictionary/resource discovery tools, reference-keyness checks and saved NRC annotation coverage reporting.
+- Retained MAT-derived GPLv3 notices, source provenance and Nini (2019) attribution in the AGPL combined application.
+
+### v4.9.57 — AGPL and user resource imports
+
+- Adopted AGPL-3.0-only for original code; included corresponding-source build inputs and dependency notices.
+- NRC official-folder import, generic MDX/MDD/CSS dictionary import, and validated reference CSV import in Settings.
+- Selected annotated texts/transcripts can be combined into one reference CSV for re-import and keyness analysis.
+- NRC, dictionary and reference corpus data are excluded from source tracking and both packaging paths. Local originals are retained.
+
 ## License
 
-**Meta-Lingo Software License (Non-Commercial)**
+**GNU Affero General Public License v3.0 (AGPL-3.0-only)**
 
-Meta-Lingo is an independently developed corpus research software by Tommy Leo, protected under the Copyright Law of the People's Republic of China.
+Copyright © 2026 Tommy Leo. Original Meta-Lingo code may be used, modified and
+redistributed, including commercially, under AGPLv3. Preserve notices and meet
+its corresponding-source and network-use obligations. No warranty is provided.
 
-This software is licensed only for:
+The author also grants AGPL-3.0-only permission for copyright-controlled original
+code in earlier released versions, effective 2026-11-06. See the precise scope in
+[LICENSING.md](LICENSING.md). This does not relicense third-party content or cure
+earlier third-party permission issues.
 
-- Personal learning
-- Academic research
-- Non-commercial corpus analysis and linguistic research
-
-Commercial use is prohibited without written permission.
-
-See [LICENSE\_CN.txt](LICENSE_CN.txt) (Chinese) or [LICENSE\_EN.txt](LICENSE_EN.txt) (English) for full terms.
+See the single official [LICENSE](LICENSE),
+[third-party notices](THIRD_PARTY_NOTICES.md) and [source/build instructions](SOURCE.md).
+Third-party components, optional models and user data retain their own terms.
+NRC, dictionaries and reference CSVs are not bundled; import authorized resources
+through **Settings → User resources**. See the bilingual Help for complete steps.
 
 ***
 
 <p align="center">
-  <strong>Copyright 2026 Tommy Leo. All rights reserved.</strong>
+  <strong>Copyright 2026 Tommy Leo · AGPL-3.0-only</strong>
 </p>

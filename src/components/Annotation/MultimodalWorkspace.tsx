@@ -59,6 +59,7 @@ import type {
   YoloTrack,
   TranscriptSegment,
   VideoKeyframe,
+  VideoBox as VideoTrack,
   AudioBox,
   AcousticData
 } from '../../types'
@@ -73,6 +74,9 @@ import {
   mergeAnnotations
 } from '../../utils/autoAnnotation'
 import { corpusApi, annotationApi } from '../../api'
+import { buildVideoTrack, getUnlinkedVideoAnnotations, upsertVideoKeyframe } from '../../utils/videoAnnotationTracks'
+import { createAudioIntervalAnnotation } from '../../utils/audioAnnotationArchive'
+import AudioBoxRemarkButton from './AudioBoxRemarkButton'
 
 // Word alignment data from Wav2Vec2
 interface WordAlignment {
@@ -169,6 +173,8 @@ interface MultimodalWorkspaceProps {
   transcriptSegments: TranscriptSegment[]
   yoloTracks: YoloTrack[]
   annotations: Annotation[]
+  manualTracks: VideoTrack[]
+  onVideoTrackAdd: (track: VideoTrack) => void
   selectedLabel: SelectedLabel | null
   onAnnotationAdd: (annotation: Omit<Annotation, 'id'>) => void
   onAnnotationRemove: (id: string) => void
@@ -195,6 +201,7 @@ interface MultimodalWorkspaceProps {
   savedAudioBoxes?: AudioBox[]
   onAudioBoxAdd?: (box: Omit<AudioBox, 'id'>) => void
   onAudioBoxRemove?: (id: number) => void
+  onAudioBoxUpdate?: (id: number, updates: Partial<AudioBox>) => void
   // 导出波形 SVG 的回调（注册导出函数）
   onWaveformExportReady?: (exportFn: () => string | null) => void
   // Cross-link props (forwarded to AnnotationTable for analysis navigation)
@@ -227,44 +234,6 @@ function formatTime(seconds: number): string {
   return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}.${ms}`
 }
 
-// Linear interpolation
-function lerp(a: number, b: number, t: number): number {
-  return a + (b - a) * t
-}
-
-// Interpolate frames between two keyframes
-function interpolateFrames(startKf: VideoKeyframe, endKf: VideoKeyframe): Array<{
-  frameNumber: number
-  bbox: [number, number, number, number]
-  time: number
-  label: string
-}> {
-  const frames: Array<{
-    frameNumber: number
-    bbox: [number, number, number, number]
-    time: number
-    label: string
-  }> = []
-  const frameCount = endKf.frameNumber - startKf.frameNumber
-  if (frameCount <= 0) return frames
-
-  for (let i = 0; i <= frameCount; i++) {
-    const t = frameCount > 0 ? i / frameCount : 0
-    frames.push({
-      frameNumber: startKf.frameNumber + i,
-      bbox: [
-        Math.round(lerp(startKf.bbox[0], endKf.bbox[0], t)),
-        Math.round(lerp(startKf.bbox[1], endKf.bbox[1], t)),
-        Math.round(lerp(startKf.bbox[2], endKf.bbox[2], t)),
-        Math.round(lerp(startKf.bbox[3], endKf.bbox[3], t))
-      ],
-      time: lerp(startKf.time, endKf.time, t),
-      label: startKf.label
-    })
-  }
-  return frames
-}
-
 export default function MultimodalWorkspace({
   mediaPath,
   mediaType,
@@ -272,6 +241,8 @@ export default function MultimodalWorkspace({
   transcriptSegments,
   yoloTracks,
   annotations,
+  manualTracks,
+  onVideoTrackAdd,
   selectedLabel,
   onAnnotationAdd,
   onAnnotationRemove,
@@ -288,6 +259,7 @@ export default function MultimodalWorkspace({
   savedAudioBoxes = [],
   onAudioBoxAdd,
   onAudioBoxRemove,
+  onAudioBoxUpdate,
   onWaveformExportReady,
   corpusId,
   textIds,
@@ -351,7 +323,6 @@ export default function MultimodalWorkspace({
   // Keyframe tracking state
   const [frameInterval, setFrameInterval] = useState(5)
   const [keyframeSequence, setKeyframeSequence] = useState<VideoKeyframe[]>([])
-  const [savedVideoBoxes, setSavedVideoBoxes] = useState<any[]>([])
   const [frameMessage, setFrameMessage] = useState<{ text: string; type: 'success' | 'error' | 'info' } | null>(null)
 
   // UI state
@@ -760,12 +731,12 @@ export default function MultimodalWorkspace({
 
     setCurrentBox({
       x1, y1, x2, y2,
-      label: selectedLabel?.node.name || '未选择标签',
+      label: selectedLabel?.node.name || t('annotation.noLabelSelected'),
       color: selectedLabel?.color || '#2196F3',
       time: currentTime,
       frame: currentFrame
     })
-  }, [isDrawing, isDragging, drawStart, dragStart, currentBox, selectedLabel, currentTime, currentFrame, videoScale])
+  }, [isDrawing, isDragging, drawStart, dragStart, currentBox, selectedLabel, currentTime, currentFrame, videoScale, t])
 
   const handleCanvasMouseUp = useCallback(() => {
     setIsDrawing(false)
@@ -783,7 +754,7 @@ export default function MultimodalWorkspace({
 
     // Add as video annotation
     const annotation: Omit<Annotation, 'id'> = {
-      text: `[视频框选] ${currentBox.label}`,
+      text: t('annotation.videoBoxText', { label: currentBox.label }),
       startPosition: 0,
       endPosition: 0,
       label: currentBox.label,
@@ -796,15 +767,15 @@ export default function MultimodalWorkspace({
     }
 
     onAnnotationAdd(annotation)
-    showFrameMsg('框选已确认并添加到标注', 'success')
-  }, [currentBox, selectedLabel, onAnnotationAdd, showFrameMsg, mediaType])
+    showFrameMsg(t('annotation.boxConfirmed'), 'success')
+  }, [currentBox, selectedLabel, onAnnotationAdd, showFrameMsg, mediaType, t])
 
   // Clear current box
   const clearBox = useCallback(() => {
     setCurrentBox(null)
     setKeyframeSequence([])
-    showFrameMsg('已清除当前框选', 'info')
-  }, [showFrameMsg])
+    showFrameMsg(t('annotation.boxCleared'), 'info')
+  }, [showFrameMsg, t])
 
   // Check if we can go to previous frame (only if we have keyframes recorded)
   const canGoPrevFrame = keyframeSequence.length > 0
@@ -817,7 +788,7 @@ export default function MultimodalWorkspace({
     }
 
     if (keyframeSequence.length === 0) {
-      showFrameMsg('第一帧是起点，不能向前追踪', 'error')
+      showFrameMsg(t('annotation.sequenceStartBoundary'), 'error')
       return
     }
 
@@ -849,8 +820,8 @@ export default function MultimodalWorkspace({
       frame: targetFrame
     })
 
-    showFrameMsg(`已跳转到帧 ${targetFrame}，请检查并调整框位置`, 'info')
-  }, [currentBox, currentFrame, currentTime, fps, frameInterval, mediaRef, seekTo, showFrameMsg])
+    showFrameMsg(t('annotation.frameAdjustHint', { frame: targetFrame }), 'info')
+  }, [currentBox, currentFrame, currentTime, fps, frameInterval, mediaRef, seekTo, showFrameMsg, t])
 
   // Track to next frame (追踪到下一帧)
   const trackToNextFrame = useCallback(() => {
@@ -867,7 +838,7 @@ export default function MultimodalWorkspace({
 
     const targetFrame = currentFrame + frameInterval
     if (targetFrame >= totalFrames) {
-      showFrameMsg('已到达视频末尾', 'error')
+      showFrameMsg(t('annotation.videoEndReached'), 'error')
       return
     }
 
@@ -881,16 +852,7 @@ export default function MultimodalWorkspace({
       color: currentBox.color
     }
 
-    // Check if we already have a keyframe at this frame, update it if so
-    setKeyframeSequence(prev => {
-      const existing = prev.findIndex(kf => kf.frameNumber === currentFrame)
-      if (existing >= 0) {
-        const updated = [...prev]
-        updated[existing] = newKeyframe
-        return updated
-      }
-      return [...prev, newKeyframe]
-    })
+    setKeyframeSequence(prev => upsertVideoKeyframe(prev, newKeyframe))
 
     // Jump to target frame
     const targetTime = targetFrame / fps
@@ -903,100 +865,35 @@ export default function MultimodalWorkspace({
       frame: targetFrame
     })
 
-    showFrameMsg(`已跳转到帧 ${targetFrame}，请检查并调整框位置`, 'info')
-  }, [currentBox, currentFrame, currentTime, fps, frameInterval, totalFrames, mediaRef, seekTo, showFrameMsg])
+    showFrameMsg(t('annotation.frameAdjustHint', { frame: targetFrame }), 'info')
+  }, [currentBox, currentFrame, currentTime, fps, frameInterval, totalFrames, mediaRef, seekTo, showFrameMsg, t])
 
   // Save keyframe sequence (保存序列)
   const saveKeyframeSequence = useCallback(() => {
     if (keyframeSequence.length === 0 && !currentBox) {
-      showFrameMsg('没有keyframe序列可保存', 'error')
+      showFrameMsg(t('annotation.sequenceEmpty'), 'error')
       return
     }
 
-    // Add current box as keyframe if not already added
-    let finalSequence = [...keyframeSequence]
-    if (currentBox) {
-      const exists = finalSequence.some(kf => kf.frameNumber === currentFrame)
-      if (!exists) {
-        finalSequence.push({
-          frameNumber: currentFrame,
-          bbox: [currentBox.x1, currentBox.y1, currentBox.x2, currentBox.y2],
-          time: currentTime,
-          label: currentBox.label,
-          color: currentBox.color
-        })
-      }
-    }
-
-    // Sort by frame number
-    finalSequence.sort((a, b) => a.frameNumber - b.frameNumber)
-
-    if (finalSequence.length === 0) {
-      showFrameMsg('没有keyframe序列可保存', 'error')
-      return
-    }
-
-    // Calculate all frames with interpolation
-    let allFrames: Array<{ frameNumber: number; bbox: [number, number, number, number]; time: number; label: string }> = []
-    
-    if (finalSequence.length === 1) {
-      allFrames = [{
-        frameNumber: finalSequence[0].frameNumber,
-        bbox: finalSequence[0].bbox,
-        time: finalSequence[0].time,
-        label: finalSequence[0].label
-      }]
-    } else {
-      for (let i = 0; i < finalSequence.length - 1; i++) {
-        const interpolated = interpolateFrames(finalSequence[i], finalSequence[i + 1])
-        if (i === 0) {
-          allFrames = allFrames.concat(interpolated)
-        } else {
-          allFrames = allFrames.concat(interpolated.slice(1))
-        }
-      }
-    }
-
-    // Create video box object
-    const videoBox = {
-      id: Date.now(),
-      label: finalSequence[0].label,
-      color: finalSequence[0].color || '#E91E63',
-      startFrame: finalSequence[0].frameNumber,
-      endFrame: finalSequence[finalSequence.length - 1].frameNumber,
-      frameCount: allFrames.length,
-      startTime: finalSequence[0].time,
-      endTime: finalSequence[finalSequence.length - 1].time,
-      keyframes: finalSequence,
-      frames: allFrames
-    }
-
-    setSavedVideoBoxes(prev => [...prev, videoBox])
-
-    // Add as annotation
-    const annotation: Omit<Annotation, 'id'> = {
-      text: `[视频序列] ${videoBox.label} (${videoBox.frameCount}帧)`,
-      startPosition: 0,
-      endPosition: 0,
-      label: videoBox.label,
-      labelPath: selectedLabel?.path || videoBox.label,
-      color: videoBox.color,
-      type: 'video',
-      bbox: finalSequence[0].bbox,
-      timestamp: videoBox.startTime,
-      frameNumber: videoBox.startFrame,
-      frameCount: videoBox.frameCount
-    }
-
-    onAnnotationAdd(annotation)
+    const currentKeyframe: VideoKeyframe | null = currentBox ? {
+      frameNumber: currentFrame,
+      bbox: [currentBox.x1, currentBox.y1, currentBox.x2, currentBox.y2],
+      time: currentTime,
+      label: currentBox.label,
+      color: currentBox.color
+    } : null
+    const id = Math.max(Date.now(), ...manualTracks.map(track => track.id + 1))
+    const videoBox = buildVideoTrack(id, keyframeSequence, currentKeyframe, selectedLabel?.path)
+    if (!videoBox) return
+    onVideoTrackAdd(videoBox)
 
     // Clear current state
     setCurrentBox(null)
     setKeyframeSequence([])
     setDrawMode(false)
 
-    showFrameMsg(`已保存序列: ${videoBox.frameCount}帧, ${(videoBox.endTime - videoBox.startTime).toFixed(2)}秒`, 'success')
-  }, [keyframeSequence, currentBox, currentFrame, currentTime, selectedLabel, onAnnotationAdd, showFrameMsg])
+    showFrameMsg(t('annotation.sequenceSaved', { count: videoBox.frameCount, duration: (videoBox.endTime - videoBox.startTime).toFixed(2) }), 'success')
+  }, [keyframeSequence, currentBox, currentFrame, currentTime, selectedLabel, manualTracks, onVideoTrackAdd, showFrameMsg, t])
 
   // Draw canvas - use video native coordinates
   useEffect(() => {
@@ -1068,7 +965,7 @@ export default function MultimodalWorkspace({
       ctx.fillRect(currentBox.x1, currentBox.y1, currentBox.x2 - currentBox.x1, currentBox.y2 - currentBox.y1)
 
       // Label background
-      const label = currentBox.label || '未选择标签'
+      const label = currentBox.label || t('annotation.noLabelSelected')
       ctx.font = '14px Arial'
       const textWidth = ctx.measureText(label).width
       ctx.fillStyle = boxColor
@@ -1080,9 +977,9 @@ export default function MultimodalWorkspace({
     }
 
     // Draw saved video boxes at current frame
-    savedVideoBoxes.forEach(vb => {
+    manualTracks.forEach(vb => {
       if (currentFrame >= vb.startFrame && currentFrame <= vb.endFrame) {
-        const frameData = vb.frames.find((f: any) => f.frameNumber === currentFrame)
+        const frameData = vb.frames.find((f) => f.frameNumber === currentFrame)
         if (frameData) {
           const boxColor = vb.color || '#2196F3'
           
@@ -1104,19 +1001,11 @@ export default function MultimodalWorkspace({
       }
     })
     
-    // Draw video annotations from annotations prop (for loaded archives)
-    // These are stored as single-frame bbox data in the archive
-    // Skip entries already being drawn by savedVideoBoxes (prevents duplicate boxes after save)
-    annotations.filter(a => a.type === 'video' && a.bbox).forEach(ann => {
+    // Keep legacy single-box archives readable; linked summaries are already drawn above.
+    getUnlinkedVideoAnnotations(annotations, manualTracks).filter(ann => ann.bbox).forEach(ann => {
       const startFrame = ann.frameNumber || 0
       const frameCount = ann.frameCount || 1
       const endFrame = startFrame + frameCount - 1
-
-      // Skip if this annotation's frame range is already rendered by savedVideoBoxes
-      const alreadyDrawnBySavedBoxes = savedVideoBoxes.some(
-        (vb: any) => vb.startFrame === startFrame && vb.endFrame === endFrame
-      )
-      if (alreadyDrawnBySavedBoxes) return
 
       // Check if current frame is within this annotation's range
       if (currentFrame >= startFrame && currentFrame <= endFrame) {
@@ -1140,13 +1029,21 @@ export default function MultimodalWorkspace({
       }
     })
 
-  }, [currentBox, currentTime, currentFrame, yoloTracks, showYolo, savedVideoBoxes, annotations, videoWidth, videoHeight])
+  }, [currentBox, currentTime, currentFrame, yoloTracks, showYolo, manualTracks, annotations, videoWidth, videoHeight, t])
 
   // Handle segment click from timeline
   const handleSegmentClick = useCallback((segment: TranscriptSegment) => {
     seekTo(segment.start)
     setHighlightedSegmentId(String(segment.id))
   }, [seekTo])
+
+  const handleAudioRangeSelect = useCallback((range: { start: number; end: number }) => {
+    if (selectedLabel) onAnnotationAdd(createAudioIntervalAnnotation(range.start, range.end, selectedLabel))
+  }, [selectedLabel, onAnnotationAdd])
+
+  const handleAlignedWordClick = useCallback((word: WordAlignment) => {
+    if (selectedLabel) onAnnotationAdd(createAudioIntervalAnnotation(word.start, word.end, selectedLabel, word.word))
+  }, [selectedLabel, onAnnotationAdd])
 
   // Filter annotations: text-only (exclude video and audio-box types)
   // Audio boxes are managed separately via savedAudioBoxes; video boxes via annotations with type='video'
@@ -1547,43 +1444,8 @@ export default function MultimodalWorkspace({
                 onDurationChange={(dur) => {
                   setDuration(dur)
                 }}
-                onRangeSelect={(range) => {
-                  // Create annotation from selected range
-                  if (selectedLabel) {
-                    const rangeText = transcriptText.substring(
-                      Math.floor(range.start * 10),
-                      Math.floor(range.end * 10)
-                    ) || `[${range.start.toFixed(2)}s - ${range.end.toFixed(2)}s]`
-
-                    onAnnotationAdd({
-                      text: rangeText,
-                      startPosition: 0,
-                      endPosition: 0,
-                      label: selectedLabel.node.name,
-                      labelPath: selectedLabel.path,
-                      color: selectedLabel.color,
-                      type: 'audio',
-                      timestamp: range.start,
-                      frameNumber: Math.floor(range.start * fps)
-                    })
-                  }
-                }}
-                onWordClick={(word) => {
-                  // Add annotation for clicked word
-                  if (selectedLabel) {
-                    onAnnotationAdd({
-                      text: word.word,
-                      startPosition: 0,
-                      endPosition: 0,
-                      label: selectedLabel.node.name,
-                      labelPath: selectedLabel.path,
-                      color: selectedLabel.color,
-                      type: 'audio',
-                      timestamp: word.start,
-                      frameNumber: Math.floor(word.start * fps)
-                    })
-                  }
-                }}
+                onRangeSelect={handleAudioRangeSelect}
+                onWordClick={handleAlignedWordClick}
                 onPlay={() => setIsPlaying(true)}
                 onPause={() => setIsPlaying(false)}
                 height={300}  // 与视频播放框高度一致
@@ -1739,13 +1601,14 @@ export default function MultimodalWorkspace({
                           {t('annotation.duration', '时长')}
                         </TableSortLabel>
                       </TableCell>
+                      <TableCell sx={headerCellSx}>{t('annotation.remark')}</TableCell>
                       <TableCell sx={headerCellSx}>{t('annotation.action', '操作')}</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
                     {sortedAudioBoxes.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={6} sx={{ textAlign: 'center', color: 'text.secondary', py: 3, fontSize: '12px' }}>
+                        <TableCell colSpan={7} sx={{ textAlign: 'center', color: 'text.secondary', py: 3, fontSize: '12px' }}>
                           {t('annotation.noAudioBoxes', '暂无音频画框标注。使用画框工具在波形上绘制标注框。')}
                         </TableCell>
                       </TableRow>
@@ -1757,6 +1620,7 @@ export default function MultimodalWorkspace({
                             <Chip
                               size="small"
                               label={box.label}
+                              title={box.labelPath || box.label}
                               sx={{
                                 bgcolor: box.color + '22',
                                 borderColor: box.color,
@@ -1779,6 +1643,10 @@ export default function MultimodalWorkspace({
                             {(box.endTime - box.startTime).toFixed(2)}s
                           </TableCell>
                           <TableCell sx={bodyCellSx}>
+                            {box.remark ?? box.text ?? ''}
+                          </TableCell>
+                          <TableCell sx={bodyCellSx}>
+                            {onAudioBoxUpdate && <AudioBoxRemarkButton box={box} onUpdate={onAudioBoxUpdate} />}
                             <Tooltip title={t('common.delete', '删除')}>
                               <IconButton size="small" color="error" onClick={() => onAudioBoxRemove?.(box.id)}>
                                 <ClearIcon fontSize="small" />

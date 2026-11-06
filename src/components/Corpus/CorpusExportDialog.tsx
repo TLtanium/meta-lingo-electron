@@ -55,7 +55,7 @@ const ANNOTATION_TYPES: AnnotationType[] = [
   { id: 'mipvu',         group: 'metaphor' },
 ]
 
-type ExportFormat = 'txt' | 'json' | 'xml'
+type ExportFormat = 'txt' | 'json' | 'xml' | 'reference'
 
 // ------------------------------------------------------------------ //
 // Props
@@ -197,7 +197,9 @@ export default function CorpusExportDialog({
               {t('corpus.exportAnnotated.formatXml')}
             </ToggleButton>
           </Tooltip>
+          <ToggleButton value="reference">{t('resources.referenceExport')}</ToggleButton>
         </ToggleButtonGroup>
+        {format === 'reference' && <Alert severity="info" sx={{ mb: 2 }}>{t('resources.referenceExportHelp')}</Alert>}
 
         {/* ---- Annotation type selector (txt only) ---- */}
         {format === 'txt' && (

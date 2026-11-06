@@ -104,7 +104,7 @@ function TabContent({ tab }: { tab: TabType }) {
     case 'home':
       return <HomePage />
     case 'corpus':
-      return <CorpusManagement />
+      return <CorpusManagement initialCorpusId={tab.props?.petCorpusId as string | undefined} initialNavigationToken={tab.props?.petNavigationToken as number | undefined} />
     case 'wordfreq':
       return <WordFrequency crossLinkParams={crossLinkParams} />
     case 'synonym':

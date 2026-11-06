@@ -55,6 +55,7 @@ import { useTranslation } from 'react-i18next'
 import { useTabStore } from '../../stores/tabStore'
 import type { Annotation, AnnotationRelation, AnnotationGroup } from '../../types'
 import { buildGroupNumberMap } from '../../utils/annotationGroups'
+import { annotationSearchParams } from '../../utils/crossLinkSearch'
 import type { CrossLinkParams, TabType } from '../../types'
 import Stack from '@mui/material/Stack'
 
@@ -124,16 +125,6 @@ function findEntityForRange(start: number, end: number, entities: SpacyEntity[])
   const uniqueLabels = [...new Set(matching.map(e => e.label))]
   if (uniqueLabels.length > 1) return 'Mul'
   return uniqueLabels[0]
-}
-
-/**
- * Get lemma for an annotation from SpaCy tokens (for 词图分析 cross-link).
- * If exactly one token overlaps the range, return its lemma; otherwise return undefined.
- */
-function findLemmaForRange(start: number, end: number, tokens: SpacyToken[]): string | undefined {
-  const matching = tokens.filter(t => t.start >= start && t.end <= end)
-  if (matching.length !== 1) return undefined
-  return matching[0].lemma
 }
 
 /**
@@ -399,11 +390,8 @@ export default function AnnotationTable({
   }
 
   const buildCrossLinkParams = (ann: Annotation): CrossLinkParams => {
-    const lemma = spacyTokens && ann.startPosition != null && ann.endPosition != null
-      ? findLemmaForRange(ann.startPosition, ann.endPosition, spacyTokens)
-      : undefined
     return {
-      searchWord: lemma ?? ann.text ?? ann.label,
+      ...annotationSearchParams(ann, spacyTokens),
       corpusId: corpusId || '',
       textIds: textIds || 'all',
       selectionMode,

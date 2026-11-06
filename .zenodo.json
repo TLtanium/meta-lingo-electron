@@ -1,0 +1,24 @@
+{
+  "title": "Meta-Lingo: A Corpus-Based Platform for Linguistic and Discourse Analysis",
+  "upload_type": "software",
+  "creators": [
+    {
+      "name": "Leo, Tommy"
+    }
+  ],
+  "description": "Meta-Lingo v4.9.74. Original code is licensed under AGPL-3.0-only. Includes corresponding source, build inputs and third-party notices. NRC, commercial dictionaries and reference corpus CSV data are excluded; users import their own authorized resources. LICENSING.md grants AGPL permission for author-controlled original code in earlier releases; third-party rights and historical publication records are unchanged.",
+  "license": "AGPL-3.0-only",
+  "version": "4.9.74",
+  "keywords": [
+    "corpus linguistics",
+    "multimodal annotation",
+    "Meta-Lingo"
+  ],
+  "related_identifiers": [
+    {
+      "identifier": "https://github.com/TLtanium/meta-lingo-electron",
+      "relation": "isSupplementTo",
+      "scheme": "url"
+    }
+  ]
+}

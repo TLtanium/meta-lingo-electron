@@ -6,7 +6,7 @@
 
 import re
 import json
-import os
+from copy import deepcopy
 import sys
 from pathlib import Path
 
@@ -17,7 +17,45 @@ PROJECT_ROOT = Path(__file__).parent.parent
 PROJECT_MD_PATH = PROJECT_ROOT / "PROJECT.md"
 STARTUP_SCREEN_PATH = PROJECT_ROOT / "src" / "components" / "StartupScreen.tsx"
 MCP_MANIFEST_PATH = PROJECT_ROOT / "mcp-extension" / "manifest.json"
+OPENAI_MANIFEST_PATH = PROJECT_ROOT / "openai-plugin" / ".codex-plugin" / "plugin.json"
 LICENSE_VIEWER_PATH = PROJECT_ROOT / "src" / "pages" / "Settings" / "LicenseViewer.tsx"
+
+
+def write_existing_text(path: Path, content: str) -> None:
+    """Preserve file attributes; Windows rejects mode 'w' for hidden files."""
+    with path.open("r+", encoding="utf-8") as stream:
+        stream.seek(0)
+        stream.write(content)
+        stream.truncate()
+
+
+def sync_json_version(path: Path, project_version: str, *, optional=False) -> bool:
+    """Skip unchanged metadata; only publication metadata is best-effort."""
+    if not path.exists():
+        return True
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8-sig"))
+        original = deepcopy(payload)
+        version = project_version.lstrip("v")
+        payload["version"] = version
+        if path.name == "package-lock.json":
+            payload.get("packages", {}).get("", {})["version"] = version
+        if path.name == ".zenodo.json" and "description" in payload:
+            payload["description"] = re.sub(
+                r"Meta-Lingo v\d+\.\d+\.\d+", f"Meta-Lingo {project_version}", payload["description"]
+            )
+        if payload == original:
+            print(f"[OK] {path.name} already matches {version}.")
+        else:
+            write_existing_text(path, json.dumps(payload, ensure_ascii=False, indent=2) + "\n")
+            print(f"[OK] {path.name} updated to {version}.")
+        return True
+    except (OSError, ValueError, TypeError) as error:
+        level = "WARN" if optional else "ERROR"
+        print(f"[{level}] Could not sync {path}: {error}", file=sys.stderr)
+        if optional:
+            print("[WARN] Zenodo publication metadata was not updated; application packaging can continue.", file=sys.stderr)
+        return optional
 
 
 def extract_version_from_project_md() -> str | None:
@@ -41,7 +79,7 @@ def extract_version_from_project_md() -> str | None:
         
         return None
     except Exception as e:
-        print(f"❌ 读取 PROJECT.md 失败: {e}", file=sys.stderr)
+        print(f"[ERROR] Could not read PROJECT.md: {e}", file=sys.stderr)
         return None
 
 
@@ -51,7 +89,10 @@ def extract_version_from_startup() -> str | None:
         with open(STARTUP_SCREEN_PATH, 'r', encoding='utf-8') as f:
             content = f.read()
         
-        # 匹配 v3.8.62 格式（在 Typography 组件中）
+        metadata = re.search(r"export const STARTUP_VERSION = '(v\d+\.\d+\.\d+)'", content)
+        if metadata:
+            return metadata.group(1)
+        # Legacy visible version in Typography.
         pattern = r'>\s*(v\d+\.\d+\.\d+)\s*<'
         match = re.search(pattern, content)
         
@@ -60,7 +101,7 @@ def extract_version_from_startup() -> str | None:
         
         return None
     except Exception as e:
-        print(f"❌ 读取启动页文件失败: {e}", file=sys.stderr)
+        print(f"[ERROR] Could not read StartupScreen.tsx: {e}", file=sys.stderr)
         return None
 
 
@@ -71,36 +112,43 @@ def update_startup_version(new_version: str) -> bool:
             content = f.read()
         
         # 替换版本号
-        pattern = r'(>\s*)(v\d+\.\d+\.\d+)(\s*<)'
+        pattern = (r"(export const STARTUP_VERSION = ')(v\d+\.\d+\.\d+)(')"
+                   if "export const STARTUP_VERSION" in content
+                   else r'(>\s*)(v\d+\.\d+\.\d+)(\s*<)')
         new_content = re.sub(pattern, rf'\1{new_version}\3', content)
         
         if new_content == content:
-            print(f"⚠️  未找到需要替换的版本号", file=sys.stderr)
+            print(f"[ERROR] No startup version was replaced.", file=sys.stderr)
             return False
         
-        with open(STARTUP_SCREEN_PATH, 'w', encoding='utf-8') as f:
-            f.write(new_content)
+        write_existing_text(STARTUP_SCREEN_PATH, new_content)
         
         return True
     except Exception as e:
-        print(f"❌ 更新启动页版本号失败: {e}", file=sys.stderr)
+        print(f"[ERROR] Could not update startup version: {e}", file=sys.stderr)
         return False
 
 
 def main():
     """主函数"""
+    # Windows consoles and redirected build logs may use GBK/cp1252. Keep
+    # status text ASCII and escape unencodable paths/errors instead of failing
+    # an otherwise valid synchronization while printing its result.
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(errors="backslashreplace")
     print("=" * 50)
-    print("  版本号同步检查")
+    print("  Version synchronization")
     print("=" * 50)
     print()
     
     # 检查文件是否存在
     if not PROJECT_MD_PATH.exists():
-        print(f"❌ PROJECT.md 不存在: {PROJECT_MD_PATH}", file=sys.stderr)
+        print(f"[ERROR] PROJECT.md not found: {PROJECT_MD_PATH}", file=sys.stderr)
         sys.exit(1)
     
     if not STARTUP_SCREEN_PATH.exists():
-        print(f"❌ 启动页文件不存在: {STARTUP_SCREEN_PATH}", file=sys.stderr)
+        print(f"[ERROR] Startup file not found: {STARTUP_SCREEN_PATH}", file=sys.stderr)
         sys.exit(1)
     
     # 提取版本号
@@ -108,48 +156,37 @@ def main():
     startup_version = extract_version_from_startup()
     
     if not project_version:
-        print("❌ 无法从 PROJECT.md 中提取版本号", file=sys.stderr)
+        print("[ERROR] No valid version found in PROJECT.md.", file=sys.stderr)
         sys.exit(1)
     
     if not startup_version:
-        print("❌ 无法从启动页中提取版本号", file=sys.stderr)
+        print("[ERROR] No valid version found in StartupScreen.tsx.", file=sys.stderr)
         sys.exit(1)
     
-    print(f"📄 PROJECT.md 版本号: {project_version}")
-    print(f"🚀 启动页版本号: {startup_version}")
+    print(f"[INFO] PROJECT.md version: {project_version}")
+    print(f"[INFO] Startup version: {startup_version}")
     print()
     
     # 比较版本号
     if project_version == startup_version:
-        print("✅ 版本号一致，无需更新")
+        print("[OK] Startup version already matches PROJECT.md.")
     else:
-        print(f"⚠️  版本号不一致！")
-        print(f"   将更新启动页版本号为: {project_version}")
+        print(f"[INFO] Startup version differs from PROJECT.md.")
+        print(f"[INFO] Updating startup version to {project_version}.")
         print()
 
         if update_startup_version(project_version):
-            print(f"✅ 已更新启动页版本号为: {project_version}")
+            print(f"[OK] Startup version updated to {project_version}.")
         else:
-            print("❌ 更新失败", file=sys.stderr)
+            print("[ERROR] Startup version update failed.", file=sys.stderr)
             return 1
 
-    # 同步 MCP manifest.json 版本号（去掉 v 前缀）
-    version_no_v = project_version.lstrip('v')
-    if MCP_MANIFEST_PATH.exists():
-        try:
-            with open(MCP_MANIFEST_PATH, 'r', encoding='utf-8') as f:
-                manifest = json.load(f)
-            manifest_version = manifest.get('version', '')
-            if manifest_version != version_no_v:
-                manifest['version'] = version_no_v
-                with open(MCP_MANIFEST_PATH, 'w', encoding='utf-8') as f:
-                    json.dump(manifest, f, indent=2, ensure_ascii=False)
-                    f.write('\n')
-                print(f"✅ 已同步 MCP manifest 版本号: {version_no_v}")
-            else:
-                print(f"✅ MCP manifest 版本号已一致: {version_no_v}")
-        except Exception as e:
-            print(f"⚠️  同步 MCP manifest 失败: {e}", file=sys.stderr)
+    # App/plugin metadata must be correct for packaging. Zenodo is publication-only.
+    for path in (PROJECT_ROOT / "package.json", PROJECT_ROOT / "package-lock.json",
+                 MCP_MANIFEST_PATH, OPENAI_MANIFEST_PATH):
+        if not sync_json_version(path, project_version):
+            return 1
+    sync_json_version(PROJECT_ROOT / ".zenodo.json", project_version, optional=True)
 
     # 同步"应用设置"页 Zenodo 引用文本里的版本号（CITATION_VERSION = 'vX.Y.Z'）
     if LICENSE_VIEWER_PATH.exists():
@@ -163,15 +200,15 @@ def main():
                 current_citation_version = citation_match.group(0).split("'")[1]
                 if current_citation_version != project_version:
                     new_license_content = re.sub(citation_pattern, rf'\g<1>{project_version}\g<2>', license_content)
-                    with open(LICENSE_VIEWER_PATH, 'w', encoding='utf-8') as f:
-                        f.write(new_license_content)
-                    print(f"✅ 已同步引用版本号 (LicenseViewer.tsx CITATION_VERSION): {project_version}")
+                    write_existing_text(LICENSE_VIEWER_PATH, new_license_content)
+                    print(f"[OK] Citation version updated to {project_version}.")
                 else:
-                    print(f"✅ 引用版本号已一致: {project_version}")
+                    print(f"[OK] Citation version already matches {project_version}.")
             else:
-                print("⚠️  未在 LicenseViewer.tsx 中找到 CITATION_VERSION 定义", file=sys.stderr)
+                print("[WARN] CITATION_VERSION not found in LicenseViewer.tsx.", file=sys.stderr)
         except Exception as e:
-            print(f"⚠️  同步引用版本号失败: {e}", file=sys.stderr)
+            print(f"[ERROR] Could not sync citation version: {e}", file=sys.stderr)
+            return 1
 
     return 0
 

@@ -1,7 +1,13 @@
-import { app, BrowserWindow, dialog, ipcMain, shell, screen } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, shell, screen, nativeTheme } from 'electron'
 import path from 'path'
 import { spawn, ChildProcess, execSync } from 'child_process'
 import fs from 'fs'
+import { registerOpenAIPluginHandlers } from './openaiPluginIPC'
+import { registerPetHandlers } from './pet/ipc'
+import type { PetWindow } from './pet/window'
+import { registerStartupAppearance, startupWindowOptions } from './startupAppearance'
+import { registerStartupRestart } from './restartApplication'
+import { terminateOwnedProcesses } from './ownedProcesses'
 
 function debugLocalLog(_payload: {
   sessionId: string
@@ -21,9 +27,12 @@ app.commandLine.appendSwitch('js-flags', '--max-old-space-size=4096')
 app.commandLine.appendSwitch('disable-features', 'AudioServiceOutOfProcess')
 
 let mainWindow: BrowserWindow | null = null
+let desktopPet: PetWindow | null = null
 let backendProcess: ChildProcess | null = null
+let restartingApp = false
 
 function killLeftoverMetaLingoProcesses(): void {
+  if (restartingApp) return
   if (process.platform !== 'win32') return
   try {
     const currentPid = process.pid
@@ -235,8 +244,10 @@ let startupStatus: StartupStatus = {
 }
 
 const _dbg = (_hypothesisId: string, _location: string, _message: string, _data: any) => {}
+const startupHasStopped = () => restartingApp || startupStatus.stage === 'error'
 
 function updateStartupStatus(update: Partial<StartupStatus>) {
+  if (restartingApp) return
   const nextAttemptId = update.attemptId ?? startupStatus.attemptId
   const isSameAttempt = nextAttemptId === startupStatus.attemptId
 
@@ -303,6 +314,7 @@ const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged
 // 后端配置（用 127.0.0.1 避免 localhost 解析到 IPv6 ::1 导致连接失败）
 const BACKEND_PORT = 8000
 const BACKEND_URL = `http://127.0.0.1:${BACKEND_PORT}`
+registerOpenAIPluginHandlers(BACKEND_URL)
 
 /**
  * 获取后端可执行文件路径
@@ -520,6 +532,7 @@ async function startBackend(extendedTimeout = false): Promise<boolean> {
       let attempts = 0
 
       const checkLoop = async () => {
+        if (startupHasStopped()) { resolve(false); return }
         attempts++
         const progress = Math.min(30 + Math.floor((attempts / maxAttempts) * 60), 90)
         // 只允许进度递增，避免从 70 回落到 30 导致进度条闪烁
@@ -532,6 +545,7 @@ async function startBackend(extendedTimeout = false): Promise<boolean> {
         })
 
         const isRunning = await checkBackendHealth()
+        if (startupHasStopped()) { resolve(false); return }
 
         if (isRunning) {
           updateStartupStatus({
@@ -604,6 +618,9 @@ async function checkBackendHealth(): Promise<boolean> {
  * 停止后端服务
  */
 function stopBackend(): void {
+  // Full restart already verified termination of this installation's helpers.
+  // Avoid the legacy name/port cleanup racing with the newly relaunched instance.
+  if (restartingApp) return
   console.log('[Backend] Stopping backend process...')
 
   debugLocalLog({
@@ -780,6 +797,7 @@ function createWindow() {
   const actualMinHeight = Math.min(minWindowHeight, availableHeight)
   
   mainWindow = new BrowserWindow({
+    ...startupWindowOptions(),
     width: actualWidth,
     height: actualHeight,
     minWidth: actualMinWidth,
@@ -888,19 +906,23 @@ function createWindow() {
       mainWindow.setBounds(display.bounds, false)
     }
     mainWindow?.webContents.send('fullscreen-changed', true)
+    desktopPet?.refreshPresentation()
   })
   
   mainWindow.on('leave-full-screen', () => {
     mainWindow?.webContents.send('fullscreen-changed', false)
+    desktopPet?.refreshPresentation()
   })
 
   mainWindow.on('focus', () => {
+    desktopPet?.refreshPresentation()
     if (!isMac || !mainWindow || mainWindow.isDestroyed()) return
     if (!mainWindow.isFullScreen()) return
     // Re-apply fullscreen bounds when app regains focus from another Space.
     const display = screen.getDisplayMatching(mainWindow.getBounds())
     mainWindow.setBounds(display.bounds, false)
   })
+  mainWindow.on('restore', () => desktopPet?.refreshPresentation())
 
   if (isDev) {
     mainWindow.loadURL('http://localhost:5173')
@@ -910,6 +932,8 @@ function createWindow() {
   }
 
   mainWindow.on('closed', () => {
+    restoreStartupTheme()
+    desktopPet?.destroy()
     mainWindow = null
 
     // Windows 专用：确保窗口关闭后主进程一定退出
@@ -965,6 +989,13 @@ function createWindow() {
 }
 
 app.whenReady().then(async () => {
+  desktopPet = registerPetHandlers({
+    getMain: () => mainWindow,
+    userData: app.getPath('userData'),
+    preload: path.join(__dirname, 'petPreload.js'),
+    renderer: path.join(__dirname, '../dist/pet.html'),
+    ...(isDev ? { developmentUrl: 'http://localhost:5173' } : {}),
+  })
   // 初始化数据目录
   initDataDirectories()
   
@@ -987,6 +1018,7 @@ app.whenReady().then(async () => {
     if (BrowserWindow.getAllWindows().length === 0) {
       createWindow()
     }
+    desktopPet?.refreshPresentation()
   })
 })
 
@@ -1045,6 +1077,7 @@ app.on('window-all-closed', () => {
 })
 
 app.on('before-quit', () => {
+  desktopPet?.dispose()
   stopBackend()
 })
 
@@ -1065,6 +1098,8 @@ ipcMain.handle('get-app-path', () => {
 ipcMain.handle('get-user-data-path', () => {
   return app.getPath('userData')
 })
+
+const restoreStartupTheme = registerStartupAppearance(ipcMain, () => mainWindow, process.platform, undefined, nativeTheme)
 
 ipcMain.handle('set-title-bar-overlay', (_event, options: { color?: string; symbolColor?: string; height?: number }) => {
   if (!mainWindow) return false
@@ -1190,26 +1225,22 @@ ipcMain.handle('get-startup-status', () => {
   return startupStatus
 })
 
-ipcMain.handle('retry-backend', async () => {
-  if (startupStatus.stage === 'error') {
-    // 始终完整重启：先终止当前进程，再重新 startBackend，并给重试更长等待
-    console.log('[Retry] Full restart (kill + startBackend with extended timeout)')
-    updateStartupStatus({
-      stage: 'initializing',
-      message: 'Restarting...',
-      progress: 0,
-      backendReady: false,
-      attemptId: startupStatus.attemptId + 1,
+registerStartupRestart({
+  ipc: ipcMain, dialog, getMain: () => mainWindow,
+  canRestart: () => !restartingApp && startupStatus.stage === 'error' && !startupStatus.backendReady,
+  shutdown: async () => {
+    restartingApp = true
+    isAppClosing = true
+    await terminateOwnedProcesses({
+      rootPid: backendProcess?.pid,
+      executables: isDev ? [] : [getBackendPath(), path.join(process.resourcesPath, 'mcp-server', process.platform === 'win32' ? 'meta-lingo-mcp.exe' : 'meta-lingo-mcp')],
     })
-    stopBackend()
-    await new Promise(resolve => setTimeout(resolve, 2000))
-    // #region agent log
-    _dbg('H3', 'electron/main.ts:retry-backend', 'manual retry requested', { attemptId: startupStatus.attemptId })
-    // #endregion
-    const restarted = await startBackend(true)
-    return restarted
-  }
-  return startupStatus.backendReady
+    backendProcess = null
+    desktopPet?.dispose()
+  },
+  relaunch: () => app.relaunch(),
+  exit: () => app.exit(0),
+  onFailure: () => { restartingApp = false; isAppClosing = false },
 })
 
 // Read help files from help directory

@@ -141,12 +141,15 @@ DIMENSION 2 – CONCEPTUAL  [C+ / C−]
     [C+] NOVEL — a creative, non-lexicalized extension with no ready-made
       conventional sense for this audience; the reader must construct it fresh.
 
-  OPTIONAL DICTIONARY CHECK: you MAY call dictionary_lookup(word) (Macmillan, then
-  Longman Collocations) to corroborate whether a figurative sense is lexicalized. Treat it as
+  DICTIONARY CHECK: first call list_dictionaries and follow the shared resource
+  agreement. Use only references and priority explicitly chosen/confirmed by the
+  user; when absent or unspecified, explain/propose and wait for their reply.
+  Then dictionary_lookup(word, dictionaries=chosen_references) may corroborate
+  whether a figurative sense is lexicalized. Treat it as
   SUPPORTING EVIDENCE, not the verdict — it does NOT override producer-perspective
   reasoning (a sense listed today may still have been novel in a much earlier
   text; an expression may be conventional in the producer's community yet absent
-  from the dictionary). The dictionary is no longer mandatory for coding C.
+  from the dictionary). A no-dictionary conceptual analysis is possible only if the user explicitly chooses that scope and its evidential limits are disclosed. Missing references/entries do not establish novelty.
   By Corollary 2: a confirmed [C+] entails [R+] and [D+].
 
 DIMENSION 3 – REFERENTIAL (CORE DMIP CRITERION)  [R+ / R−]

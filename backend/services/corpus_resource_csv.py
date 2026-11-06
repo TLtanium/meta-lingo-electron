@@ -35,7 +35,7 @@ def parse_frequency_csv(
     """
     groups: Dict[Tuple[str, str, str], int] = {}
 
-    with open(file_path, 'r', encoding='utf-8') as f:
+    with open(file_path, 'r', encoding='utf-8-sig') as f:
         reader = csv.DictReader(f)
         for row in reader:
             # Preferred: original-case word in 'Word' (normalize_corpus_word_column.py);

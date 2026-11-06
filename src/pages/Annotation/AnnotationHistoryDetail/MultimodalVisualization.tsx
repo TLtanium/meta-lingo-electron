@@ -49,6 +49,7 @@ import { useTranslation } from 'react-i18next'
 import * as d3 from 'd3'
 import html2canvas from 'html2canvas'
 import type { Annotation, YoloTrack, VideoBox, ClipAnnotationData } from '../../../types'
+import { getUnlinkedVideoAnnotations } from '../../../utils/videoAnnotationTracks'
 import AnnotationWordCloud, { type LabelInfo, type AnnotationWordCloudHandle } from './AnnotationWordCloud'
 import AnnotationNetwork, { type ArchiveListItem, type AnnotationNetworkHandle } from './AnnotationNetwork'
 import { NumberInput } from '../../../components/Common'
@@ -187,8 +188,8 @@ export default function MultimodalVisualization({
   
   // 从 annotations 中提取视频标注 (type === 'video')
   const videoAnnotationsFromAnnotations = useMemo(() => {
-    return annotations.filter(a => a.type === 'video')
-  }, [annotations])
+    return getUnlinkedVideoAnnotations(annotations, manualTracks)
+  }, [annotations, manualTracks])
   
   // YOLO 标签统计
   const yoloStats = useMemo(() => {

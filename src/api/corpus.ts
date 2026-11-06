@@ -850,7 +850,7 @@ export const corpusApi = {
     corpusId: string,
     textIds: string[],
     annotationTypes: string[],
-    format: 'txt' | 'json' | 'xml' = 'txt'
+    format: 'txt' | 'json' | 'xml' | 'reference' = 'txt'
   ): Promise<{ success: boolean; blob?: Blob; filename?: string; message?: string }> => {
     try {
       const response = await fetch(
@@ -873,15 +873,13 @@ export const corpusApi = {
       // Requires expose_headers=["Content-Disposition"] in backend CORS config.
       const disposition = response.headers.get('Content-Disposition') || ''
       // Matches:  filename="foo.zip"  or  filename=foo.zip
+      const filenameStarMatch = disposition.match(/filename\*\s*=\s*UTF-8''([^;\r\n]+)/i)
       const filenameMatch = disposition.match(/filename\s*=\s*"?([^";\r\n]+)"?/i)
-      let filename: string
-      if (filenameMatch) {
-        filename = filenameMatch[1].trim()
-      } else {
-        // Fallback: use Content-Type to decide the correct extension
-        const ct = response.headers.get('Content-Type') || ''
-        const ext = ct.includes('zip') ? 'zip' : format
-        filename = `metalingo_export.${ext}`
+      const ct = response.headers.get('Content-Type') || ''
+      const ext = ct.includes('zip') ? 'zip' : ct.includes('csv') ? 'csv' : format
+      let filename = filenameMatch?.[1].trim() || `metalingo_export.${ext}`
+      if (filenameStarMatch) {
+        try { filename = decodeURIComponent(filenameStarMatch[1].trim()) } catch { /* keep safe fallback */ }
       }
       const blob = await response.blob()
       return { success: true, blob, filename }

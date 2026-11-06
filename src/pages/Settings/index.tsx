@@ -14,6 +14,7 @@ import MCPServerSettings from './MCPServerSettings'
 import LicenseViewer from './LicenseViewer'
 import FactoryReset from './FactoryReset'
 import ModelManagement from './ModelManagement'
+import ResourceManagementSettings from './ResourceManagementSettings'
 import UserProfileSettings from './UserProfileSettings'
 
 export default function Settings() {
@@ -73,6 +74,8 @@ export default function Settings() {
         <Grid item xs={12}>
           <ModelManagement />
         </Grid>
+
+        <Grid item xs={12}><ResourceManagementSettings /></Grid>
 
         {/* License Viewer */}
         <Grid item xs={12}>

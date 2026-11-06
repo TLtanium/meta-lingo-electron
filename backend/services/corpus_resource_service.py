@@ -12,7 +12,6 @@ from typing import List, Dict, Any, Optional, Set, Tuple
 from pathlib import Path
 from functools import lru_cache
 
-from config import get_saves_dir
 from services.usas.disambiguator import parse_compound_tag
 from services.corpus_resource_csv import parse_frequency_csv
 
@@ -57,652 +56,31 @@ def normalize_usas_domain_to_base(tag: str) -> str:
 class CorpusResourceService:
     """Service for managing and accessing corpus resource CSV files"""
 
-    # Persistent cache to avoid re-scanning + re-summing CSV files on every app restart.
-    _PERSISTENT_CACHE_FILENAME = "corpus_resource_service.cache.json"
-    # Bump when the cached payload semantics change (v3: reference CSVs are top-1, word_count is
-    # the plain freq sum; v2 had a top-5 deflation that no longer applies).
-    _PERSISTENT_CACHE_VERSION = 3
-
-    def _get_persistent_cache_path(self) -> Path:
-        # Keep cache under saves/ so it survives app restarts in both dev and packaged modes.
-        # (saves/corpus/ is git-ignored; saves/.cache is not.)
-        cache_dir = get_saves_dir() / ".cache"
-        cache_dir.mkdir(parents=True, exist_ok=True)
-        return cache_dir / self._PERSISTENT_CACHE_FILENAME
-
-    @staticmethod
-    def _key_to_json_compatible(key: Optional[Tuple[Tuple[str, float], ...]]) -> Optional[List[List[Any]]]:
-        if key is None:
-            return None
-        return [[path, mtime] for (path, mtime) in key]
-
-    def _try_load_persistent_resources(
-        self,
-        current_key: Optional[Tuple[Tuple[str, float], ...]]
-    ) -> Optional[List[Dict[str, Any]]]:
-        """Return cached resources when CSV mtimes match."""
-        if current_key is None:
-            return None
-
-        cache_path = self._get_persistent_cache_path()
-        if not cache_path.exists():
-            return None
-
-        try:
-            with open(cache_path, "r", encoding="utf-8") as f:
-                payload = json.load(f)
-            if payload.get("version") != self._PERSISTENT_CACHE_VERSION:
-                return None
-            saved_key = payload.get("key")
-            # Compare normalized key shapes to avoid tuple/list mismatch
-            if saved_key != self._key_to_json_compatible(current_key):
-                return None
-            resources = payload.get("resources")
-            if isinstance(resources, list) and resources:
-                return resources
-        except Exception as e:
-            logger.warning(f"Persistent corpus resource cache load failed: {e}")
-            return None
-
-        return None
-
-    def _write_persistent_resources(
-        self,
-        current_key: Optional[Tuple[Tuple[str, float], ...]],
-        resources: List[Dict[str, Any]]
-    ):
-        if current_key is None:
-            return
-        cache_path = self._get_persistent_cache_path()
-        try:
-            payload = {
-                "version": self._PERSISTENT_CACHE_VERSION,
-                "key": self._key_to_json_compatible(current_key),
-                "resources": resources
-            }
-            with open(cache_path, "w", encoding="utf-8") as f:
-                json.dump(payload, f, ensure_ascii=False)
-        except Exception as e:
-            logger.warning(f"Persistent corpus resource cache write failed: {e}")
-    
-    # Name mapping: corpus prefix -> display name template
-    CORPUS_PREFIX_NAMES = {
-        'bnc': 'BNC 1994',
-        'bnc1994': 'BNC 1994',
-        'bnc2014': 'BNC 2014',
-        'brown': 'Brown',
-        'ame06': 'AmE06',
-        'be06': 'BE06',
-        'now': 'NOW',
-        'oanc': 'OANC',
-        'coca': 'COCA',
-        'coha': 'COHA',
-        'glowbe': 'GloWbE',
-        'coronavirus': 'Coronavirus',
-        'iweb': 'iWeb',
-        'movies': 'Movies',
-        'soap': 'SOAP',
-        'tv': 'TV',
-        'wikipedia': 'Wikipedia',
-    }
-    
-    # Display name mappings (Chinese)
-    CORPUS_PREFIX_NAMES_ZH = {
-        'bnc': '英国国家语料库 1994 版',
-        'bnc1994': 'BNC 1994',
-        'bnc2014': '英国国家语料库 2014 版',
-        'brown': 'Brown',
-        'ame06': 'AmE06',
-        'be06': 'BE06',
-        'now': 'NOW',
-        'oanc': 'OANC',
-        'coca': 'COCA',
-        'coha': 'COHA',
-        'glowbe': 'GloWbE',
-        'coronavirus': 'Coronavirus',
-        'iweb': 'iWeb',
-        'movies': 'Movies',
-        'soap': 'SOAP',
-        'tv': 'TV',
-        'wikipedia': 'Wikipedia',
-    }
-    
-    # Tag mappings for special cases
-    SPECIAL_TAGS = {
-        'now': ['NOW', 'news'],  # All NOW corpora get 'news' tag
-    }
-    
-    # Category display names (for name formatting)
-    CATEGORY_NAMES = {
-        # BNC categories
-        'applied_science': 'Applied Science',
-        'arts': 'Arts',
-        'belief_thought': 'Belief & Thought',
-        'commerce_finance': 'Commerce & Finance',
-        'imaginative': 'Imaginative',
-        'leisure': 'Leisure',
-        'natural_science': 'Natural Science',
-        'social_science': 'Social Science',
-        'spoken': 'Spoken',
-        'written': 'Written',
-        'world_affairs': 'World Affairs',
-        'total': '',  # Empty for total
-        # Brown categories
-        'adventure': 'Adventure',
-        'belles_lettres': 'Belles Lettres',
-        'editorial': 'Editorial',
-        'fiction': 'Fiction',
-        'government': 'Government',
-        'hobbies': 'Hobbies',
-        'humor': 'Humor',
-        'informative': 'Informative',
-        'learned': 'Learned',
-        'lore': 'Lore',
-        'mystery': 'Mystery',
-        'news': 'News',
-        'religion': 'Religion',
-        'reviews': 'Reviews',
-        'romance': 'Romance',
-        'science_fiction': 'Science Fiction',
-        # AmE06 / BE06 categories (written subregisters)
-        'press_reportage': 'Press Reportage',
-        'press_editorial': 'Press Editorial',
-        'press_reviews': 'Press Reviews',
-        'skills_and_hobbies': 'Skills and Hobbies',
-        'popular_lore': 'Popular Lore',
-        'misc': 'Miscellaneous',
-        'fiction_general': 'Fiction (General)',
-        'fiction_mystery': 'Fiction (Mystery)',
-        'fiction_science': 'Fiction (Science)',
-        'fiction_adventure_and_western': 'Fiction (Adventure and Western)',
-        # OANC categories
-        '911report': '911 Report',
-        'biomed': 'Biomedical',
-        'face_to_face': 'Face-to-Face',
-        'journal': 'Journal',
-        'letters': 'Letters',
-        'non_fiction': 'Non-Fiction',
-        'plos': 'Public Library of Science',
-        'telephone': 'Telephone',
-        'travel_guides': 'Travel Guides',
-        # COCA
-        'acad': 'Academic',
-        'blog': 'Blog',
-        'fic': 'Fiction',
-        'mag': 'Magazine',
-        'spok': 'Spoken',
-        'tvm': 'TV/Movies',
-        'web': 'Web',
-        # COHA
-        'nf': 'Non-Fiction',
-    }
-    
-    # Category display names (Chinese)
-    CATEGORY_NAMES_ZH = {
-        # BNC categories
-        'applied_science': '应用科学',
-        'arts': '艺术',
-        'belief_thought': '信仰与思想',
-        'commerce_finance': '商业与金融',
-        'imaginative': '虚构类',
-        'leisure': '休闲',
-        'natural_science': '自然科学',
-        'social_science': '社会科学',
-        'spoken': '口语',
-        'written': '书面语',
-        'world_affairs': '世界事务',
-        'total': '',
-        # Brown categories
-        'adventure': '冒险',
-        'belles_lettres': '美文',
-        'editorial': '社论',
-        'fiction': '小说',
-        'government': '政府',
-        'hobbies': '爱好',
-        'humor': '幽默',
-        'informative': '信息类',
-        'learned': '学术',
-        'lore': '民间传说',
-        'mystery': '悬疑',
-        'news': '新闻',
-        'religion': '宗教',
-        'reviews': '评论',
-        'romance': '浪漫',
-        'science_fiction': '科幻',
-        # AmE06 / BE06 categories (written subregisters)
-        'press_reportage': '新闻报道',
-        'press_editorial': '社论',
-        'press_reviews': '评论',
-        'skills_and_hobbies': '技能与爱好',
-        'popular_lore': '通俗文化',
-        'misc': '杂项',
-        'fiction_general': '小说（综合）',
-        'fiction_mystery': '小说（悬疑）',
-        'fiction_science': '科幻小说',
-        'fiction_adventure_and_western': '小说（冒险与西部）',
-        # OANC categories
-        '911report': '911报告',
-        'biomed': '生物医学',
-        'face_to_face': '面对面',
-        'journal': '期刊',
-        'letters': '信件',
-        'non_fiction': '非虚构',
-        'plos': '公共科学',
-        'telephone': '电话',
-        'travel_guides': '旅游指南',
-        # COCA
-        'acad': '学术',
-        'blog': '博客',
-        'fic': '小说',
-        'mag': '杂志',
-        'spok': '口语',
-        'tvm': '电视/电影',
-        'web': '网络',
-        # COHA
-        'nf': '非虚构',
-    }
-    
-    # Country names for NOW corpus (and GloWbE - same regions)
-    NOW_COUNTRIES = {
-        'Australia': 'Australia',
-        'Bangladesh': 'Bangladesh',
-        'Canada': 'Canada',
-        'Ghana': 'Ghana',
-        'HongKong': 'Hong Kong',
-        'India': 'India',
-        'Ireland': 'Ireland',
-        'Jamaica': 'Jamaica',
-        'Kenya': 'Kenya',
-        'Malaysia': 'Malaysia',
-        'NewZealand': 'New Zealand',
-        'Nigeria': 'Nigeria',
-        'Pakistan': 'Pakistan',
-        'Philippines': 'Philippines',
-        'Singapore': 'Singapore',
-        'SouthAfrica': 'South Africa',
-        'SriLanka': 'Sri Lanka',
-        'Tanzania': 'Tanzania',
-        'UK': 'UK',
-        'USA': 'USA',
-    }
-    
-    NOW_COUNTRIES_ZH = {
-        'Australia': '澳大利亚',
-        'Bangladesh': '孟加拉国',
-        'Canada': '加拿大',
-        'Ghana': '加纳',
-        'HongKong': '香港',
-        'India': '印度',
-        'Ireland': '爱尔兰',
-        'Jamaica': '牙买加',
-        'Kenya': '肯尼亚',
-        'Malaysia': '马来西亚',
-        'NewZealand': '新西兰',
-        'Nigeria': '尼日利亚',
-        'Pakistan': '巴基斯坦',
-        'Philippines': '菲律宾',
-        'Singapore': '新加坡',
-        'SouthAfrica': '南非',
-        'SriLanka': '斯里兰卡',
-        'Tanzania': '坦桑尼亚',
-        'UK': '英国',
-        'USA': '美国',
-    }
-    
     def __init__(self, corpus_dir: Optional[Path] = None):
-        """
-        Initialize corpus resource service
-        
-        Args:
-            corpus_dir: Path to corpus resource directory (default: saves/corpus)
-        """
-        if corpus_dir is None:
-            # Use config.py's get_saves_dir() for proper path resolution
-            # Works in both development and packaged mode
-            saves_dir = get_saves_dir()
-            corpus_dir = saves_dir / "corpus"
-        
-        self.corpus_dir = Path(corpus_dir)
-        self._frequency_cache: Dict[str, Dict[str, Dict[str, Any]]] = {}
-        self._lemma_cache: Dict[str, Dict[str, int]] = {}
-        # Cache for list_resources() so we don't re-sum every CSV on each request (corpus data is static)
-        self._list_resources_cache: Optional[List[Dict[str, Any]]] = None
-        self._list_resources_cache_key: Optional[Tuple[Tuple[str, float], ...]] = None  # (path, mtime) per CSV
-        logger.info(f"CorpusResourceService initialized with directory: {self.corpus_dir}")
-        logger.info(f"Corpus directory exists: {self.corpus_dir.exists()}")
-    
-    def _parse_csv_filename(self, filename: str) -> Tuple[str, str]:
-        """
-        Parse CSV filename to extract prefix and category
-        
-        Args:
-            filename: CSV filename (e.g., 'bnc_commerce_finance.csv')
-            
-        Returns:
-            Tuple of (prefix, category)
-        """
-        name = filename.replace('.csv', '')
-        parts = name.split('_', 1)
-        
-        if len(parts) == 1:
-            return parts[0], 'total'
-        
-        prefix = parts[0]
-        category = parts[1]
-        
-        return prefix, category
-    
-    def _get_display_name(self, prefix: str, category: str, lang: str = 'en') -> str:
-        """
-        Get display name for a corpus resource
-        
-        Args:
-            prefix: Corpus prefix (e.g., 'bnc')
-            category: Category name (e.g., 'commerce_finance')
-            lang: Language ('en' or 'zh')
-            
-        Returns:
-            Display name (e.g., 'BNC - Commerce & Finance')
-        """
-        prefix_names = self.CORPUS_PREFIX_NAMES_ZH if lang == 'zh' else self.CORPUS_PREFIX_NAMES
-        category_names = self.CATEGORY_NAMES_ZH if lang == 'zh' else self.CATEGORY_NAMES
-        
-        base_name = prefix_names.get(prefix, prefix.upper())
-        
-        # Special handling for NOW: country suffix (localized)
-        if prefix == 'now' and category != 'total':
-            country_names = self.NOW_COUNTRIES_ZH if lang == 'zh' else self.NOW_COUNTRIES
-            country_display = country_names.get(category, category)
-            if lang == 'zh':
-                return f"NOW - {country_display}新闻"
-            return f"NOW - {country_display} News"
-        
-        # GloWbE: country/region suffix (localized)
-        if prefix == 'glowbe' and category != 'total':
-            country_names = self.NOW_COUNTRIES_ZH if lang == 'zh' else self.NOW_COUNTRIES
-            country_display = country_names.get(category, category)
-            return f"GloWbE - {country_display}"
-        
-        # Handle total case
-        if category == 'total':
-            if lang == 'zh':
-                return f"{base_name} 完整语料库"
-            return f"{base_name} Complete"
-        
-        # Get category display name
-        cat_display = category_names.get(category, category.replace('_', ' ').title())
-        
-        return f"{base_name} - {cat_display}"
-    
-    def _get_tags(self, prefix: str, category: str) -> List[str]:
-        """
-        Get tags for a corpus resource
-        
-        Args:
-            prefix: Corpus prefix (e.g., 'bnc')
-            category: Category name (e.g., 'commerce_finance')
-            
-        Returns:
-            List of tags
-        """
-        tags = []
-        
-        # Add base prefix tag
-        base_tag = self.CORPUS_PREFIX_NAMES.get(prefix, prefix.upper())
-        tags.append(base_tag)
-        
-        # Special handling for NOW - add 'news' tag for all
-        if prefix == 'now':
-            tags.append('news')
-            # Don't add country as tag per requirement
-        else:
-            # Add category parts as tags (if not 'total')
-            if category != 'total':
-                # Split category by underscore and add each part
-                for part in category.split('_'):
-                    if part and part not in tags:
-                        tags.append(part)
-        
-        return tags
-    
-    def _get_tags_zh(self, prefix: str, category: str) -> List[str]:
-        """
-        Get Chinese tags for a corpus resource
-        """
-        tags = []
-        
-        # Add base prefix tag (keep English for prefix)
-        base_tag = self.CORPUS_PREFIX_NAMES.get(prefix, prefix.upper())
-        tags.append(base_tag)
-        
-        # Special handling for NOW
-        if prefix == 'now':
-            tags.append('新闻')
-        elif prefix == 'glowbe' and category != 'total':
-            tags.append(self.NOW_COUNTRIES_ZH.get(category, category))
-        else:
-            if category != 'total':
-                # Use Chinese category names if available
-                cat_zh = self.CATEGORY_NAMES_ZH.get(category)
-                if cat_zh:
-                    tags.append(cat_zh)
-                else:
-                    for part in category.split('_'):
-                        if part and part not in tags:
-                            tags.append(part)
-        
-        return tags
-    
-    def _generate_description(self, prefix: str, category: str, word_count: int, lang: str = 'en') -> str:
-        """
-        Generate a descriptive text for a corpus resource
-        
-        Args:
-            prefix: Corpus prefix (e.g., 'bnc1994')
-            category: Category name (e.g., 'commerce_finance')
-            word_count: Total token count (sum of frequencies)
-            lang: Language ('en' or 'zh')
-            
-        Returns:
-            Description string
-        """
-        # Corpus full names
-        corpus_names_en = {
-            'bnc': 'British National Corpus 1994 (BNC 1994)',
-            'bnc1994': 'British National Corpus 1994 (BNC 1994)',
-            'bnc2014': 'British National Corpus 2014 (BNC 2014)',
-            'brown': 'Brown Corpus',
-            'ame06': 'American English 2006 (AmE06)',
-            'be06': 'British English 2006 (BE06)',
-            'now': 'News on the Web Corpus (2010-2024)',
-            'oanc': 'Open American National Corpus',
-            'coca': 'Corpus of Contemporary American English (COCA)',
-            'coha': 'Corpus of Historical American English (COHA)',
-            'glowbe': 'Global Web-based English (GloWbE)',
-            'coronavirus': 'Coronavirus Corpus',
-            'iweb': 'iWeb: The Intelligent Web Corpus',
-            'movies': 'Movies Corpus',
-            'soap': 'SOAP Corpus',
-            'tv': 'TV Corpus',
-            'wikipedia': 'Wikipedia Corpus',
-        }
-        corpus_names_zh = {
-            'bnc': '英国国家语料库 1994 (BNC 1994)',
-            'bnc1994': '英国国家语料库 1994 (BNC 1994)',
-            'bnc2014': '英国国家语料库 2014 (BNC 2014)',
-            'brown': 'Brown 语料库',
-            'ame06': '美国英语语料库 2006 (AmE06)',
-            'be06': '英国英语语料库 2006 (BE06)',
-            'now': '网络新闻语料库 (2010-2024)',
-            'oanc': '开放美国国家语料库',
-            'coca': '当代美语语料库 (COCA)',
-            'coha': '历史美语语料库 (COHA)',
-            'glowbe': '全球网络英语语料库 (GloWbE)',
-            'coronavirus': '新冠语料库',
-            'iweb': '智能网络语料库 (iWeb)',
-            'movies': '电影语料库',
-            'soap': '肥皂剧语料库 (SOAP)',
-            'tv': '电视语料库 (TV)',
-            'wikipedia': '维基百科语料库',
-        }
-        
-        corpus_name = corpus_names_zh.get(prefix, prefix.upper()) if lang == 'zh' else corpus_names_en.get(prefix, prefix.upper())
-        category_names = self.CATEGORY_NAMES_ZH if lang == 'zh' else self.CATEGORY_NAMES
-        
-        # Format word count
-        if word_count >= 1000000:
-            word_count_str = f"{word_count / 1000000:.1f}M"
-        elif word_count >= 1000:
-            word_count_str = f"{word_count / 1000:.1f}K"
-        else:
-            word_count_str = str(word_count)
-        
-        if category == 'total':
-            if lang == 'zh':
-                return f"{corpus_name}完整词频数据，总词数约 {word_count_str}"
-            else:
-                return f"Complete {corpus_name} frequency data with approximately {word_count_str} tokens"
-        
-        # Handle NOW countries (localized)
-        if prefix == 'now':
-            country_names = self.NOW_COUNTRIES_ZH if lang == 'zh' else self.NOW_COUNTRIES
-            country = country_names.get(category, category)
-            if lang == 'zh':
-                return f"来自{country}的网络新闻词频数据（2010-2024），{word_count_str} 词条"
-            else:
-                return f"News frequency data from {country} (2010-2024), {word_count_str} words"
-        
-        # GloWbE country/region (localized)
-        if prefix == 'glowbe' and category != 'total':
-            country_names = self.NOW_COUNTRIES_ZH if lang == 'zh' else self.NOW_COUNTRIES
-            country = country_names.get(category, category)
-            if lang == 'zh':
-                return f"GloWbE {country} 词频数据，约 {word_count_str} 词"
-            return f"GloWbE {country} frequency data, ~{word_count_str} words"
-        
-        # General case
-        cat_display = category_names.get(category, category.replace('_', ' ').title())
-        if lang == 'zh':
-            return f"{corpus_name}{cat_display}类词频数据，总词数约 {word_count_str}"
-        else:
-            return f"{corpus_name} {cat_display} frequency data with approximately {word_count_str} tokens"
-    
-    def _list_resources_cache_key_current(self) -> Optional[Tuple[Tuple[str, float], ...]]:
-        """Build cache key from all CSV paths and mtimes (fast, no file content read).
-        Same path but updated content invalidates cache because file mtime changes on write."""
-        if not self.corpus_dir.exists():
-            return None
-        key_parts = []
-        try:
-            for subdir in sorted(self.corpus_dir.iterdir()):
-                if not subdir.is_dir() or subdir.name.startswith('.'):
-                    continue
-                for csv_file in sorted(subdir.glob('*.csv')):
-                    if csv_file.name.startswith('.'):
-                        continue
-                    key_parts.append((str(csv_file.resolve()), csv_file.stat().st_mtime))
-        except OSError:
-            return None
-        return tuple(key_parts) if key_parts else None
+        from services.user_resource_store import resource_root
+        self.corpus_dir = Path(corpus_dir) if corpus_dir else resource_root("reference")
+        self._frequency_cache = {}
+        self._lemma_cache = {}
+        self._list_resources_cache = None
+        self._list_resources_cache_key = None
 
     def list_resources(self, lang: str = 'en', refresh: bool = False) -> List[Dict[str, Any]]:
-        """
-        List all available corpus resources.
-        Results are cached by CSV set and mtimes so we don't re-sum every CSV on each request.
-        """
-        current_key = self._list_resources_cache_key_current()
-        if (
-            not refresh
-            and self._list_resources_cache is not None
-            and self._list_resources_cache_key is not None
-            and current_key == self._list_resources_cache_key
-        ):
-            return self._list_resources_cache
-
-        # Try persistent cache (survives app restarts)
-        if not refresh:
-            persisted = self._try_load_persistent_resources(current_key)
-            if persisted is not None:
-                self._list_resources_cache = persisted
-                self._list_resources_cache_key = current_key
-                return persisted
-
-        if (
-            not refresh
-            and self._list_resources_cache is not None
-            and self._list_resources_cache_key is not None
-            and current_key == self._list_resources_cache_key
-        ):
-            return self._list_resources_cache
-        
-        if not self.corpus_dir.exists():
-            logger.warning(f"Corpus directory not found: {self.corpus_dir}")
-            return []
-        
-        resources = []
-        # Scan subdirectories
-        for subdir in sorted(self.corpus_dir.iterdir()):
-            if not subdir.is_dir() or subdir.name.startswith('.'):
+        # Only imported metadata is authoritative. Never reuse legacy saves/.cache.
+        result = []
+        for path in sorted(self.corpus_dir.glob("*/meta.json")):
+            if path.parent.name.startswith("."):
                 continue
-            
-            # Scan CSV files in subdirectory
-            for csv_file in sorted(subdir.glob('*.csv')):
-                if csv_file.name.startswith('.'):
-                    continue
-                
-                prefix, category = self._parse_csv_filename(csv_file.name)
-                resource_id = f"{prefix}_{category}"
-                
-                # Get file info
-                try:
-                    file_size = csv_file.stat().st_size
-                    # Sum frequencies as total token count (top-1 CSVs: one row-count per token)
-                    word_count = 0
-                    with open(csv_file, 'r', encoding='utf-8') as f:
-                        reader = csv.DictReader(f)
-                        for row in reader:
-                            try:
-                                freq = int(row.get('freq', 0))
-                            except (TypeError, ValueError):
-                                freq = 0
-                            word_count += freq
-                except Exception as e:
-                    logger.error(f"Error reading {csv_file}: {e}")
-                    file_size = 0
-                    word_count = 0
-                
-                tags_en = self._get_tags(prefix, category)
-                tags_zh = self._get_tags_zh(prefix, category)
-                
-                # Generate better descriptions
-                name_en = self._get_display_name(prefix, category, 'en')
-                name_zh = self._get_display_name(prefix, category, 'zh')
-                
-                desc_en = self._generate_description(prefix, category, word_count, 'en')
-                desc_zh = self._generate_description(prefix, category, word_count, 'zh')
-                
-                resources.append({
-                    'id': resource_id,
-                    'name_en': name_en,
-                    'name_zh': name_zh,
-                    'prefix': prefix,
-                    'category': category,
-                    'tags_en': tags_en,
-                    'tags_zh': tags_zh,
-                    'file_size': file_size,
-                    'word_count': word_count,
-                    'description_en': desc_en,
-                    'description_zh': desc_zh
-                })
-        
-        self._list_resources_cache = resources
-        self._list_resources_cache_key = current_key
+            try:
+                meta = json.loads(path.read_text(encoding="utf-8"))
+                if meta.get("id") == path.parent.name and (path.parent / "data.csv").is_file():
+                    from services.reference_metadata import present_reference
+                    result.append(present_reference(meta))
+            except (OSError, ValueError):
+                continue
+        from services.reference_group_colors import group_colors
+        colors = group_colors(item['prefix'] for item in result)
+        return [dict(item, color=colors[item['prefix']]) for item in result]
 
-        # Best-effort persistent cache write.
-        # This is the main optimization to avoid slow first-load after app restart.
-        self._write_persistent_resources(current_key, resources)
-        return resources
-    
     def get_resource(self, resource_id: str, lang: str = 'en') -> Optional[Dict[str, Any]]:
         """
         Get a specific corpus resource by ID
@@ -732,7 +110,7 @@ class CorpusResourceService:
         """
         resources = self.list_resources(lang, refresh=refresh)
         tags = set()
-        tag_key = 'tags_zh' if lang == 'zh' else 'tags_en'
+        tag_key = 'tags'
         
         for resource in resources:
             tags.update(resource.get(tag_key, []))
@@ -759,8 +137,8 @@ class CorpusResourceService:
         resources = self.list_resources(lang)
         results = []
         
-        name_key = 'name_zh' if lang == 'zh' else 'name_en'
-        tag_key = 'tags_zh' if lang == 'zh' else 'tags_en'
+        name_key = 'name'
+        tag_key = 'tags'
         
         for resource in resources:
             # Query match (case-insensitive)
@@ -783,37 +161,11 @@ class CorpusResourceService:
         return results
     
     def _get_csv_path(self, resource_id: str) -> Optional[Path]:
-        """
-        Get the CSV file path for a resource ID
-        
-        Args:
-            resource_id: Resource ID (e.g., 'bnc_commerce_finance')
-            
-        Returns:
-            Path to CSV file or None if not found
-        """
-        # Parse resource_id to get prefix and construct path
-        parts = resource_id.split('_', 1)
-        if len(parts) < 1:
+        if not re.fullmatch(r"[a-f0-9]{32}", resource_id):
             return None
-        
-        prefix = parts[0]
-        csv_filename = f"{resource_id}.csv"
-        
-        # Look in the prefix subdirectory
-        csv_path = self.corpus_dir / prefix / csv_filename
-        if csv_path.exists():
-            return csv_path
-        
-        # Fallback: search in all subdirectories
-        for subdir in self.corpus_dir.iterdir():
-            if subdir.is_dir():
-                potential_path = subdir / csv_filename
-                if potential_path.exists():
-                    return potential_path
-        
-        return None
-    
+        path = self.corpus_dir / resource_id / "data.csv"
+        return path if path.is_file() else None
+
     def load_frequency_data(
         self,
         resource_id: str,
@@ -830,7 +182,7 @@ class CorpusResourceService:
             Dictionary mapping words to {lemma, pos, freq} data
         """
         # Check cache
-        if use_cache and resource_id in self._frequency_cache:
+        if use_cache and self._get_csv_path(resource_id) and resource_id in self._frequency_cache:
             return self._frequency_cache[resource_id]
         
         # Get file path from resource_id
@@ -860,7 +212,7 @@ class CorpusResourceService:
         if resource_id not in self._lemma_cache:
             # Populates both caches; fall back to a direct parse when caching is bypassed.
             self.load_frequency_data(resource_id)
-        if resource_id in self._lemma_cache:
+        if self._get_csv_path(resource_id) and resource_id in self._lemma_cache:
             return self._lemma_cache[resource_id]
         file_path = self._get_csv_path(resource_id)
         if not file_path:
@@ -933,7 +285,7 @@ class CorpusResourceService:
         domain_freq: Dict[str, int] = {}
         
         try:
-            with open(csv_path, 'r', encoding='utf-8') as f:
+            with open(csv_path, 'r', encoding='utf-8-sig') as f:
                 reader = csv.DictReader(f)
                 for row in reader:
                     usas_tag = (row.get('usas') or '').strip()

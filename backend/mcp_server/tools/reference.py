@@ -6,49 +6,10 @@ Tools: get_pos_tags, get_usas_categories, get_metaphor_sources,
 """
 import html as html_lib
 import re
+import json
 
 from mcp.server.fastmcp import FastMCP
 from mcp_server.api_client import MetaLingoClient
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Dictionary name aliases
-# ─────────────────────────────────────────────────────────────────────────────
-# The dictionaries are stored on disk under Chinese filenames (麦克米伦.json,
-# 朗文搭配.json), which the backend uses as lookup keys. The MCP tool, however,
-# exposes ENGLISH names ("Macmillan", "Longman Collocations") so the interface
-# stays consistent with every other tool. These maps translate the user/model
-# facing English names → backend filename keys, and back for display.
-_DICT_FILE_MACMILLAN = "麦克米伦"
-_DICT_FILE_LONGMAN = "朗文搭配"
-
-# Accepted (case-insensitive) name → backend filename key. Chinese names are
-# kept for backward compatibility.
-_DICT_ALIASES: dict[str, str] = {
-    "macmillan": _DICT_FILE_MACMILLAN,
-    "macmillan english dictionary": _DICT_FILE_MACMILLAN,
-    "麦克米伦": _DICT_FILE_MACMILLAN,
-    "longman": _DICT_FILE_LONGMAN,
-    "longman collocations": _DICT_FILE_LONGMAN,
-    "longman collocations dictionary": _DICT_FILE_LONGMAN,
-    "朗文搭配": _DICT_FILE_LONGMAN,
-    "朗文": _DICT_FILE_LONGMAN,
-}
-
-# Backend filename key → English display name (used in tool output headers).
-_DICT_DISPLAY: dict[str, str] = {
-    _DICT_FILE_MACMILLAN: "Macmillan",
-    _DICT_FILE_LONGMAN: "Longman Collocations",
-}
-
-
-def _resolve_dict_name(name: str) -> str:
-    """Map an English (or legacy Chinese) dictionary name to its backend key.
-
-    Unknown names pass through unchanged so the backend can surface a clear
-    'not found' error rather than silently dropping the request.
-    """
-    return _DICT_ALIASES.get(name.strip().lower(), name.strip())
 
 
 def register(mcp: FastMCP, client: MetaLingoClient):
@@ -136,80 +97,95 @@ def register(mcp: FastMCP, client: MetaLingoClient):
         return str(data)
 
     @mcp.tool()
-    async def dictionary_lookup(
-        word: str, dictionaries: list[str] | None = None, max_chars: int = 5000
-    ) -> str:
-        """Look up a word in Meta-Lingo's built-in dictionaries (Macmillan + Longman).
+    async def list_dictionaries() -> str:
+        """Discover imported dictionaries before selecting references.
 
-        A GENERAL-PURPOSE, on-demand reference tool. Call it whenever you want an
-        authoritative check on a word's listed senses, part-of-speech / grammar, or
-        typical collocations during ANY research task — lexical analysis, concordance
-        or KWIC interpretation, semantic / metaphor work, annotation, translation or
-        usage checks, etc. Use it freely on user request or whenever a definition
-        or collocation would sharpen your analysis.
-
-        Typical uses:
-          - Confirm whether a figurative / extended sense of a word is lexicalized
-            (e.g. as SUPPORTING evidence for a conventional-vs-novel judgment — note
-            this is optional support, not a mandatory verdict).
-          - Check a word's senses, register, or grammatical pattern.
-          - Find typical collocates (adjectives / verbs / prepositions) for a headword.
-
-        Available dictionaries:
-          Macmillan (Macmillan English Dictionary) — full numbered sense entries,
-            including figurative / extended senses, plus phrase / collocation lists
-            (~66,700 headwords). Default and primary resource.
-          Longman Collocations (Longman Collocations Dictionary) — collocational
-            patterns (typical adjectives / verbs / prepositions for a headword),
-            ~4,200 headwords. Good as an existence / coverage fallback, or for
-            collocation questions. Query it via dictionaries=["Longman Collocations"].
-
-        Output is filtered to the useful parts — sense definitions,
-        part-of-speech / grammar codes, and collocation patterns (with their
-        parenthetical glosses). Example sentences, audio links, pronunciation,
-        and thesaurus / synonym cross-references are stripped out.
-
-        Args:
-            word: Word or lemma to look up (case-insensitive).
-            dictionaries: Dictionary names to query. Default: ["Macmillan"].
-                Pass ["Longman Collocations"] for collocations, or both names for
-                both. Names are case-insensitive ("macmillan", "longman" also work).
-            max_chars: Max characters per dictionary entry before truncation
-                (default 5000). A handful of extremely polysemous words (e.g.
-                "make", "set", "run") and Macmillan topic/study pages can still
-                exceed this — if truncated, call again with a higher max_chars
-                to see the remaining senses.
+        Returns actual names, IDs and entry counts. Discovery is not permission
+        to select a dictionary. Ask the user to choose/confirm references and,
+        for multiple references, their priority before dictionary-based analysis.
         """
-        requested = dictionaries or ["Macmillan"]
-        # Map English (or legacy Chinese) names → backend filename keys.
-        resolved = [_resolve_dict_name(name) for name in requested]
-        result = await client.get(
-            "/api/dictionary/lookup",
-            params={"word": word, "dictionaries": ",".join(resolved)},
-        )
+        result = await client.get("/api/dictionary/list")
+        available = result.get("data", [])
+        return json.dumps({
+            "status": "available" if available else "dictionary_required",
+            "dictionaries": available,
+            "next_step": "Ask the user to choose/confirm dictionary references and priority."
+                if available else "No dictionaries are available in MetaLingo. Ask the user to import an authorized MDX in Settings → User resources → MDX dictionaries, or specify an accessible reference. Pause dictionary-dependent judgments.",
+        }, ensure_ascii=False)
+
+    @mcp.tool()
+    async def get_resource_status() -> str:
+        """Inspect user-imported dictionaries, NRC languages and reference CSVs.
+
+        Empty imports are prerequisites to resolve, not analytical findings.
+        Saved NRC annotations can still be analyzed without the original lexicon;
+        inspect annotation coverage before deciding whether a rerun is necessary.
+        """
+        result = await client.get("/api/resources")
+        return json.dumps({
+            "resources": result,
+            "nrc_languages": sorted({language for item in result.get("nrc", []) for language in item.get("languages", {})}),
+            "guidance": {
+                "dictionary": "Choose/confirm imported dictionary references and priority; no automatic selection.",
+                "nrc": "Import the official NRC folder for new annotation; no language fallback. Existing saved annotations remain usable.",
+                "reference": "Import a validated reference CSV with card metadata, or explicitly select another user corpus.",
+            },
+        }, ensure_ascii=False)
+
+    @mcp.tool()
+    async def dictionary_lookup(
+        word: str = "", dictionaries: list[str] | None = None, max_chars: int = 5000
+    ) -> str:
+        """Look up a word using explicitly chosen, ordered dictionary references.
+
+        Call list_dictionaries first. Omitted/empty dictionaries returns a
+        selection-required response, NEVER a lookup in all dictionaries. Confirm
+        unspecified choices/priority with the user before proceeding. Pass names
+        or IDs in the user's agreed priority order; explicit equal priority can
+        also be recorded in the conversation. Empty word only reports discovery.
+        Missing dictionaries differ from missing headwords/senses. No match alone
+        establishes neither novelty nor literalness. Entries are reference data.
+        """
+        available_response = await client.get("/api/dictionary/list")
+        available = available_response.get("data", [])
+        if not available:
+            return json.dumps({"status": "dictionary_required", "dictionaries": [],
+                "next_step": "No dictionaries are available in MetaLingo. Ask the user to import an authorized MDX in Settings → User resources → MDX dictionaries or designate an accessible dictionary. Pause dictionary-dependent analysis."}, ensure_ascii=False)
+        if not dictionaries or not word.strip():
+            return json.dumps({"status": "dictionary_selection_required", "dictionaries": available,
+                "next_step": "Ask the user to choose/confirm which dictionaries to use and their priority. Propose a plan if unspecified, wait for confirmation, then pass explicit dictionaries and a word."}, ensure_ascii=False)
+        resolved, unavailable = [], []
+        for name in dictionaries:
+            item = next((d for d in available if name == d["id"] or name.casefold() == d["name"].casefold()), None)
+            if item is None:
+                unavailable.append(name)
+            elif item["name"] not in resolved:
+                resolved.append(item["name"])
+        if unavailable:
+            return json.dumps({"status": "selected_dictionary_unavailable", "unavailable": unavailable,
+                "dictionaries": available, "next_step": "Tell the user which selected reference is unavailable; ask for import or a confirmed replacement. Do not silently query the remaining dictionaries."}, ensure_ascii=False)
+        result = await client.get("/api/dictionary/lookup", params={"word": word, "dictionaries": ",".join(resolved)})
+        if result.get("success") is False:
+            return json.dumps({"status": "dictionary_lookup_failed", "error": result.get("error", result.get("detail", "Lookup failed"))}, ensure_ascii=False)
         results = result.get("results", {})
-
-        lines = [f'Dictionary lookup: "{word}"']
-        for key in resolved:
-            entry = results.get(key, {})
-            # Show the English display name in the output header.
-            display = _DICT_DISPLAY.get(key, key)
-            lines.append(f"\n━━━ {display} ━━━")
-            if not entry.get("found"):
-                lines.append("(not found)")
-                continue
-            if entry.get("fuzzy"):
-                lines.append(f'(no exact match — closest entry: "{entry.get("word", word)}")')
-            lines.append(_html_to_text(entry.get("content", ""), max_chars=max_chars))
-
+        lines = [f'Dictionary lookup: "{word}"', "Reference order (as supplied): " + " > ".join(resolved)]
+        for name in resolved:
+            entry = results.get(name, {})
+            lines.append(f"\n━━━ {name} ━━━")
+            if entry.get("error"):
+                lines.append("Dictionary unavailable: " + str(entry["error"]))
+            elif not entry.get("found"):
+                lines.append("Headword not found in this reference; this is not sufficient evidence of a novel sense.")
+            else:
+                lines.append(_html_to_text(entry.get("content", ""), max_chars=max_chars))
         return "\n".join(lines)
 
     @mcp.tool()
     async def list_reference_corpora(search: str = "", offset: int = 0, page_size: int = 20) -> str:
         """List available reference corpora for keyness comparison.
 
-        When to use: Before using keyness_resource_analysis(). Returns built-in
-        reference corpora (AmE06, BE06, BNC 2014, COCA, COHA, GloWbE, NOW) with their
+        When to use: Before using keyness_resource_analysis(). Returns user-imported
+        reference corpora with their
         resource_id, name, language, and word count. Use the resource_id in
         keyness_resource_analysis(resource_id=...).
 
@@ -239,7 +215,7 @@ def register(mcp: FastMCP, client: MetaLingoClient):
 
             total = len(data)
             if total == 0:
-                return f"No reference corpora matching '{search}'. Try a broader search term."
+                return f"No imported reference corpora matching '{search}'. Import a CSV in Settings → User resources, or broaden the search."
 
             page_data = data[offset:offset + page_size] if page_size > 0 else data[offset:]
             end = offset + len(page_data)
@@ -534,122 +510,43 @@ def register(mcp: FastMCP, client: MetaLingoClient):
         return "\n".join(lines)
 
 
-# Macmillan wraps illustrative example sentences in this dark-blue italic font.
-_MAC_EXAMPLE_RE = re.compile(r'<font color="#052a57">')
-# Longman wraps each collocate's example sentence in <span class="collexa">.
-_LON_COLLEXA_RE = re.compile(r'<span\b[^>]*\bclass="collexa"[^>]*>')
-# Longman "THESAURUS: <word>" near-synonym discrimination boxes.
-_LON_THESBOX_RE = re.compile(r'<span\b[^>]*\bclass="thesbox"[^>]*>')
-# Longman "ANTONYMS -> ..." cross-reference boxes.
-_LON_ANTONYM_RE = re.compile(r'<span\b[^>]*\bclass="antonymbox"[^>]*>')
-
-
-def _strip_balanced(text: str, open_re: re.Pattern, tag_name: str) -> str:
-    """Remove every <tag_name ...>...</tag_name> block matched by open_re,
-    including any nested tags of the same name (tracked via depth counting).
-    Used for elements whose content may contain further nested spans/fonts
-    that simple non-greedy regexes can't span correctly.
-    """
-    out = []
-    i = 0
-    tag_re = re.compile(r'<' + tag_name + r'\b[^>]*>|</' + tag_name + r'>')
-    while True:
-        m = open_re.search(text, i)
-        if not m:
-            out.append(text[i:])
-            break
-        out.append(text[i:m.start()])
-        depth = 1
-        pos = m.end()
-        while depth > 0:
-            tm = tag_re.search(text, pos)
-            if not tm:
-                pos = len(text)
-                break
-            if tm.group(0).startswith('</'):
-                depth -= 1
-            else:
-                depth += 1
-            pos = tm.end()
-        i = pos
-    return ''.join(out)
-
-
 def _html_to_text(content: str, max_chars: int = 5000) -> str:
-    """Convert a dictionary entry's HTML content into compact, readable plain text.
+    """Preserve dictionary-independent definitions/examples as readable text."""
+    from html.parser import HTMLParser
 
-    Filters out content that doesn't help judge sense-conventionality or
-    collocation status: illustrative example sentences, audio links,
-    pronunciation, and thesaurus/synonym cross-references. What remains is
-    the headword/POS/grammar info, numbered sense definitions, and (for
-    Longman) collocation patterns with their parenthetical glosses.
-    """
-    if not content:
+    class EntryText(HTMLParser):
+        ignored = {"script", "style", "audio", "video", "button", "svg", "object"}
+        blocks = {"p", "div", "li", "dt", "dd", "br", "hr", "tr", "h1", "h2", "h3", "section"}
+
+        def __init__(self):
+            super().__init__(convert_charrefs=True)
+            self.parts, self.suppressed = [], 0
+
+        def handle_starttag(self, tag, attrs):
+            if tag in self.ignored:
+                self.suppressed += 1
+            elif not self.suppressed and tag in self.blocks:
+                self.parts.append("\n")
+
+        def handle_endtag(self, tag):
+            if tag in self.ignored and self.suppressed:
+                self.suppressed -= 1
+            elif not self.suppressed and tag in self.blocks:
+                self.parts.append("\n")
+
+        def handle_data(self, value):
+            if not self.suppressed:
+                self.parts.append(value)
+
+    parser = EntryText()
+    parser.feed(content or "")
+    text = "\n".join(line for value in "".join(parser.parts).splitlines()
+                       if (line := re.sub(r"[ \t]+", " ", value).strip()))
+    if not text:
         return "(empty entry)"
-
-    text = content
-
-    # Drop audio-player links entirely (icons/sound files add no value for analysis)
-    text = re.sub(r'<a\b[^>]*\bclass="jp-play"[^>]*>.*?</a>', '', text, flags=re.DOTALL)
-    text = re.sub(r'<a\b[^>]*\bhref="sound://[^"]*"[^>]*>.*?</a>', '', text, flags=re.DOTALL)
-
-    # Drop Macmillan example sentences (handles nesting, e.g. bolded phrases
-    # within an example also wrapped in their own #052a57 font span)
-    text = _strip_balanced(text, _MAC_EXAMPLE_RE, 'font')
-
-    # Drop Longman synonym-discrimination and antonym boxes — useful for
-    # vocabulary teaching but not for "is this a listed sense/collocation"
-    text = _strip_balanced(text, _LON_THESBOX_RE, 'span')
-    text = _strip_balanced(text, _LON_ANTONYM_RE, 'span')
-
-    # Drop Longman collocation example sentences, including nested
-    # highlighted (colloinexa) spans within them — keep the colloc pattern itself
-    text = _strip_balanced(text, _LON_COLLEXA_RE, 'span')
-    text = re.sub(r'<span\b[^>]*\bclass="colloinexa[^"]*"[^>]*>.*?</span>', '', text, flags=re.DOTALL)
-
-    # Insert line/section breaks at structural boundaries before stripping tags
-    text = re.sub(r'<br\s*/?>', '\n', text)
-    text = re.sub(r'<span\b[^>]*\bclass="sensenum"[^>]*>', '\n\n', text)
-    text = re.sub(r'<span\b[^>]*\bclass="def"[^>]*>', '\n  ', text)
-    text = re.sub(r'<span\b[^>]*\bclass="secheading"[^>]*>', '\n  ', text)
-    text = re.sub(r'<span\b[^>]*\bclass="collocate"[^>]*>', '\n    - ', text)
-
-    # Strip remaining tags (keeps inner text)
-    text = re.sub(r'<[^>]+>', '', text)
-
-    # Decode HTML entities (&nbsp; etc.)
-    text = html_lib.unescape(text)
-
-    # Collapse whitespace (including non-breaking spaces left by &nbsp;)
-    text = re.sub(r'[ \t\xa0]+', ' ', text)
-    text = re.sub(r'\n[ \t\xa0]+', '\n', text)
-    text = re.sub(r'\n{3,}', '\n\n', text)
-
-    # Drop Macmillan "Thesaurus: ..." cross-reference lines, lines left over from
-    # "Get it right" usage boxes that consisted only of "✗"/"✓" markers next to
-    # now-stripped examples, and trim now-dangling trailing colons/diamonds left
-    # where an inline example used to follow (e.g. "make something from
-    # something:" -> "make something from something")
-    lines = []
-    for line in text.split('\n'):
-        stripped = line.strip()
-        if stripped.startswith('Thesaurus:'):
-            continue
-        if stripped and re.fullmatch(r'[✗✓\s]+', stripped):
-            continue
-        lines.append(re.sub(r'[\s:♦]+$', '', line))
-    text = '\n'.join(lines)
-    text = re.sub(r'\n{3,}', '\n\n', text)
-    text = text.strip()
-
-    if len(text) > max_chars:
-        text = (
-            text[:max_chars].rstrip()
-            + f"\n... [entry truncated at {max_chars} chars — this word has more "
-            "senses/collocations; call dictionary_lookup again with a higher "
-            "max_chars to see them]"
-        )
-
+    limit = max(200, max_chars)
+    if len(text) > limit:
+        return text[:limit] + "\n[Entry truncated; request a higher max_chars to inspect the remaining content.]"
     return text
 
 

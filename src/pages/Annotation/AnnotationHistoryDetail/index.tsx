@@ -37,6 +37,7 @@ import AudioAnnotationTable from './AudioAnnotationTable'
 import AnnotationVisualization from './AnnotationVisualization'
 import MultimodalVisualization from './MultimodalVisualization'
 import AudioVisualization from './AudioVisualization'
+import { getUnlinkedVideoAnnotations } from '../../../utils/videoAnnotationTracks'
 
 // 存档信息类型（从列表传入）
 interface ArchiveInfo {
@@ -172,7 +173,7 @@ export default function AnnotationHistoryDetail({ archive, onBack }: AnnotationH
   const audioVisualizationSvg = (archiveData as any).audioVisualizationSvg as string | undefined
   
   // 计算视频标注总数（manualTracks + annotations 中 type === 'video' 的）
-  const videoAnnotationsFromAnnotations = annotations.filter(a => a.type === 'video')
+  const videoAnnotationsFromAnnotations = getUnlinkedVideoAnnotations(annotations, manualTracks)
   const totalManualVideoCount = manualTracks.length + videoAnnotationsFromAnnotations.length
   
   // 非视频标注数量（用于多模态第一个标签页）

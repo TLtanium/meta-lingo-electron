@@ -21,6 +21,7 @@ import CategoryIcon from '@mui/icons-material/Category'
 import { useTranslation } from 'react-i18next'
 import { useTabStore } from '../../stores/tabStore'
 import type { CrossLinkParams, TabType, MatchMode, SourceModule } from '../../types'
+import { nonBlankSearchText } from '../../utils/crossLinkSearch'
 
 // Mapping of Word Sketch relation names to CQL dependency patterns
 // Format: { relationName: { deps, direction, collocatePos? } }
@@ -320,9 +321,11 @@ export default function WordActionMenu({
       kwicHighlight = result.kwicHighlight
     }
 
-    const searchWordValue = isFromWordSketch || forceLemma
-      ? (wordLemma ?? kwicKeyword)
-      : (matchMode === 'lemma' ? (wordLemma ?? kwicKeyword) : kwicKeyword)
+    const effectiveMatchMode = !isFromWordSketch && wordLemma !== undefined && !nonBlankSearchText(wordLemma)
+      ? 'word' : matchMode
+    const searchWordValue = isFromWordSketch || forceLemma || effectiveMatchMode === 'lemma'
+      ? nonBlankSearchText(wordLemma, kwicKeyword, word) ?? ''
+      : nonBlankSearchText(kwicKeyword, word) ?? ''
 
     const params: CrossLinkParams = {
       searchWord: searchWordValue,
@@ -336,12 +339,12 @@ export default function WordActionMenu({
       contextFilterWords: isFromWordSketch ? contextFilterWords : undefined,
       // CQL-related fields
       cqlQuery,
-      matchMode,
+      matchMode: effectiveMatchMode,
       relationName,
       // Sync the target page's own word/lemma selector to what searchWordValue actually is
       // (Word Sketch has no such selector, so this is only meaningful for Concordance/
       // Collocation Analysis — see createCrossLinkParams doc comment above).
-      forceSearchMode: cqlQuery ? 'cql' : (isFromWordSketch || forceLemma ? undefined : matchMode),
+      forceSearchMode: cqlQuery ? 'cql' : (isFromWordSketch || forceLemma ? undefined : effectiveMatchMode),
       // For post-processing CQL results:
       // - kwicKeywordLemma: token that should be KWIC keyword
       // - kwicHighlightLemma: token that should be highlighted in context

@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, lazy, Suspense } from 'react'
+import { useState, useRef, useCallback, useEffect, lazy, Suspense } from 'react'
 import {
   Box,
   Button,
@@ -98,6 +98,11 @@ export default function AgentChatView() {
   const abortRef = useRef<AbortController | null>(null)
   const [overlayTabs, setOverlayTabs] = useState<OverlayTab[]>([])
   const [activeOverlay, setActiveOverlay] = useState<OverlayTab | 'chat'>('chat')
+  useEffect(() => {
+    const show = () => setActiveOverlay('chat')
+    window.addEventListener('meta-lingo:pet-open-chat', show)
+    return () => window.removeEventListener('meta-lingo:pet-open-chat', show)
+  }, [])
 
   // Context management state
   const [taskProgress, setTaskProgress] = useState<TaskProgress | null>(null)

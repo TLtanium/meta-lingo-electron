@@ -72,6 +72,9 @@ class CorpusExportService:
         Returns:
             (file_bytes, filename, media_type)
         """
+        if fmt == "reference":
+            from services.reference_export import export_reference
+            return export_reference(texts, self._load_tokens), f"{PREFIX}{_safe_stem(corpus_name)}_reference.csv", "text/csv"
         if fmt == "json":
             return self._export_json(texts, corpus_name)
         if fmt == "xml":
@@ -301,35 +304,24 @@ class CorpusExportService:
             logger.warning(f"Failed to load transcript: {e}")
             return []
 
-        spacy_anns = data.get("spacy_annotations")
-        usas_anns  = data.get("usas_annotations")
-        mipvu_anns = data.get("mipvu_annotations")
+        def segment_map(annotation):
+            if not annotation:
+                return {}
+            segments = annotation.get("segments", {}) if isinstance(annotation, dict) else annotation
+            if isinstance(segments, dict):
+                return {str(key): value.get("tokens", []) for key, value in segments.items()}
+            return {str(value.get("id", index)): value.get("tokens", []) for index, value in enumerate(segments)}
 
-        tokens: List[Dict] = []
-        if spacy_anns and "segments" in spacy_anns:
-            for seg in spacy_anns["segments"]:
-                tokens.extend(seg.get("tokens", []))
-        elif isinstance(spacy_anns, list):
-            for seg in spacy_anns:
-                tokens.extend(seg.get("tokens", []))
-
-        if usas_anns:
-            usas_tokens: List[Dict] = []
-            if "segments" in usas_anns:
-                for seg in usas_anns["segments"]:
-                    usas_tokens.extend(seg.get("tokens", []))
-            elif isinstance(usas_anns, list):
-                for seg in usas_anns:
-                    usas_tokens.extend(seg.get("tokens", []))
-            tokens = self._merge_usas(tokens, usas_tokens)
-
-        if mipvu_anns:
-            mipvu_tokens: List[Dict] = (
-                mipvu_anns if isinstance(mipvu_anns, list)
-                else mipvu_anns.get("tokens", [])
-            )
+        spacy_segments = segment_map(data.get("spacy_annotations"))
+        usas_segments = segment_map(data.get("usas_annotations"))
+        tokens = []
+        # Character offsets restart at each segment; merge within its segment only.
+        for key, segment_tokens in spacy_segments.items():
+            tokens.extend(self._merge_usas(segment_tokens, usas_segments.get(key, [])))
+        mipvu = data.get("mipvu_annotations")
+        if mipvu:
+            mipvu_tokens = mipvu if isinstance(mipvu, list) else mipvu.get("tokens", [])
             tokens = self._merge_mipvu(tokens, mipvu_tokens)
-
         return tokens
 
     def _load_from_sidecar_files(self, content_path: str) -> List[Dict[str, Any]]:
@@ -375,7 +367,7 @@ class CorpusExportService:
         usas_map = {t["start"]: t for t in usas_tokens if "start" in t}
         return [
             {**tok,
-             "usas_tag":  usas_map.get(tok.get("start"), {}).get("usas_tag", "Z99"),
+             "usas_tag":  usas_map.get(tok.get("start"), {}).get("usas_tag", ""),
              "usas_tags": usas_map.get(tok.get("start"), {}).get("usas_tags", []),
              "is_mwe":    usas_map.get(tok.get("start"), {}).get("is_mwe", False)}
             for tok in spacy_tokens

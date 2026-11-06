@@ -1,0 +1,17 @@
+{
+  "name": "meta-lingo",
+  "version": "4.9.74",
+  "description": "Use the running MetaLingo desktop app for corpus research, analysis and text annotation through its local MCP tools.",
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "MetaLingo",
+    "shortDescription": "Local corpus research and annotation / 本地语料研究与标注",
+    "longDescription": "Connect to MetaLingo running on this computer. Discover corpora, run supported analyses, manage text annotation archives, and export results. Requires MetaLingo to remain open with MCP enabled. 本机私用插件，使用时请保持 MetaLingo 运行并开启 MCP 服务。",
+    "developerName": "MetaLingo",
+    "category": "Education & Research",
+    "defaultPrompt": [
+      "使用 MetaLingo 查看我的语料库，并根据我的研究目标选择分析工具。"
+    ]
+  }
+}

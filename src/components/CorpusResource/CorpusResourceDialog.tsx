@@ -21,10 +21,6 @@ import {
   CircularProgress,
   Alert,
   IconButton,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
   Collapse,
   Paper,
   useTheme
@@ -40,7 +36,10 @@ import {
 import { useTranslation } from 'react-i18next'
 import { corpusResourceApi } from '../../api'
 import type { CorpusResource } from '../../types/keyword'
+import { referenceMetadata } from './resourceMetadata'
 import { CorpusResourceCard } from './CorpusResourceCard'
+import { alpha } from '@mui/material/styles'
+import { corpusGroupColor } from './groupColors'
 
 interface CorpusResourceDialogProps {
   open: boolean
@@ -48,49 +47,6 @@ interface CorpusResourceDialogProps {
   onSelect: (resource: CorpusResource) => void
   selectedResourceId?: string
   title?: string
-}
-
-// Color mapping for corpus type chips
-// Keys correspond to CorpusResource.prefix values (see backend CorpusResourceService)
-const CORPUS_COLORS: Record<string, string> = {
-  // Legacy / generic
-  bnc: '#42a5f5',        // Light blue (BNC 1994)
-  brown: '#7b1fa2',
-  ame06: '#c62828',      // Red (American English 2006)
-  be06: '#283593',       // Indigo (British English 2006)
-  now: '#388e3c',
-  oanc: '#ef6c00',       // Orange (OANC)
-  // BNC variants
-  bnc1994: '#1976d2',  // Blue (BNC 1994 folder prefix)
-  bnc2014: '#1565c0',   // Darker blue
-  // COCA / COHA
-  coca: '#00897b',      // Teal
-  coha: '#00695c',      // Dark teal
-  // Web-based corpora
-  glowbe: '#6d4c41',    // Brown (GloWbE)
-  // Other large corpora
-  coronavirus: '#ad1457', // Deep pink (Coronavirus)
-  iweb: '#8d6e63',       // Warm brownish (iWeb)
-  movies: '#ff7043',    // Deep orange
-  soap: '#d81b60',      // Pink (SOAP)
-  tv: '#1e88e5',        // Blue (TV)
-  wikipedia: '#0097a7'  // Cyan
-}
-
-// In-memory cache to avoid rebuilding corpus resource lists repeatedly.
-// Cache lives only for the current app runtime; user can force refresh via the button.
-let corpusResourceDialogCache:
-  | { resources: CorpusResource[]; allTags: { en: string[]; zh: string[] } }
-  | null = null
-
-const CORPUS_RESOURCE_DIALOG_CACHE_KEY = 'meta-lingo:corpus-resource-dialog-cache:v1'
-
-function getPrefixLabel(prefix: string): string {
-  // Some CSVs are stored under the bnc1994 folder but named with prefix "bnc_*.csv"
-  // So we alias "bnc" to the expected "BNC1994" display.
-  if (prefix === 'bnc' || prefix === 'bnc1994') return 'BNC1994'
-  if (prefix === 'bnc2014') return 'BNC2014'
-  return prefix.toUpperCase()
 }
 
 export const CorpusResourceDialog: React.FC<CorpusResourceDialogProps> = ({
@@ -106,7 +62,7 @@ export const CorpusResourceDialog: React.FC<CorpusResourceDialogProps> = ({
 
   // State
   const [resources, setResources] = useState<CorpusResource[]>([])
-  const [allTags, setAllTags] = useState<{ en: string[]; zh: string[] }>({ en: [], zh: [] })
+  const [allTags, setAllTags] = useState<string[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -130,49 +86,25 @@ export const CorpusResourceDialog: React.FC<CorpusResourceDialogProps> = ({
       setSelectedTags([])
       setSelectedPrefix('')
 
-      if (corpusResourceDialogCache) {
-        setResources(corpusResourceDialogCache.resources)
-        setAllTags(corpusResourceDialogCache.allTags)
-        setError(null)
-        setLoading(false)
-        return
-      } else {
-        // Try to use persisted cache to avoid re-initializing backend on every app start.
-        try {
-          const raw = localStorage.getItem(CORPUS_RESOURCE_DIALOG_CACHE_KEY)
-          if (raw) {
-            const parsed = JSON.parse(raw) as {
-              resources: CorpusResource[]
-              allTags: { en: string[]; zh: string[] }
-            }
-            if (parsed?.resources?.length) {
-              corpusResourceDialogCache = parsed
-              setResources(parsed.resources)
-              setAllTags(parsed.allTags)
-              setError(null)
-              setLoading(false)
-              return
-            }
-          }
-        } catch (e) {
-          // Ignore cache parse errors and fall back to fetching.
-          console.warn('CorpusResourceDialog cache parse failed:', e)
-        }
-
-        loadData()
-      }
+      loadData()
     }
   }, [open, selectedResourceId])
+
+  useEffect(() => {
+    const refresh = () => {
+      setResources([]); setAllTags([]); setTempSelectedId(undefined)
+      if (open) void loadData(true)
+    }
+    window.addEventListener('meta-lingo:user-resources-changed', refresh)
+    return () => window.removeEventListener('meta-lingo:user-resources-changed', refresh)
+  }, [open, isZh])
 
   const loadData = async (forceRefresh: boolean = false) => {
     setLoading(true)
     setError(null)
     try {
       const lang = isZh ? 'zh' : 'en'
-      const [resourcesRes, tagsRes] = await Promise.all([
-        corpusResourceApi.list(lang, forceRefresh),
-        corpusResourceApi.getTags(forceRefresh)
-      ])
+      const resourcesRes = await corpusResourceApi.list(lang, forceRefresh)
 
       // Note:
       // `api.get()` in `src/api/client.ts` wraps backend JSON into `{ success, data }`.
@@ -183,25 +115,8 @@ export const CorpusResourceDialog: React.FC<CorpusResourceDialogProps> = ({
         const nextResources = listPayload.data as CorpusResource[]
         setResources(nextResources)
 
-        // Tags are required for filtering, but if tags request fails we can still show the resources.
-        const tagsPayload = tagsRes.data as any
-        const nextTags = {
-          en: tagsRes.success && tagsPayload?.success ? (tagsPayload.tags_en || []) : [],
-          zh: tagsRes.success && tagsPayload?.success ? (tagsPayload.tags_zh || []) : []
-        }
+        setAllTags(Array.from(new Set(nextResources.flatMap(resource => referenceMetadata(resource).tags))).sort())
 
-        setAllTags(nextTags)
-        corpusResourceDialogCache = { resources: nextResources, allTags: nextTags }
-
-        // Persist cache for app restarts (best-effort).
-        try {
-          localStorage.setItem(
-            CORPUS_RESOURCE_DIALOG_CACHE_KEY,
-            JSON.stringify(corpusResourceDialogCache)
-          )
-        } catch (e) {
-          // ignore quota / privacy mode
-        }
       } else {
         setError(isZh ? '加载语料库资源失败' : 'Failed to load corpus resources')
       }
@@ -214,13 +129,6 @@ export const CorpusResourceDialog: React.FC<CorpusResourceDialogProps> = ({
   }
 
   const handleRefresh = useCallback(() => {
-    // Force re-fetch and overwrite the cached snapshot.
-    corpusResourceDialogCache = null
-    try {
-      localStorage.removeItem(CORPUS_RESOURCE_DIALOG_CACHE_KEY)
-    } catch (e) {
-      // ignore
-    }
     loadData(true)
   }, [isZh])
 
@@ -231,10 +139,7 @@ export const CorpusResourceDialog: React.FC<CorpusResourceDialogProps> = ({
     return Array.from(prefixSet).sort()
   }, [resources])
 
-  // Current tags based on language
-  const currentTags = useMemo(() => {
-    return isZh ? allTags.zh : allTags.en
-  }, [isZh, allTags])
+  const currentTags = allTags
 
   // Filter resources
   const filteredResources = useMemo(() => {
@@ -242,9 +147,10 @@ export const CorpusResourceDialog: React.FC<CorpusResourceDialogProps> = ({
       // Search query filter
       if (searchQuery) {
         const query = searchQuery.toLowerCase()
-        const name = (isZh ? resource.name_zh : resource.name_en).toLowerCase()
+        const metadata = referenceMetadata(resource)
+        const name = metadata.name.toLowerCase()
         const id = resource.id.toLowerCase()
-        const desc = (isZh ? resource.description_zh : resource.description_en).toLowerCase()
+        const desc = metadata.description.toLowerCase()
         if (!name.includes(query) && !id.includes(query) && !desc.includes(query)) {
           return false
         }
@@ -257,7 +163,7 @@ export const CorpusResourceDialog: React.FC<CorpusResourceDialogProps> = ({
 
       // Tags filter (must match ALL selected tags)
       if (selectedTags.length > 0) {
-        const resourceTags = (isZh ? resource.tags_zh : resource.tags_en)
+        const resourceTags = referenceMetadata(resource).tags
           .map(t => t.toLowerCase())
         const hasAllTags = selectedTags.every(tag =>
           resourceTags.includes(tag.toLowerCase())
@@ -370,20 +276,20 @@ export const CorpusResourceDialog: React.FC<CorpusResourceDialogProps> = ({
             onClick={() => setSelectedPrefix('')}
           />
           {prefixes.map(prefix => {
-            const color = CORPUS_COLORS[prefix] || theme.palette.text.secondary
+            const color = corpusGroupColor(resources.find(r => r.prefix === prefix)?.color, theme.palette.mode === 'dark')
             return (
               <Chip
                 key={prefix}
-                label={getPrefixLabel(prefix)}
+                label={prefix}
                 size="small"
                 variant={selectedPrefix === prefix ? 'filled' : 'outlined'}
                 onClick={() => setSelectedPrefix(selectedPrefix === prefix ? '' : prefix)}
                 sx={{
                   bgcolor: selectedPrefix === prefix ? color : 'transparent',
                   borderColor: color,
-                  color: selectedPrefix === prefix ? 'white' : color,
+                  color: selectedPrefix === prefix ? theme.palette.getContrastText(color) : color,
                   '&:hover': {
-                    bgcolor: selectedPrefix === prefix ? color : `${color}15`
+                    bgcolor: selectedPrefix === prefix ? color : alpha(color, 0.08)
                   }
                 }}
               />
@@ -441,6 +347,7 @@ export const CorpusResourceDialog: React.FC<CorpusResourceDialogProps> = ({
       <Divider />
 
       {/* Resources list */}
+      {!loading && resources.length === 0 && <Alert severity="info" sx={{ m: 2 }}>{t('resources.referenceEmpty')}</Alert>}
       <DialogContent sx={{ p: 2, flex: 1, overflow: 'auto' }}>
         {loading ? (
           <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', py: 6 }}>
@@ -452,7 +359,7 @@ export const CorpusResourceDialog: React.FC<CorpusResourceDialogProps> = ({
         ) : error ? (
           <Box sx={{ textAlign: 'center', py: 4 }}>
             <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>
-            <Button startIcon={<RefreshIcon />} onClick={loadData}>
+            <Button startIcon={<RefreshIcon />} onClick={() => void loadData()}>
               {isZh ? '重试' : 'Retry'}
             </Button>
           </Box>

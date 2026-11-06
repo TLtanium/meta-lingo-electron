@@ -16,6 +16,8 @@ import {
   Accordion,
   AccordionSummary,
   AccordionDetails,
+  Tab,
+  Tabs,
 } from '@mui/material'
 import DeviceHubIcon from '@mui/icons-material/DeviceHub'
 import ContentCopyIcon from '@mui/icons-material/ContentCopy'
@@ -24,6 +26,7 @@ import DownloadIcon from '@mui/icons-material/Download'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import { useTranslation } from 'react-i18next'
 import apiClient from '../../api/client'
+import OpenAIPluginConnect from './OpenAIPluginConnect'
 
 interface MCPConfigInfo {
   enabled: boolean
@@ -44,6 +47,7 @@ export default function MCPServerSettings() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [snackbarOpen, setSnackbarOpen] = useState(false)
+  const [client, setClient] = useState<'openai' | 'claude'>('openai')
   // 是否在 Electron 里跑（原生窗口下载会被拦截，改走 shell.openPath；纯浏览器开发调试时仍走下载兜底）
   const hasElectronBridge = typeof window !== 'undefined' && !!window.electronAPI?.openMcpExtension
   const [installState, setInstallState] = useState<'idle' | 'opening' | 'done' | 'error'>('idle')
@@ -239,8 +243,17 @@ export default function MCPServerSettings() {
             const extensionExists = hasElectronBridge ? (extensionExistsElectron ?? configInfo.has_extension) : configInfo.has_extension
             return (
             <Stack spacing={1.5}>
+              <Tabs value={client} onChange={(_, value) => setClient(value)}
+                aria-label={t('settings.mcp.clients')} variant="fullWidth"
+                sx={{ borderBottom: 1, borderColor: 'divider' }}>
+                <Tab value="openai" label="ChatGPT" id="mcp-tab-openai" aria-controls="mcp-panel-openai" />
+                <Tab value="claude" label="Claude" id="mcp-tab-claude" aria-controls="mcp-panel-claude" />
+              </Tabs>
+              <Box role="tabpanel" id="mcp-panel-openai" aria-labelledby="mcp-tab-openai" hidden={client !== 'openai'}>
+                <OpenAIPluginConnect />
+              </Box>
               {/* Install / Download Extension */}
-              <Box>
+              <Box role="tabpanel" id="mcp-panel-claude" aria-labelledby="mcp-tab-claude" hidden={client !== 'claude'}>
                 <Button
                   variant="contained"
                   onClick={handleInstallExtension}
@@ -296,7 +309,7 @@ export default function MCPServerSettings() {
                     <Box
                       sx={{
                         p: 2,
-                        bgcolor: 'grey.50',
+                        bgcolor: 'action.hover',
                         borderRadius: 1,
                         border: '1px solid',
                         borderColor: 'divider',
@@ -312,12 +325,13 @@ export default function MCPServerSettings() {
                       <IconButton
                         size="small"
                         onClick={handleCopyConfig}
+                        aria-label={t('settings.mcp.copyConfig')}
                         sx={{
                           position: 'absolute',
                           top: 4,
                           right: 4,
                           bgcolor: 'background.paper',
-                          '&:hover': { bgcolor: 'grey.200' },
+                          '&:hover': { bgcolor: 'action.selected' },
                         }}
                       >
                         <ContentCopyIcon fontSize="small" />

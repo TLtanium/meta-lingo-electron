@@ -27,13 +27,10 @@ import AccountTreeIcon from '@mui/icons-material/AccountTree'
 import { useTranslation } from 'react-i18next'
 import { api } from '../../api/client'
 import { frameworkApi } from '../../api/framework'
-import { useSettingsStore } from '../../stores/settingsStore'
-import { useChatStore } from '../../stores/chatStore'
-import { cleanupTasks } from '../../api/agentChat'
-import { clearAllAnnotationShortcuts } from '../../utils/annotationShortcuts'
+import { resetFrontendState } from '../../utils/factoryReset'
 
 export default function FactoryReset() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const theme = useTheme()
   const [dialogOpen, setDialogOpen] = useState(false)
   const [confirmText, setConfirmText] = useState('')
@@ -45,6 +42,7 @@ export default function FactoryReset() {
   const [resetCorpora, setResetCorpora] = useState(true)
   const [resetAnnotations, setResetAnnotations] = useState(true)
   const [resetFrameworks, setResetFrameworks] = useState(true)
+  const [resetUserResources, setResetUserResources] = useState(true)
 
   const handleOpenDialog = () => {
     setDialogOpen(true)
@@ -86,56 +84,34 @@ export default function FactoryReset() {
         }
       }
 
-      // Reset other data (including topic modeling, Word2Vec, USAS)
-      // Always reset all data types to match packaging script behavior
-        const response = await api.post<{ success: boolean; message: string }>(
-          '/api/corpus/factory-reset',
-          {
-            resetDatabase,
-            resetCorpora,
+      const response = await api.post<{ success: boolean; message: string }>(
+        '/api/corpus/factory-reset',
+        {
+          resetDatabase,
+          resetCorpora,
           resetAnnotations,
           resetTopicModeling: true,  // Always reset topic modeling data
           resetWord2Vec: true,      // Always reset Word2Vec models
-          resetUSAS: true           // Always reset USAS settings
-          }
-        )
-
-        if (response.success && response.data) {
-          const data = response.data as any
-          if (data.success !== undefined) {
-            // Use i18n strings instead of backend-returned (usually English) message.
-            results.push(t('settings.dataResetCompleted'))
-          } else {
-            results.push(t('settings.dataResetCompleted'))
-          }
-          useSettingsStore.getState().resetApiConfig()
-        } else {
-          hasError = true
-          results.push(t('settings.dataResetFailed'))
-      }
-
-      const resetSuccess = !hasError
-      setResult({
-        success: resetSuccess,
-        message: results.join('; ') || t('settings.factoryResetCompleted')
-      })
-
-      // Clear annotation keyboard shortcuts from localStorage
-      clearAllAnnotationShortcuts()
-
-      // Notify Settings sub-panels to refresh their local UI state.
-      // This avoids requiring a full page reload after factory reset.
-      if (resetSuccess) {
-        // Clear agent chat conversations and disk task files
-        const { conversations, clearAllConversations } = useChatStore.getState()
-        const allTaskIds = conversations.flatMap((c) => c.taskIds ?? [])
-        clearAllConversations()
-        if (allTaskIds.length > 0) {
-          cleanupTasks(allTaskIds).catch(() => {/* best-effort */})
+          resetUSAS: true,          // Always reset USAS settings
+          resetUserResources,
+          resetAgentTasks: true,
+          resetSettings: true,
         }
+      )
 
-        window.dispatchEvent(new CustomEvent('meta-lingo:settings-reset-completed'))
+      if (response.success && response.data && response.data.success !== false) {
+        results.push(t('settings.dataResetCompleted'))
+      } else {
+        hasError = true
+        results.push(t('settings.dataResetFailed'))
       }
+
+      if (!hasError) {
+        await resetFrontendState()
+        window.dispatchEvent(new CustomEvent('meta-lingo:settings-reset-completed'))
+        if (resetUserResources) window.dispatchEvent(new Event('meta-lingo:user-resources-changed'))
+      }
+      setResult({ success: !hasError, message: hasError ? results.join('; ') : i18n.t('settings.factoryResetCompleted') })
     } catch (error) {
       setResult({ success: false, message: `${t('settings.resetFailed')}: ${error}` })
     }
@@ -181,6 +157,13 @@ export default function FactoryReset() {
           </DialogContentText>
 
           <List dense>
+            <ListItem>
+              <ListItemIcon>
+                <Checkbox checked={resetUserResources} onChange={e => setResetUserResources(e.target.checked)} disabled={isResetting} />
+              </ListItemIcon>
+              <ListItemIcon sx={{ minWidth: 36 }}><FolderDeleteIcon color="action" /></ListItemIcon>
+              <ListItemText primary={t('settings.importedResources')} secondary={t('settings.importedResourcesDesc')} />
+            </ListItem>
             <ListItem>
               <ListItemIcon>
                 <Checkbox
@@ -292,7 +275,7 @@ export default function FactoryReset() {
             variant="contained"
             color="error"
             onClick={handleReset}
-            disabled={confirmText !== 'RESET' || isResetting || (!resetDatabase && !resetCorpora && !resetAnnotations && !resetFrameworks)}
+            disabled={confirmText !== 'RESET' || isResetting}
             startIcon={isResetting ? <CircularProgress size={20} color="inherit" /> : <DeleteForeverIcon />}
           >
             {isResetting ? t('settings.resetting') : t('settings.confirmReset')}

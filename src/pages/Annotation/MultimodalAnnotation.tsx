@@ -65,6 +65,7 @@ import type {
   Corpus,
   CorpusText,
   YoloTrack,
+  VideoBox,
   TranscriptSegment,
   AudioBox,
   AcousticData,
@@ -84,6 +85,8 @@ import {
   SHORTCUT_KEYS,
   isMacOS
 } from '../../utils/annotationShortcuts'
+import { findVideoTrack } from '../../utils/videoAnnotationTracks'
+import { createAudioAnalysisArchive, restoreAudioAnalysis } from '../../utils/audioAnnotationArchive'
 
 // SpaCy annotation types
 interface SpacyToken {
@@ -192,6 +195,7 @@ export default function MultimodalAnnotation() {
 
   // Annotation state
   const [annotations, setAnnotations] = useState<Annotation[]>([])
+  const [manualTracks, setManualTracks] = useState<VideoBox[]>([])
   const [relations, setRelations] = useState<AnnotationRelation[]>([])
   const [groups, setGroups] = useState<AnnotationGroup[]>([])
   const [savedAudioBoxes, setSavedAudioBoxes] = useState<AudioBox[]>([])  // 音频画框标注
@@ -572,6 +576,11 @@ export default function MultimodalAnnotation() {
     setMediaPath('')
     setTranscriptText('')
     setAnnotations([])
+    setManualTracks([])
+    setSavedAudioBoxes([])
+    setWaveformData(null)
+    setWaveformExportFn(null)
+    setTranscriptSegments([])
     setRelations([])
     setGroups([])
     setCurrentArchiveId(null)
@@ -596,6 +605,11 @@ export default function MultimodalAnnotation() {
     
     setSelectedMedia(media)
     setAnnotations([])
+    setManualTracks([])
+    setSavedAudioBoxes([])
+    setWaveformData(null)
+    setWaveformExportFn(null)
+    setTranscriptSegments([])
     setRelations([])
     setGroups([])
     setCurrentArchiveId(null)
@@ -715,16 +729,20 @@ export default function MultimodalAnnotation() {
         
         setTranscriptText(data.text)
         setAnnotations(data.annotations)
+        setManualTracks(data.manualTracks || [])
         setRelations(data.relations || [])
         setGroups((data as { groups?: AnnotationGroup[] }).groups || [])
         setCurrentArchiveId(data.id)
+        const audioAnalysis = restoreAudioAnalysis(data)
+        setWaveformData(audioAnalysis.waveform)
+        setPitchData(audioAnalysis.pitch)
+        setAcousticData(audioAnalysis.acoustic)
+        setAlignmentData(null)
+        setWaveformExportFn(null)
+        setClipAnnotation(null)
         
-        if (data.transcriptSegments) {
-          setTranscriptSegments(data.transcriptSegments)
-        }
-        if (data.yoloAnnotations) {
-          setYoloTracks(data.yoloAnnotations)
-        }
+        setTranscriptSegments(data.transcriptSegments || [])
+        setYoloTracks(data.yoloAnnotations || [])
         if (data.mediaPath) {
           setMediaPath(data.mediaPath)
         }
@@ -751,7 +769,7 @@ export default function MultimodalAnnotation() {
             setSelectedMedia(matchingMedia)
             // Load SpaCy annotations
             const segments = data.transcriptSegments || transcriptSegments
-            await loadSpacyAnnotations(matchingMedia, segments)
+            await loadSpacyAnnotations(targetCorpus.id, matchingMedia.id, segments)
             
             // Load CLIP data: prefer archive data, fallback to video directory
             if (data.clipAnnotations) {
@@ -771,15 +789,15 @@ export default function MultimodalAnnotation() {
                     setAlignmentData(contentResponse.transcript.alignment)
                   }
                   // 加载音高数据
-                  if (contentResponse.transcript?.pitch) {
+                  if (!data.pitchData && contentResponse.transcript?.pitch) {
                     setPitchData(contentResponse.transcript.pitch)
                   }
                   // 加载预计算波形数据
-                  if (contentResponse.transcript?.waveform) {
+                  if (!data.waveformData && contentResponse.transcript?.waveform) {
                     setWaveformData(contentResponse.transcript.waveform)
                   }
                   // 加载声学分析数据（频谱图、共振峰等）
-                  if (contentResponse.transcript?.acoustic) {
+                  if (!data.acousticData && contentResponse.transcript?.acoustic) {
                     setAcousticData(contentResponse.transcript.acoustic)
                   }
                 }
@@ -837,8 +855,28 @@ export default function MultimodalAnnotation() {
     setAnnotations(prev => [...prev, annotation])
   }, [])
 
+  const handleVideoTrackAdd = useCallback((track: VideoBox) => {
+    const annotationId = `video-track-${track.id}`
+    setManualTracks(prev => [...prev, { ...track, annotationId }])
+    setAnnotations(prev => [...prev, {
+      id: annotationId,
+      text: t('annotation.videoSequenceText', { label: track.label, count: track.frameCount }),
+      startPosition: 0,
+      endPosition: 0,
+      label: track.label,
+      labelPath: track.labelPath || track.label,
+      color: track.color,
+      type: 'video',
+      bbox: track.keyframes[0].bbox,
+      timestamp: track.startTime,
+      frameNumber: track.startFrame,
+      frameCount: track.frameCount
+    }])
+  }, [t])
+
   const handleAnnotationRemove = useCallback((id: string) => {
     setAnnotations(prev => prev.filter(a => a.id !== id))
+    setManualTracks(prev => prev.filter(track => track.annotationId !== id))
     // 清理引用该标注的关联与词组（词组成员不足 2 个则解散）
     setRelations(prev => prev.filter(r => r.sourceId !== id && r.targetId !== id))
     setGroups(prev =>
@@ -856,6 +894,21 @@ export default function MultimodalAnnotation() {
 
   const handleAnnotationUpdate = useCallback((id: string, updates: Partial<Annotation>) => {
     setAnnotations(prev => prev.map(a => a.id === id ? { ...a, ...updates } : a))
+    setManualTracks(prev => {
+      const track = findVideoTrack(id, prev)
+      if (!track) return prev
+      return prev.map(item => item !== track ? item : {
+        ...item,
+        label: updates.label ?? item.label,
+        labelPath: updates.labelPath ?? item.labelPath,
+        color: updates.color ?? item.color,
+        remark: updates.remark ?? item.remark,
+        keyframes: item.keyframes.map(frame => ({
+          ...frame, label: updates.label ?? frame.label, color: updates.color ?? frame.color
+        })),
+        frames: item.frames.map(frame => ({ ...frame, label: updates.label ?? frame.label }))
+      })
+    })
   }, [])
 
   // 添加音频画框标注 - 只保存到 savedAudioBoxes，不混入文本 annotations 列表
@@ -864,7 +917,15 @@ export default function MultimodalAnnotation() {
       ...box,
       id: Date.now()
     }
-    setSavedAudioBoxes(prev => [...prev, audioBox])
+    setSavedAudioBoxes(prev => [...prev, {
+      ...audioBox,
+      id: prev.reduce((id, existing) => Math.max(id, existing.id + 1), audioBox.id),
+      labelPath: audioBox.labelPath || selectedLabel?.path
+    }])
+  }, [selectedLabel])
+
+  const handleAudioBoxUpdate = useCallback((id: number, updates: Partial<AudioBox>) => {
+    setSavedAudioBoxes(prev => prev.map(box => box.id === id ? { ...box, ...updates } : box))
   }, [])
 
   // 删除音频画框标注
@@ -973,26 +1034,10 @@ export default function MultimodalAnnotation() {
     }))
     
     try {
-      // 准备音高数据用于存档
-      const pitchDataArchive = pitchData?.enabled && pitchData.f0 && pitchData.times ? {
-        enabled: true,
-        f0: pitchData.f0,
-        times: pitchData.times,
-        fmin: pitchData.fmin || 50,
-        fmax: pitchData.fmax || 550
-      } : undefined
+      const audioAnalysisArchive = mediaType === 'audio'
+        ? createAudioAnalysisArchive(waveformData, pitchData, acousticData)
+        : {}
 
-      // 准备声学分析数据用于存档
-      const acousticDataArchive = acousticData?.enabled ? {
-        enabled: true,
-        spectrogram: acousticData.spectrogram,
-        formants: acousticData.formants,
-        intensity: acousticData.intensity,
-        hnr: acousticData.hnr,
-        jitter: acousticData.jitter,
-        shimmer: acousticData.shimmer
-      } : undefined
-      
       // 导出音频波形 SVG（音频模式）
       let audioVisualizationSvg: string | undefined
       if (mediaType === 'audio' && waveformExportFn) {
@@ -1014,15 +1059,15 @@ export default function MultimodalAnnotation() {
         mediaPath,
         {
           yoloAnnotations: yoloTracks,
+          manualTracks,
           transcriptSegments,
           clipAnnotations: clipAnnotation || undefined,
           archiveId: currentArchiveId || undefined,
           coderName: coderName || undefined,
           textId: selectedMedia.id || undefined,
           // 音频专用数据
-          audioBoxes: savedAudioBoxes.length > 0 ? savedAudioBoxes : undefined,
-          pitchData: pitchDataArchive,
-          acousticData: acousticDataArchive,
+          audioBoxes: mediaType === 'audio' ? savedAudioBoxes : [],
+          ...audioAnalysisArchive,
           audioVisualizationSvg,
           relations,  // 空数组也写入，以覆盖旧存档中已删除的关联
           groups      // 空数组也写入，以覆盖旧存档中已删除的词组
@@ -1035,7 +1080,7 @@ export default function MultimodalAnnotation() {
         setCurrentArchiveId(response.data.data.id)
         setSaveMessage({ 
           type: 'success', 
-          text: t('annotation.saveSuccess', '已保存 {{count}} 条标注', { count: enrichedAnnotations.length })
+          text: t('annotation.saveSuccess', '已保存 {{count}} 条标注', { count: enrichedAnnotations.length + savedAudioBoxes.length })
         })
         // 保存后刷新存档列表
         await refreshArchives()
@@ -1595,7 +1640,7 @@ export default function MultimodalAnnotation() {
                     variant="contained"
                     size="small"
                     onClick={handleSaveClick}
-                    disabled={saving || !currentFramework || (annotations.length === 0 && savedAudioBoxes.length === 0)}
+                    disabled={saving || !currentFramework || (annotations.length === 0 && savedAudioBoxes.length === 0 && !currentArchiveId)}
                   >
                     {t('common.save')}
                   </Button>
@@ -1639,6 +1684,8 @@ export default function MultimodalAnnotation() {
                 transcriptText={transcriptText}
                 transcriptSegments={transcriptSegments}
                 yoloTracks={yoloTracks}
+                manualTracks={manualTracks}
+                onVideoTrackAdd={handleVideoTrackAdd}
                 annotations={annotations}
                 selectedLabel={selectedLabel}
                 onAnnotationAdd={handleAnnotationAdd}
@@ -1655,6 +1702,7 @@ export default function MultimodalAnnotation() {
                 savedAudioBoxes={savedAudioBoxes}
                 onAudioBoxAdd={handleAudioBoxAdd}
                 onAudioBoxRemove={handleAudioBoxRemove}
+                onAudioBoxUpdate={handleAudioBoxUpdate}
                 onWaveformExportReady={handleWaveformExportReady}
                 corpusId={currentCorpus?.id}
                 textIds={selectedMedia ? [selectedMedia.id] : 'all'}

@@ -35,6 +35,7 @@ import SearchIcon from '@mui/icons-material/Search'
 import DownloadIcon from '@mui/icons-material/Download'
 import { useTranslation } from 'react-i18next'
 import type { AudioBox, Annotation } from '../../../types'
+import { audioBoxesToCsv } from '../../../utils/audioAnnotationArchive'
 
 interface AudioAnnotationTableProps {
   audioBoxes: AudioBox[]
@@ -75,6 +76,8 @@ export default function AudioAnnotationTable({
     const query = searchQuery.toLowerCase()
     return audioBoxes.filter(box => 
       box.label.toLowerCase().includes(query) ||
+      (box.labelPath && box.labelPath.toLowerCase().includes(query)) ||
+      (box.remark && box.remark.toLowerCase().includes(query)) ||
       (box.text && box.text.toLowerCase().includes(query))
     )
   }, [audioBoxes, searchQuery])
@@ -121,21 +124,9 @@ export default function AudioAnnotationTable({
   
   // 导出 CSV
   const handleExportCsv = () => {
-    const headers = ['#', t('annotation.label', '标签'), t('annotation.startTime', '开始时间'), 
-                     t('annotation.endTime', '结束时间'), t('annotation.duration', '时长')]
-    
-    const rows = sortedData.map((box, idx) => [
-      idx + 1,
-      box.label,
-      formatTime(box.startTime),
-      formatTime(box.endTime),
-      `${(box.endTime - box.startTime).toFixed(2)}s`
-    ])
-    
-    const csvContent = [
-      headers.join(','),
-      ...rows.map(row => row.join(','))
-    ].join('\n')
+    const headers = ['ID', t('annotation.label'), t('annotation.labelPath'), t('annotation.startTime'),
+      t('annotation.endTime'), t('annotation.duration'), t('annotation.audioBoxY'), t('annotation.audioBoxHeight'), t('annotation.remark')]
+    const csvContent = audioBoxesToCsv(sortedData, headers)
     
     const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' })
     const url = URL.createObjectURL(blob)
@@ -254,6 +245,7 @@ export default function AudioAnnotationTable({
                   {t('annotation.duration', '时长')}
                 </TableSortLabel>
               </TableCell>
+              <TableCell sx={headerCellSx}>{t('annotation.remark')}</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -270,6 +262,7 @@ export default function AudioAnnotationTable({
                 <TableCell sx={bodyCellSx}>
                   <Chip
                     label={box.label}
+                    title={box.labelPath || box.label}
                     size="small"
                     sx={{
                       bgcolor: box.color || '#f97316',
@@ -308,6 +301,7 @@ export default function AudioAnnotationTable({
                     {(box.endTime - box.startTime).toFixed(2)}s
                   </Typography>
                 </TableCell>
+                <TableCell sx={bodyCellSx}>{box.remark ?? box.text ?? ''}</TableCell>
               </TableRow>
             ))}
           </TableBody>

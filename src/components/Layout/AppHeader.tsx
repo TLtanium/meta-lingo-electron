@@ -14,6 +14,9 @@ import DarkModeIcon from '@mui/icons-material/DarkMode'
 import TranslateIcon from '@mui/icons-material/Translate'
 import SmartToyIcon from '@mui/icons-material/SmartToy'
 import GridViewIcon from '@mui/icons-material/GridView'
+import PetsIcon from '@mui/icons-material/Pets'
+import { usePetStore } from '../../stores/petStore'
+import { petStrings } from '../../pet/strings'
 import { useTranslation } from 'react-i18next'
 import { useTabStore } from '../../stores/tabStore'
 import { useSettingsStore } from '../../stores/settingsStore'
@@ -24,10 +27,28 @@ export default function AppHeader() {
   const { t } = useTranslation()
   const { openTab } = useTabStore()
   const { darkMode, setDarkMode, wallpaper, agentMode, setAgentMode } = useSettingsStore()
+  const petEnabled = usePetStore(s => s.preferences.enabled)
+  const petLanguage = useSettingsStore(s => s.language)
+  const updatePet = usePetStore(s => s.updatePreferences)
   const [dictDialogOpen, setDictDialogOpen] = useState(false)
-  const [isMac, setIsMac] = useState(false)
-  const [isWin, setIsWin] = useState(false)
+  const [isMac, setIsMac] = useState(() => window.electronAPI?.platform === 'darwin')
+  const [isWin, setIsWin] = useState(() => window.electronAPI?.platform === 'win32')
   const [isFullscreen, setIsFullscreen] = useState(false)
+  const [winControlWidth, setWinControlWidth] = useState(144)
+
+  useEffect(() => {
+    if (!isWin) return
+    const overlay = (navigator as Navigator & { windowControlsOverlay?: EventTarget & { visible: boolean; getTitlebarAreaRect(): DOMRect } }).windowControlsOverlay
+    const update = () => {
+      const rect = overlay?.visible ? overlay.getTitlebarAreaRect() : undefined
+      // The reported rectangle is the usable title area, not the system buttons.
+      setWinControlWidth(rect && rect.width > 0 ? Math.max(0, Math.ceil(innerWidth - rect.x - rect.width)) : 144)
+    }
+    update()
+    overlay?.addEventListener('geometrychange', update)
+    window.addEventListener('resize', update)
+    return () => { overlay?.removeEventListener('geometrychange', update); window.removeEventListener('resize', update) }
+  }, [isWin])
   
   useEffect(() => {
     // Check if running in Electron and on Mac
@@ -128,19 +149,19 @@ export default function AppHeader() {
           WebkitAppRegion: isMac || isWin ? 'drag' : 'none',
         }}
       >
-        <Toolbar sx={{ minHeight: 48 }}>
+        <Toolbar sx={{ minHeight: 48, ...(isWin && !isFullscreen ? { pr: { xs: `${winControlWidth + 8}px`, sm: `${winControlWidth + 8}px` } } : {}) }}>
           {/* macOS: traffic lights spacing. Windows: overlay controls are top-right, so no left spacer. */}
           {isMac && (
             <Box sx={{ width: isFullscreen ? 16 : 70, flexShrink: 0, transition: 'width 0.2s ease' }} />
           )}
           
           {/* Logo and App Name */}
-          <Box sx={{ display: 'flex', alignItems: 'center', mr: 2 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', mr: 2, minWidth: 0 }}>
             <Box
               component="img"
               src={appIcon}
               alt="Meta-Lingo"
-              sx={{ width: 36, height: 36, mr: 1.25, borderRadius: 0.5 }}
+              sx={{ width: 36, height: 36, mr: 1.25, borderRadius: 0.5, flexShrink: 0 }}
             />
             <Typography
               variant="h6"
@@ -155,18 +176,16 @@ export default function AppHeader() {
             </Typography>
           </Box>
 
-          <Box sx={{ flexGrow: 1 }} />
+          {!isWin && <Box sx={{ flexGrow: 1 }} />}
 
-          {/* Right side icons - Make non-draggable so buttons work */}
+          {/* Windows actions stay left; macOS/browser actions stay right. */}
           <Box
             sx={{ 
             display: 'flex', 
             alignItems: 'center', 
             gap: 0.5,
+            flexShrink: 0,
             WebkitAppRegion: 'no-drag',
-            // Windows: Use Window Controls Overlay (WCO) actual width.
-            // This prevents misalignment across DPI/themes where fixed padding (70/16) won't match.
-            paddingRight: isWin ? 'calc(env(titlebar-area-width, 0px) + 8px)' : 0,
           }}>
             {/* Dictionary Button */}
             <Tooltip title={t('dictionary.title')}>
@@ -189,9 +208,14 @@ export default function AppHeader() {
               </IconButton>
             </Tooltip>
 
-            {/* Agent Mode Toggle — next to Settings */}
+            <Tooltip title={petStrings[petLanguage === 'en' ? 'en' : 'zh'][petEnabled ? 'hide' : 'show']}>
+              <IconButton color="inherit" size="small" aria-label={petStrings[petLanguage === 'en' ? 'en' : 'zh'][petEnabled ? 'hide' : 'show']} aria-pressed={petEnabled} onClick={() => updatePet({ enabled: !petEnabled })}>
+                <PetsIcon />
+              </IconButton>
+            </Tooltip>
+
             <Tooltip title={agentMode ? t('agentChat.switchToStandard') : t('agentChat.switchToAgent')}>
-              <IconButton color="inherit" size="small" onClick={() => setAgentMode(!agentMode)}>
+              <IconButton color="inherit" size="small" aria-label={agentMode ? t('agentChat.switchToStandard') : t('agentChat.switchToAgent')} onClick={() => setAgentMode(!agentMode)}>
                 {agentMode ? <GridViewIcon /> : <SmartToyIcon />}
               </IconButton>
             </Tooltip>
@@ -216,6 +240,7 @@ export default function AppHeader() {
               </IconButton>
             </Tooltip>
           </Box>
+          {isWin && <Box sx={{ flexGrow: 1 }} />}
         </Toolbar>
       </AppBar>
 

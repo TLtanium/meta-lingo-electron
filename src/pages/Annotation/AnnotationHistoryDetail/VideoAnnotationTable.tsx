@@ -34,6 +34,7 @@ import SearchIcon from '@mui/icons-material/Search'
 import DownloadIcon from '@mui/icons-material/Download'
 import { useTranslation } from 'react-i18next'
 import type { Annotation, YoloTrack, VideoBox, ClipAnnotationData } from '../../../types'
+import { getUnlinkedVideoAnnotations } from '../../../utils/videoAnnotationTracks'
 
 interface VideoAnnotationTableProps {
   annotations: Annotation[]  // 包含 type === 'video' 的手动画框标注
@@ -77,8 +78,8 @@ export default function VideoAnnotationTable({
   
   // 从 annotations 中提取视频标注 (type === 'video')
   const videoAnnotationsFromAnnotations = useMemo(() => {
-    return annotations.filter(a => a.type === 'video')
-  }, [annotations])
+    return getUnlinkedVideoAnnotations(annotations, manualTracks)
+  }, [annotations, manualTracks])
   
   // 合并 CLIP、YOLO、手动轨迹和 annotations 中的视频标注
   const allAnnotations = useMemo<VideoAnnotationItem[]>(() => {

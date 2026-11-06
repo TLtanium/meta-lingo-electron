@@ -12,6 +12,7 @@ import json
 import asyncio
 import logging
 import threading
+from urllib.parse import quote
 from pathlib import Path
 from typing import List, Optional, Dict, Any
 from fastapi import APIRouter, HTTPException, UploadFile, File, Form, BackgroundTasks, Request
@@ -1109,6 +1110,8 @@ async def export_annotated(corpus_id: str, data: dict):
 
     if not text_ids:
         raise HTTPException(status_code=400, detail="No text IDs provided")
+    if fmt not in ("txt", "json", "xml", "reference"):
+        raise HTTPException(status_code=400, detail="Unsupported export format")
     if fmt == "txt" and not annotation_types:
         raise HTTPException(status_code=400, detail="No annotation types specified")
 
@@ -1122,20 +1125,26 @@ async def export_annotated(corpus_id: str, data: dict):
     if not selected_texts:
         raise HTTPException(status_code=404, detail="No matching texts found")
 
+    if fmt == "reference" and len(selected_texts) != len(set(text_ids)):
+        raise HTTPException(status_code=400, detail="Some selected texts no longer exist")
     corpus_name = corpus.get("name", "corpus")
     export_svc  = CorpusExportService()
 
     # Service returns (bytes, filename, media_type) – packaging rules:
     #   txt          → always zip, one folder per text
     #   json / xml   → single file when 1 text; zip with one folder per text when >1
-    file_bytes, filename, media_type = export_svc.export_texts(
-        selected_texts, annotation_types, fmt=fmt, corpus_name=corpus_name
-    )
+    try:
+        file_bytes, filename, media_type = export_svc.export_texts(
+            selected_texts, annotation_types, fmt=fmt, corpus_name=corpus_name
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
 
     return StreamingResponse(
         io.BytesIO(file_bytes),
         media_type=media_type,
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        headers={"Content-Disposition": "attachment; filename*=UTF-8\'\'" + __import__("urllib.parse", fromlist=["quote"]).quote(filename)},
     )
 
 
@@ -1201,6 +1210,9 @@ async def factory_reset(data: dict):
     - resetTopicModeling: Delete topic modeling embeddings and results
     - resetWord2Vec: Delete Word2Vec models
     - resetUSAS: Reset USAS settings to defaults
+    - resetUserResources: Delete imported NRC, dictionaries and reference corpora
+    - resetAgentTasks: Delete all agent task plans/results, including orphans
+    - resetSettings: Restore runtime settings and prepared desktop connections
     """
     logger.info(f"=== POST /factory-reset called with options: {data} ===")
     
@@ -1210,11 +1222,28 @@ async def factory_reset(data: dict):
     reset_topic_modeling = data.get("resetTopicModeling", True)
     reset_word2vec = data.get("resetWord2Vec", True)
     reset_usas = data.get("resetUSAS", True)
+    reset_user_resources = data.get("resetUserResources", True)
+    reset_agent = data.get("resetAgentTasks", True)
+    reset_settings = data.get("resetSettings", True)
     
     try:
         import shutil
         
         deleted_items = []
+
+        from services.runtime_reset import reset_agent_tasks, reset_runtime_settings
+        if reset_agent:
+            deleted_items.extend(reset_agent_tasks())
+
+        if reset_database or reset_corpora:
+            from services.task_cancellation import cancel_tasks_for_corpus
+            for corpus in CorpusDB.list_all():
+                cancel_tasks_for_corpus(corpus['id'])
+
+        if reset_user_resources:
+            from services.user_resource_store import remove_all_resources
+            remove_all_resources()
+            deleted_items.append("Imported NRC, dictionaries and reference corpora")
         
         # Reset database (includes bibliographic data)
         if reset_database:
@@ -1380,6 +1409,10 @@ async def factory_reset(data: dict):
         except Exception as e:
             # Best-effort; factory reset should still succeed even if we can't remove models.
             logger.warning(f"Model reset (downloaded-only) failed: {e}")
+
+        # Resolve and clean downloaded models before removing any custom path.
+        if reset_settings:
+            deleted_items.extend(reset_runtime_settings(reset_usas))
 
         # Reset USAS settings to defaults
         if reset_usas:
@@ -1904,6 +1937,9 @@ async def stream_media_file(corpus_id: str, text_id: str, request: Request):
         '.wmv': 'video/x-ms-wmv'
     }
     content_type = content_type_map.get(ext, 'application/octet-stream')
+    # HTTP headers cannot contain raw Chinese/non-Latin-1 filenames. Encode the
+    # display name per RFC 5987 for both full and partial playback responses.
+    content_disposition = "inline; filename*=UTF-8''" + quote(filename or Path(file_path).name, safe='')
     
     file_size = os.path.getsize(file_path)
     
@@ -1944,7 +1980,7 @@ async def stream_media_file(corpus_id: str, text_id: str, request: Request):
                 'Content-Range': f'bytes {start}-{end}/{file_size}',
                 'Accept-Ranges': 'bytes',
                 'Content-Length': str(content_length),
-                'Content-Disposition': f'inline; filename="{filename or "media"}"'
+                'Content-Disposition': content_disposition
             }
         )
     else:
@@ -1966,7 +2002,7 @@ async def stream_media_file(corpus_id: str, text_id: str, request: Request):
             headers={
                 'Accept-Ranges': 'bytes',
                 'Content-Length': str(file_size),
-                'Content-Disposition': f'inline; filename="{filename or "media"}"'
+                'Content-Disposition': content_disposition
             }
         )
 

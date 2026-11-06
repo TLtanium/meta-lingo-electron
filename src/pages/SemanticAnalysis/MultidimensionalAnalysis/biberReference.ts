@@ -1,3 +1,11 @@
+/*
+ * SPDX-License-Identifier: GPL-3.0-only
+ * Adapted from MAT by Andrea Nini and contributors (GNU GPLv3).
+ * Modified Python/SpaCy implementation or reference-data adaptation: © 2026 Tommy Leo.
+ * Modification/provenance notice updated 2026-11-06; see third-party-licenses/MAT-NOTICE.md.
+ * GPL-covered parts retain GPLv3; combination with AGPLv3 follows GPLv3 section 13.
+ */
+
 /**
  * Biber (1988/1989) reference data for MDA visualization.
  * Values mirror backend/services/mda/biber_norms.py (MAT v1.3.2).

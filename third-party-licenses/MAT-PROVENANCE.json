@@ -1,0 +1,24 @@
+{
+  "component": "Multi-Dimensional Analysis Tagger (MAT)",
+  "author": "Andrea Nini and contributors",
+  "source": "https://github.com/andreanini/multidimensionalanalysistagger",
+  "upstream_license": "GNU General Public License version 3",
+  "local_archive_note": "The supplied upstream README says v1.3.3; the original Meta-Lingo port comments say MAT v1.3.2. An exact source commit is not recorded, so no commit identity is asserted.",
+  "files": {
+    "LICENSE": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986",
+    "README.md": "e9118549956fbf3d09bd766734d8baa2d33469b345b8ece199da87e3257b4bd6",
+    "Tagger_MAT.pl": "677630615d7f8907c2bcad33ec4185b1eaa03c5038bba20f033876dc16f3151b",
+    "count_only.pl": "607e08a1699e32c85fdd3af732e908b8e4a3f028ec5792431236fbe80380d3e6",
+    "calc_dimensions.pl": "df8a404cedd207d10779a016d5febf0f1115ef7d77533bc41ffa0b98af4331ec",
+    "dimensions_graph.pl": "b3c0a31d9deb1eb485e46a265a724a9387fe2ec7a560f19e6059a9d3e3ac60ad",
+    "texttype_graph.pl": "46a3e82446d8577ba110ca7172328616262c8a5d51ae701290197fa1ce04d7e9"
+  },
+  "adapted_paths": [
+    "backend/services/mda/biber_tagger.py",
+    "backend/services/mda/biber_norms.py",
+    "backend/services/mda/mda_service.py",
+    "src/pages/SemanticAnalysis/MultidimensionalAnalysis/biberReference.ts"
+  ],
+  "changes": "Python/SpaCy port of MAT tagging/counting rules and reference constants; existing corpus annotation loading, contribution words, configurable statistics and frontend reference data. GPL-derived files retained under GPLv3; combined application distributed with AGPLv3 section 13 requirements.",
+  "notice_updated": "2026-11-06"
+}
