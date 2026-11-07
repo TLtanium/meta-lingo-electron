@@ -17,7 +17,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-v4.9.58-blue.svg" alt="Version">
+  <img src="https://img.shields.io/badge/version-v4.9.74-blue.svg" alt="Version">
   <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Windows-lightgrey.svg" alt="Platform">
   <img src="https://img.shields.io/badge/license-AGPL--3.0-blue.svg" alt="License">
   <a href="https://doi.org/10.5281/zenodo.20091931"><img src="https://zenodo.org/badge/1143968310.svg" alt="DOI"></a>
@@ -45,8 +45,8 @@
 
 ### Corpus Management
 
-- **Multimodal Support**: Text, audio, and video files with drag-and-drop upload
-- **Audio Transcription**: Whisper Large V3 Turbo with word-level timestamps
+- **Multimodal Support**: Text, PDF, audio, and video files with drag-and-drop upload
+- **Audio Transcription**: Whisper Large V3 Turbo for supported languages, with editable time-aligned transcripts
 - **Forced Alignment**: Wav2Vec2 word-level alignment for English audio (automatic)
 - **Pitch Extraction**: TorchCrepe F0 extraction for English audio (automatic)
 - **Video Analysis**: YOLOv8 object detection and CLIP semantic classification
@@ -60,21 +60,23 @@
 | **Word Frequency**     | Frequency analysis with POS filtering, lemma/word form selection, visualization                                                                                                                        |
 | **N-gram Analysis**    | 2-6 gram support, nested grouping, Sankey diagrams                                                                                                                                                     |
 | **Keyword Extraction** | TF-IDF, TextRank, YAKE!, RAKE, and 9 keyness statistics methods                                                                                                                                        |
-| **Collocation**        | KWIC search with 6 modes, CQL query language, CQL Builder                                                                                                                                              |
+| **Concordance**        | KWIC search modes, CQL query language and visual CQL Builder                                                                                                                                          |
 | **Synonym Analysis**   | WordNet integration with network visualization                                                                                                                                                         |
 | **Semantic Domain**    | USAS-based analysis with dual view (by domain/by word)                                                                                                                                                 |
 | **Sentiment Analysis** | NRC-EmoLex polarity + emotion dimension analysis (pie/radar)                                                                                                                                           |
-| **Metaphor Analysis**  | MIPVU-based detection; 3-step pipeline (word filter → rules → Clause model); source color-coding by POS                                                                                                |
-| **Word Sketch**        | Grammar pattern analysis (50 relations), logDice scoring, difference comparison                                                                                                                        |
+| **Metaphor Analysis**  | MIPVU-based indirect, direct and implicit metaphor identification, with separate indirect/direct models and contextual annotation                                                                       |
+| **Multidimensional Analysis** | Biber linguistic features and six dimensions; includes an adaptation of Andrea Nini's MAT with retained GPLv3 notices                                                                                 |
+| **Collocation Analysis / Word Sketch** | Window-based statistics, grammatical relations, logDice scoring and difference comparison                                                                                                  |
 | **Topic Modeling**     | BERTopic, LDA, LSA, NMF with dynamic topic analysis                                                                                                                                                    |
 | **Bibliography**       | Refworks parsing (WOS/CNKI), shadow corpus for abstracts, network visualization, burst detection; analysis modules support corpus/literature toggle and library selection (all / by keyword / manual). |
 
 ### Annotation Mode
 
 - **Text Annotation**: Sentence-level display, intelligent segmentation, batch annotation
-- **Multimodal Annotation**: Video frame tracking, DAW-style timeline, YOLO overlay
-- **Audio Waveform Annotation**: Wavesurfer.js waveform visualization with word alignment, pitch curve overlay, box drawing annotation (English audio only)
-- **Framework Management**: 49 preset frameworks (SFL, UAM, etc.), custom framework support
+- **Multimodal Annotation**: Time-aligned transcripts, manual video boxes, keyframe sequences, audio intervals and visual timelines
+- **Audio Waveform Annotation**: Waveform selection and manual annotation; English audio additionally supports automatic word alignment and pitch overlays
+- **Framework Management**: Built-in linguistic frameworks, custom label hierarchies and annotation relations
+- **Annotation Archives**: Export/import manual annotations with sequence timing and spatial coordinates for review, backup and downstream data conversion
 - **Inter-coder Reliability**: Fleiss' Kappa, Cohen's Kappa, Krippendorff's Alpha, Gold Standard support (plain text archives only)
 - **Syntax Visualization**: Constituency and dependency parsing
 
@@ -83,37 +85,20 @@
 - **Dictionary Lookup**: User-imported MDX/MDD dictionaries with unified lookup and companion resources
 - **Bilingual Interface**: Chinese and English with real-time switching
 - **Custom Wallpaper**: Personalized application background
-- **Export Options**: CSV, PNG, SVG for all visualizations
+- **Export Options**: Corpus bundles, annotation archives, and CSV/PNG/SVG exports where supported
+- **Lemy Desktop Companion**: A draggable companion with task status, conversation shortcuts and customizable movement
+- **User Resources**: Import NRC lexicons, MDX dictionaries with companion assets, and validated reference-frequency CSVs
 - **AI Assistant (optional)**: context-aware assistant for analysis modules (Ollama or OpenAI-compatible API)
-- **MCP Server Integration (optional)**: enable an MCP server so external AI assistants (e.g., Claude Desktop/Cursor) can call Meta-Lingo tools directly
+- **MCP Server Integration (optional)**: connect Claude Desktop, compatible ChatGPT/Codex desktop clients with local-plugin support, or other MCP clients to Meta-Lingo's research tools
 - **OpenAI-Compatible API Support (optional)**: configure compatible endpoints/keys for AI-assisted features and better model naming
 
 ## System Architecture
 
-```
-+----------------------------------------------------------+
-|                      Meta-Lingo                           |
-+----------------------------------------------------------+
-|  Frontend (Electron + React + TypeScript)                 |
-|  - Material-UI components                                 |
-|  - Zustand state management                               |
-|  - D3.js / Plotly.js visualizations                       |
-|  - i18next internationalization                           |
-+----------------------------------------------------------+
-|                    HTTP REST API                          |
-+----------------------------------------------------------+
-|  Backend (Python FastAPI)                                 |
-|  - SpaCy NLP processing                                   |
-|  - USAS semantic tagging (PyMUSAS)                        |
-|  - MIPVU metaphor detection (DeBERTa)                     |
-|  - BERTopic / LDA / LSA / NMF topic modeling              |
-|  - Whisper / YOLO / CLIP multimodal analysis              |
-+----------------------------------------------------------+
-|  Data Storage                                             |
-|  - SQLite database (metadata)                             |
-|  - File system (corpora, annotations)                     |
-+----------------------------------------------------------+
-```
+<p align="center">
+  <a href="assets/readme/system-architecture.png"><img src="assets/readme/system-architecture.png" alt="Meta-Lingo system architecture: an Electron workspace connects to a local FastAPI engine for corpus annotation, linguistic and multimodal analysis, backed by local data and model resources, with optional MCP assistants and model-provider connections." width="1100"></a>
+</p>
+
+The desktop workspace connects to a local FastAPI engine. Corpora, media and annotation archives are stored locally. Optional AI connections support research workflows through MCP, Ollama or a configured compatible API.
 
 ## Tech Stack
 
@@ -148,7 +133,7 @@ Visit our official website to download the latest version:
 
 **<https://tltanium.github.io/meta-lingo-website/>**
 
-Source code in this repository is provided for reference and academic verification only. Please use the official distribution above to run Meta-Lingo.
+For a ready-to-use application, choose the official distribution above. Dependencies and source-build instructions are documented in [SOURCE.md](SOURCE.md); use and modification are governed by [LICENSE](LICENSE).
 
 ## Quick Start
 
@@ -195,127 +180,36 @@ This project is currently maintained for academic research purposes. For bug rep
 
 ## Changelog
 
-### v4.8.59 (2026-06-10)
+### v4.9.74 — Desktop experience and multimodal workflows (2026-11-07)
 
-- **MIPVU — model rename & upgrade**: `deberta-v3-large-metaphor` → `metalingo-indirect-metaphor` (ModelScope `TommyLeo/metalingo-indirect-metaphor`; new metrics F1 82.29, Precision 85.26%, Recall 79.53%, Accuracy 96.04%) and `deberta-v3-large-direct-metaphor` → `metalingo-direct-metaphor` (ModelScope `TommyLeo/metalingo-direct-metaphor`; 3-class O/mFlag/mrw_lit, sentence-level F1 88.03%, token-level combined F1 76.52%). Storage paths, manifest entries, docstrings, i18n, and help docs updated across backend and frontend.
+This release brings together the v4.9.52–v4.9.74 updates.
 
-### v4.8.45 (2026-05-29)
+- **Lemy desktop companion**: keep Agent and corpus-processing tasks in view, return to conversations or corpora, and personalize a draggable companion with optional roaming and always-on-top behavior.
+- **Startup and recovery**: a clean, theme-aware brand screen leads into the workspace. If startup fails, a confirmed full-app restart preserves existing research data and settings.
+- **Complete manual annotation archives**: audio sequences and video-box keyframes retain timing, positions and per-frame edits when saved and exported, providing structured material for downstream format conversion.
+- **User-imported resources**: add NRC lexicons, MDX dictionaries with MDD/CSS/media companions, and validated reference-frequency CSVs in Settings. Reference cards use one set of names, groups, tags and descriptions across interface languages; counts and sizes are calculated automatically.
+- **Multilingual workflows**: annotation links preserve surface words when a lemma is unavailable, including Chinese transcript searches; Unicode media filenames play correctly in corpus previews.
+- **AI and MCP**: private local MCP + Skill setup for compatible ChatGPT/Codex desktop clients, Claude Desktop extensions, and resource-aware analysis that checks available dictionaries and reference corpora.
+- **Resource management and reset**: searchable imported-resource lists, consistent removal controls, and broader factory reset of local imports, preferences and Lemy state. Original imported source files remain untouched.
+- **Licensing and attribution**: original code is AGPL-3.0-only, with in-app third-party notices and documented corresponding-source access. MAT-derived MDA code retains its GPLv3 notices and Andrea Nini attribution.
 
-- **Corpus annotation progress — stage-transition visibility fix**: The DB-write throttle in `send_progress_sync()` (`PROGRESS_DB_MIN_DELTA=8`, `PROGRESS_DB_MIN_INTERVAL=2.0s`) was suppressing stage-transition events — e.g. USAS ending at 80% and MIPVU starting at 85% produced delta=5 < 8 and elapsed < 2s, so "mipvu: Starting MIPVU annotation…" was never written to the DB. The frontend poller kept showing "usas: 80%" until MIPVU finished at 100%, making the entire MIPVU stage invisible. Fixed by tracking `last_stage` in the throttle dict (3-tuple → 4-tuple) and always writing to DB when the stage name changes, regardless of delta/interval.
+<details>
+<summary>Selected earlier milestones</summary>
 
-### v4.8.44 (2026-05-28)
+#### v4.9.52–v4.9.58
 
-- **Regex support for exclusion words across all modules**: All analysis modules (word frequency, keyword extraction, N-gram, semantic domain, metaphor, collocation, word sketch, sketch difference) now support regular expressions in their exclusion word fields. Invalid regex patterns automatically fall back to exact-match literals. LDA/LSA/NMF topic modeling gains a new "Exclusion Words" preprocessing option with full regex support. Uses a new shared `backend/utils/exclusion_utils.py` utility. Frontend helper text updated in both EN and ZH to explain regex usage.
+- Reference-corpus keyness uses top-1 token counts; word-form, lemma and semantic-domain comparisons share consistent frequency accounting.
+- Settings gained user-imported NRC, dictionaries and reference CSVs, alongside resource discovery for AI/MCP workflows.
+- AGPL licensing and MAT/MDA source provenance are documented in [LICENSING.md](LICENSING.md), [third-party notices](THIRD_PARTY_NOTICES.md) and the [MAT notice](third-party-licenses/MAT-NOTICE.md).
 
-### v4.8.41 (2026-05-28)
+#### v4.8.x — May–June 2026
 
-- **MIPVU — deberta-v3-large-metaphor**: Replaced `deberta-v3-large-clause-metaphor` with `deberta-v3-large-metaphor` (two-stage knowledge distillation, VUAMC NAACL FLP 2018 split). New metrics: F1 81.24, Precision 83.82%, Recall 78.81%, Accuracy 95.78%. ModelScope download via `TommyLeo/deberta-v3-large-metaphor`. All references updated across backend, frontend, i18n, and help docs.
-- **MCP — corpus/text metadata update tools**: Added `update_corpus_metadata` and `update_text_metadata` tools to the MCP server and Agent Chat tool registry.
-- **MCP — keyword/keyness search types**: Added `search_word` + `search_type` parameters to `keyword_extraction`, `keyness_analysis`, and `keyness_resource_analysis` tools (contains/exact/starts/ends/regex/wordlist).
-- **Agent Chat — loop guard**: Loop guard now uses argument fingerprints instead of call counts; allows up to 3 calls per tool per turn with different parameters; resets on every new user message.
-- **Settings — citation DOI**: Added DOI link (`https://doi.org/10.5281/zenodo.20091932`) to citation block in License/Citation settings.
+- Introduced the current indirect and direct MIPVU model families.
+- Added regex exclusion filters across corpus-analysis modules and improved annotation-progress reporting.
 
-### v4.7.98 (2026-04-06)
+</details>
 
-- **Wav2Vec2 (multimodal alignment)**: ModelScope download id `facebook/wav2vec2-base-960h` in `model_manifest_constants.py`; see Help for model setup and alignment workflows.
-- **Video transcript auto-annotation (MIPVU)**: `corpus.py` video upload path now passes SpaCy token `start`/`end` into MIPVU merge (parity with audio). Re-run MIPVU or re-upload to refresh old transcripts.
-- **BERTopic dynamic / topics over time**: Embeddings now save `{id}_docs.json` so chunk texts with newlines cannot desync document rows from vectors (fixes missing evolution chart when dates exist). Recreate embeddings if load fails; visualization tab also keys off `topics_over_time` data.
-
-### v4.7.85 (2026-04-02)
-
-- **Help — Corpus SpaCy table**: In `help/zh.md` and `help/en.md`, the language/model table no longer includes a “common ISO / aliases” column; it keeps only UI language name, corpus language code, and SpaCy package name.
-
-### v4.7.84 (2026-04-02)
-
-- **Help — Corpus SpaCy**: Corpus Management includes tables for supported languages, SpaCy packages (11 languages, `SPACY_MODEL_MAP`) and annotation output.
-
-### v4.7.83 (2026-04-02)
-
-- **SpaCy EN/ZH (lg → sm)**: Defaults switched from `en_core_web_lg` / `zh_core_web_lg` to `en_core_web_sm` / `zh_core_web_sm`; updates across `spacy_service`, `backend.spec`, BERTopic PartOfSpeech UI, preprocess, Benepar, `build.sh` / `build.bat`, help text, etc.
-
-### v4.7.82 (2026-04-02)
-
-- **Corpus Management — text type display**: Fixes the text-type dropdown briefly showing codes (e.g. `GEN`) before `/api/usas/text-types` loads; adds `usasTextTypeLabel` and `corpus.textTypeCodes` i18n fallbacks.
-
-### v4.7.81 (2026-04-02)
-
-- **Corpus resource dialog — refresh robustness**: Fixes parsing when `api.get()` returns `{ success, data }`; increases timeout for requests with `refresh=1` so refresh does not fail when rebuilds exceed \~60s.
-- **Corpus resource dialog — refresh fix**: Corrects frontend parsing for `/api/corpus-resource/list` and `/tags` so the list reloads reliably after **Refresh**.
-- **Keyness — default reference corpus**: Default reference corpus changed from `OANC` to `AmE06` (full corpus: `ame06_total`).
-- **Corpus resource cache — startup**: Persistent cache for `corpus_resource_service`; rebuild only when **Refresh** is clicked, avoiding heavy CSV work on every app launch.
-- **Corpus resource dialog — dialog cache**: **Refresh** button added; without it, the dialog uses cached data to avoid rebuilding the resource list every time it opens.
-- **Keyness — NOW card**: `NOW` (News on the Web) country breakdown time range set to `2010–2024`; help examples completed for COCA/COHA/GloWbE/Coronavirus/iWeb/TV/Movies/SOAP/Wikipedia.
-- **Corpus resource intro — NOW**: `NOW` description updated to `2010–2024`; resource name and tags unchanged.
-- **Corpus resource colors**: Distinct color per corpus prefix; fixes TV/SOAP vs. Brown being too similar.
-
-### v3.9.56 (2026-03-07)
-
-- **Metaphor Analysis — Clause-only pipeline**: Removed HiTZ model entirely. All tokens now annotated by a single `deberta-v3-large-clause-metaphor` model using full-sentence context (max\_length=192). 3-step pipeline: word-form filter → SpaCy rule filter → Clause model. Function words (IN/DT/RB/RP) keep orange tag (`finetuned`); other words use green tag (`clause`). Legacy `hitz` source in existing annotations treated as `clause` (green). Help docs updated with Clause model accuracy (Precision 78.08%, Recall 73.69%, F1 75.83; DT F1 90.87, IN F1 87.87).
-
-### v3.9.55 (2026-03-07)
-
-- **Sentiment Analysis — USAS mode**: Search panel adds "USAS Semantic Domain" mode; results aggregate sentiment scores by domain code with full domain name tooltip; word cloud uses domain names; CSV export adds `domain_name` column.
-
-### v3.9.54–v3.9.51 (2026-03-06)
-
-- **Bibliography Visualization**: PDF export rewritten via Electron IPC (`printToPDF`) to fix blank-page issue on large documents. Paper column with PDF upload and first-page thumbnail. 11 AI-generated fields per entry (research goal, questions, design, conclusions, mechanism, contribution, limitations, value, dialogue, future work, summary). Batch AI generation for multiple entries. Column visibility control. Export to styled PDF report.
-
-### v3.9.46 (2026-03-04)
-
-- **Sentiment Analysis (NRC)**: Full NRC-EmoLex annotation added to corpus pipeline after MIPVU. New analysis page with polarity (pie chart + word cloud) and emotion dimensions (radar chart + word cloud). Result table cross-links to collocation/word sketch/N-gram/semantic domain. Backend: `nrc_service.py`, `sentiment_analysis_service.py`, `POST /api/analysis/sentiment`.
-
-### v3.9.44–v3.9.45 (2026-03-02)
-
-- Cross-module links default to case-insensitive search. Collocation wordlist search mode (multi-word input, one per line).
-
-### v3.9.43 (2026-03-02)
-
-- **Bibliography**: Bulk delete for selected entries. Relevance rating (0–5 stars), tags, and notes columns added to entry table and detail dialog. CSV export.
-
-### v3.9.36 (2026-02-27)
-
-- **Metaphor Analysis**: Added Clause model (`deberta-v3-large-clause-metaphor`) to MIPVU pipeline for function-word annotation. POS-group statistics (IN/DT/RB/RP/OTHER metaphor rates) shown in results table header.
-
-### v3.9.34–v3.9.35 (2026-02-26–27)
-
-- Cross-module corpus selection sync across all analysis modules. Topic modeling bibliography mode with publication year for dynamic analysis.
-
-### v3.9.27–v3.9.33 (2026-02-24–26)
-
-- **AI Assistant**: Robot icon in all analysis modules' left panel (requires Ollama or OpenAI-compatible API); sends current page state as context. OpenAI-compatible API support in Settings (address / key / model). Cross-module library-mode link sync fixes.
-
-### v3.9.22–v3.9.26 (2026-02-24)
-
-- Semantic domain analysis: CQL cross-link, word cloud, domain name display. Collocation network expand on click, MinSense fix, Word Sketch Difference word-form/lemma mode. Topic modeling: N-gram preprocessing mode, LDA/LSA/NMF dynamic topic analysis.
-
-### v3.9.15–v3.9.18 (2026-02-17–22)
-
-- **Praat acoustic analysis**: Spectrogram, formants (F1–F5), intensity, HNR, jitter, shimmer. Chinese audio full visualization support.
-
-### v3.9.0–v3.9.14 (2026-02-08–16)
-
-- Ridge plot SVG/PNG full export, CQL top-level OR operator and template auto-fill. Collocation search mode (lemma/word form). Result table search fix across all modules. Unified UI spacing and labeling. Cross-module N-gram link.
-
-### v3.8.96–v3.8.99 (2026-01-28–2026-02-08)
-
-- Audio waveform annotation (Wavesurfer.js + TorchCrepe pitch + box drawing). Full annotation pipeline for audio/video transcripts. Inter-coder reliability gold standard fix. CQL distance selector fix.
-
-### v3.8.86–v3.8.95 (2026-01-18–28)
-
-- LLM topic naming (Ollama). USAS annotation modes (rule / neural / hybrid). Stopword removal (20+ languages). Custom wallpaper. Keyword extraction enhancements. Theme/Rheme auto-annotation. Dark theme for all topic modeling visualizations.
-
-### v4.9.58 — Explicit resource selection and MAT provenance
-
-- AI/MCP dictionary analysis now discovers imported references and waits for user choice/priority agreement; missing resources never become negative findings.
-- Added dictionary/resource discovery tools, reference-keyness checks and saved NRC annotation coverage reporting.
-- Retained MAT-derived GPLv3 notices, source provenance and Nini (2019) attribution in the AGPL combined application.
-
-### v4.9.57 — AGPL and user resource imports
-
-- Adopted AGPL-3.0-only for original code; included corresponding-source build inputs and dependency notices.
-- NRC official-folder import, generic MDX/MDD/CSS dictionary import, and validated reference CSV import in Settings.
-- Selected annotated texts/transcripts can be combined into one reference CSV for re-import and keyness analysis.
-- NRC, dictionary and reference corpus data are excluded from source tracking and both packaging paths. Local originals are retained.
+Earlier entries are summarized here; detailed changes remain available in the [repository history](https://github.com/TLtanium/meta-lingo-electron/commits/master/).
 
 ## License
 
